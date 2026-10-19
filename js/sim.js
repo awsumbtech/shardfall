@@ -56,7 +56,7 @@ SF.fresh = function () {
     },
     discovered: { cinder: false, hollow: false },
     stats: { foes: 0, shardsEver: 0 },
-    hints: { strike: false, span: false, talk: false },
+    hints: { strike: false, span: false, talk: false, moved: false, dash: false },
     player: {
       x: SF.WAKE.x,
       y: SF.WAKE.y,
@@ -117,10 +117,23 @@ SF.pushToast = function (text, ttl) {
   s.toasts.push({ text: text, ttl: ttl || 3.1 });
 };
 
-SF.pushBanner = function (title, sub) {
+SF.pushBanner = function (title, sub, ttl) {
   var s = SF.state;
   if (!s) return;
-  s.banners.push({ title: title, sub: sub || "", ttl: 3.3 });
+  s.banners.push({ title: title, sub: sub || "", ttl: ttl || 3.3 });
+};
+
+SF.addShake = function (amount, cap) {
+  var s = SF.state;
+  if (!s || (SF.calm && SF.calm())) return;
+  s.shake = Math.min(cap || 2.2, (s.shake || 0) + amount);
+};
+
+SF.noteHint = function (key) {
+  var s = SF.state;
+  if (!s || !s.hints || s.hints[key]) return;
+  s.hints[key] = true;
+  SF.saveGame({ silent: true });
 };
 
 SF.spawnParticle = function (x, y, color, speed, life, size) {
@@ -207,7 +220,7 @@ SF.damageEnemy = function (e, dmg, kx, ky, kb) {
   SF.floater(e.x, e.y - e.r - 4, String(dmg), "#fff6d8");
   SF.burst(e.x, e.y, e.kind === "choirling" ? "#e2c6ff" : "#d7fff8", 7, 60);
   s.hitstop = 0.04;
-  s.shake = Math.min(7, (s.shake || 0) + 2.5);
+  SF.addShake(1.2, 2.2);
   SF.emit("hit");
   if (e.hp <= 0) SF.killEnemy(e);
   else if (kind) e.ai = e.ai === "charge" ? e.ai : e.ai;
@@ -249,7 +262,7 @@ SF.hurtPlayer = function (dmg, nx, ny, softLine) {
     p.hx = nx * 260;
     p.hy = ny * 260;
   }
-  s.shake = Math.min(9, (s.shake || 0) + 5);
+  SF.addShake(1.4, 2.2);
   SF.emit("hurt");
   SF.floater(p.x, p.y - 20, String(dmg), "#ffb4c4");
   if (p.hp <= 0) {
@@ -279,7 +292,7 @@ SF.rescue = function (p) {
   p.hx = 0;
   p.hy = 0;
   SF.burst(p.x, p.y, "#d9c7ff", 10, 40);
-  if (p.iFrames <= 0) SF.hurtPlayer(4, 0, 0, "The Hush does not hold you. Not yet.");
+  if (p.iFrames <= 0) SF.hurtPlayer(4, 0, 0, "The gap is too wide. Try Dash.");
 };
 
 SF.startSwing = function (p) {
@@ -295,7 +308,7 @@ SF.startSwing = function (p) {
     p.y = ly;
   }
   SF.emit("swing");
-  SF.state.hints.strike = true;
+  SF.noteHint("strike");
   return true;
 };
 
@@ -390,7 +403,7 @@ SF.onDialogueEnd = function (after) {
   if (after === "kestrel_first") {
     s.flags.metKestrel = true;
     s.flags.kestrelHint = true;
-    SF.pushToast("Kestrel nods at the broken span. Dash, don't step.");
+    SF.pushToast("Kestrel's note: the span is too wide to walk. Dash from the lip.");
     SF.saveGame({ silent: true });
   }
   if (after === "kestrel_sail") {
@@ -407,11 +420,11 @@ SF.onDialogueEnd = function (after) {
   }
 };
 
-SF.nearestInteract = function () {
+SF.nearestInteract = function (range) {
   var s = SF.state;
   var p = s.player;
   var best = null;
-  var bestD = 54;
+  var bestD = range || 54;
   function consider(kind, ref, x, y) {
     var d = SF.dist(p.x, p.y, x, y);
     if (d < bestD) {
@@ -423,6 +436,81 @@ SF.nearestInteract = function () {
   SF.TEXTS.forEach(function (t) { consider("text", t, t.x, t.y); });
   consider("lamp", SF.LAMP, SF.LAMP.x, SF.LAMP.y);
   return best;
+};
+
+SF.actionFor = function (s, near) {
+  if (!near) return { label: "Talk", name: "", prompt: "" };
+  if (near.kind === "lamp") {
+    var place = !s.flags.lampLit && s.shardsHeld >= SF.QUEST_SHARDS;
+    var label = place ? "Place shards" : "Inspect";
+    return { label: label, name: "the great lamp", prompt: label + " — the great lamp" };
+  }
+  if (near.kind === "text") {
+    return { label: "Inspect", name: near.ref.speaker, prompt: "Inspect — " + near.ref.speaker };
+  }
+  return { label: "Talk", name: near.ref.name, prompt: "Talk — " + near.ref.name };
+};
+
+SF.objectivePoint = function (s) {
+  if (!s || s.mode === "title") return null;
+  if (s.quest === "awaken") {
+    var maren = SF.NPCS[0];
+    return { x: maren.x, y: maren.y };
+  }
+  if (s.quest === "gather") {
+    if (s.shardsHeld >= SF.QUEST_SHARDS) return { x: SF.LAMP.x, y: SF.LAMP.y };
+    var best = null;
+    var bestD = Infinity;
+    SF.activePickups().forEach(function (item) {
+      if (item.kind !== "shard") return;
+      if (item.secret && !SF.secretVisible(item)) return;
+      var d = SF.dist(s.player.x, s.player.y, item.x, item.y);
+      if (d < bestD) {
+        bestD = d;
+        best = item;
+      }
+    });
+    if (!best) {
+      s.enemies.forEach(function (e) {
+        if (!e.alive || !SF.KINDS[e.kind].drops) return;
+        var d = SF.dist(s.player.x, s.player.y, e.x, e.y);
+        if (d < bestD) {
+          bestD = d;
+          best = e;
+        }
+      });
+    }
+    if (best) return { x: best.x, y: best.y };
+    return { x: SF.LAMP.x, y: SF.LAMP.y };
+  }
+  if (s.quest === "stirring") {
+    var kestrel = SF.NPCS[1];
+    return { x: kestrel.x, y: kestrel.y };
+  }
+  return null;
+};
+
+SF.coachLine = function (s) {
+  if (!s || s.mode !== "play") return "";
+  var h = s.hints || {};
+  var p = s.player;
+  if (!h.moved) return "Move: drag the stick, or press WASD.";
+  var near = SF.nearestInteract();
+  if (near && !h.talk) return "Press " + SF.actionFor(s, near).label + ", or E.";
+  if (!near && !h.strike) {
+    var foe = s.enemies.some(function (e) {
+      return e.alive && SF.dist(e.x, e.y, p.x, p.y) < 150;
+    });
+    if (foe) return "Strike the core — blade button, or J.";
+  }
+  var nearSpan = SF.dist(p.x, p.y, 300, -88) < 155;
+  if (!near && nearSpan && !h.span) {
+    return h.dash
+      ? "This gap is too wide to walk. Dash from the lip."
+      : "Dash crosses gaps — dash button, or K. Do not walk the span.";
+  }
+  if (!near && !h.dash && s.playTime < 40) return "Dash crosses gaps — dash button, or K.";
+  return "";
 };
 
 SF.tryLamp = function () {
@@ -440,10 +528,14 @@ SF.tryInteract = function () {
   if (s.mode !== "play") return;
   var near = SF.nearestInteract();
   if (!near) {
-    SF.pushToast("Nothing nearby.", 1.3);
+    var far = SF.nearestInteract(120);
+    if (far) {
+      var act = SF.actionFor(s, far);
+      SF.pushToast("Walk closer to " + act.name + ". Then press " + act.label + ".", 2.4);
+    } else SF.pushToast("Nothing here. Follow the gold marker.", 1.8);
     return;
   }
-  s.hints.talk = true;
+  SF.noteHint("talk");
   if (near.kind === "lamp") {
     SF.tryLamp();
     return;
@@ -517,10 +609,11 @@ SF.collectPickup = function (item) {
     SF.floater(item.x, item.y, "+ shard", "#b9fbff");
     SF.burst(item.x, item.y, "#9af6ff", 10, 50);
     SF.emit("pickup");
-    if (s.stats.shardsEver === 1) SF.pushToast("A sky-shard. It hums against the one in your hand.");
-    if (s.quest === "gather" && s.shardsHeld === SF.QUEST_SHARDS) {
-      SF.pushToast("Five. The great lamp will take them.");
-    }
+    var got = s.shardsHeld;
+    var sub = "The lamp on the hill needs " + SF.QUEST_SHARDS + ".";
+    if (s.quest === "awaken") sub = "Talk to Old Maren, up the hill.";
+    else if (got >= SF.QUEST_SHARDS) sub = "Bring them to the lamp. Press Place shards.";
+    SF.pushBanner("Sky-shard " + got + " of " + SF.QUEST_SHARDS, sub, 2.6);
   } else {
     var before = p.hp;
     if (before >= p.maxHp) {
@@ -757,7 +850,10 @@ SF.updatePlayer = function (dt) {
   p.px = p.x;
   p.py = p.y;
 
-  if ((SF.consumeDash || function () { return false; })()) SF.startDash(p);
+  if ((SF.consumeDash || function () { return false; })()) {
+    if (SF.startDash(p)) SF.noteHint("dash");
+    else if (p.dashCd > 0.08) SF.pushToast("Dash is still cooling.", 1.2);
+  }
   if ((SF.consumeAttack || function () { return false; })()) SF.startSwing(p);
   if ((SF.consumeInteract || function () { return false; })()) {
     SF.tryInteract();
@@ -818,28 +914,12 @@ SF.updatePlayer = function (dt) {
   }
 
   var zone = SF.zoneAt(p.x, p.y);
-  if (zone.id === "cinder" || zone.id === "alcove" || zone.id === "gap") s.discovered.cinder = true;
+  if (zone.id === "cinder" || zone.id === "alcove" || zone.id === "gap") {
+    s.discovered.cinder = true;
+    SF.noteHint("span");
+  }
   if (zone.id === "hollow") s.discovered.hollow = true;
-
-  if (!s.hints.strike) {
-    var close = s.enemies.some(function (e) {
-      return e.alive && SF.dist(e.x, e.y, p.x, p.y) < 120;
-    });
-    if (close) {
-      s.hints.strike = true;
-      SF.pushToast("Strike their cores. Blade button, or J.");
-      SF.saveGame({ silent: true });
-    }
-  }
-  if (!s.hints.span && SF.dist(p.x, p.y, 268, -100) < 78) {
-    s.hints.span = true;
-    SF.pushToast("The span is broken. Dash from the lip — do not walk it.");
-    SF.saveGame({ silent: true });
-  }
-  if (!s.hints.talk && SF.NPCS.some(function (n) { return SF.dist(n.x, n.y, p.x, p.y) < 70; })) {
-    s.hints.talk = true;
-    SF.pushToast("Someone is close. Talk, or press E.");
-  }
+  if (!s.hints.moved && SF.dist(p.x, p.y, SF.WAKE.x, SF.WAKE.y) > 28) SF.noteHint("moved");
 };
 
 SF.updateCamera = function (dt) {

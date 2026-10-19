@@ -170,4 +170,57 @@ if (!SF.walkable(dash.player.x, dash.player.y)) {
   process.exit(1);
 }
 
+const guide = freshPlay();
+if (!SF.questText(guide).includes("Old Maren")) {
+  console.error("opening objective is vague", SF.questText(guide));
+  process.exit(1);
+}
+if (!SF.coachLine(guide).startsWith("Move:")) {
+  console.error("opening lesson missing", SF.coachLine(guide));
+  process.exit(1);
+}
+const goal = SF.objectivePoint(guide);
+if (!goal || Math.hypot(goal.x - SF.NPCS[0].x, goal.y - SF.NPCS[0].y) > 1) {
+  console.error("opening marker is not Maren", goal);
+  process.exit(1);
+}
+guide.player.x = SF.LAMP.x;
+guide.player.y = SF.LAMP.y;
+guide.shardsHeld = 5;
+guide.quest = "gather";
+if (SF.actionFor(guide, SF.nearestInteract()).label !== "Place shards") {
+  console.error("lamp did not offer Place shards", SF.actionFor(guide, SF.nearestInteract()));
+  process.exit(1);
+}
+guide.shardsHeld = 1;
+if (SF.actionFor(guide, SF.nearestInteract()).label !== "Inspect") {
+  console.error("a cold lamp should be Inspect");
+  process.exit(1);
+}
+
+const fall = freshPlay();
+fall.player.x = 350;
+fall.player.y = -85;
+fall.player.px = 350;
+fall.player.py = -85;
+fall.player.safeX = 268;
+fall.player.safeY = -100;
+fall.player.fall = 0.3;
+SF.update(0.02);
+SF.update(0.02);
+const fallText = (fall.toast && fall.toast.text) || (fall.toasts[0] && fall.toasts[0].text) || "";
+if (fallText.indexOf("Try Dash") < 0) {
+  console.error("a missed gap did not say to dash", fallText);
+  process.exit(1);
+}
+
+const shard = freshPlay();
+shard.quest = "gather";
+SF.collectPickup({ id: "shard-meadow", kind: "shard", x: 55, y: -40 });
+const banner = shard.banner || shard.banners[0];
+if (!banner || banner.title.indexOf("1 of 5") < 0) {
+  console.error("shard pickup was quiet", banner);
+  process.exit(1);
+}
+
 console.log("smoke ok");

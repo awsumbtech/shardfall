@@ -78,6 +78,8 @@ SF.applySave = function (s, data) {
   s.discovered = Object.assign(s.discovered, data.discovered || {});
   s.stats = Object.assign(s.stats, data.stats || {});
   s.hints = Object.assign(s.hints, data.hints || {});
+  if (data.hints && data.hints.moved == null && s.playTime > 2) s.hints.moved = true;
+  if (data.hints && data.hints.dash == null && s.playTime > 25) s.hints.dash = true;
   p.x = sp.x;
   p.y = sp.y;
   p.fx = sp.fx || 1;
@@ -121,8 +123,10 @@ SF.saveGame = function (opts) {
   }
   try {
     ls.setItem(SF.SAVE_KEY, JSON.stringify(SF.exportState(s)));
-    if (!opts || !opts.silent) SF.pushToast("Saved.");
-    s.savedFlash = 1.2;
+    if (!opts || !opts.silent) {
+      SF.pushToast("Saved.");
+      s.savedFlash = 1.2;
+    }
     return true;
   } catch (err) {
     SF.pushToast("Could not save.");

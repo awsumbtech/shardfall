@@ -1,9 +1,9 @@
 # Shardfall — living design doc
 
-**Current build:** v0.1, Emberhold.
+**Current build:** v0.1.1, Emberhold. v0.1.1 is the same island with a steadier screen and a next step you can read.
 **Play:** https://awsumbtech.github.io/shardfall/ once the Pages workflow has run on `main`.
 
-This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new in v0.1" panel. This file can spoil secrets.
+This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new in v0.1.1" panel. This file can spoil secrets.
 
 ## Pillars
 
@@ -97,7 +97,7 @@ Land is a union of circles, plus one rectangle for the rope bridge. Walking slid
 
 The minimap shows the whole drift, the Wayfarer, living Hushborn, unspent shards, and the lamp. The alcove shard stays off the map until Kestrel's hint or a landing on the span's far side. The Cantor stays off it until Whisper Hollow has been entered. A gold pulse marks the current errand: Maren, the lamp once five shards are in hand, then Kestrel.
 
-Shards on the ground are picked up by walking over them. People, inscriptions, and the lamp want the Talk button (or E). The button renames itself: Talk, Read, Lamp, Light, Listen. It pulses when something is in reach.
+Shards on the ground are picked up by walking over them. A banner says which shard that was, out of five. People, inscriptions, and the lamp want the upper-right button (or E). Within reach it renames itself: Talk, Place shards, or Inspect, and a gold line names the target ("Talk — Old Maren"). A little farther out, the press says to walk closer. The button holds a steady gold ring while Reduce flashing is on, and a slow pulse only if that option is off.
 
 Points of interest in v0.1:
 
@@ -112,7 +112,7 @@ Points of interest in v0.1:
 
 ### Combat
 
-Real-time. The Wayfarer swings a short arc in the direction they are facing. Hits flash, shove, and show a number. A tiny pause sells the connect. Dash is a burst with a sliver of invulnerability and a cooldown drawn on the button. After the lamp, the dash is Shardstep: longer, sooner, and it singes anything it crosses.
+Real-time. The Wayfarer swings a short arc in the direction they are facing. Hits shove and show a number. The spark on a core is small and warm, not a white flash. A tiny pause sells the connect. Dash is a burst with a sliver of invulnerability and a cooldown drawn on the button. After the lamp, the dash is Shardstep: longer, sooner, and it singes anything it crosses.
 
 Three Hushborn:
 
@@ -142,10 +142,12 @@ The quest reward is not a level. It is Shardstep, on the hand itself. Spare shar
 
 One quest: **relight Emberhold's lamp.**
 
-1. **Awaken.** The tracker says to find someone who knows the shard. Maren, if you speak to her first, tells you the lamp wants five shards and that your hand should set them down. Talking to her moves the quest to Gather. You can ignore her, collect five, and light the lamp anyway. She has a different thank-you if you do.
-2. **Gather.** Shards in the meadow, the grove, and the Wrong Sky, plus the cores of both brumekin and the Choirling. That is six. The lamp eats five. The minimap marks the ones it is willing to spoil.
-3. **Light.** With five or more, Talk on the lamp plays a short lighting. You can skip it. The lamp catches, five shards are spent, wisps come apart, heavier Hushborn crack, and Shardstep awakens. The tracker points at Kestrel.
-4. **The hook.** Kestrel, after the lamp, names Cinderveil and will not leave today. The tracker then reads: "Cinderveil waits on the western wind."
+1. **Awaken.** The tracker says "Talk to Old Maren, up the hill." A gold arrow at your feet, a marker on her, and an edge arrow when she is offscreen all point the same way. Talking to her moves the quest to Gather. You can ignore her, collect five, and light the lamp anyway. She has a different thank-you if you do.
+2. **Gather.** The tracker counts, "Find 5 sky-shards (2/5)". The marker prefers the nearest ground shard it is willing to spoil, then a Hushborn that drops one. The alcove shard stays hidden until you have seen Cinderstep or heard Kestrel. At five it changes to "Bring them to the lamp — Place shards."
+3. **Light.** With five or more, Place shards on the lamp plays a short lighting. You can skip it. The lamp catches, five shards are spent, wisps come apart, heavier Hushborn crack, and Shardstep awakens. The tracker points at Kestrel: "Talk to Kestrel on Vane's Perch."
+4. **The hook.** Kestrel, after the lamp, names Cinderveil and will not leave today. The tracker then reads: "Cinderveil waits. Kestrel will sail later." The arrow goes away.
+
+The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Strike when a core is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
 
 The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without him.
 
@@ -155,7 +157,7 @@ Dialogue is a bottom panel. Tap, E, Enter, or Space advances it. Nothing hunts y
 
 `localStorage` key `shardfall.v1`. One slot. The save stores place, facing, heart, level, strike, shards in hand, which pickups are gone, where dropped shards fell, which Hushborn are dead and how hurt the living ones are, quest stage, story flags, discoveries, and time on the Hush. Enemy positions reset to their homes on load so a reload cannot leave one inside a wall. Mid-fight damage is kept.
 
-The game autosaves about every eight seconds, on a pickup, a kill, the end of a conversation, the lamp, a level, and when the page hides or you pause. The pause menu can Save, Load, or Reset. Reset deletes only `shardfall.v1` and returns to the title. New Game asks before it replaces a save. Continue is hidden when there is nothing to continue. Mute is a separate key (`shardfall.mute`) so it survives Reset.
+The game autosaves about every eight seconds, on a pickup, a kill, the end of a conversation, the lamp, a level, and when the page hides or you pause. The pause menu can Save, Load, or Reset. Reset deletes only `shardfall.v1` and returns to the title. New Game asks before it replaces a save. Continue is hidden when there is nothing to continue. Mute (`shardfall.mute`) and Reduce flashing (`shardfall.reduceFlash`) are separate keys so they survive Reset. Reduce flashing defaults to on. Unset means on.
 
 A save from a future version number is ignored rather than half-applied. v0.1 writes `v: 1`.
 
@@ -171,7 +173,7 @@ Glow is the language. Shards are cyan diamonds. The unlit lamp is a dim violet c
 
 UI is dark glass and gold hairlines, large round buttons, a heart bar and a thin experience bar. The title sits at the bottom of the portrait screen so the lamp hill shows above it. In landscape the title is a panel on the left.
 
-If `prefers-reduced-motion` is set, screen shake is off and the talk-button pulse stops. The game itself still moves; it is a game.
+Hits no longer blink the Wayfarer on and off. A hit is a small warm spark and, unless Reduce flashing is on, a faint red edge that fades in about a quarter second. The lamp's glow does not strobe. Screen shake is a short, small drift, and it is off entirely when Reduce flashing is on or `prefers-reduced-motion` is set. The canvas is a normal 2D context. Its backing store is reallocated only when the CSS size actually changes by a couple of pixels, so a phone URL bar cannot clear the frame every tick. The game itself still moves; it is a game.
 
 ## Audio
 
@@ -185,7 +187,8 @@ Tested against a 412×915 CSS viewport, portrait and landscape, which is the cla
 - The viewport meta locks scale and requests the safe area. The stick, buttons, and panels pad with `env(safe-area-inset-*)`.
 - The stick's grab area is the whole lower-left. The knob travels inside a fixed base. Analog tilt scales speed.
 - Strike, Dash, and Talk are separate pointers, so a thumb can hold the stick and tap Strike in the same moment. Strike repeats on a cooldown while held. Dash and Talk fire once per press.
-- Canvas backing-store pixel ratio is capped at 2. Glows are pre-drawn images, not per-frame blurs.
+- Canvas backing-store pixel ratio is capped at 2. Glows are pre-drawn images, not per-frame blurs. The context is not desynchronized. Resize ignores one-pixel jitter so the bitmap is not cleared in a loop.
+- Reduce flashing sits on the title screen and in the pause menu. It is on by default. It turns off shake, the hurt vignette, hit sparks, the invulnerability fade, and the pulsing ready-light. The objective marker stays, held still.
 - Switching apps or unfocusing the tab pauses and saves, so a pocket does not eat the run.
 
 Keyboard exists for a desk. The on-screen buttons stay visible there too.
@@ -198,7 +201,7 @@ In the build, and not negotiable without a doc edit:
 - Wisp, Brumekin, Choirling.
 - Maren, Kestrel, the Cantor, three inscriptions.
 - The lamp quest, five shards, Shardstep, the Cinderveil hook.
-- Levels 1–4, two blossoms, one save slot, title / continue / new game / reset, the v0.1 note.
+- Levels 1–4, two blossoms, one save slot, title / continue / new game / reset, Reduce flashing, the v0.1.1 note.
 - No second island, no grapple, no inventory screen, no faction meters.
 
 ## Roadmap
