@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#140c28">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="Shardfall — a personal, ad-free shard-tale. Wake on Emberhold, fight the Hushborn, and relight the great lamp.">
+  <title>Shardfall</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23140c28'/%3E%3Cpath d='M16 4 L23 16 L16 28 L9 16 Z' fill='%238ef6ff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-mode="title" data-modal="0">
+  <div id="app">
+    <canvas id="view" aria-hidden="true"></canvas>
+    <div id="hurt" aria-hidden="true"></div>
+
+    <div id="hud">
+      <div class="panel" id="vitals">
+        <div id="hp"><span id="hp-fill"></span></div>
+        <div id="vitals-text"><span id="hp-num">40/40</span> · <span id="lv">Lv 1</span> · <span id="shards">✦ 0</span> <span id="saved" hidden>Saved</span></div>
+        <div id="xp"><span id="xp-fill"></span></div>
+      </div>
+      <div class="panel" id="questline">Find someone who knows the shard in your hand.</div>
+      <div id="place-row">
+        <div id="place">The Waking Stones</div>
+        <button id="btn-patch" type="button">v0.1</button>
+      </div>
+      <div id="keys">WASD move · J strike · K dash · E talk · Esc pause</div>
+    </div>
+
+    <div id="mapwrap"><canvas id="minimap" aria-hidden="true"></canvas></div>
+
+    <div id="corner">
+      <button id="btn-mute" type="button" aria-label="Mute" aria-pressed="false">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 12h5l7-5v18l-7-5H6z"/><path class="wave" d="M22 11c2 2 2 8 0 10M25 8c4 3 4 13 0 16"/></svg>
+      </button>
+      <button id="btn-pause" type="button" aria-label="Pause">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 7h4v18h-4zM18 7h4v18h-4z"/></svg>
+      </button>
+    </div>
+
+    <div id="toast" hidden></div>
+    <div id="banner" hidden>
+      <div id="banner-title"></div>
+      <div id="banner-sub"></div>
+    </div>
+
+    <div id="controls">
+      <div id="stick-zone">
+        <div id="stick" aria-hidden="true"><div id="knob"></div></div>
+      </div>
+      <div id="buttons">
+        <button class="btn" id="btn-interact" type="button" aria-label="Talk">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 8h16v12H14l-6 5v-5H8z"/></svg>
+          <span id="interact-label">Talk</span>
+        </button>
+        <button class="btn" id="btn-dash" type="button" aria-label="Dash">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 16h12M14 9l8 7-8 7"/><path d="M20 16h6"/></svg>
+          <span>Dash</span>
+        </button>
+        <button class="btn" id="btn-attack" type="button" aria-label="Strike">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 25L22 8M18 8h6v6M10 22l4 4"/></svg>
+          <span>Strike</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="dialogue" hidden>
+      <div id="who"></div>
+      <p id="line"></p>
+      <div class="hint">Tap to continue</div>
+    </div>
+
+    <button id="skip" type="button" hidden>Tap to skip</button>
+
+    <div id="title">
+      <div class="title-card">
+        <p class="eyebrow">v0.1 · a personal shard-tale</p>
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
+        </div>
+        <h1>Shardfall</h1>
+        <p class="tag">The sky cracked. The islands drift. Your hand remembers a star.</p>
+        <div class="actions">
+          <button id="continue" type="button" hidden>Continue</button>
+          <button id="newgame" type="button">New Game</button>
+          <button id="title-news" type="button" class="ghost">What's new in v0.1</button>
+          <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
+        </div>
+        <p class="legend">Stick on the left. Strike, dash, and talk on the right.<br>Keys: WASD · J strike · K dash · E talk · Esc pause · M mute</p>
+      </div>
+    </div>
+
+    <div id="pause" hidden>
+      <div class="card scroll">
+        <h2>Paused</h2>
+        <p id="pause-quest"></p>
+        <p id="pause-stats"></p>
+        <p id="pause-note"></p>
+        <button id="resume" type="button">Resume</button>
+        <button id="pause-news" type="button" class="ghost">What's new in v0.1</button>
+        <button id="pause-save" type="button" class="ghost">Save</button>
+        <button id="pause-load" type="button" class="ghost">Load</button>
+        <button id="pause-reset" type="button" class="ghost">Reset save</button>
+        <button id="pause-title" type="button" class="ghost">Title</button>
+      </div>
+    </div>
+
+    <div id="modal" hidden>
+      <div class="card scroll">
+        <h2 id="modal-title">What's new in v0.1</h2>
+        <div id="news-body"></div>
+        <p id="modal-copy"></p>
+        <div class="actions">
+          <button id="modal-yes" type="button">Yes</button>
+          <button id="modal-no" type="button" class="ghost">Not now</button>
+          <button id="modal-close" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/draw.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
