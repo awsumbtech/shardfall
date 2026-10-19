@@ -21,10 +21,12 @@
         <div id="vitals-text"><span id="hp-num">40/40</span> · <span id="lv">Lv 1</span> · <span id="shards">✦ 0</span> <span id="saved" hidden>Saved</span></div>
         <div id="xp"><span id="xp-fill"></span></div>
       </div>
-      <div class="panel" id="questline">Find someone who knows the shard in your hand.</div>
+      <div class="panel" id="questline">Talk to Old Maren, up the hill.</div>
+      <div class="panel" id="coach" hidden>Move: drag the stick, or press WASD.</div>
+      <div class="panel" id="prompt" hidden></div>
       <div id="place-row">
         <div id="place">The Waking Stones</div>
-        <button id="btn-patch" type="button">v0.1</button>
+        <button id="btn-patch" type="button">v0.1.1</button>
       </div>
       <div id="keys">WASD move · J strike · K dash · E talk · Esc pause</div>
     </div>
@@ -76,7 +78,7 @@
 
     <div id="title">
       <div class="title-card">
-        <p class="eyebrow">v0.1 · a personal shard-tale</p>
+        <p class="eyebrow">v0.1.1 · a personal shard-tale</p>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
         </div>
@@ -85,7 +87,8 @@
         <div class="actions">
           <button id="continue" type="button" hidden>Continue</button>
           <button id="newgame" type="button">New Game</button>
-          <button id="title-news" type="button" class="ghost">What's new in v0.1</button>
+          <button id="title-news" type="button" class="ghost">What's new in v0.1.1</button>
+          <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
         </div>
         <p class="legend">Stick on the left. Strike, dash, and talk on the right.<br>Keys: WASD · J strike · K dash · E talk · Esc pause · M mute</p>
@@ -99,7 +102,8 @@
         <p id="pause-stats"></p>
         <p id="pause-note"></p>
         <button id="resume" type="button">Resume</button>
-        <button id="pause-news" type="button" class="ghost">What's new in v0.1</button>
+        <button id="pause-news" type="button" class="ghost">What's new in v0.1.1</button>
+        <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
         <button id="pause-save" type="button" class="ghost">Save</button>
         <button id="pause-load" type="button" class="ghost">Load</button>
         <button id="pause-reset" type="button" class="ghost">Reset save</button>
@@ -109,7 +113,7 @@
 
     <div id="modal" hidden>
       <div class="card scroll">
-        <h2 id="modal-title">What's new in v0.1</h2>
+        <h2 id="modal-title">What's new in v0.1.1</h2>
         <div id="news-body"></div>
         <p id="modal-copy"></p>
         <div class="actions">

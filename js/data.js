@@ -3,9 +3,11 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.1";
+SF.VERSION = "0.1.1";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
+SF.FLASH_KEY = "shardfall.reduceFlash";
+SF.reduceFlash = true;
 SF.QUEST_SHARDS = 5;
 SF.WALK_MARGIN = 6;
 SF.DASH_TIME = 0.16;
@@ -18,9 +20,9 @@ SF.STRIKE_ARC = 0.28;
 SF.XP_NEED = [0, 24, 70, 110];
 
 SF.WHATS_NEW = [
-  "Emberhold is awake: wander the isle, dash across the broken span to Cinderstep, and cross the rope bridge to Kestrel's skiff.",
-  "Strike the Hushborn, gather five sky-shards, and relight Maren's great lamp.",
-  "Your reward is Shardstep — a farther, faster dash — and a rumor of the next island, Cinderveil."
+  "The screen stays steady. Flashes are softer, and Reduce flashing is on until you turn it off.",
+  "Your next step stays on screen. The button changes to Talk, Place shards, or Inspect when you are close enough.",
+  "A marker points the way. The first minute teaches the buttons once, and a missed gap says to try Dash."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
@@ -61,7 +63,7 @@ SF.TEXTS = [
     speaker: "Waking Stones",
     lines: [
       "Fell in the first night. Rose with a shard for a pulse.",
-      "The second line is newer, scratched with a careful hand: If you wake, the lamp is up the hill."
+      "If you wake: the lamp is up the hill. Talk to Old Maren at the cottage."
     ]
   },
   {
@@ -221,13 +223,13 @@ SF.zoneAt = function (x, y) {
 };
 
 SF.questText = function (s) {
-  if (s.quest === "awaken") return "Find someone who knows the shard in your hand.";
+  if (s.quest === "awaken") return "Talk to Old Maren, up the hill.";
   if (s.quest === "gather") {
-    if (s.shardsHeld >= SF.QUEST_SHARDS) return "Five shards. Set them on the great lamp.";
-    return "Gather sky-shards for the lamp (" + s.shardsHeld + "/" + SF.QUEST_SHARDS + ").";
+    if (s.shardsHeld >= SF.QUEST_SHARDS) return "Bring them to the lamp — Place shards.";
+    return "Find 5 sky-shards (" + s.shardsHeld + "/5).";
   }
-  if (s.quest === "stirring") return "The wind changed. Speak with Kestrel.";
-  return "Cinderveil waits on the western wind.";
+  if (s.quest === "stirring") return "Talk to Kestrel on Vane's Perch.";
+  return "Cinderveil waits. Kestrel will sail later.";
 };
 
 SF.talkMaren = function (s) {
@@ -247,12 +249,11 @@ SF.talkMaren = function (s) {
     return {
       speaker: "Old Maren",
       lines: [
-        "You're awake. Good. The stones are a hard bed.",
-        "I am Maren. I keep Emberhold's lamp. The lamp keeps the Hush off the grass.",
-        "That shard in your hand chose a pulse. It will dash before it answers questions.",
-        "The lamp is starving. Five sky-shards will teach it the old note. They fell in the meadow, the grove, and into the things that crawled out of the cloud.",
-        "Strike a core and it forgets how to hold itself. Bring what you gather to the plinth — not to me. Your hand should do it.",
-        "And stand closer when you are torn. I can still mend that much."
+        "You're awake. I am Maren. I keep the lamp up this hill. It holds the Hush off the grass.",
+        "Your hand can Dash — a quick step across gaps you cannot walk. Strike hits the things in the mist. Blade button, or J.",
+        "Find 5 sky-shards. They glow on the grass. Strike a Hushborn core and some of them drop one.",
+        "When you have 5, stand at the lamp and press Place shards. The button will say so. Bring them to the lamp, not to me.",
+        "If you are torn, talk to me. I can mend that."
       ],
       after: "maren_first"
     };
@@ -273,18 +274,18 @@ SF.talkMaren = function (s) {
       speaker: "Old Maren",
       lines: [
         "Five. I can hear them ticking against each other.",
-        "Up the hill. Set them on the plinth yourself. I have tended it for years. This note is yours."
+        "Walk up to the lamp and press Place shards. The button will change when you are close. This note is yours, not mine."
       ],
       after: "maren_heal"
     };
   }
   return {
     speaker: "Old Maren",
-    lines: [
-      "Still gathering. The lamp can wait better than the Hush can.",
-      "The grove keeps a quiet shard. The scar keeps a brute. Cores crack. Shards spill.",
-      "You hold " + s.shardsHeld + " of " + SF.QUEST_SHARDS + ". Come back torn, if you must. I have warm hands."
-    ],
+      lines: [
+        "Find 5 sky-shards. You hold " + s.shardsHeld + ".",
+        "Glowing ones lie in the meadow and the grove. Strike a core in the scar and a shard spills out.",
+        "The lamp is up the hill. Come back torn if you must — talk to me and I will mend you."
+      ],
     after: "maren_heal"
   };
 };
@@ -294,10 +295,10 @@ SF.talkKestrel = function (s) {
     return {
       speaker: "Kestrel Vane",
       lines: [
-        "Ha. Upright. The Hush usually sends things back in worse shape.",
-        "Kestrel Vane. This opinionated heap is the Quickmercy. She knows roads the charts still call weather.",
-        "West of here is a tear I named Cinderveil. I will not sail it while Maren's lamp is holding its breath.",
-        "The broken span east of the lamp — do not walk it. Dash. On the far islet the standing stones face the wrong sky. Look behind them."
+        "Kestrel Vane. This heap is the Quickmercy. She will not sail while the lamp up the hill is dark.",
+        "East of the lamp the span is broken. The gap is too wide to walk. Dash from the lip — the dash button, or K.",
+        "On the far islet, look behind the stones that face the wrong sky. A shard hides there.",
+        "Light the lamp, then talk to me again. The western wind is called Cinderveil. We are not leaving today."
       ],
       after: "kestrel_first"
     };
@@ -306,9 +307,9 @@ SF.talkKestrel = function (s) {
     return {
       speaker: "Kestrel Vane",
       lines: [
-        "There. The wind just picked a direction. I felt it in the rigging before I saw the hill.",
-        "Cinderveil sits under the bright fracture, west of this hold. The hull still sings in the wrong key, so we do not cast off today.",
-        "Keep that hand. When the Quickmercy is ready, we follow the lamps. I am not leaving without you. I am also not leaving today."
+        "There. You lit the lamp. That was the step.",
+        "Cinderveil is west, under the bright crack. The hull is not ready, so we do not sail today.",
+        "Keep the new dash — Shardstep. When the Quickmercy is ready, we follow the lamps. Not today."
       ],
       after: "kestrel_sail"
     };
@@ -363,21 +364,21 @@ SF.talkLamp = function (s) {
   if (s.flags.lampLit) {
     return {
       speaker: "Great Lamp",
-      lines: ["A held note. The Hush stays low, and the crystal remembers your hand."],
+      lines: ["The lamp is lit. The Hush stays low. Kestrel, on the perch past the rope bridge, has the next step."],
       after: "note"
     };
   }
   if (s.quest === "awaken" && s.shardsHeld < SF.QUEST_SHARDS) {
     return {
       speaker: "Great Lamp",
-      lines: ["The lamp is cold. Someone has been keeping it anyway. It wants shards, and a person who knows why."],
+      lines: ["The lamp is cold. It needs 5 sky-shards. Talk to Old Maren — her cottage is down the hill."],
       after: "note"
     };
   }
   if (s.shardsHeld < SF.QUEST_SHARDS) {
     return {
       speaker: "Great Lamp",
-      lines: ["It hungers. Five, and no fewer. You hold " + s.shardsHeld + "."],
+      lines: ["The lamp needs 5 sky-shards. You hold " + s.shardsHeld + ". Come back and press Place shards."],
       after: "note"
     };
   }

@@ -7,6 +7,24 @@ SF.uiModal = null;
 SF._yes = null;
 SF.pauseNote = "";
 
+SF.loadCalm = function () {
+  SF.reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var store = SF.storage();
+  var stored = store ? store.getItem(SF.FLASH_KEY) : null;
+  SF.reduceFlash = stored == null ? true : stored !== "0";
+};
+
+SF.calm = function () {
+  return !!(SF.reduceFlash || SF.reduceMotion);
+};
+
+SF.setReduceFlash = function (on) {
+  SF.reduceFlash = !!on;
+  var store = SF.storage();
+  if (store) store.setItem(SF.FLASH_KEY, SF.reduceFlash ? "1" : "0");
+  SF.syncUI();
+};
+
 SF.toggleMute = function () {
   SF.sfx.setMuted(!SF.sfx.muted);
   SF.sfx.ensure();
@@ -66,7 +84,6 @@ SF.beginNew = function () {
   s.camX = s.player.x;
   s.camY = s.player.y;
   SF.pushToast("You wake on the stones. The shard in your hand is warm.");
-  SF.pushToast("Stick or WASD to move. Strike, dash, and talk — J, K, and E.");
   SF.saveGame({ silent: true });
   SF.sfx.ensure();
   SF.syncUI();
@@ -104,6 +121,15 @@ SF.bindUI = function () {
     SF.sfx.ensure();
     SF.openNews();
   });
+  function bindCalm(id) {
+    document.getElementById(id).addEventListener("click", function () {
+      SF.sfx.ensure();
+      SF.emit("ui");
+      SF.setReduceFlash(!SF.reduceFlash);
+    });
+  }
+  bindCalm("title-calm");
+  bindCalm("pause-calm");
   document.getElementById("title-reset").addEventListener("click", function () {
     SF.sfx.ensure();
     SF.ask("Erase the saved journey from this browser?", "Erase", function () {
@@ -182,12 +208,8 @@ SF.bindUI = function () {
 };
 
 SF.interactLabel = function (s) {
-  if (!s || s.mode !== "play") return "Talk";
-  var near = SF.nearestInteract();
-  if (!near) return "Talk";
-  if (near.kind === "lamp") return s.flags.lampLit ? "Listen" : (s.shardsHeld >= SF.QUEST_SHARDS ? "Light" : "Lamp");
-  if (near.kind === "text") return "Read";
-  return "Talk";
+  if (!s || s.mode !== "play" || !SF.actionFor) return "Talk";
+  return SF.actionFor(s, SF.nearestInteract()).label;
 };
 
 SF.syncUI = function () {
@@ -219,7 +241,7 @@ SF.syncUI = function () {
   if (SF.uiModal) {
     var newsMode = SF.uiModal.kind === "news";
     document.getElementById("news-body").hidden = !newsMode;
-    document.getElementById("modal-title").textContent = newsMode ? "What's new in v0.1" : "Shardfall";
+    document.getElementById("modal-title").textContent = newsMode ? "What's new in v0.1.1" : "Shardfall";
     document.getElementById("modal-copy").hidden = newsMode;
     document.getElementById("modal-copy").textContent = newsMode ? "" : SF.uiModal.text;
     document.getElementById("modal-yes").hidden = newsMode;
@@ -250,6 +272,19 @@ SF.syncUI = function () {
   var xpPct = pstat.level >= SF.XP_NEED.length ? 1 : SF.clamp((pstat.xp - prev) / ((next || prev + 1) - prev), 0, 1);
   document.getElementById("xp-fill").style.width = (xpPct * 100).toFixed(1) + "%";
   setText("questline", SF.questText(s));
+  var coach = SF.coachLine ? SF.coachLine(s) : "";
+  var coachEl = document.getElementById("coach");
+  if (coach) {
+    coachEl.hidden = false;
+    setText("coach", coach);
+  } else coachEl.hidden = true;
+  var prompt = "";
+  if (s.mode === "play" && SF.actionFor) prompt = SF.actionFor(s, SF.nearestInteract()).prompt;
+  var promptEl = document.getElementById("prompt");
+  if (prompt) {
+    promptEl.hidden = false;
+    setText("prompt", prompt);
+  } else promptEl.hidden = true;
   var zone = SF.zoneAt(pstat.x, pstat.y);
   setText("place", zone.name || "The Hush");
 
@@ -266,7 +301,9 @@ SF.syncUI = function () {
     setText("banner-sub", s.banner.sub || "");
   } else banner.hidden = true;
 
-  document.getElementById("hurt").style.opacity = s.mode === "play" && pstat.hurt > 0 ? "1" : "0";
+  var hurtA = 0;
+  if (s.mode === "play" && pstat.hurt > 0 && !SF.calm()) hurtA = Math.min(0.2, (pstat.hurt / 0.28) * 0.2);
+  document.getElementById("hurt").style.opacity = hurtA.toFixed(3);
 
   var dashMax = pstat.shardstep ? SF.DASH_CD_PLUS : SF.DASH_CD;
   var dashP = dashMax <= 0 ? 0 : SF.clamp(pstat.dashCd / dashMax, 0, 1);
@@ -277,7 +314,17 @@ SF.syncUI = function () {
   var talkBtn = document.getElementById("btn-interact");
   var label = SF.interactLabel(s);
   setText("interact-label", label);
-  talkBtn.classList.toggle("ready", label !== "Talk" || !!(s.mode === "play" && SF.nearestInteract()));
+  talkBtn.setAttribute("aria-label", label);
+  talkBtn.classList.toggle("ready", s.mode === "play" && !!SF.nearestInteract());
+  var calmOn = !!SF.reduceFlash;
+  ["title-calm", "pause-calm"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var text = "Reduce flashing: " + (calmOn ? "On" : "Off");
+    if (el.textContent !== text) el.textContent = text;
+    el.setAttribute("aria-pressed", calmOn ? "true" : "false");
+  });
+  document.body.dataset.calm = SF.calm() ? "1" : "0";
 
   document.getElementById("btn-mute").classList.toggle("is-muted", !!SF.sfx.muted);
   document.getElementById("btn-mute").setAttribute("aria-pressed", SF.sfx.muted ? "true" : "false");

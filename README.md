@@ -6,6 +6,12 @@ A personal, ad-free, non-commercial pseudo open-world RPG for the browser. A cen
 
 The live site updates when the Pages workflow runs on `main`. It does not deploy from a pull request.
 
+## v0.1.1 — Steady light
+
+The screen stays steady. Flashes are softer, and Reduce flashing is on until you turn it off.
+Your next step stays on screen. The button changes to Talk, Place shards, or Inspect when you are close enough.
+A marker points the way. The first minute teaches the buttons once, and a missed gap says to try Dash.
+
 ## v0.1 — Emberhold
 
 Emberhold is awake: wander the isle, dash across the broken span to Cinderstep, and cross the rope bridge to Kestrel's skiff.
@@ -21,7 +27,7 @@ The game is built for a phone in Chrome, in portrait or landscape. The page does
 | Move | Virtual stick, lower left | WASD or arrow keys |
 | Strike | Blade button, lower right | J or Z |
 | Dash | Dash button | K or Space |
-| Talk, read, light the lamp | Talk button | E or Enter |
+| Talk, inspect, place shards | The button on the upper right. It renames itself | E or Enter |
 | Pause | Pause button | Esc |
 | Mute | Speaker button | M |
 

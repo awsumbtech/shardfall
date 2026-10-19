@@ -110,11 +110,9 @@ SF.drawSky = function (ctx, w, h, s) {
   ctx.restore();
 
   ctx.save();
-  ctx.globalAlpha = lit ? 0.7 : 0.38;
+  ctx.globalAlpha = (SF.calm && SF.calm()) ? 0.28 : (lit ? 0.55 : 0.34);
   ctx.strokeStyle = "#fff4d2";
   ctx.lineWidth = 2;
-  ctx.shadowColor = "#fff1c2";
-  ctx.shadowBlur = lit ? 16 : 8;
   ctx.beginPath();
   ctx.moveTo(w * 0.12, h * 0.07);
   ctx.lineTo(w * 0.28, h * 0.13);
@@ -537,7 +535,7 @@ SF.drawWisp = function (ctx, e) {
   ctx.arc(e.x, e.y + wob, 4, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
-  if (e.hurt > 0) flash(ctx, e.x, e.y + wob, e.r + 4);
+  if (e.hurt > 0) flash(ctx, e.x, e.y + wob, e.r, e.hurt);
 };
 
 SF.drawBrume = function (ctx, e) {
@@ -572,7 +570,7 @@ SF.drawBrume = function (ctx, e) {
     ctx.stroke();
     ctx.restore();
   }
-  if (e.hurt > 0) flash(ctx, e.x, e.y, e.r + 4);
+  if (e.hurt > 0) flash(ctx, e.x, e.y, e.r, e.hurt);
 };
 
 SF.drawChoir = function (ctx, e) {
@@ -610,15 +608,18 @@ SF.drawChoir = function (ctx, e) {
     ctx.stroke();
     ctx.restore();
   }
-  if (e.hurt > 0) flash(ctx, e.x, e.y + bob, 16);
+  if (e.hurt > 0) flash(ctx, e.x, e.y + bob, 14, e.hurt);
 };
 
-function flash(ctx, x, y, r) {
+function flash(ctx, x, y, r, hurt) {
+  if (SF.calm && SF.calm()) return;
+  var a = SF.clamp((hurt || 0) / 0.14, 0, 1) * 0.32;
+  if (a < 0.04) return;
   ctx.save();
-  ctx.globalAlpha = 0.7;
-  ctx.fillStyle = "#fff";
+  ctx.globalAlpha = a;
+  ctx.fillStyle = "#ffe7a8";
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.arc(x, y, Math.max(4, r * 0.45), 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -663,7 +664,7 @@ SF.drawPickup = function (ctx, item, hiddenIcon) {
 SF.drawLampCrystal = function (ctx, lit) {
   var x = SF.LAMP.x;
   var y = SF.LAMP.y;
-  var flick = 0.85 + Math.sin(SF.anim * 6) * 0.15;
+  var flick = (SF.calm && SF.calm()) ? 1 : (0.97 + Math.sin(SF.anim * 1.4) * 0.03);
   ctx.save();
   ctx.fillStyle = "#8d7368";
   ctx.fillRect(x - 10, y + 6, 20, 8);
@@ -688,20 +689,21 @@ SF.drawLampCrystal = function (ctx, lit) {
   ctx.fill();
   ctx.restore();
   if (!lit && SF.state && SF.state.shardsHeld >= SF.QUEST_SHARDS && SF.state.quest === "gather") {
-    var pulse = 0.4 + Math.sin(SF.anim * 4) * 0.3;
+    var calm = SF.calm && SF.calm();
+    var pulse = calm ? 0.4 : (0.34 + Math.sin(SF.anim * 1.4) * 0.08);
     ctx.save();
     ctx.globalAlpha = pulse;
     ctx.strokeStyle = "#ffe7a8";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y - 8, 18 + Math.sin(SF.anim * 3) * 3, 0, Math.PI * 2);
+    ctx.arc(x, y - 8, calm ? 20 : (19 + Math.sin(SF.anim * 1.4) * 1), 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
 };
 
 SF.drawBobber = function (ctx, x, y) {
-  var bob = Math.sin(SF.anim * 4) * 3;
+  var bob = (SF.calm && SF.calm()) ? 0 : Math.sin(SF.anim * 2) * 2;
   ctx.save();
   ctx.translate(x, y - 28 + bob);
   ctx.fillStyle = "#ffd37a";
@@ -731,7 +733,6 @@ SF.entityList = function (s) {
         if (n.id === "maren") SF.drawMaren(ctx, n.x, n.y);
         else if (n.id === "kestrel") SF.drawKestrel(ctx, n.x, n.y);
         else SF.drawCantor(ctx, n.x, n.y);
-        if (SF.objectiveNpc(s) === n.id) SF.drawBobber(ctx, n.x, n.y);
         if (s.mode === "play" && SF.dist(s.player.x, s.player.y, n.x, n.y) < 90) {
           ctx.save();
           ctx.font = "600 12px Palatino, Georgia, serif";
@@ -764,7 +765,7 @@ SF.entityList = function (s) {
     y: p.y,
     draw: function (ctx) {
       var alpha = 1;
-      if (p.iFrames > 0 && Math.floor(SF.anim * 16) % 2 === 0) alpha = 0.45;
+      if (p.iFrames > 0 && !(SF.calm && SF.calm())) alpha = 0.84;
       if (!SF.walkable(p.x, p.y)) alpha *= 0.7;
       var sink = SF.walkable(p.x, p.y) ? 0 : Math.min(10, p.fall * 36);
       s.ghosts.forEach(function (g) {
@@ -796,10 +797,73 @@ SF.entityList = function (s) {
   return list;
 };
 
-SF.objectiveNpc = function (s) {
-  if (s.quest === "awaken") return "maren";
-  if (s.quest === "stirring") return "kestrel";
-  return null;
+SF.drawGuide = function (ctx, s) {
+  if (!s || s.mode !== "play" || !SF.objectivePoint) return;
+  var goal = SF.objectivePoint(s);
+  if (!goal) return;
+  var p = s.player;
+  var dx = goal.x - p.x;
+  var dy = goal.y - p.y;
+  var d = Math.hypot(dx, dy) || 1;
+  if (d > 70) {
+    var ang = Math.atan2(dy, dx);
+    ctx.save();
+    ctx.translate(p.x + Math.cos(ang) * 28, p.y + Math.sin(ang) * 28);
+    ctx.rotate(ang);
+    ctx.fillStyle = "rgba(255, 211, 122, 0.95)";
+    ctx.strokeStyle = "rgba(20, 10, 30, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(9, 0);
+    ctx.lineTo(-7, 5);
+    ctx.lineTo(-3, 0);
+    ctx.lineTo(-7, -5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (d > 40) SF.drawBobber(ctx, goal.x, goal.y);
+};
+
+SF.drawEdgeArrow = function (ctx, w, h, s) {
+  if (!s || s.mode !== "play" || !SF.objectivePoint) return;
+  var goal = SF.objectivePoint(s);
+  if (!goal) return;
+  var zoom = SF.zoom || 1;
+  var sx = (goal.x - s.camX) * zoom + w / 2;
+  var sy = (goal.y - s.camY) * zoom + h / 2;
+  var left = 28;
+  var right = w - 28;
+  var top = 120;
+  var bottom = h - 170;
+  if (sx > left && sx < right && sy > top && sy < bottom) return;
+  var cx = w / 2;
+  var cy = h / 2;
+  var dx = sx - cx;
+  var dy = sy - cy;
+  if (!dx && !dy) return;
+  var t = Infinity;
+  if (dx > 0) t = Math.min(t, (right - cx) / dx);
+  else if (dx < 0) t = Math.min(t, (left - cx) / dx);
+  if (dy > 0) t = Math.min(t, (bottom - cy) / dy);
+  else if (dy < 0) t = Math.min(t, (top - cy) / dy);
+  if (!isFinite(t) || t < 0) t = 1;
+  ctx.save();
+  ctx.translate(cx + dx * t, cy + dy * t);
+  ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = "#ffd37a";
+  ctx.strokeStyle = "rgba(20, 10, 30, 0.7)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(12, 0);
+  ctx.lineTo(-8, 8);
+  ctx.lineTo(-3, 0);
+  ctx.lineTo(-8, -8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 };
 
 SF.drawFx = function (ctx, s) {
@@ -839,18 +903,20 @@ SF.drawFx = function (ctx, s) {
   });
   ctx.restore();
   ctx.globalAlpha = 1;
+  SF.drawGuide(ctx, s);
 
   var near = null;
   if (s.mode === "play") near = SF.nearestInteract();
   if (near) {
     var nx = near.kind === "lamp" ? SF.LAMP.x : near.ref.x;
     var ny = near.kind === "lamp" ? SF.LAMP.y : near.ref.y;
+    var calm = SF.calm && SF.calm();
     ctx.save();
-    ctx.globalAlpha = 0.8;
+    ctx.globalAlpha = 0.85;
     ctx.strokeStyle = "#fff4d2";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(nx, ny, 18 + Math.sin(SF.anim * 4) * 1.5, 0, Math.PI * 2);
+    ctx.arc(nx, ny, calm ? 20 : (19 + Math.sin(SF.anim * 1.6) * 1), 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
@@ -875,12 +941,13 @@ SF.draw = function () {
   var dpr = SF.dpr;
   if (!w || !h) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalAlpha = 1;
   SF.drawSky(ctx, w, h, s);
   var zoom = SF.zoomFor(w, h);
   SF.zoom = zoom;
-  var shake = SF.reduceMotion ? 0 : (s.shake || 0);
-  var sx = (Math.random() - 0.5) * shake;
-  var sy = (Math.random() - 0.5) * shake;
+  var shake = (SF.calm && SF.calm()) ? 0 : Math.min(2.2, s.shake || 0);
+  var sx = Math.sin(SF.anim * 24) * shake;
+  var sy = Math.cos(SF.anim * 19) * shake;
   ctx.setTransform(
     dpr * zoom,
     0,
@@ -899,7 +966,9 @@ SF.draw = function () {
   SF.entityList(s).forEach(function (ent) { ent.draw(ctx); });
   SF.drawFx(ctx, s);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalAlpha = 1;
   SF.drawVignette(ctx, w, h, s);
+  SF.drawEdgeArrow(ctx, w, h, s);
   SF.drawMap();
 };
 
@@ -956,20 +1025,12 @@ SF.drawMap = function () {
   });
   ctx.fillStyle = s.flags.lampLit ? "#ffe7a8" : "#c9b6e8";
   ctx.fillRect(mx(SF.LAMP.x) - 2, my(SF.LAMP.y) - 2, 4, 4);
-  var pulse = 0.5 + Math.sin(SF.anim * 4) * 0.5;
-  ctx.globalAlpha = 0.35 + pulse * 0.65;
-  ctx.fillStyle = "#ffd37a";
-  if (s.quest === "awaken") {
+  var goal = SF.objectivePoint(s);
+  if (goal) {
+    ctx.globalAlpha = (SF.calm && SF.calm()) ? 0.92 : (0.8 + Math.sin(SF.anim * 1.4) * 0.12);
+    ctx.fillStyle = "#ffd37a";
     ctx.beginPath();
-    ctx.arc(mx(SF.NPCS[0].x), my(SF.NPCS[0].y), 4, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (s.quest === "stirring") {
-    ctx.beginPath();
-    ctx.arc(mx(SF.NPCS[1].x), my(SF.NPCS[1].y), 4, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (s.quest === "gather" && s.shardsHeld >= SF.QUEST_SHARDS) {
-    ctx.beginPath();
-    ctx.arc(mx(SF.LAMP.x), my(SF.LAMP.y), 5, 0, Math.PI * 2);
+    ctx.arc(mx(goal.x), my(goal.y), 4, 0, Math.PI * 2);
     ctx.fill();
   }
   if (s.discovered.hollow || s.flags.metCantor) {
