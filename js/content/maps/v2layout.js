@@ -701,9 +701,48 @@ window.SF = SF;
 
   SF.lampReserve = function (s) {
     if (!s || !s.flags) return 0;
-    if (!s.flags.lampLit) return SF.QUEST_SHARDS || 5;
-    if (!s.flags.cinderLit) return SF.CINDER_SHARDS || 3;
+    if (!s.flags.lampLit && s.quest === "gather") return SF.QUEST_SHARDS || 5;
+    if (!s.flags.cinderLit && s.quest === "relight") return SF.CINDER_SHARDS || 3;
     return 0;
+  };
+
+  SF.shardReachable = function (item) {
+    if (!item) return false;
+    var p = SF.state && SF.state.player;
+    if (item.id === "shard-step") return !!(p && p.shardstep);
+    if (item.id === "shard-hook" || item.id === "shard-nw") return !!(p && p.grapple);
+    return true;
+  };
+
+  SF.carrierAim = function (s) {
+    if (!s || !s.flags || !s.player) return null;
+    var got = s.flags.carriers || {};
+    var options = [];
+    function push(id, zoneId, ok) {
+      if (got[id] || !ok) return;
+      var sh = SF.circle(zoneId);
+      if (sh) options.push(sh);
+    }
+    if (!s.flags.lampLit && s.quest === "gather") {
+      push("scar", "scar", true);
+      push("cinderstep", "cinder", true);
+    }
+    if (!s.flags.cinderLit && s.quest === "relight") {
+      push("ash", "ash", true);
+      push("vault", "vault", !!(s.player.grapple));
+    }
+    if (!options.length) return null;
+    var best = options[0];
+    var bestD = Infinity;
+    var i, d;
+    for (i = 0; i < options.length; i++) {
+      d = SF.dist(s.player.x, s.player.y, options[i].x, options[i].y);
+      if (d < bestD) {
+        bestD = d;
+        best = options[i];
+      }
+    }
+    return { x: best.x, y: best.y };
   };
 
   SF.spareShards = function (s) {
@@ -850,6 +889,14 @@ window.SF = SF;
   };
 
   SF.mountIsland("emberhold");
+
+  var debugOn = true;
+  try {
+    debugOn = typeof location === "undefined" || !location || /(?:^|[?&])debug=1(?:&|$)/.test(location.search || "");
+  } catch (err) {
+    debugOn = true;
+  }
+  if (!debugOn) return;
 
   SF.debug = {
     goTile: function (tx, ty) {

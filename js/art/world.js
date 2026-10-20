@@ -7,12 +7,12 @@
   var plot = Art.plot;
   var fill = Art.fill;
 
-  function prop(id, maker, scale, field) {
+  function prop(id, maker, scale) {
     Art.add(id, function () {
       var s = maker();
       Art.outline(s);
       return s;
-    }, scale == null ? 2 : scale, field == null ? 1 : field);
+    }, scale == null ? 2 : scale, 1);
   }
 
   function tile(name, maker) {
@@ -157,21 +157,21 @@
   }, 2, 2);
 
   function house(wall, wallD, roof, door, win) {
-    var s = Art.spr(64, 108);
-    fill(s, 10, 40, 44, 60, wall);
-    fill(s, 10, 40, 8, 60, wallD);
-    fill(s, 6, 32, 52, 12, roof);
-    fill(s, 14, 22, 36, 12, roof);
-    fill(s, 22, 12, 20, 12, C.woodD);
-    fill(s, 26, 68, 12, 32, door);
-    fill(s, 14, 52, 10, 12, win);
-    fill(s, 40, 52, 10, 12, win);
-    plot(s, 16, 54, C.lite);
-    plot(s, 42, 54, C.lite);
-    fill(s, 48, 18, 4, 16, C.stoneD);
-    plot(s, 49, 14, C.ash);
-    s.ax = 32;
-    s.ay = 100;
+    var s = Art.spr(72, 140);
+    fill(s, 8, 52, 56, 80, wall);
+    fill(s, 8, 52, 10, 80, wallD);
+    fill(s, 4, 40, 64, 16, roof);
+    fill(s, 14, 26, 44, 16, roof);
+    fill(s, 24, 12, 24, 16, C.woodD);
+    fill(s, 28, 88, 16, 44, door);
+    fill(s, 14, 64, 14, 16, win);
+    fill(s, 44, 64, 14, 16, win);
+    plot(s, 18, 68, C.lite);
+    plot(s, 48, 68, C.lite);
+    fill(s, 52, 16, 5, 22, C.stoneD);
+    plot(s, 54, 12, C.ash);
+    s.ax = 36;
+    s.ay = 132;
     return s;
   }
   function greatLamp(lit) {
@@ -451,21 +451,37 @@
     }
   }
 
-  function noiseTile(name, a, b, c, d, accent) {
+  function cellTile(name, pal) {
     tile(name, function () {
       var s = Art.spr(16, 16);
-      var y, x, n, h;
+      var y, x, block;
       for (y = 0; y < 16; y++) {
         for (x = 0; x < 16; x++) {
-          h = (x * 13 + y * 7 + (x * y) % 5) % 7;
-          n = h < 2 ? a : (h < 4 ? b : (h < 6 ? c : d));
-          plot(s, x, y, n);
+          block = ((x >> 3) + (y >> 3)) & 1;
+          plot(s, x, y, block ? pal.a : pal.b);
         }
       }
-      if (accent) {
-        plot(s, 3, 5, accent);
-        plot(s, 11, 12, accent);
-        plot(s, 8, 2, a);
+      for (x = 0; x < 16; x++) {
+        plot(s, x, 0, pal.grout);
+        plot(s, x, 15, pal.grout);
+        plot(s, x, 8, pal.grout);
+      }
+      for (y = 0; y < 16; y++) {
+        plot(s, 0, y, pal.grout);
+        plot(s, 15, y, pal.grout);
+        plot(s, 8, y, pal.grout);
+      }
+      if (pal.tuft) {
+        plot(s, 3, 3, pal.tuft);
+        plot(s, 4, 3, pal.hi || pal.tuft);
+        plot(s, 3, 4, pal.hi || pal.a);
+        plot(s, 11, 11, pal.tuft);
+        plot(s, 12, 10, pal.hi || pal.tuft);
+      }
+      if (pal.speck) {
+        plot(s, 5, 12, pal.speck);
+        plot(s, 12, 4, pal.speck);
+        plot(s, 6, 6, pal.speck);
       }
       s.ax = 8;
       s.ay = 8;
@@ -473,27 +489,29 @@
     });
   }
 
-  noiseTile("grass", C.grass, C.grassD, C.grassL, C.grassX, C.leafL);
-  noiseTile("grass_light", C.grassL, C.grass, C.leafL, C.grassD, C.warm);
-  noiseTile("grass_dark", C.grassD, C.grassX, C.grass, C.leafD, C.grassX);
-  noiseTile("cliff", C.cliff, C.cliffD, C.cliffL, C.cliffX, C.cliffL);
-  noiseTile("shore", C.tide, C.leaf, C.tideL, C.tideD, C.foam);
-  noiseTile("shore_light", C.tideL, C.foam, C.grassL, C.tide, C.lite);
-  noiseTile("gold", C.goldD, C.sand, C.warm, C.wood, C.gold);
-  noiseTile("gold_light", C.warm, C.gold, C.sand, C.goldD, C.lite);
-  noiseTile("ash", C.ash, C.ashD, C.rock, C.ashL, C.ember);
-  noiseTile("ash_light", C.ashL, C.ash, C.sand, C.ember, C.emberH);
-  noiseTile("stone", C.stone, C.stoneD, C.stoneL, C.armorD, C.stoneL);
-  noiseTile("stone_light", C.stoneL, C.stone, C.paper, C.stoneD, C.warm);
-  noiseTile("vault", C.rock, C.ashD, C.cliffX, C.void, C.ember);
-  noiseTile("path", C.path, C.pathD, C.pathL, C.wood, C.pathL);
-  noiseTile("cobble", C.stone, C.ash, C.stoneD, C.tideD, C.stoneL);
-  noiseTile("plank", C.wood, C.woodD, C.woodL, C.woodD, C.woodL);
-  noiseTile("dock", C.tide, C.wood, C.tideD, C.woodD, C.foam);
-  noiseTile("pier", C.woodL, C.wood, C.tide, C.woodD, C.foam);
-  noiseTile("sand", C.sand, C.gold, C.warm, C.goldD, C.foam);
-  noiseTile("hold", C.woodD, C.rock, C.ashD, C.void, C.bone);
-  noiseTile("wood", C.woodL, C.wood, C.woodD, C.goldD, C.woodL);
+  cellTile("grass", { a: C.grass, b: C.grassD, grout: C.grassX, tuft: C.leafL, hi: C.grassL });
+  cellTile("grass_light", { a: C.grassL, b: C.grass, grout: C.grassD, tuft: C.leafL, hi: C.warm });
+  cellTile("grass_dark", { a: C.grassD, b: C.grassX, grout: C.leafD, tuft: C.grass, hi: C.leaf });
+  cellTile("cliff", { a: C.cliff, b: C.cliffD, grout: C.cliffX, speck: C.cliffL });
+  cellTile("shore", { a: C.tide, b: C.tideD, grout: C.leafD, tuft: C.foam, hi: C.tideL });
+  cellTile("shore_light", { a: C.tideL, b: C.foam, grout: C.tide, tuft: C.grassL, hi: C.lite });
+  cellTile("gold", { a: C.goldD, b: C.sand, grout: C.wood, speck: C.gold, tuft: C.warm });
+  cellTile("gold_light", { a: C.warm, b: C.gold, grout: C.goldD, speck: C.lite });
+  cellTile("ash", { a: C.ash, b: C.ashD, grout: C.rock, speck: C.ember, tuft: C.ashL, hi: C.emberH });
+  cellTile("ash_light", { a: C.ashL, b: C.ash, grout: C.rock, speck: C.emberH, tuft: C.sand });
+  cellTile("ash_rock", { a: C.rock, b: C.stoneD, grout: C.ash, speck: C.ember, tuft: C.stone });
+  cellTile("ash_ember", { a: C.ashD, b: C.cliffX, grout: C.rock, speck: C.emberH, tuft: C.ember, hi: C.warm });
+  cellTile("stone", { a: C.stone, b: C.stoneD, grout: C.armorD, speck: C.stoneL });
+  cellTile("stone_light", { a: C.stoneL, b: C.stone, grout: C.stoneD, speck: C.warm });
+  cellTile("vault", { a: C.rock, b: C.ashD, grout: C.void, speck: C.ember, tuft: C.cliffX });
+  cellTile("path", { a: C.path, b: C.pathD, grout: C.wood, speck: C.pathL, tuft: C.pathL });
+  cellTile("cobble", { a: C.stone, b: C.ash, grout: C.stoneD, speck: C.tideD, tuft: C.stoneL });
+  cellTile("plank", { a: C.wood, b: C.woodD, grout: C.woodL, speck: C.woodD });
+  cellTile("dock", { a: C.tide, b: C.wood, grout: C.tideD, speck: C.woodD, tuft: C.foam });
+  cellTile("pier", { a: C.woodL, b: C.wood, grout: C.tide, speck: C.woodD, tuft: C.foam });
+  cellTile("sand", { a: C.sand, b: C.gold, grout: C.warm, speck: C.goldD, tuft: C.foam });
+  cellTile("hold", { a: C.woodD, b: C.rock, grout: C.ashD, speck: C.void, tuft: C.bone });
+  cellTile("wood", { a: C.woodL, b: C.wood, grout: C.woodD, speck: C.goldD });
 
   Art.pattern = function (name) {
     if (!Art._patterns) Art._patterns = {};

@@ -308,8 +308,11 @@ SF.presentCoach = function (line) {
     .replace(/\s*,?\s*or press WASD/gi, "")
     .replace(/\s*,?\s*or WASD/gi, "")
     .replace(/\s*,?\s*or E\b/gi, "")
+    .replace(/\s*[—-]\s*Shift or K\.?/gi, "")
+    .replace(/\s*Shift or K\.?/gi, "")
     .replace(/\s*,?\s*or K\b/gi, "")
     .replace(/\s{2,}/g, " ")
+    .replace(/\s+\./g, ".")
     .trim();
 };
 
@@ -470,18 +473,24 @@ SF.syncUI = function () {
     placeEl.hidden = true;
   }
 
+  var fieldChrome = s.mode !== "title" && s.mode !== "battle" && s.mode !== "results";
   var toast = document.getElementById("toast");
-  if (s.toast && s.mode !== "title") {
+  if (s.toast && fieldChrome) {
     toast.hidden = false;
     setText("toast", s.toast.text);
   } else toast.hidden = true;
 
   var banner = document.getElementById("banner");
-  if (s.banner && s.mode !== "title" && s.mode !== "pause") {
+  if (s.banner && fieldChrome && s.mode !== "pause") {
     banner.hidden = false;
     setText("banner-title", s.banner.title);
     setText("banner-sub", s.banner.sub || "");
   } else banner.hidden = true;
+
+  var endcard = document.getElementById("endcard");
+  if (endcard && !(s.dialogue && s.dialogue.id === "cinderveil.act1.finale" && s.mode === "dialogue")) {
+    endcard.hidden = true;
+  }
 
   var hurtA = 0;
   if (s.mode === "play" && pstat.hurt > 0 && !SF.calm()) hurtA = Math.min(0.2, (pstat.hurt / 0.28) * 0.2);

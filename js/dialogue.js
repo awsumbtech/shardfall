@@ -730,10 +730,8 @@ SF.paintDialogue = function () {
     SF._portraitKey = portraitKey;
     drawPortrait(portrait, portraitKey);
   }
-  if ((d.id === "cinderveil.act1.finale") && !d.bannered && SF.pushBanner) {
-    d.bannered = true;
-    SF.pushBanner("End of Act 1", "Ahead lies Highspire, and the last of the Lanternwrights.", 14);
-  }
+  var endcard = document.getElementById("endcard");
+  if (endcard) endcard.hidden = d.id !== "cinderveil.act1.finale";
 };
 
 if (SF._dialogueUi) {

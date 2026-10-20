@@ -207,20 +207,13 @@ SF.buildCloudSheet = function () {
   sheet.height = Math.max(1, Math.ceil(worldH * ppm));
   var g = sheet.getContext("2d");
   g.setTransform(ppm, 0, 0, ppm, -minX * ppm, -minY * ppm);
-  g.imageSmoothingEnabled = false;
-  var stamps = (window.Art && Art.clouds) ? Art.clouds() : null;
+  g.imageSmoothingEnabled = true;
   for (i = 0; i < clouds.length; i++) {
     c = clouds[i];
-    if (stamps) {
-      var stamp = stamps[i % stamps.length];
-      var dw = Math.max(stamp.width * 3, Math.round(c.s * 1.4));
-      var dh = Math.round(dw * (stamp.height / stamp.width));
-      g.drawImage(stamp, Math.round(c.x - dw / 2), Math.round(c.y - dh / 2), dw, dh);
-    } else {
-      g.globalAlpha = 0.55;
-      g.drawImage(SF.blobs[c.kind] || SF.blobs.cloud, c.x - c.s, c.y - c.s * 0.45, c.s * 2, c.s);
-    }
+    g.globalAlpha = 0.78;
+    g.drawImage(SF.blobs[c.kind] || SF.blobs.cloud, c.x - c.s, c.y - c.s * 0.42, c.s * 2, c.s * 0.9);
   }
+  g.globalAlpha = 1;
   SF._cloudSheet = sheet;
   SF._cloudBox = { minX: minX, minY: minY };
   SF._cloudPpm = ppm;
@@ -283,10 +276,10 @@ SF.landTiles = function (name, lit) {
     cinder: ["gold", "gold_light"],
     span: ["stone", "stone_light"],
     quay: ["cobble", "stone_light"],
-    ash: ["ash", "ash_light"],
-    vault: ["vault", "ash"],
-    scar: ["gold", "gold_light"],
-    ridge: ["stone", "stone_light"],
+    ash: ["ash", "ash_rock"],
+    vault: ["vault", "ash_ember"],
+    scar: ["gold", "path"],
+    ridge: ["ash_ember", "ash_rock"],
     salt: ["dock", "pier"],
     shore: ["sand", "gold_light"],
     wreck: ["hold", "vault"],
@@ -344,6 +337,13 @@ SF.drawLands = function (ctx, s) {
     cliff(name);
     var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
     top(name, tiles[0], tiles[1]);
+    ctx.save();
+    SF.traceGroup(ctx, SF.groups[name], 0);
+    var edge = (SF.LANDS[name] && SF.LANDS[name].lo) || "#2a4030";
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
   });
 
   var hollow = SF.circle("hollow");
@@ -1200,18 +1200,30 @@ SF.drawPickup = function (ctx, item, hiddenIcon) {
   }
 };
 
+SF.revealAmt = function (s) {
+  if (!s || !s.revealPan || !s.revealPan.dur) return 0;
+  var u = s.revealPan.t / s.revealPan.dur;
+  if (u < 0.22 || u > 0.78) return 0;
+  if (u < 0.4) return (u - 0.22) / 0.18;
+  if (u > 0.62) return Math.max(0, (0.78 - u) / 0.16);
+  return 1;
+};
+
 SF.drawLampCrystal = function (ctx, lit) {
   var x = SF.LAMP.x;
   var y = SF.LAMP.y;
+  var flare = SF.revealAmt(SF.state);
+  var showLit = lit || flare > 0.35;
   if (window.Art && Art.sprite) {
-    if (lit && SF.blobs) {
+    if ((showLit || flare > 0) && SF.blobs) {
       ctx.save();
-      ctx.globalAlpha = 0.85;
-      ctx.drawImage(SF.blobs.gold, x - 46, y - 62, 92, 92);
+      ctx.globalAlpha = showLit ? 0.85 : 0.35 + flare * 0.5;
+      var bloom = showLit ? 92 : 64 + flare * 40;
+      ctx.drawImage(SF.blobs.gold, x - bloom / 2, y - bloom * 0.67, bloom, bloom);
       ctx.restore();
     }
-    var lampId = lit ? "great_lamp_lit" : "great_lamp";
-    if (!Art._makers[lampId]) lampId = lit ? "lamp_lit" : "lamp_cold";
+    var lampId = showLit ? "great_lamp_lit" : "great_lamp";
+    if (!Art._makers[lampId]) lampId = showLit ? "lamp_lit" : "lamp_cold";
     Art.sprite(ctx, lampId, x, y + 10, { scale: Art.fieldScale(lampId) });
     if (!lit && SF.state && SF.state.shardsHeld >= SF.QUEST_SHARDS && SF.state.quest === "gather") {
       var calmReady = SF.calm && SF.calm();
@@ -1409,6 +1421,14 @@ SF.entityList = function (s) {
       ctx.stroke();
       ctx.restore();
       SF.drawWayfarer(ctx, p.x, p.y + sink, p.fx, p.fy, alpha, p.shardstep);
+      var palm = SF.revealAmt ? SF.revealAmt(s) : 0;
+      if (palm > 0 && SF.blobs) {
+        ctx.save();
+        ctx.globalAlpha = 0.35 + palm * 0.6;
+        ctx.drawImage(SF.blobs.cyan, p.x - 16, p.y - 30, 34, 34);
+        ctx.drawImage(SF.blobs.gold, p.x - 8, p.y - 24, 26, 26);
+        ctx.restore();
+      }
       if (p.swinging) {
         var ang = Math.atan2(p.fy, p.fx);
         ctx.save();

@@ -11,6 +11,14 @@ Dash crosses the broken span. Shardstep crosses a wider gap on the way back. The
 Ilsa stands where you can walk. The Cinder Maw is still there to see, and it still cannot be fled.
 A night at an inn fills your heart and saves the journey.
 An older save wakes in a safe place on the new island. If you had already met Maren, you can sense shards.
+The game can be installed from the field menu: More, then Install. An installed copy opens full screen and keeps working with the network off. A newer version replaces the old one the next time you open it.
+
+## v0.3.4 — Install the game
+
+Shardfall can be installed, like an app, from the field menu: More, then Install.
+On a phone it also installs from the browser menu. On a computer, use the install icon in the address bar.
+Once installed it opens full screen, sideways, and it keeps working with the network off.
+A newer version replaces the old one the next time you open it.
 
 ## v0.3.1 — Room to read
 

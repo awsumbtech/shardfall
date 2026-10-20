@@ -34,6 +34,24 @@ html, body {
   font-family: var(--sans);
 }
 
+html.sf-installed,
+html.sf-installed body,
+html.sf-installed #app {
+  background: #140c28;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+}
+
+@media (display-mode: fullscreen), (display-mode: standalone) {
+  html, body, #app {
+    background: #140c28;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+  }
+}
+
 [hidden] { display: none !important; }
 
 button, .scroll { -webkit-user-select: none; user-select: none; }
@@ -67,6 +85,32 @@ button:focus-visible {
   height: 100%;
   display: block;
   touch-action: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+#chrome {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 640px;
+  height: 360px;
+  zoom: var(--sf-scale, 1);
+  pointer-events: none;
+}
+
+#chrome button,
+#chrome input,
+#chrome #dialogue,
+#chrome #pause,
+#chrome #title,
+#chrome #settings,
+#chrome #modal,
+#chrome #controls,
+#chrome #mapwrap,
+#chrome #corner,
+#chrome #endcard {
+  pointer-events: auto;
 }
 
 #hurt {
@@ -81,7 +125,7 @@ button:focus-visible {
 #hud {
   position: absolute;
   z-index: 3;
-  top: calc(6px + env(safe-area-inset-top));
+  top: calc(26px + env(safe-area-inset-top));
   left: calc(8px + env(safe-area-inset-left));
   right: calc(108px + env(safe-area-inset-right));
   max-width: 420px;
@@ -187,18 +231,20 @@ body[data-calm="1"] #coach { transition: none; }
 #place-banner {
   position: absolute;
   z-index: 6;
-  left: 50%;
-  top: calc(128px + env(safe-area-inset-top));
-  transform: translateX(-50%);
-  max-width: calc(100% - 120px);
-  padding: 0 8px;
-  font-size: 16px;
+  left: 0;
+  right: 0;
+  top: 0;
+  transform: none;
+  max-width: none;
+  padding: 4px 8px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   text-align: center;
   color: var(--gold);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.75);
+  background: rgba(8, 6, 20, 0.62);
+  text-shadow: 0 1px 0 #07102a;
   pointer-events: none;
   opacity: 0;
 }
@@ -241,7 +287,7 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
 #corner {
   position: absolute;
   z-index: 5;
-  top: calc(8px + env(safe-area-inset-top));
+  top: calc(26px + env(safe-area-inset-top));
   right: calc(8px + env(safe-area-inset-right));
   display: flex;
   gap: 6px;
@@ -725,7 +771,7 @@ h1 {
 .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 
 #title .actions button, #pause .card button, #modal .card button, #settings .card button {
-  min-height: 48px;
+  min-height: 44px;
   border-radius: 2px;
   padding: 10px 14px;
   background: linear-gradient(180deg, #2458a8, #0e2868);
@@ -755,10 +801,22 @@ button.ghost {
 #pause, #modal, #settings {
   z-index: 9;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  overflow: hidden;
+  padding: 8px;
   background: rgba(8, 6, 20, 0.5);
+}
+
+#pause .card {
+  min-height: 0;
+  max-height: 100%;
+  width: min(360px, 100%);
+}
+
+#pause .card h2 {
+  font-size: 22px;
+  margin: 0 0 4px;
 }
 
 #settings {
@@ -885,6 +943,10 @@ body[data-mode="notice"] #controls,
 body[data-mode="notice"] #corner,
 body[data-mode="notice"] #prompt,
 body[data-mode="battle"] #controls,
+body[data-mode="battle"] #toast,
+body[data-mode="battle"] #banner,
+body[data-mode="results"] #toast,
+body[data-mode="results"] #banner,
 body[data-mode="battle"] #hud,
 body[data-mode="battle"] #corner,
 body[data-mode="battle"] #mapwrap,
@@ -923,7 +985,7 @@ body[data-modal="1"] #corner {
 
 #field-card h2 { color: #f0d878; font-size: 20px; margin: 0 0 2px; }
 #field-gold, #field-note { font-size: 14px; margin: 0 0 4px; }
-#field-note { color: #ffd37a; }
+#field-note { color: #ffd37a; white-space: pre-wrap; line-height: 1.35; }
 #field-note:empty { display: none; }
 #field-body { display: flex; flex-direction: column; gap: 4px; }
 .field-face {
@@ -981,7 +1043,7 @@ body[data-modal="1"] #corner {
   #title .actions button { width: auto; flex: 1 1 140px; }
   #hud { right: calc(108px + env(safe-area-inset-right)); }
   #questline { -webkit-line-clamp: 1; }
-  #place-banner { top: 42%; max-width: 42%; }
+  #place-banner { top: 0; max-width: none; }
   #mapwrap {
     width: 84px;
     height: 84px;
@@ -1169,6 +1231,42 @@ body[data-portrait="1"] #rotate { display: flex; }
   text-shadow: 0 0 8px rgba(154, 246, 255, 0.85);
 }
 
+#endcard {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(8, 6, 20, 0.45);
+}
+
+.endcard-panel {
+  width: min(420px, calc(100% - 48px));
+  padding: 18px 20px 16px;
+  text-align: center;
+  background:
+    linear-gradient(#1e4c98, #1e4c98) 6px 6px / calc(100% - 12px) 8px no-repeat,
+    linear-gradient(180deg, #1a4a98 0%, #12367e 22%, #0c2268 100%);
+  border: 2px solid #f4f0e4;
+  box-shadow: inset 0 0 0 2px #07102a, inset 0 0 0 3px #8ec8f0, 0 3px 0 #07102a;
+}
+
+.endcard-panel h2 {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: 28px;
+  color: var(--gold);
+}
+
+.endcard-panel p {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
 @media (max-height: 430px) {
   #hud { max-width: 280px; }
   .panel { padding: 3px 6px 4px; }
@@ -1177,6 +1275,6 @@ body[data-portrait="1"] #rotate { display: flex; }
   #dlg-portrait { width: 36px; height: 36px; }
   #who, #line { font-size: 14px; }
   #line { max-height: 18vh; }
-  #dlg-choices button { min-height: 32px; padding: 4px 8px; font-size: 13px; }
+  #dlg-choices button { min-height: 44px; padding: 6px 10px; font-size: 14px; }
   #mapwrap { width: 64px; height: 64px; }
 }

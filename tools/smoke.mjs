@@ -313,7 +313,14 @@ for (const node of Object.values(SF.dialogueNodes)) {
   for (const line of node.lines) {
     const text = SF.lineText ? SF.lineText(line) : (typeof line === "string" ? line : line.text);
     if (text === "(Script pending)") continue;
-    if (!scriptNorm.includes(norm(text))) {
+    const shown = norm(text);
+    if (shown.includes("the camera")) {
+      console.error("stage direction on screen", node.id, text);
+      process.exit(1);
+    }
+    const parts = shown.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const covered = scriptNorm.includes(shown) || (parts.length > 1 && parts.every((part) => scriptNorm.includes(part)));
+    if (!covered) {
       console.error("script missing line from", node.id, text);
       process.exit(1);
     }
@@ -1210,5 +1217,88 @@ if (SF.simulateEncounterRate("cottage", 400, 1, { metMaren: true }) !== 0) fail(
 if (SF.simulateEncounterRate("meadow", 400, 2, {}) !== 0) fail("the meadow fought before Maren");
 const scarEarly = SF.simulateEncounterRate("scar", 500, 3, {});
 if (scarEarly < 6 || scarEarly > 28) fail("the Scar was quiet before Maren " + scarEarly);
+
+function pngSize(file) {
+  const buf = fs.readFileSync(file);
+  if (buf[0] !== 0x89 || buf.toString("ascii", 1, 4) !== "PNG") return null;
+  return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+}
+
+const manifest = JSON.parse(fs.readFileSync("manifest.webmanifest", "utf8"));
+if (manifest.name !== "Shardfall" || manifest.short_name !== "Shardfall") fail("manifest name");
+if (manifest.start_url !== "./" || manifest.scope !== "./" || manifest.id !== "/shardfall/") fail("manifest scope");
+if (manifest.display !== "fullscreen") fail("manifest display");
+if (!manifest.display_override || manifest.display_override[0] !== "fullscreen" || manifest.display_override[1] !== "standalone") {
+  fail("manifest display_override");
+}
+if (manifest.orientation !== "any") fail("manifest orientation");
+if (manifest.background_color !== "#140c28" || manifest.theme_color !== "#140c28") fail("manifest colors");
+const iconSizes = {};
+for (const icon of manifest.icons) {
+  const size = pngSize(icon.src);
+  const expected = icon.sizes.split("x").map(Number);
+  if (!size || size.w !== expected[0] || size.h !== expected[1]) fail("icon size " + icon.src);
+  iconSizes[icon.purpose + ":" + icon.sizes] = true;
+}
+if (!iconSizes["any:192x192"] || !iconSizes["any:512x512"] || !iconSizes["maskable:512x512"]) fail("manifest icons");
+const apple = pngSize("icons/apple-touch-icon.png");
+if (!apple || apple.w !== 180 || apple.h !== 180) fail("apple touch icon");
+
+const html = fs.readFileSync("index.html", "utf8");
+if (!html.includes('rel="manifest" href="manifest.webmanifest"')) fail("manifest link");
+if (!html.includes('rel="apple-touch-icon" href="icons/apple-touch-icon.png"')) fail("apple touch link");
+if (!html.includes('src="js/pwa.js"')) fail("pwa script");
+const sw = fs.readFileSync("sw.js", "utf8");
+if (!sw.includes('CACHE = "shardfall-v0.4"')) fail("cache version");
+if (!sw.includes("skipWaiting")) fail("skipWaiting");
+if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
+const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
+for (const href of refs.concat(manifest.icons.map((icon) => icon.src))) {
+  if (!fs.existsSync(href)) fail("missing asset " + href);
+  if (!sw.includes('"' + href + '"')) fail("not precached " + href);
+}
+if (!sw.includes('"js/pwa.js"')) fail("pwa.js not precached");
+if (!sw.includes('"js/content/maps/v2layout.js"')) fail("v2layout not precached");
+
+SF.mountIsland("emberhold");
+const spare = SF.fresh();
+spare.flags.lampLit = true;
+spare.flags.cinderLit = false;
+spare.quest = "stirring";
+spare.shardsHeld = 1;
+spare.player.x = SF.WAKE.x;
+spare.player.y = SF.WAKE.y;
+SF.state = spare;
+if (SF.handMeter(spare) !== "✦ 1 spare") fail("spare meter " + SF.handMeter(spare));
+if (SF.lampReserve(spare) !== 0) fail("spare reserve " + SF.lampReserve(spare));
+
+const gather = SF.fresh();
+gather.mode = "play";
+gather.quest = "gather";
+gather.flags.shard_sense = true;
+gather.flags.lampLit = false;
+gather.flags.carriers = {};
+gather.shardsHeld = 2;
+gather.player.grapple = false;
+gather.player.shardstep = false;
+gather.player.x = 84 * 16;
+gather.player.y = 48 * 16;
+gather.picked["shard-meadow"] = true;
+gather.picked["shard-grove"] = true;
+SF.state = gather;
+SF.mountIsland("emberhold");
+const aim = SF.objectivePoint(gather);
+const hook = SF.PICKUPS.find((p) => p.id === "shard-hook");
+const step = SF.PICKUPS.find((p) => p.id === "shard-step");
+if (!aim) fail("gather aim missing");
+if (hook && Math.hypot(aim.x - hook.x, aim.y - hook.y) < 8) fail("aim pointed at shard-hook");
+if (step && Math.hypot(aim.x - step.x, aim.y - step.y) < 8) fail("aim pointed at shard-step");
+const scar = SF.circle("scar");
+const cinderZone = SF.circle("cinder");
+const onCarrier = (scar && Math.hypot(aim.x - scar.x, aim.y - scar.y) < 8) || (cinderZone && Math.hypot(aim.x - cinderZone.x, aim.y - cinderZone.y) < 8);
+if (!onCarrier) fail("gather aim was not a carrier zone " + aim.x + "," + aim.y);
+if (SF.shardReachable(hook)) fail("shard-hook reachable before grapple");
+gather.player.grapple = true;
+if (!SF.shardReachable(hook)) fail("shard-hook stayed shut after grapple");
 
 console.log("smoke ok");

@@ -230,10 +230,8 @@ Art.addPortrait = function (id, maker) {
   Art._portraits[id] = maker;
 };
 
-Art.fieldScale = function (id) {
-  if (Art._fieldScale[id] != null) return Art._fieldScale[id];
-  if (Art._scale[id] != null) return Art._scale[id];
-  return 2;
+Art.fieldScale = function () {
+  return 1;
 };
 
 Art.defaultScale = function (id) {

@@ -9,14 +9,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="Shardfall — a personal, ad-free shard-tale. Wake on Emberhold, sail the Hush, and relight the lamps.">
   <title>Shardfall</title>
+  <meta name="apple-mobile-web-app-title" content="Shardfall">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icons/icon.svg">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body data-mode="title" data-modal="0">
   <div id="app">
     <canvas id="view" aria-hidden="true"></canvas>
+    <div id="chrome">
     <div id="hurt" aria-hidden="true"></div>
 
     <div id="hud">
@@ -47,6 +50,12 @@
     <div id="banner" hidden>
       <div id="banner-title"></div>
       <div id="banner-sub"></div>
+    </div>
+    <div id="endcard" hidden>
+      <div class="endcard-panel">
+        <h2>End of Act 1</h2>
+        <p>Ahead lies Highspire, and the last of the Lanternwrights.</p>
+      </div>
     </div>
 
     <div id="controls">
@@ -150,7 +159,7 @@
           <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
         </div>
-        <p class="legend">Stick on the left. Fight, dash, hook, and talk on the right.<span class="kb-hint"><br>Keys: WASD · K dash · G hook · E talk · Esc menu · M mute</span></p>
+        <p class="legend">Stick on the left. Dash, hook, and talk on the right.<span class="kb-hint"><br>Keys: WASD · K dash · G hook · E talk · Esc menu · M mute</span></p>
       </div>
     </div>
 
@@ -204,6 +213,7 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 
   <script src="js/data.js"></script>
@@ -246,6 +256,7 @@
   <script src="js/input.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/menu/field.js"></script>
+  <script src="js/pwa.js"></script>
   <script src="js/world.js"></script>
   <script src="js/main.js"></script>
 </body>

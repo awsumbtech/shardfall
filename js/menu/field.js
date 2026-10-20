@@ -117,6 +117,7 @@ function buildMore(s) {
   return [
     { id: "settings", label: "Settings" },
     { id: "news", label: "What's new in v" + (SF.VERSION || "0.3") },
+    { id: "install", label: "Install" },
     { id: "load", label: "Load", ghost: true },
     { id: "hand", label: "The hand", ghost: true },
     { id: "calm", label: "Reduce flashing: " + (SF.reduceFlash ? "On" : "Off"), ghost: true },
@@ -312,6 +313,13 @@ function onRoot(id) {
   }
   if (id === "news") {
     if (SF.openNews) SF.openNews();
+    return;
+  }
+  if (id === "install") {
+    if (SF.promptInstall) SF.promptInstall();
+    else SF.fieldNote = "Android Chrome: menu > Install app / Add to home screen.\niOS Safari: Share > Add to Home Screen.\nDesktop Chrome/Edge: install icon in the address bar.";
+    SF._fieldSig = "";
+    paint(s);
     return;
   }
   if (id === "settings") {

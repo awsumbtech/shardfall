@@ -12,6 +12,8 @@ Play on a computer, in a wide window. The picture is 640×360 and scales by whol
 
 Fights are random encounters. There is no Fight button. Shards stay hidden until Maren shows you the lamp.
 
+Install it from the field menu (More, then Install), or from the browser's install icon. An installed copy opens full screen and plays offline.
+
 ## v0.2 — Act 1: The Cinder Road
 
 The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.

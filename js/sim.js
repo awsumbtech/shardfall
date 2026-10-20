@@ -557,24 +557,19 @@ SF.objectivePoint = function (s) {
     var bestD = Infinity;
     SF.activePickups().forEach(function (item) {
       if (item.kind !== "shard") return;
-      if (item.secret && !SF.secretVisible(item)) return;
+      if (SF.shardReachable && !SF.shardReachable(item)) return;
+      if (item.secret && SF.secretVisible && !SF.secretVisible(item)) return;
       var d = SF.dist(s.player.x, s.player.y, item.x, item.y);
       if (d < bestD) {
         bestD = d;
         best = item;
       }
     });
-    if (!best) {
-      s.enemies.forEach(function (e) {
-        if (!e.alive || !SF.KINDS[e.kind].drops) return;
-        var d = SF.dist(s.player.x, s.player.y, e.x, e.y);
-        if (d < bestD) {
-          bestD = d;
-          best = e;
-        }
-      });
-    }
     if (best) return { x: best.x, y: best.y };
+    if (SF.carrierAim) {
+      var zone = SF.carrierAim(s);
+      if (zone) return zone;
+    }
     return { x: SF.LAMP.x, y: SF.LAMP.y };
   }
   if (s.quest === "stirring") {
