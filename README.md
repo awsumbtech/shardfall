@@ -6,6 +6,8 @@ A personal, ad-free, non-commercial pseudo open-world RPG for the browser. A cen
 
 The live site updates when the Pages workflow runs on `main`. It does not deploy from a pull request.
 
+Install it from the field menu (More, then Install), or from the browser's install icon. An installed copy opens full screen and plays offline.
+
 ## v0.2 — Act 1: The Cinder Road
 
 The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.
