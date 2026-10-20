@@ -279,10 +279,50 @@ SF.bindUI = function () {
   });
 };
 
+SF.touchPrimary = function () {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  try {
+    if (window.matchMedia("(pointer: coarse)").matches) return true;
+    if (window.matchMedia("(hover: none)").matches) return true;
+  } catch (err) {
+    return false;
+  }
+  return false;
+};
+
+SF.presentCoach = function (line) {
+  if (!line) return "";
+  if (!SF.touchPrimary()) return line;
+  return String(line)
+    .replace(/\s*,?\s*or press WASD/gi, "")
+    .replace(/\s*,?\s*or WASD/gi, "")
+    .replace(/\s*,?\s*or E\b/gi, "")
+    .replace(/\s*,?\s*or K\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+
 SF.interactLabel = function (s) {
   if (!s || s.mode !== "play" || !SF.actionFor) return "Talk";
-  return SF.actionFor(s, SF.nearestInteract()).label;
+  var act = SF.actionFor(s, SF.nearestInteract());
+  if (act && act.name) return act.label + "\n" + act.name;
+  return (act && act.label) || "Talk";
 };
+
+function showPlaceBanner(name) {
+  var el = document.getElementById("place-banner");
+  if (!el) return;
+  el.hidden = false;
+  setText("place-banner", name);
+  el.classList.remove("show");
+  void el.offsetWidth;
+  el.classList.add("show");
+  clearTimeout(SF._placeTimer);
+  SF._placeTimer = setTimeout(function () {
+    el.classList.remove("show");
+    el.hidden = true;
+  }, (SF.calm && SF.calm()) ? 1500 : 2200);
+}
 
 SF.syncUI = function () {
   var s = SF.state;
@@ -370,46 +410,50 @@ SF.syncUI = function () {
   var xpPct = pstat.level >= SF.XP_NEED.length ? 1 : SF.clamp((pstat.xp - prev) / ((next || prev + 1) - prev), 0, 1);
   document.getElementById("xp-fill").style.width = (xpPct * 100).toFixed(1) + "%";
   setText("questline", SF.questText(s));
-  var coach = SF.coachLine ? SF.coachLine(s) : "";
+  var coachRaw = SF.coachLine ? SF.coachLine(s) : "";
+  var coach = SF.presentCoach ? SF.presentCoach(coachRaw) : coachRaw;
   var coachEl = document.getElementById("coach");
   if (!s.hints) s.hints = {};
   if (!s.hints.faded) s.hints.faded = {};
-  if (!coach || s.hints.faded[coach]) {
-    coachEl.hidden = true;
-    coachEl.classList.remove("fading");
-    s._hintText = "";
-  } else {
-    if (s._hintText !== coach) {
-      s._hintText = coach;
-      s._hintAt = SF.anim || 0;
-      coachEl.classList.remove("fading");
-    }
-    var age = (SF.anim || 0) - (s._hintAt || 0);
-    if (age > 3.4) {
-      s.hints.faded[coach] = true;
+  if (coachEl) {
+    if (!coach || s.hints.faded[coach]) {
       coachEl.hidden = true;
       coachEl.classList.remove("fading");
+      s._hintText = "";
     } else {
-      coachEl.hidden = false;
-      setText("coach", coach);
-      var calm = SF.calm && SF.calm();
-      if (!calm && age > 2.4) coachEl.classList.add("fading");
-      else coachEl.classList.remove("fading");
-      if (calm && age > 2.6) {
+      if (s._hintText !== coach) {
+        s._hintText = coach;
+        s._hintAt = SF.anim || 0;
+        coachEl.classList.remove("fading");
+      }
+      var age = (SF.anim || 0) - (s._hintAt || 0);
+      if (age > 2.4) {
         s.hints.faded[coach] = true;
         coachEl.hidden = true;
+        coachEl.classList.remove("fading");
+      } else {
+        coachEl.hidden = false;
+        setText("coach", coach);
+        var calm = SF.calm && SF.calm();
+        if (!calm && age > 1.6) coachEl.classList.add("fading");
+        else coachEl.classList.remove("fading");
+        if (calm && age > 1.7) {
+          s.hints.faded[coach] = true;
+          coachEl.hidden = true;
+        }
       }
     }
   }
-  var prompt = "";
-  if (s.mode === "play" && SF.actionFor) prompt = SF.actionFor(s, SF.nearestInteract()).prompt;
-  var promptEl = document.getElementById("prompt");
-  if (prompt) {
-    promptEl.hidden = false;
-    setText("prompt", prompt);
-  } else promptEl.hidden = true;
-  var zone = SF.zoneAt(pstat.x, pstat.y);
-  setText("place", zone.name || "The Hush");
+  var placeEl = document.getElementById("place-banner");
+  if (s.mode === "play" && SF.zoneAt) {
+    var placeName = SF.zoneAt(pstat.x, pstat.y).name || "The Hush";
+    if (SF._placeName !== placeName) {
+      SF._placeName = placeName;
+      showPlaceBanner(placeName);
+    }
+  } else if (placeEl) {
+    placeEl.hidden = true;
+  }
 
   var toast = document.getElementById("toast");
   if (s.toast && s.mode !== "title") {
@@ -437,7 +481,7 @@ SF.syncUI = function () {
   var talkBtn = document.getElementById("btn-interact");
   var label = SF.interactLabel(s);
   setText("interact-label", label);
-  talkBtn.setAttribute("aria-label", label);
+  talkBtn.setAttribute("aria-label", label.replace(/\n/g, " — "));
   talkBtn.classList.toggle("ready", s.mode === "play" && !!SF.nearestInteract());
   var calmOn = !!SF.reduceFlash;
   ["title-calm", "pause-calm", "set-calm"].forEach(function (id) {

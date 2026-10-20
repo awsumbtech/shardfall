@@ -637,6 +637,7 @@ if (SF.dialogueRouters) SF.dialogueRouters.push(SF.worldNode);
   SF.coachLine = function (s) {
     var line = baseCoach ? baseCoach(s) : "";
     if (SF.islandId !== "emberhold" && line && (line.indexOf("span") !== -1 || line.indexOf("Dash from the lip") !== -1)) return "";
+    if (line && SF.touchPrimary && SF.touchPrimary() && SF.presentCoach) line = SF.presentCoach(line);
     return line;
   };
 

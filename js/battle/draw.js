@@ -111,31 +111,47 @@ function battleFrame(pose) {
 function sourceSize(id, facing) {
   if (window.Art && Art.spriteSize) {
     var sz = Art.spriteSize(id, "idle", facing || "right");
-    if (sz && sz.w && sz.h) return sz;
+    if (sz && sz.w && sz.h) {
+      return {
+        w: sz.w,
+        h: sz.h,
+        ax: sz.ax != null ? sz.ax : sz.w / 2,
+        ay: sz.ay != null ? sz.ay : sz.h - 1
+      };
+    }
   }
-  if (id === "cinder_maw") return { w: 48, h: 36 };
-  if (id === "tidewyrm") return { w: 56, h: 32 };
-  if (id === "wisp" || id === "saltwisp" || id === "ashling" || id === "sootwing") return { w: 16, h: 16 };
-  return { w: 21, h: 26 };
+  if (id === "cinder_maw") return { w: 48, h: 36, ax: 24, ay: 35 };
+  if (id === "tidewyrm") return { w: 56, h: 32, ax: 28, ay: 31 };
+  if (id === "wisp" || id === "saltwisp" || id === "ashling" || id === "sootwing") return { w: 16, h: 16, ax: 8, ay: 15 };
+  return { w: 21, h: 26, ax: 10, ay: 25 };
 }
 
-function battleScale(actor, count, stageW, stageH) {
-  var boss = actor.boss || actor.sprite === "cinder_maw" || actor.sprite === "tidewyrm";
-  var src = sourceSize(actor.sprite, actor.side === "party" ? "left" : "right");
-  var want;
-  if (boss) want = 6;
-  else if (actor.side === "party") want = count === 1 ? 9 : 5.5;
-  else if (src.h < 20) want = count >= 3 ? 8 : 10;
-  else if (src.h >= 30) want = count >= 3 ? 5.5 : 7;
-  else want = count >= 3 ? 6 : 8;
-  var zone = actor.side === "foe"
-    ? (count > 2 ? 0.28 : count > 1 ? 0.38 : 0.5)
-    : (count > 1 ? 0.22 : 0.48);
-  var maxW = stageW * zone / src.w;
-  var maxH = Math.max(80, stageH - 28) / src.h;
-  var scale = Math.min(want, maxW, maxH);
-  if (!(scale > 0)) scale = 2;
-  return Math.round(scale * 2) / 2;
+function isBoss(actor) {
+  return !!(actor && (actor.boss || actor.sprite === "cinder_maw" || actor.sprite === "tidewyrm"));
+}
+
+function targetPixelHeight(actor, count, stageH) {
+  var boss = isBoss(actor);
+  var tall = stageH >= 260;
+  if (boss) return tall ? Math.min(200, Math.round(stageH * 0.62)) : Math.min(160, Math.round(stageH * 0.5));
+  if (actor.side === "party") {
+    var hero = count > 2 ? 110 : count > 1 ? 118 : 124;
+    return tall ? hero : Math.min(hero, Math.round(stageH * 0.42));
+  }
+  var foe = count >= 4 ? 90 : count === 3 ? 100 : count === 2 ? 110 : 116;
+  return tall ? foe : Math.min(foe, Math.round(stageH * 0.38));
+}
+
+function battleScale(actor, count, stageH, slotW, slotH, labelH) {
+  var facing = actor.side === "party" ? "left" : "right";
+  var src = sourceSize(actor.sprite, facing);
+  var target = targetPixelHeight(actor, count, stageH);
+  var scale = target / src.h;
+  var maxH = Math.max(28, (slotH || stageH) - (labelH || 0) - 6);
+  var maxW = Math.max(20, (slotW || 160) - 8);
+  scale = Math.min(scale, maxH / src.h, maxW / src.w);
+  if (!(scale > 0) || !isFinite(scale)) scale = 2;
+  return Math.round(scale * 4) / 4;
 }
 
 function animP(b) {
@@ -165,22 +181,6 @@ function actorNudge(b, actor) {
     dy += calm ? 2 : 4 * swing;
   }
   return { x: Math.round(dx), y: Math.round(dy) };
-}
-
-function commandBox(w, h) {
-  var gap = 8;
-  var btnH = h < 700 ? 48 : 56;
-  var btnW = Math.min(380, w - 16);
-  var x = Math.round((w - btnW) / 2);
-  var block = btnH * 3 + gap * 2;
-  return {
-    x: x,
-    y: h - 10 - block,
-    w: btnW,
-    btnH: btnH,
-    gap: gap,
-    colW: Math.floor((btnW - gap) / 2)
-  };
 }
 
 function drawSprite(ctx, id, x, y, scale, pose, facing) {
@@ -255,20 +255,151 @@ function addHit(id, x, y, w, h) {
   SF.Battle.hits.push({ id: id, x: x, y: y, w: w, h: h });
 }
 
-function button(ctx, x, y, w, h, label, on) {
+function button(ctx, x, y, w, h, label, on, dim) {
+  ctx.save();
+  if (dim) ctx.globalAlpha = 0.55;
   artWindow(ctx, x, y, w, h);
   if (on) {
-    ctx.save();
     ctx.strokeStyle = "#ffd37a";
     ctx.lineWidth = 2;
     ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
-    ctx.restore();
   }
   ctx.fillStyle = "#f4f7ff";
-  ctx.font = "700 18px system-ui, sans-serif";
+  var size = 18;
+  ctx.font = "700 " + size + "px system-ui, sans-serif";
+  while (size > 13 && ctx.measureText(label).width > w - 16) {
+    size -= 1;
+    ctx.font = "700 " + size + "px system-ui, sans-serif";
+  }
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(label, Math.round(x + w / 2), Math.round(y + h / 2));
+  ctx.restore();
+}
+
+function layoutBattle(w, h, phase, nParty) {
+  var land = w > h;
+  var margin = 8;
+  var gap = 6;
+  var stripH = 50;
+  var btnH = 48;
+  var promptH = phase === "target" ? 28 : 0;
+  var cardH = nParty > 1 ? 78 : 84;
+  var logH = 52;
+  var cmdH = btnH * 3 + gap * 2;
+  var strip = { x: margin, y: margin, w: w - margin * 2, h: stripH };
+  var y0 = strip.y + stripH + gap;
+
+  if (phase === "result") {
+    if (land) {
+      var rightW = Math.max(260, Math.min(340, Math.round(w * 0.38)));
+      var stageW = w - rightW - margin * 3;
+      return {
+        land: true,
+        strip: strip,
+        stage: { x: margin, y: y0, w: stageW, h: h - y0 - margin },
+        result: {
+          x: margin + stageW + margin,
+          y: y0,
+          w: rightW,
+          h: h - y0 - margin - btnH - gap,
+          btnH: btnH
+        }
+      };
+    }
+    var pBtn = 48;
+    var stageH = Math.max(120, Math.round(h * 0.34));
+    var panelY = y0 + stageH + gap;
+    return {
+      land: false,
+      strip: strip,
+      stage: { x: 0, y: y0, w: w, h: stageH },
+      result: {
+        x: margin,
+        y: panelY,
+        w: w - margin * 2,
+        h: h - margin - pBtn - gap - panelY,
+        btnH: pBtn
+      }
+    };
+  }
+
+  var submenu = phase === "skills" || phase === "items";
+  if (land) {
+    var colW = Math.max(268, Math.min(360, Math.round(w * 0.4)));
+    var leftW = w - colW - margin * 3;
+    var stage = { x: margin, y: y0, w: leftW, h: h - y0 - margin };
+    var rx = margin + leftW + margin;
+    var rw = colW;
+    var bottom = h - margin;
+    var card = { x: rx, y: y0, w: rw, h: cardH };
+    if (submenu) {
+      var dock = { x: rx, y: card.y + cardH + gap, w: rw, h: bottom - (card.y + cardH + gap) };
+      return { land: true, strip: strip, stage: stage, card: card, dock: dock, log: null, prompt: null, commands: null };
+    }
+    var log = { x: rx, y: card.y + cardH + gap, w: rw, h: logH };
+    var prompt = { x: rx, y: log.y + logH + (promptH ? gap : 0), w: rw, h: promptH };
+    var cmdY = (promptH ? prompt.y + promptH : log.y + logH) + gap;
+    var commands = { x: rx, y: cmdY, w: rw, h: cmdH, btnH: btnH, gap: gap };
+    if (commands.y + cmdH > bottom) {
+      var overflow = commands.y + cmdH - bottom;
+      var take = Math.min(overflow, Math.max(0, log.h - 36));
+      log.h -= take;
+      prompt.y -= take;
+      commands.y -= take;
+      overflow -= take;
+      if (overflow > 0) {
+        var takeCard = Math.min(overflow, Math.max(0, card.h - 68));
+        card.h -= takeCard;
+        log.y -= takeCard;
+        prompt.y -= takeCard;
+        commands.y -= takeCard;
+      }
+      commands.y = Math.min(commands.y, bottom - cmdH);
+    }
+    return { land: true, strip: strip, stage: stage, card: card, log: log, prompt: prompt, commands: commands, dock: null };
+  }
+
+  var commandsP = { x: margin, y: h - margin - cmdH, w: w - margin * 2, h: cmdH, btnH: btnH, gap: gap };
+  if (submenu) {
+    var dockH = Math.min(Math.round(h * 0.46), Math.max(cmdH + 8, 200));
+    var dockP = { x: margin, y: h - margin - dockH, w: w - margin * 2, h: dockH };
+    var cardP = { x: margin, y: dockP.y - gap - cardH, w: w - margin * 2, h: cardH };
+    var stageP = { x: 0, y: y0, w: w, h: cardP.y - gap - y0 };
+    if (stageP.h < 130) {
+      var need = 130 - stageP.h;
+      var shrink = Math.min(need, dockP.h - 150);
+      if (shrink > 0) {
+        dockP.h -= shrink;
+        dockP.y += shrink;
+        cardP.y += shrink;
+        stageP.h += shrink;
+      }
+    }
+    return { land: false, strip: strip, stage: stageP, card: cardP, dock: dockP, log: null, prompt: null, commands: null };
+  }
+  var promptP = { x: margin, y: commandsP.y - (promptH ? promptH + gap : 0), w: w - margin * 2, h: promptH };
+  var above = promptH ? promptP.y : commandsP.y;
+  var logP = { x: margin, y: above - gap - logH, w: w - margin * 2, h: logH };
+  var cardPo = { x: margin, y: logP.y - gap - cardH, w: w - margin * 2, h: cardH };
+  var stagePo = { x: 0, y: y0, w: w, h: cardPo.y - gap - y0 };
+  if (stagePo.h < 150) {
+    var short = 150 - stagePo.h;
+    var fromLog = Math.min(short, Math.max(0, logP.h - 36));
+    logP.h -= fromLog;
+    logP.y += fromLog;
+    cardPo.y += fromLog;
+    stagePo.h += fromLog;
+    short -= fromLog;
+    if (short > 0) {
+      var fromCard = Math.min(short, Math.max(0, cardPo.h - 70));
+      cardPo.h -= fromCard;
+      cardPo.y += fromCard;
+      logP.y += fromCard;
+      stagePo.h += fromCard;
+    }
+  }
+  return { land: false, strip: strip, stage: stagePo, card: cardPo, log: logP, prompt: promptP, commands: commandsP, dock: null };
 }
 
 SF.drawBattle = function (ctx, w, h, dpr) {
@@ -280,155 +411,260 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   ctx.imageSmoothingEnabled = false;
   SF.Battle.hits = [];
   paintBg(ctx, b.bg, w, h, b.t || 0);
-  var top = 6;
-  var stripH = 54;
-  drawStrip(ctx, b, 8, top, w - 16, stripH);
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
+  var lay = layoutBattle(w, h, b.phase, party.length);
+  drawStrip(ctx, b, lay.strip.x, lay.strip.y, lay.strip.w, lay.strip.h);
+  drawStage(ctx, b, foes, party, lay.stage);
   if (b.phase === "result") {
-    var stageTopR = top + stripH + 4;
-    var stageBotR = Math.round(h * 0.46);
-    drawStage(ctx, b, foes, party, w, stageTopR, stageBotR);
-    drawResult(ctx, b, w, h, stageBotR + 8);
+    drawResult(ctx, b, lay.result);
     return;
   }
-  var submenu = b.phase === "skills" || b.phase === "items";
-  var box = commandBox(w, h);
-  var gap = 6;
-  var logH = submenu ? 0 : 68;
-  var cardH = submenu ? 0 : (party.length <= 1 ? 92 : 84);
-  var stageTop = top + stripH + 4;
-  var stageBot = submenu ? Math.min(stageTop + 210, box.y - 8) : (box.y - gap - logH - gap - cardH - 4);
-  if (stageBot < stageTop + 120) stageBot = stageTop + 120;
-  drawStage(ctx, b, foes, party, w, stageTop, stageBot);
-  if (!submenu) {
-    drawPartyCards(ctx, b, party, 8, stageBot + 4, w - 16, cardH);
-    drawLog(ctx, b, 8, stageBot + 4 + cardH + gap, w - 16, logH);
-  }
-  if (b.phase === "menu" || b.phase === "target") drawCommands(ctx, b, w, h);
-  if (b.phase === "skills") drawSkillList(ctx, b, w, h, stageBot + 8);
-  if (b.phase === "items") drawItemList(ctx, b, w, h, stageBot + 8);
+  if (lay.card) drawPartyCards(ctx, b, party, lay.card.x, lay.card.y, lay.card.w, lay.card.h);
+  if (lay.log) drawLog(ctx, b, lay.log.x, lay.log.y, lay.log.w, lay.log.h);
+  if (b.phase === "target" && lay.prompt) drawAimLine(ctx, b, lay.prompt);
+  if ((b.phase === "menu" || b.phase === "target") && lay.commands) drawCommands(ctx, b, lay.commands);
+  if (b.phase === "skills" && lay.dock) drawSkillList(ctx, b, lay.dock);
+  if (b.phase === "items" && lay.dock) drawItemList(ctx, b, lay.dock);
   if (b.phase === "readout") addHit("skip", 0, 0, w, h);
-  if (b.phase === "target") {
-    ctx.fillStyle = "#ffd37a";
-    ctx.font = "700 16px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillText(b.aim === "ally" ? "Tap an ally." : "Tap a foe.", w / 2, box.y - 8);
-  }
 };
+
+function stripLabel(ctx, name, maxW) {
+  var full = name || "";
+  ctx.font = "700 12px system-ui, sans-serif";
+  if (full && ctx.measureText(full).width <= maxW) return full;
+  var first = full.split(" ")[0];
+  if (first && ctx.measureText(first).width <= maxW) return first;
+  var bits = full.split(" ").filter(Boolean);
+  if (bits.length > 1) {
+    var initials = bits.map(function (word) { return word.charAt(0); }).join("");
+    if (initials.length > 1 && ctx.measureText(initials).width <= maxW) return initials;
+  }
+  return "";
+}
 
 function drawStrip(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
   var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
   var n = Math.min(8, order.length || 1);
-  var slot = Math.min(44, Math.floor((w - 16) / n));
-  var face = Math.max(22, Math.min(32, slot - 6));
-  var i, id, actor, ox;
+  var slot = Math.floor((w - 16) / n);
+  var face = Math.max(22, Math.min(28, slot - 8, h - 22));
+  var i, id, actor, ox, label;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   for (i = 0; i < n; i++) {
     id = order[i];
     actor = actorOf(b, id);
     if (!actor) continue;
-    ox = x + 10 + i * slot;
+    ox = x + 8 + i * slot + Math.max(0, (slot - face) / 2);
     if (i === 0) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 2;
-      ctx.strokeRect(ox - 2, y + 5, face + 4, face + 4);
+      ctx.strokeRect(ox - 2, y + 4, face + 4, face + 4);
     }
-    drawPortrait(ctx, actor.sprite, ox, y + 7, face);
+    drawPortrait(ctx, actor.sprite, ox, y + 6, face);
+    label = stripLabel(ctx, actor.name, slot - 4);
+    if (!label) continue;
     ctx.fillStyle = i === 0 ? "#ffd37a" : "#d5def2";
-    ctx.font = "700 10px system-ui, sans-serif";
-    ctx.fillText(actor.name.split(" ")[0].slice(0, 7), ox + face / 2, y + h - 5);
+    ctx.font = "700 12px system-ui, sans-serif";
+    ctx.fillText(label, ox + face / 2, y + h - 4);
   }
 }
 
-function foePlace(i, count, w, stageH) {
-  if (count <= 1) return { x: Math.round(w * 0.26), lift: 0 };
-  if (count === 2) {
-    return i === 0
-      ? { x: Math.round(w * 0.16), lift: Math.round(stageH * 0.34) }
-      : { x: Math.round(w * 0.32), lift: 0 };
+function formationCells(n, zone) {
+  var cols = n <= 1 ? 1 : 2;
+  var rows = Math.ceil(n / cols);
+  var gapX = n > 1 ? 10 : 0;
+  var gapY = rows > 1 ? 8 : 0;
+  var cellW = (zone.w - gapX * (cols - 1)) / cols;
+  var cellH = (zone.h - gapY * (rows - 1)) / rows;
+  var cells = [];
+  var i, row, rowCount, rowW, rowX, col;
+  for (i = 0; i < n; i++) {
+    row = Math.floor(i / cols);
+    col = i - row * cols;
+    rowCount = row === rows - 1 ? n - row * cols : cols;
+    rowW = rowCount * cellW + (rowCount - 1) * gapX;
+    rowX = zone.x + (zone.w - rowW) / 2;
+    cells.push({
+      x: rowX + col * (cellW + gapX),
+      y: zone.y + row * (cellH + gapY),
+      w: cellW,
+      h: cellH
+    });
   }
-  var table = [
-    { x: 0.15, lift: 0.4 },
-    { x: 0.3, lift: 0.18 },
-    { x: 0.2, lift: 0 }
-  ];
-  var t = table[Math.min(i, table.length - 1)];
-  return { x: Math.round(w * t.x), lift: Math.round(stageH * t.lift) };
+  return cells;
 }
 
-function drawStage(ctx, b, foes, party, w, top, bottom) {
-  var ground = bottom - 2;
-  var stageH = Math.max(80, bottom - top);
-  var nF = Math.max(1, foes.length);
-  var nP = Math.max(1, party.length);
-  var leftLimit = Math.round(w * 0.5);
-  var right0 = Math.round(w * 0.52);
-  var right1 = w - 8;
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w - 0.5 && a.x + a.w > b.x + 0.5 && a.y < b.y + b.h - 0.5 && a.y + a.h > b.y + 0.5;
+}
+
+function placeActors(actors, zone, side) {
+  var n = actors.length;
+  if (!n || !zone || zone.w < 8 || zone.h < 8) return [];
+  var labelH = side === "foe" ? 28 : 0;
+  var cells = formationCells(n, zone);
+  var placed = [];
+  var i, actor, cell, scale, src, sw, sh, ax, ay, cx, feet, top, hit;
+  for (i = 0; i < n; i++) {
+    actor = actors[i];
+    cell = cells[i];
+    scale = battleScale(actor, n, zone.h, cell.w, cell.h, labelH);
+    src = sourceSize(actor.sprite, side === "party" ? "left" : "right");
+    sw = src.w * scale;
+    sh = src.h * scale;
+    ax = src.ax * scale;
+    ay = src.ay * scale;
+    cx = cell.x + cell.w / 2;
+    if (cx - ax < cell.x + 2) cx = cell.x + 2 + ax;
+    if (cx - ax + sw > cell.x + cell.w - 2) cx = cell.x + cell.w - 2 - (sw - ax);
+    feet = cell.y + cell.h - Math.max(0, sh - ay) - 2;
+    top = feet - ay;
+    var minTop = cell.y + labelH;
+    if (top < minTop) {
+      feet += minTop - top;
+      top = minTop;
+    }
+    hit = { x: cx - ax, y: top, w: sw, h: sh };
+    placed.push({
+      actor: actor,
+      scale: scale,
+      src: src,
+      x: cx,
+      feet: feet,
+      hit: hit,
+      label: { x: cell.x + 2, y: cell.y, w: Math.max(20, cell.w - 4), h: labelH }
+    });
+  }
+  var guard = 0;
+  while (guard < 5) {
+    var overlap = false;
+    for (i = 0; i < placed.length; i++) {
+      var j;
+      for (j = i + 1; j < placed.length; j++) {
+        if (rectsOverlap(placed[i].hit, placed[j].hit)) overlap = true;
+      }
+    }
+    if (!overlap) break;
+    guard += 1;
+    for (i = 0; i < placed.length; i++) {
+      placed[i].scale = Math.max(0.5, Math.round(placed[i].scale * 0.82 * 4) / 4);
+      src = placed[i].src;
+      scale = placed[i].scale;
+      sw = src.w * scale;
+      sh = src.h * scale;
+      ax = src.ax * scale;
+      ay = src.ay * scale;
+      feet = placed[i].feet;
+      top = feet - ay;
+      placed[i].hit = { x: placed[i].x - ax, y: top, w: sw, h: sh };
+    }
+  }
+  return placed;
+}
+
+function drawFoeLabel(ctx, spot) {
+  var f = spot.actor;
+  var box = spot.label;
+  var hp = f.hp + "/" + f.maxHp;
+  var tag = "";
+  if (f.core) tag = "Core";
+  else if (f.revealed && f.weak) tag = weakLabel(f.weak);
+  ctx.font = "700 14px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  var hpW = ctx.measureText(hp).width;
+  var tagW = tag ? ctx.measureText(tag).width + 8 : 0;
+  var name = f.name || "";
+  var maxName = box.w - hpW - tagW - 10;
+  var first = name.split(" ")[0];
+  if (ctx.measureText(name).width > maxName && first && ctx.measureText(first).width <= maxName) name = first;
+  if (ctx.measureText(name).width > maxName) tag = "";
+  var y = box.y + 9;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#f6f2ea";
+  ctx.fillText(name, box.x, y);
+  if (tag) {
+    var nameW = ctx.measureText(name).width;
+    ctx.fillStyle = "#ffd37a";
+    ctx.fillText(tag, box.x + nameW + 6, y);
+  }
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#ffd5dc";
+  ctx.fillText(hp, box.x + box.w, y);
+  bar(ctx, box.x, box.y + 18, box.w, 4, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
+}
+
+function drawStage(ctx, b, foes, party, stage) {
+  if (!stage) return;
+  var split = party.length > 1 ? 0.56 : 0.62;
+  var foeZone = {
+    x: stage.x + 4,
+    y: stage.y + 2,
+    w: Math.max(40, Math.round(stage.w * split) - 8),
+    h: Math.max(40, stage.h - 4)
+  };
+  var partyZone = {
+    x: foeZone.x + foeZone.w + 8,
+    y: stage.y + 2,
+    w: Math.max(40, stage.x + stage.w - (foeZone.x + foeZone.w + 12)),
+    h: foeZone.h
+  };
+  var foeSpots = placeActors(foes, foeZone, "foe");
+  var partySpots = placeActors(party, partyZone, "party");
+  var aiming = b.phase === "target";
+  var aimFoe = aiming && b.aim !== "ally";
+  var aimAlly = aiming && b.aim === "ally";
   var spots = [];
-  foes.forEach(function (f, i) {
-    var scale = battleScale(f, nF, w, stageH);
-    var src = sourceSize(f.sprite, "right");
-    var half = src.w * scale / 2;
-    var place = foePlace(i, nF, w, stageH);
-    var x = Math.max(Math.round(half + 2), Math.min(Math.round(leftLimit - half * 0.35), place.x));
-    var feet = ground - place.lift;
+  foeSpots.forEach(function (spot) {
+    var f = spot.actor;
     var nudge = actorNudge(b, f);
     var pose = battlePose(b, f);
+    var canTap = aimFoe && f.alive;
     ctx.save();
-    ctx.globalAlpha = f.alive ? 1 : 0.35;
-    drawSprite(ctx, f.sprite, x + nudge.x, feet + nudge.y, scale, pose, "right");
+    if (!f.alive) ctx.globalAlpha = 0.35;
+    else if (aiming && !canTap) ctx.globalAlpha = 0.4;
+    drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
     ctx.restore();
-    var spriteTop = feet - src.h * scale;
-    var labelY = Math.max(top + 14, spriteTop - 30);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#f6f2ea";
-    ctx.font = "700 14px Palatino, Georgia, serif";
-    ctx.fillText(f.name, x, labelY);
-    bar(ctx, x - 34, labelY + 6, 68, 6, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillStyle = "#f6f2ea";
-    ctx.fillText(f.hp + "/" + f.maxHp, x, labelY + 24);
-    if (f.revealed && f.weak) {
-      ctx.fillStyle = "#ffd37a";
-      ctx.fillText("Weak: " + weakLabel(f.weak), x, labelY + 38);
-    }
-    if (f.core) {
-      ctx.fillStyle = "#ffd37a";
-      ctx.font = "700 12px system-ui, sans-serif";
-      ctx.fillText("Core", x, labelY + (f.revealed && f.weak ? 52 : 38));
+    drawFoeLabel(ctx, spot);
+    if (canTap) {
+      ctx.save();
+      ctx.strokeStyle = "#ffd37a";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(Math.round(spot.hit.x) - 2, Math.round(spot.hit.y) - 2, Math.round(spot.hit.w) + 4, Math.round(spot.hit.h) + 4);
+      ctx.restore();
+      addHit("foe:" + f.id, spot.hit.x, spot.hit.y, spot.hit.w, spot.hit.h);
     }
     spots.push({
       actor: f,
-      x: x + nudge.x,
-      y: feet + nudge.y,
-      top: spriteTop + nudge.y
+      x: spot.x + nudge.x,
+      y: spot.feet + nudge.y,
+      top: spot.hit.y + nudge.y
     });
-    if (f.alive) addHit("foe:" + f.id, x - half, spriteTop - 36, Math.max(48, half * 2), feet - spriteTop + 40);
   });
-  party.forEach(function (a, i) {
-    var span = right1 - right0;
-    var scale = battleScale(a, nP, w, stageH);
-    var src = sourceSize(a.sprite, "left");
-    var half = src.w * scale / 2;
-    var x = nP === 1 ? Math.round(w * 0.78) : Math.round(right0 + span * (i + 0.5) / nP);
-    x = Math.max(Math.round(right0 + half * 0.4), Math.min(Math.round(right1 - half), x));
+  partySpots.forEach(function (spot) {
+    var a = spot.actor;
     var nudge = actorNudge(b, a);
     var pose = battlePose(b, a);
     if (pose === "victory") nudge.y -= 10;
     ctx.save();
-    ctx.globalAlpha = a.alive ? 1 : 0.35;
-    drawSprite(ctx, a.sprite, x + nudge.x, ground + nudge.y, scale, pose, "left");
+    if (!a.alive) ctx.globalAlpha = 0.35;
+    else if (aiming && !aimAlly) ctx.globalAlpha = 0.55;
+    drawSprite(ctx, a.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "left");
     ctx.restore();
+    if (aimAlly && a.alive) {
+      ctx.save();
+      ctx.strokeStyle = "#ffd37a";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(Math.round(spot.hit.x) - 2, Math.round(spot.hit.y) - 2, Math.round(spot.hit.w) + 4, Math.round(spot.hit.h) + 4);
+      ctx.restore();
+      addHit("ally:" + a.id, spot.hit.x, spot.hit.y, spot.hit.w, spot.hit.h);
+    }
     spots.push({
       actor: a,
-      x: x + nudge.x,
-      y: ground + nudge.y,
-      top: ground - src.h * scale + nudge.y
+      x: spot.x + nudge.x,
+      y: spot.feet + nudge.y,
+      top: spot.hit.y + nudge.y
     });
   });
   drawBattleFx(ctx, b, spots);
@@ -505,22 +741,25 @@ function drawPartyCards(ctx, b, party, x, y, w, h) {
     artWindow(ctx, cx, y, bw, h);
     var portrait = Math.min(48, h - 16);
     drawPortrait(ctx, a.sprite, cx + 10, y + Math.round((h - portrait) / 2), portrait);
-    var textX = cx + portrait + 22;
+    var textX = cx + portrait + 18;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
-    ctx.font = "700 " + (n === 1 ? 18 : 14) + "px Palatino, Georgia, serif";
-    ctx.fillText(a.name, textX, y + 8);
+    ctx.font = "700 16px Palatino, Georgia, serif";
+    ctx.fillText(a.name, textX, y + 6);
     var barW = Math.max(36, cx + bw - 12 - textX);
-    ctx.font = "13px system-ui, sans-serif";
+    ctx.font = "700 14px system-ui, sans-serif";
     ctx.fillStyle = "#d7e6ff";
-    ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 30);
-    bar(ctx, textX, y + 46, barW, 7, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
-    if (h >= 78) {
-      ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 56);
-      bar(ctx, textX, y + h - 14, barW, 6, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
+    ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 26);
+    bar(ctx, textX, y + 44, barW, 6, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
+    ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 54);
+    bar(ctx, textX, y + h - 12, barW, 5, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
+    if (b.phase === "target" && b.aim === "ally" && a.alive) {
+      ctx.strokeStyle = "#ffd37a";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(cx + 3, y + 3, bw - 6, h - 6);
+      addHit("ally:" + a.id, cx, y, bw, h);
     }
-    addHit("ally:" + a.id, cx, y, bw, h);
   });
 }
 
@@ -535,146 +774,157 @@ function weakLabel(id) {
 function drawLog(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
   var lines = b.log.slice(-2);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + 8, y + 6, Math.max(8, w - 16), Math.max(8, h - 12));
+  ctx.clip();
   ctx.fillStyle = "#f6f2ea";
-  ctx.font = "15px system-ui, sans-serif";
+  ctx.font = "700 14px system-ui, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   lines.forEach(function (line, i) {
-    ctx.fillText(line, x + 14, y + 14 + i * 22);
+    ctx.fillText(line, x + 12, y + 8 + i * 20);
   });
+  ctx.restore();
 }
 
-function drawCommands(ctx, b, w, h) {
+function drawAimLine(ctx, b, rect) {
+  if (!rect || rect.h < 8) return;
+  ctx.save();
+  ctx.fillStyle = "rgba(8, 16, 40, 0.82)";
+  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  ctx.strokeStyle = "rgba(255, 211, 122, 0.9)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+  ctx.fillStyle = "#ffd37a";
+  ctx.font = "700 14px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(b.aim === "ally" ? "Tap an ally." : "Tap a foe.", rect.x + rect.w / 2, rect.y + rect.h / 2);
+  ctx.restore();
+}
+
+function drawCommands(ctx, b, box) {
+  var dim = b.phase === "target";
   var labels = [
     ["attack", "Attack"],
     ["skill", "Skill"],
     ["item", "Item"],
-    ["defend", "Defend"],
-    ["flee", b.canFlee ? "Flee" : "Cannot flee"]
+    ["defend", "Defend"]
   ];
-  var box = commandBox(w, h);
-  var i;
+  var colW = Math.floor((box.w - box.gap) / 2);
+  var i, cx, cy;
   for (i = 0; i < 4; i++) {
-    var cx = box.x + (i % 2) * (box.colW + box.gap);
-    var cy = box.y + Math.floor(i / 2) * (box.btnH + box.gap);
-    button(ctx, cx, cy, box.colW, box.btnH, labels[i][1], b.sel === i);
-    addHit("cmd:" + labels[i][0], cx, cy, box.colW, box.btnH);
+    cx = box.x + (i % 2) * (colW + box.gap);
+    cy = box.y + Math.floor(i / 2) * (box.btnH + box.gap);
+    button(ctx, cx, cy, colW, box.btnH, labels[i][1], !dim && b.sel === i, dim);
+    if (!dim) addHit("cmd:" + labels[i][0], cx, cy, colW, box.btnH);
   }
-  button(ctx, box.x, box.y + 2 * (box.btnH + box.gap), box.w, box.btnH, labels[4][1], b.sel === 4);
-  addHit("cmd:flee", box.x, box.y + 2 * (box.btnH + box.gap), box.w, box.btnH);
+  cy = box.y + 2 * (box.btnH + box.gap);
+  if (dim) {
+    button(ctx, box.x, cy, box.w, box.btnH, "Cancel", true, false);
+    addHit("cancel", box.x, cy, box.w, box.btnH);
+  } else {
+    button(ctx, box.x, cy, box.w, box.btnH, b.canFlee ? "Flee" : "Cannot flee", b.sel === 4, false);
+    addHit("cmd:flee", box.x, cy, box.w, box.btnH);
+  }
 }
 
-function drawSkillList(ctx, b, w, h, y0) {
-  var actor = actorOf(b, b.actorId);
-  var skills = actor ? actor.skills : [];
+function drawListPanel(ctx, dock, rows, emptyText, idOf, labelOf) {
   var btnH = 48;
   var gap = 6;
-  var btnW = Math.min(380, w - 16);
-  var x = Math.round((w - btnW) / 2);
-  var backY = h - 10 - 52;
-  var y = y0 || 280;
-  skills.forEach(function (id, i) {
-    var sk = SF.SKILLS[id];
-    if (!sk) return;
-    var cy = y + i * (btnH + gap);
-    if (cy + btnH > backY - 8) return;
-    button(ctx, x, cy, btnW, btnH, sk.name + "  " + sk.sp + " SP", false);
-    addHit("skill:" + id, x, cy, btnW, btnH);
-  });
-  if (!skills.length) {
+  var backH = 48;
+  var x = dock.x;
+  var btnW = dock.w;
+  var backY = dock.y + dock.h - backH;
+  var y = dock.y;
+  if (!rows.length) {
     ctx.fillStyle = "#f4f7ff";
-    ctx.font = "16px system-ui, sans-serif";
+    ctx.font = "700 16px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("No skills.", w / 2, y + 20);
+    ctx.textBaseline = "middle";
+    ctx.fillText(emptyText, x + btnW / 2, y + 28);
   }
-  button(ctx, x, backY, btnW, 52, "Back", false);
-  addHit("back", x, backY, btnW, 52);
+  rows.forEach(function (row, i) {
+    var cy = y + i * (btnH + gap);
+    if (cy + btnH > backY - 6) return;
+    button(ctx, x, cy, btnW, btnH, labelOf(row), false, false);
+    addHit(idOf(row), x, cy, btnW, btnH);
+  });
+  button(ctx, x, backY, btnW, backH, "Back", false, false);
+  addHit("back", x, backY, btnW, backH);
 }
 
-function drawItemList(ctx, b, w, h, y0) {
+function drawSkillList(ctx, b, dock) {
+  var actor = actorOf(b, b.actorId);
+  var skills = (actor ? actor.skills : []).map(function (id) { return SF.SKILLS[id]; }).filter(Boolean);
+  drawListPanel(ctx, dock, skills, "No skills.", function (sk) { return "skill:" + sk.id; }, function (sk) {
+    return sk.name + "  " + sk.sp + " SP";
+  });
+}
+
+function drawItemList(ctx, b, dock) {
   var rows = [];
   var inv = (SF.state && SF.state.inventory) || {};
   Object.keys(inv).forEach(function (id) {
     var it = SF.ITEMS[id];
     if (it && it.kind === "item" && inv[id] > 0) rows.push(it);
   });
-  var btnH = 48;
-  var gap = 6;
-  var btnW = Math.min(380, w - 16);
-  var x = Math.round((w - btnW) / 2);
-  var backY = h - 10 - 52;
-  var y = y0 || 280;
-  if (!rows.length) {
-    ctx.fillStyle = "#f4f7ff";
-    ctx.font = "16px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("No items.", w / 2, y + 20);
-  }
-  rows.forEach(function (it, i) {
-    var cy = y + i * (btnH + gap);
-    if (cy + btnH > backY - 8) return;
-    button(ctx, x, cy, btnW, btnH, it.name + " x" + (SF.state.inventory[it.id] || 0), false);
-    addHit("item:" + it.id, x, cy, btnW, btnH);
+  drawListPanel(ctx, dock, rows, "No items.", function (it) { return "item:" + it.id; }, function (it) {
+    return it.name + " x" + (SF.state.inventory[it.id] || 0);
   });
-  button(ctx, x, backY, btnW, 52, "Back", false);
-  addHit("back", x, backY, btnW, 52);
 }
 
-function drawResult(ctx, b, w, h, y0) {
+function drawResult(ctx, b, panel) {
   var row = b.result || {};
-  var panelW = Math.min(380, w - 24);
-  var x = Math.round((w - panelW) / 2);
-  var y = y0 || Math.round(h * 0.42);
-  var panelH = Math.max(180, h - y - 12);
+  var x = panel.x;
+  var y = panel.y;
+  var panelW = panel.w;
+  var panelH = Math.max(48, panel.h);
+  var btnH = panel.btnH || 48;
+  var by = y + panelH + 8;
   artWindow(ctx, x, y, panelW, panelH);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + 8, y + 6, panelW - 16, panelH - 12);
+  ctx.clip();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
+  var compact = panelH < 210;
+  var titleSize = compact ? 22 : 26;
+  var bodySize = compact ? 15 : 16;
+  var step = compact ? 18 : 22;
   ctx.fillStyle = "#ffd37a";
-  ctx.font = "700 28px system-ui, sans-serif";
+  ctx.font = "700 " + titleSize + "px system-ui, sans-serif";
   var title = row.fled ? "Fled." : (row.win ? "Victory." : "Defeat.");
-  ctx.fillText(title, x + 16, y + 16);
-  ctx.fillStyle = "#f4f7ff";
-  ctx.font = "18px system-ui, sans-serif";
-  var ly = y + 58;
+  var ly = y + 10;
+  var limit = y + panelH - 8;
+  function line(text, color, size, gapAfter) {
+    if (ly + size > limit) return false;
+    ctx.fillStyle = color;
+    ctx.font = (size >= 20 ? "700 " : "700 ") + size + "px system-ui, sans-serif";
+    ctx.fillText(text, x + 14, ly);
+    ly += gapAfter;
+    return true;
+  }
+  line(title, "#ffd37a", titleSize, titleSize + 8);
   if (row.win && !row.fled) {
-    ctx.fillText("XP +" + (row.xp || 0), x + 16, ly);
-    ly += 26;
-    ctx.fillText("Marks +" + (row.gold || 0), x + 16, ly);
-    ly += 26;
-    (row.items || []).forEach(function (name) {
-      ctx.fillText(name, x + 16, ly);
-      ly += 24;
-    });
+    line("XP +" + (row.xp || 0), "#f4f7ff", bodySize, step);
+    line("Marks +" + (row.gold || 0), "#f4f7ff", bodySize, step);
+    (row.items || []).forEach(function (name) { line(name, "#f4f7ff", bodySize, step); });
   }
   (row.levels || []).forEach(function (lv) {
-    if (ly > y + panelH - 36) return;
-    ctx.fillStyle = "#ffd37a";
-    ctx.font = "700 18px system-ui, sans-serif";
-    ctx.fillText("Level up!", x + 16, ly);
-    ly += 24;
-    ctx.fillStyle = "#f4f7ff";
-    ctx.font = "16px system-ui, sans-serif";
-    ctx.fillText(lv.name + " is level " + lv.level + ".", x + 16, ly);
-    ly += 22;
-    ctx.fillText("HP " + lv.hp[0] + " to " + lv.hp[1], x + 16, ly);
-    ly += 20;
-    ctx.fillText("Attack " + lv.atk[0] + " to " + lv.atk[1], x + 16, ly);
-    ly += 20;
-    ctx.fillText("Magic " + lv.mag[0] + " to " + lv.mag[1], x + 16, ly);
-    ly += 20;
-    if (lv.skill) {
-      ctx.fillText("Learned " + lv.skill + ".", x + 16, ly);
-      ly += 22;
-    }
-    ly += 6;
+    if (!line("Level up!", "#ffd37a", bodySize, step)) return;
+    line(lv.name + " is level " + lv.level + ".", "#f4f7ff", bodySize, step);
+    line("HP " + lv.hp[0] + " to " + lv.hp[1], "#f4f7ff", bodySize, step);
+    line("Attack " + lv.atk[0] + " to " + lv.atk[1], "#f4f7ff", bodySize, step);
+    line("Magic " + lv.mag[0] + " to " + lv.mag[1], "#f4f7ff", bodySize, step);
+    if (lv.skill) line("Learned " + lv.skill + ".", "#f4f7ff", bodySize, step);
   });
-  if (!row.win) {
-    ctx.fillText("The party is at half HP.", x + 16, ly);
-  }
-  var btnW = panelW;
-  var by = h - 20 - 64;
-  button(ctx, x, by, btnW, 64, "Continue", true);
-  addHit("result", x, by, btnW, 64);
+  if (!row.win) line("The party is at half HP.", "#f4f7ff", bodySize, step);
+  ctx.restore();
+  button(ctx, x, by, panelW, btnH, "Continue", true, false);
+  addHit("result", x, by, panelW, btnH);
 }
 
 function pick(x, y) {
@@ -707,7 +957,7 @@ SF.Battle.onPointer = function (x, y) {
     if (id === "result" || id === "skip") SF.Battle.confirmResult();
     return;
   }
-  if (id === "back") {
+  if (id === "back" || id === "cancel") {
     b.phase = "menu";
     b.pending = null;
     return;
@@ -756,8 +1006,8 @@ SF.Battle.onPointer = function (x, y) {
   }
   if (b.phase === "target") {
     var tid = "";
-    if (id.indexOf("foe:") === 0) tid = id.slice(4);
-    if (id.indexOf("ally:") === 0) tid = id.slice(5);
+    if (b.aim === "ally" && id.indexOf("ally:") === 0) tid = id.slice(5);
+    if (b.aim !== "ally" && id.indexOf("foe:") === 0) tid = id.slice(4);
     if (!tid || !b.pending) return;
     var action = {
       type: b.pending.type,

@@ -104,12 +104,19 @@ function statLine(s, id) {
 function buildRoot(s) {
   return [
     { id: "party", label: "Party" },
-    { id: "skills", label: "Skills" },
     { id: "items", label: "Items" },
     { id: "equip", label: "Equip" },
+    { id: "skills", label: "Skills" },
     { id: "save", label: "Save" },
-    { id: "settings", label: "Settings" },
     { id: "resume", label: "Resume" },
+    { id: "more", label: "More" }
+  ];
+}
+
+function buildMore(s) {
+  return [
+    { id: "settings", label: "Settings" },
+    { id: "news", label: "What's new in v" + (SF.VERSION || "0.3") },
     { id: "load", label: "Load", ghost: true },
     { id: "hand", label: "The hand", ghost: true },
     { id: "calm", label: "Reduce flashing: " + (SF.reduceFlash ? "On" : "Off"), ghost: true },
@@ -136,6 +143,7 @@ function paint(s) {
   SF._fieldSig = sig;
   body.innerHTML = "";
   if (SF.fieldScreen === "root") title.textContent = "Menu";
+  if (SF.fieldScreen === "more") title.textContent = "More";
   if (SF.fieldScreen === "party") title.textContent = "Party";
   if (SF.fieldScreen === "skills") title.textContent = "Skills";
   if (SF.fieldScreen === "items" || SF.fieldScreen === "item-who") title.textContent = "Items";
@@ -143,6 +151,10 @@ function paint(s) {
 
   if (SF.fieldScreen === "root") {
     buildRoot(s).forEach(function (row) { addButton(body, row.label, row.ghost, function () { onRoot(row.id); }); });
+    return;
+  }
+  if (SF.fieldScreen === "more") {
+    buildMore(s).forEach(function (row) { addButton(body, row.label, row.ghost, function () { onRoot(row.id); }); });
     return;
   }
   if (SF.fieldScreen === "party") {
@@ -291,6 +303,17 @@ function onRoot(id) {
     paint(s);
     return;
   }
+  if (id === "more") {
+    SF.fieldScreen = "more";
+    SF.fieldNote = "";
+    SF._fieldSig = "";
+    paint(s);
+    return;
+  }
+  if (id === "news") {
+    if (SF.openNews) SF.openNews();
+    return;
+  }
   if (id === "settings") {
     if (SF.openSettings) SF.openSettings();
     return;
@@ -348,6 +371,7 @@ function ensureDom() {
   document.getElementById("field-back").addEventListener("click", function () {
     if (SF.fieldScreen === "equip-pick") SF.fieldScreen = "equip";
     else if (SF.fieldScreen === "item-who") SF.fieldScreen = "items";
+    else if (SF.fieldScreen === "more") SF.fieldScreen = "root";
     else SF.fieldScreen = "root";
     SF._fieldSig = "";
     if (SF.state) paint(SF.state);

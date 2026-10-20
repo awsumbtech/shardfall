@@ -145,10 +145,16 @@ SF.bindInput = function () {
     e.preventDefault();
     SF.toggleMute();
   });
-  document.getElementById("btn-patch").addEventListener("pointerdown", function (e) {
-    e.preventDefault();
-    SF.openNews();
-  });
+  var mapwrap = document.getElementById("mapwrap");
+  if (mapwrap) {
+    mapwrap.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var open = mapwrap.classList.toggle("big");
+      mapwrap.setAttribute("aria-expanded", open ? "true" : "false");
+      if (SF.resize) SF.resize();
+    });
+  }
 
   window.addEventListener("keydown", function (e) {
     var s = SF.state;

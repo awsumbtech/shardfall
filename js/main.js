@@ -48,7 +48,7 @@ SF.resize = function () {
   var canvas = SF.view;
   if (!canvas) return;
   var rect = canvas.getBoundingClientRect();
-  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var dpr = Math.min(window.devicePixelRatio || 1, 3);
   var w = Math.max(1, Math.round(rect.width));
   var h = Math.max(1, Math.round(rect.height));
   var bw = Math.round(w * dpr);
