@@ -1249,8 +1249,13 @@ const html = fs.readFileSync("index.html", "utf8");
 if (!html.includes('rel="manifest" href="manifest.webmanifest"')) fail("manifest link");
 if (!html.includes('rel="apple-touch-icon" href="icons/apple-touch-icon.png"')) fail("apple touch link");
 if (!html.includes('src="js/pwa.js"')) fail("pwa script");
+if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.includes('id="chest-ok"')) {
+  fail("chest popup is missing from the page");
+}
+const chestCss = fs.readFileSync("css/style.css", "utf8");
+if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.5"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.7"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1312,6 +1317,84 @@ if (nearD > SF.SHARD_GLINT && aim.precise !== false) fail("a far shard should be
 if (SF.shardReachable(hook)) fail("shard-hook reachable before grapple");
 gather.player.grapple = true;
 if (!SF.shardReachable(hook)) fail("shard-hook stayed shut after grapple");
+
+const act1Chests = [
+  ["emberhold", "chest-orchard", [
+    "Found: Tonic \u00d71. Restores 40 HP.",
+    "Found: Cloth Wrap \u00d71. Defense +3.",
+    "Found: Knife \u00d71. Attack +5.",
+    "Found: 20 marks. Spend them in shops."
+  ]],
+  ["emberhold", "chest-meadow", ["Found: Ether \u00d71. Restores 20 SP."]],
+  ["emberhold", "chest-perch", ["Found: Smoke Bomb \u00d71. Leaves a fight. Does not work on a boss."]],
+  ["cinderveil", "chest-ash", ["Found: Hi-Tonic \u00d71. Restores 120 HP."]],
+  ["cinderveil", "chest-vault", [
+    "Found: Phoenix Shard \u00d71. Revives one ally at 40% HP.",
+    "Found: Quay Coat \u00d71. Defense +5, Speed +1."
+  ]]
+];
+act1Chests.forEach((spec, index) => {
+  const island = spec[0];
+  const id = spec[1];
+  const lines = spec[2];
+  const box = freshPlay();
+  SF.mountIsland(island);
+  box.island = island;
+  box.gold = 0;
+  box.inventory = {};
+  box.banners = [];
+  box.banner = null;
+  const chest = (SF.EXTRAS || []).find((ex) => ex.id === id && ex.kind === "chest");
+  if (!chest) fail(id + " is missing on " + island);
+  box.player.x = chest.x;
+  box.player.y = chest.y;
+  const px = box.player.x;
+  const py = box.player.y;
+  const near = SF.nearestInteract();
+  if (near && near.kind === "chest" && near.ref && near.ref.id === id) SF.tryInteract();
+  else SF.openChest(chest);
+  if (box.mode !== "chest" || !box.chestLoot || box.chestLoot.id !== id) fail(id + " did not open a popup");
+  const got = (box.chestLoot.rows || []).map((row) => row.line);
+  if (got.length !== lines.length || got.some((line, i) => line !== lines[i])) {
+    fail(id + " popup was: " + got.join(" | "));
+  }
+  const fromRows = SF.chestRows(chest).map((row) => row.line);
+  if (fromRows.some((line, i) => line !== got[i])) fail(id + " rows drifted from the popup");
+  (chest.items || []).forEach((it) => {
+    if (SF.itemCount(it.id) !== (it.n || 1)) fail(id + " gave the wrong amount of " + it.id);
+  });
+  if ((box.gold || 0) !== (chest.marks || 0)) fail(id + " marks were " + box.gold);
+  if (!box.picked[id]) fail(id + " did not stay open");
+  if (!box.chestAnim || box.chestAnim.id !== id || !(box.chestAnim.dur > 0)) fail(id + " did not play an open animation");
+  if ((box.banners || []).some((b) => b.title === "Chest") || (box.banner && box.banner.title === "Chest")) {
+    fail(id + " still used a banner");
+  }
+  const time = box.playTime;
+  SF.readMove = () => ({ x: 1, y: 0 });
+  SF.update(0.5);
+  SF.readMove = () => ({ x: 0, y: 0 });
+  if (box.mode !== "chest" || box.player.x !== px || box.player.y !== py || box.playTime !== time) {
+    fail(id + " did not pause the game");
+  }
+  box.chestAnim.start = Date.now() - 1000;
+  if (SF.chestOpenT(id) < 1) fail(id + " did not finish opening");
+  if (index === 0) {
+    SF.reduceMotion = true;
+    box.chestAnim.start = Date.now();
+    if (SF.chestOpenT(id) !== 1) fail("reduced motion should show the chest open");
+    SF.reduceMotion = false;
+  }
+  SF.closeChest();
+  if (box.mode !== "play" || box.chestLoot) fail(id + " popup did not close");
+  if (!box.picked[id]) fail(id + " closed the chest sprite");
+  SF.openChest(chest);
+  if (box.mode === "chest") fail(id + " opened twice");
+  (chest.items || []).forEach((it) => {
+    if (SF.itemCount(it.id) !== (it.n || 1)) fail(id + " paid twice");
+  });
+  if ((box.gold || 0) !== (chest.marks || 0)) fail(id + " paid marks twice");
+});
+SF.mountIsland("emberhold");
 
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit" });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);

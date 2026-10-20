@@ -593,20 +593,225 @@ window.SF = SF;
     { id: "shard-rise", kind: "shard", x: 54 * T, y: 40 * T }
   );
 
+  // Upper surfaces are lumpy, not circles. `block` is the south cliff
+  // that stops walking (px). `face` continues past it as grass and shadow.
+  // Ramps follow SF.PATHS so every authored route stays open.
+  function terrace(id, tx, ty, rx, ry, block, face, level, kind, seed, amp) {
+    return {
+      id: id,
+      x: tx * T,
+      y: ty * T,
+      rx: rx * T,
+      ry: ry * T,
+      block: block,
+      face: face,
+      level: level,
+      kind: kind || "rock",
+      ramp: 20,
+      seed: seed,
+      amp: amp
+    };
+  }
+
+  SF.TERRACES = {
+    emberhold: [
+      terrace("hill-1", 99, 19.0, 11.6, 7.0, 48, 64, 1, "rock", 1.2, 0.24),
+      terrace("hill-2", 100.2, 14.8, 8.2, 4.6, 42, 56, 2, "rock", 2.7, 0.22),
+      terrace("hill-3", 101, 10.4, 5.4, 3.2, 36, 50, 3, "rock", 4.4, 0.2),
+      terrace("cottage", 72.2, 17.0, 9.4, 6.6, 32, 46, 1, "rock", 0.7, 0.05),
+      terrace("grove", 51, 23.0, 8.4, 5.2, 0, 36, 1, "grass", 3.1, 0.2),
+      terrace("scar", 118.2, 42.6, 9.4, 4.2, 32, 46, 1, "rock", 5.5, 0.2)
+    ],
+    cinderveil: [
+      terrace("ridge-1", 44, 12.8, 11.2, 3.8, 48, 62, 1, "rock", 1.9, 0.24),
+      terrace("ridge-2", 41.2, 8.0, 6.4, 2.7, 40, 54, 2, "rock", 6.2, 0.2)
+    ]
+  };
+
+  SF.terraceWobble = function (t, ang) {
+    var s = t.seed || 1;
+    var amp = Math.min(t.amp == null ? 0.05 : t.amp, 0.07);
+    var w = Math.sin(ang * 2 + s) * 0.72 + Math.sin(ang + s * 0.6) * 0.28;
+    return 1 + amp * w;
+  };
+
+  SF.terraceRadius = function (t, ang) {
+    var wob = SF.terraceWobble(t, ang);
+    var rx = t.rx * wob;
+    var ry = t.ry * wob;
+    var c = Math.cos(ang);
+    var s = Math.sin(ang);
+    return (rx * ry) / (Math.hypot(ry * c, rx * s) || 0.001);
+  };
+
+  SF.terraceMetrics = function (t, wx, wy) {
+    var dx = wx - t.x;
+    var dy = wy - t.y;
+    var dist = Math.hypot(dx, dy) || 0.001;
+    var ang = Math.atan2(dy, dx);
+    var rDir = SF.terraceRadius(t, ang);
+    var gap = dist - rDir;
+    return { gap: gap, ny: dy / dist, deep: gap < 0 ? -gap : 0, ang: ang };
+  };
+
+  function distToSeg(px, py, x0, y0, x1, y1) {
+    var dx = x1 - x0;
+    var dy = y1 - y0;
+    var len2 = dx * dx + dy * dy || 1;
+    var u = ((px - x0) * dx + (py - y0) * dy) / len2;
+    if (u < 0) u = 0;
+    else if (u > 1) u = 1;
+    return Math.hypot(px - (x0 + dx * u), py - (y0 + dy * u));
+  }
+
+  SF.routeApproach = function (x, y) {
+    var paths = SF.PATHS || [];
+    var best = 96;
+    var cross = false;
+    var p, i, x0, y0, x1, y1, d, sdx, sdy;
+    for (p = 0; p < paths.length; p++) {
+      for (i = 0; i < paths[p].length - 2; i += 2) {
+        x0 = paths[p][i];
+        y0 = paths[p][i + 1];
+        x1 = paths[p][i + 2];
+        y1 = paths[p][i + 3];
+        if (x < Math.min(x0, x1) - best || x > Math.max(x0, x1) + best) continue;
+        if (y < Math.min(y0, y1) - best || y > Math.max(y0, y1) + best) continue;
+        d = distToSeg(x, y, x0, y0, x1, y1);
+        if (d < best) {
+          best = d;
+          sdx = x1 - x0;
+          sdy = y1 - y0;
+          cross = Math.abs(sdy) > Math.abs(sdx) * 0.4;
+        }
+      }
+    }
+    return { d: best, cross: cross };
+  };
+
+  SF.routeDistance = function (x, y) {
+    return SF.routeApproach(x, y).d;
+  };
+
+  SF.nearRoute = function (x, y, pad) {
+    return SF.routeDistance(x, y) < (pad == null ? 28 : pad);
+  };
+
+  // South edge of a terrace, as a height curtain: lip y for each world x.
+  // The face then drops straight down, so the rise reads as land rather than a ring.
+  SF.terraceSouthLip = function (t, wx) {
+    var lip = t._lip;
+    if (!lip) {
+      var minX = Math.floor(t.x - t.rx * 1.55 - 12);
+      var maxX = Math.ceil(t.x + t.rx * 1.55 + 12);
+      var n = Math.max(1, maxX - minX + 1);
+      var arr = new Float32Array(n);
+      var i;
+      for (i = 0; i < n; i++) arr[i] = -1e9;
+      var a, r, x, y, x0, y0, steps, s, xx, yy, idx, south;
+      x0 = null;
+      south = -1e9;
+      for (a = 0.15; a <= Math.PI - 0.15; a += 0.008) {
+        if (Math.sin(a) < 0.42) {
+          x0 = null;
+          continue;
+        }
+        r = SF.terraceRadius(t, a);
+        x = t.x + Math.cos(a) * r;
+        y = t.y + Math.sin(a) * r;
+        if (y > south) south = y;
+        if (x0 != null) {
+          steps = Math.max(1, Math.ceil(Math.abs(x - x0)));
+          for (s = 0; s <= steps; s++) {
+            xx = x0 + (x - x0) * (s / steps);
+            yy = y0 + (y - y0) * (s / steps);
+            idx = Math.round(xx) - minX;
+            if (idx >= 0 && idx < n && yy > arr[idx]) arr[idx] = yy;
+          }
+        }
+        x0 = x;
+        y0 = y;
+      }
+      var smooth = new Float32Array(n);
+      var k, sum, cnt, j;
+      for (i = 0; i < n; i++) {
+        if (arr[i] < -1e8) {
+          smooth[i] = arr[i];
+          continue;
+        }
+        sum = 0;
+        cnt = 0;
+        for (k = -5; k <= 5; k++) {
+          j = i + k;
+          if (j < 0 || j >= n || arr[j] < -1e8) continue;
+          if (Math.abs(arr[j] - arr[i]) > 14) continue;
+          sum += arr[j];
+          cnt++;
+        }
+        smooth[i] = cnt ? sum / cnt : arr[i];
+      }
+      var chain = [];
+      var run = false;
+      for (i = 0; i < n; i++) {
+        if (smooth[i] < -1e8) {
+          run = false;
+          continue;
+        }
+        if (!run || (i % 3) === 0) chain.push(minX + i, smooth[i]);
+        run = true;
+      }
+      t._lip = { minX: minX, maxX: maxX, y: smooth };
+      t._chain = chain;
+      t._southBase = south + (t.block || t.face || 0);
+      lip = t._lip;
+    }
+    i = Math.round(wx) - lip.minX;
+    if (i < 0 || i >= lip.y.length || lip.y[i] < -1e8) return null;
+    return lip.y[i];
+  };
+
+  SF.terraceLipChain = function (t) {
+    if (!t._lip) SF.terraceSouthLip(t, t.x);
+    return t._chain || [];
+  };
+
+  SF.cliffBlocks = function (x, y) {
+    var list = (SF.TERRACES && SF.TERRACES[SF.islandId]) || [];
+    var i, t, m, lip, drop, reach;
+    for (i = 0; i < list.length; i++) {
+      t = list[i];
+      if (!t.block) continue;
+      reach = 1.55;
+      if (x < t.x - t.rx * reach - 12 || x > t.x + t.rx * reach + 12) continue;
+      if (y < t.y - 8 || y > t.y + t.ry * reach + t.block + 12) continue;
+      m = SF.terraceMetrics(t, x, y);
+      if (m.gap <= 0) continue;
+      lip = SF.terraceSouthLip(t, x);
+      if (lip == null) continue;
+      drop = y - lip;
+      if (drop <= 0.5 || drop >= t.block) continue;
+      if (SF.nearRoute(x, y, t.ramp)) continue;
+      return true;
+    }
+    return false;
+  };
+
   var landWalkable = SF.walkable;
   SF.walkable = function (x, y) {
     if (!landWalkable(x, y)) return false;
     var props = SF.PROPS;
-    if (!props) return true;
     var i, p, r, dx, dy;
-    for (i = 0; i < props.length; i++) {
-      p = props[i];
-      r = p.block;
-      if (!r) continue;
-      dx = x - p.x;
-      dy = y - p.y;
-      if (dx * dx + dy * dy < r * r) return false;
+    if (props) {
+      for (i = 0; i < props.length; i++) {
+        p = props[i];
+        r = p.block;
+        if (!r) continue;
+        dx = x - p.x;
+        dy = y - p.y;
+        if (dx * dx + dy * dy < r * r) return false;
+      }
     }
+    if (SF.cliffBlocks(x, y)) return false;
     return true;
   };
   cinder.spots = {

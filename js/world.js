@@ -80,13 +80,40 @@ SF.restAtInn = function (spot) {
 };
 
 SF.chestSummary = function (chest) {
-  var parts = [];
+  var rows = SF.chestRows(chest);
+  if (!rows.length) return "Empty.";
+  return rows.map(function (row) { return row.line; }).join(" ");
+};
+
+SF.chestRows = function (chest) {
+  var rows = [];
+  if (!chest) return rows;
   (chest.items || []).forEach(function (it) {
     var info = SF.itemInfo(it.id);
-    parts.push((it.n && it.n > 1 ? it.n + " " : "") + info.name);
+    var n = it.n || 1;
+    var desc = info.desc || "";
+    var line = "Found: " + info.name + " \u00d7" + n + ".";
+    if (desc) line += " " + desc;
+    rows.push({
+      kind: "item",
+      id: it.id,
+      name: info.name,
+      n: n,
+      desc: desc,
+      line: line
+    });
   });
-  if (chest.marks) parts.push(chest.marks + " marks");
-  return parts.length ? parts.join(", ") : "Empty.";
+  if (chest.marks) {
+    rows.push({
+      kind: "marks",
+      id: "marks",
+      name: "marks",
+      n: chest.marks,
+      desc: "Spend them in shops.",
+      line: "Found: " + chest.marks + " marks. Spend them in shops."
+    });
+  }
+  return rows;
 };
 
 SF.openChest = function (chest) {
@@ -96,12 +123,39 @@ SF.openChest = function (chest) {
     SF.pushToast("Empty.", 1.2);
     return;
   }
+  var rows = SF.chestRows(chest);
   s.picked[chest.id] = true;
   (chest.items || []).forEach(function (it) { SF.giveItem(it.id, it.n || 1); });
   if (chest.marks) s.gold = (s.gold || 0) + chest.marks;
-  SF.pushBanner("Chest", SF.chestSummary(chest), 2.4);
+  s.chestAnim = { id: chest.id, start: Date.now(), dur: 480 };
+  if (!rows.length) {
+    SF.pushToast("Empty.", 1.2);
+  } else {
+    s.chestLoot = { id: chest.id, rows: rows };
+    SF.releaseHolds();
+    s.mode = "chest";
+  }
   if (window.Sfx) Sfx.play("pickup");
   if (SF.saveGame) SF.saveGame({ silent: true });
+};
+
+SF.closeChest = function () {
+  var s = SF.state;
+  if (!s || s.mode !== "chest") return;
+  s.mode = "play";
+  s.chestLoot = null;
+};
+
+SF.chestOpenT = function (id) {
+  var s = SF.state;
+  if (!s || !s.picked || !s.picked[id]) return 0;
+  if (SF.reduceMotion) return 1;
+  var anim = s.chestAnim;
+  if (!anim || anim.id !== id || !(anim.dur > 0)) return 1;
+  var t = (Date.now() - anim.start) / anim.dur;
+  if (t >= 1) return 1;
+  if (t <= 0) return 0;
+  return 1 - Math.pow(1 - t, 3);
 };
 
 SF.openShop = function (shop) {
@@ -183,6 +237,10 @@ SF.showNotice = function (title, text) {
 SF.closeWorldPanel = function () {
   var s = SF.state;
   if (!s) return;
+  if (s.mode === "chest") {
+    SF.closeChest();
+    return;
+  }
   if (s.mode === "shop" || s.mode === "inn" || s.mode === "notice" || s.mode === "sailmenu") s.mode = "play";
 };
 
@@ -383,19 +441,78 @@ SF.drawWorldProp = function (ctx, prop) {
   return false;
 };
 
+SF.drawChestFallback = function (ctx, extra, u) {
+  ctx.save();
+  ctx.fillStyle = "#6b3e2c";
+  ctx.fillRect(extra.x - 10, extra.y - 6, 20, 12);
+  ctx.fillStyle = "#c4552a";
+  ctx.fillRect(extra.x - 10, extra.y - 6, 20, 4);
+  if (u > 0) {
+    ctx.fillStyle = "#ffd37a";
+    ctx.globalAlpha = Math.min(1, u);
+    ctx.fillRect(extra.x - 5, extra.y - 4, 10, 4);
+  }
+  var lift = (u || 0) * 7;
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#e7b56a";
+  ctx.fillRect(extra.x - 10, extra.y - 10 - lift, 20, 4);
+  ctx.restore();
+};
+
+SF.drawChest = function (ctx, extra) {
+  var u = SF.chestOpenT(extra.id);
+  if (u <= 0) {
+    if (!SF.tryArtSprite(ctx, "chest", extra.x, extra.y, { scale: 1 })) SF.drawChestFallback(ctx, extra, 0);
+    return;
+  }
+  if (u >= 1) {
+    if (!SF.tryArtSprite(ctx, "chest_open", extra.x, extra.y, { scale: 1 })) SF.drawChestFallback(ctx, extra, 1);
+    return;
+  }
+  var closed = window.Art && Art.frameOf ? Art.frameOf("chest", "walk", "down", 0) : null;
+  if (!closed || !closed.width) {
+    SF.drawChestFallback(ctx, extra, u);
+    return;
+  }
+  var scale = 1;
+  var ax = closed._ax != null ? closed._ax : 8;
+  var ay = closed._ay != null ? closed._ay : 12;
+  var dx = extra.x - ax * scale;
+  var dy = extra.y - ay * scale;
+  var lidH = 7;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(
+    closed,
+    0, lidH, closed.width, Math.max(1, closed.height - lidH),
+    dx, dy + lidH * scale, closed.width * scale, Math.max(1, closed.height - lidH) * scale
+  );
+  var hingeX = dx + closed.width * scale * 0.5;
+  var hingeY = dy + lidH * scale;
+  var lift = u * 6 * scale;
+  var sy = Math.max(0.22, 1 - u * 0.72);
+  ctx.translate(hingeX, hingeY - lift);
+  ctx.scale(1, sy);
+  ctx.drawImage(
+    closed,
+    0, 0, closed.width, lidH,
+    -closed.width * scale * 0.5, -lidH * scale, closed.width * scale, lidH * scale
+  );
+  ctx.restore();
+  if (u > 0.2) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (u - 0.2) * 1.6);
+    ctx.fillStyle = "#ffd37a";
+    ctx.fillRect(extra.x - 4, extra.y - 7, 3, 2);
+    ctx.fillStyle = "#fff6d0";
+    ctx.fillRect(extra.x + 1, extra.y - 7, 2, 2);
+    ctx.restore();
+  }
+};
+
 SF.drawExtra = function (ctx, extra) {
-  var s = SF.state;
   if (extra.kind === "chest") {
-    var open = s && s.picked && s.picked[extra.id];
-    var sprite = open ? "chest_open" : "chest";
-    if (!SF.tryArtSprite(ctx, sprite, extra.x, extra.y, { scale: 1 })) {
-      ctx.save();
-      ctx.fillStyle = open ? "#8a6a48" : "#c4552a";
-      ctx.fillRect(extra.x - 10, extra.y - 8, 20, 14);
-      ctx.fillStyle = "#ffd37a";
-      ctx.fillRect(extra.x - 10, extra.y - 8, 20, 4);
-      ctx.restore();
-    }
+    SF.drawChest(ctx, extra);
     return true;
   }
   if (extra.kind === "shop") {
@@ -909,6 +1026,112 @@ SF.syncNoticeUI = function () {
   document.getElementById("notice-copy").textContent = s.notice.text || "";
 };
 
+SF.paintLootIcon = function (canvas, row) {
+  if (!canvas || !canvas.getContext) return;
+  var g = canvas.getContext("2d");
+  var kind = "pouch";
+  var info = row && row.kind !== "marks" ? SF.itemInfo(row.id) : null;
+  if (row && row.kind === "marks") kind = "coin";
+  else if (info && info.slot === "weapon") kind = "blade";
+  else if (info && info.slot === "armor") kind = "armor";
+  else if (info && info.slot === "charm") kind = "charm";
+  else if (info && info.flee) kind = "bomb";
+  else if (info && info.revive) kind = "gem";
+  else if (info && info.sp && !info.hp) kind = "flask";
+  else if (info && info.hp) kind = "bottle";
+  else if (info && info.dmg) kind = "vial";
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  g.imageSmoothingEnabled = false;
+  g.save();
+  g.scale(canvas.width / 16, canvas.height / 16);
+  function px(x, y, w, h, color) {
+    g.fillStyle = color;
+    g.fillRect(x, y, w, h);
+  }
+  px(0, 0, 16, 16, "#10245c");
+  if (kind === "bottle") {
+    px(7, 2, 2, 3, "#d8c4a4");
+    px(5, 5, 6, 8, "#c4552a");
+    px(6, 6, 2, 5, "#ffb15a");
+    px(5, 12, 6, 1, "#8a3030");
+  } else if (kind === "flask") {
+    px(7, 2, 2, 3, "#d8e8f0");
+    px(5, 5, 6, 8, "#3aa0c8");
+    px(6, 7, 4, 4, "#9ae6ff");
+    px(5, 12, 6, 1, "#1a5870");
+  } else if (kind === "vial") {
+    px(7, 2, 2, 2, "#d8c4a4");
+    px(5, 4, 6, 9, "#3c8a58");
+    px(6, 6, 2, 5, "#b6f0c0");
+  } else if (kind === "bomb") {
+    px(8, 2, 2, 2, "#6b4030");
+    px(9, 1, 2, 2, "#ffd37a");
+    px(4, 5, 8, 8, "#2a2428");
+    px(6, 7, 2, 2, "#8a9098");
+  } else if (kind === "gem") {
+    px(7, 2, 2, 2, "#fff6d0");
+    px(5, 4, 6, 3, "#7ef0ff");
+    px(4, 7, 8, 3, "#3ec8e0");
+    px(6, 10, 4, 3, "#1a7890");
+  } else if (kind === "blade") {
+    px(4, 3, 2, 8, "#d8dde4");
+    px(3, 2, 2, 2, "#f4f7fb");
+    px(5, 11, 4, 2, "#8a5a3c");
+    px(4, 13, 6, 1, "#c4552a");
+  } else if (kind === "armor") {
+    px(4, 3, 8, 3, "#8ec8f0");
+    px(3, 6, 10, 6, "#2458a8");
+    px(5, 7, 6, 3, "#8a6a48");
+    px(4, 12, 3, 2, "#6b3e2c");
+    px(9, 12, 3, 2, "#6b3e2c");
+  } else if (kind === "charm") {
+    px(5, 4, 6, 6, "#ffd37a");
+    px(7, 6, 2, 2, "#10245c");
+    px(7, 11, 2, 3, "#e7b56a");
+  } else if (kind === "coin") {
+    px(4, 3, 8, 10, "#e7b56a");
+    px(6, 5, 4, 6, "#ffd37a");
+    px(7, 6, 2, 4, "#8a5a20");
+  } else {
+    px(4, 5, 8, 7, "#8a5a3c");
+    px(5, 3, 6, 3, "#c4844c");
+    px(7, 8, 2, 2, "#ffd37a");
+  }
+  g.restore();
+};
+
+SF.syncChestUI = function () {
+  var panel = document.getElementById("chest");
+  if (!panel) return;
+  var s = SF.state;
+  var open = !!(s && s.mode === "chest" && s.chestLoot);
+  panel.hidden = !open;
+  if (!open) return;
+  var list = document.getElementById("chest-list");
+  if (!list) return;
+  var rows = s.chestLoot.rows || [];
+  var sig = rows.map(function (row) { return row.line; }).join("\n");
+  if (list.dataset.sig === sig) return;
+  list.dataset.sig = sig;
+  list.innerHTML = "";
+  rows.forEach(function (row) {
+    var item = document.createElement("div");
+    item.className = "loot-row";
+    var icon = document.createElement("canvas");
+    icon.className = "loot-icon";
+    icon.width = 32;
+    icon.height = 32;
+    icon.setAttribute("aria-hidden", "true");
+    SF.paintLootIcon(icon, row);
+    var text = document.createElement("p");
+    text.className = "loot-line";
+    text.textContent = row.line;
+    item.appendChild(icon);
+    item.appendChild(text);
+    list.appendChild(item);
+  });
+};
+
 SF.bindWorldUI = function () {
   var sail = document.getElementById("sail");
   if (sail) {
@@ -938,6 +1161,12 @@ SF.bindWorldUI = function () {
   if (innNo) innNo.addEventListener("click", function () { SF.closeWorldPanel(); if (SF.syncUI) SF.syncUI(); });
   var noticeClose = document.getElementById("notice-close");
   if (noticeClose) noticeClose.addEventListener("click", function () { SF.closeWorldPanel(); if (SF.syncUI) SF.syncUI(); });
+  var chest = document.getElementById("chest");
+  if (chest) chest.addEventListener("click", function () {
+    if (!SF.state || SF.state.mode !== "chest") return;
+    SF.closeChest();
+    if (SF.syncUI) SF.syncUI();
+  });
 };
 
 if (SF.bindUI) {
@@ -957,6 +1186,7 @@ if (SF.syncUI) {
     SF.syncShopUI();
     SF.syncInnUI();
     SF.syncNoticeUI();
+    SF.syncChestUI();
   };
 }
 
