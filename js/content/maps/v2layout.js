@@ -390,6 +390,208 @@ window.SF = SF;
   placeExtra(cinder, "bench", 32, 88);
   placeExtra(cinder, "vault-stone", 98, 34);
   cinder.bounds = { x: 0, y: 0, w: 156 * T, h: 108 * T };
+
+  function segDist(px, py, x0, y0, x1, y1) {
+    var dx = x1 - x0;
+    var dy = y1 - y0;
+    var len2 = dx * dx + dy * dy || 1;
+    var t = ((px - x0) * dx + (py - y0) * dy) / len2;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+    return Math.hypot(px - (x0 + dx * t), py - (y0 + dy * t));
+  }
+
+  function dressIsland(pack, seed, jobs, fences) {
+    var s = seed >>> 0;
+    function rnd() {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      return s / 4294967296;
+    }
+    var paths = pack.paths || [];
+    var avoid = [];
+    function remember(list, pad) {
+      (list || []).forEach(function (p) {
+        if (p && p.x != null) avoid.push({ x: p.x, y: p.y, pad: pad });
+      });
+    }
+    remember(pack.npcs, 44);
+    remember(pack.texts, 32);
+    remember(pack.pickups, 30);
+    remember(pack.hooks, 40);
+    remember(pack.spawns, 44);
+    remember(pack.extras, 32);
+    if (pack.lamp) avoid.push({ x: pack.lamp.x, y: pack.lamp.y, pad: 72 });
+    if (pack.wake) avoid.push({ x: pack.wake.x, y: pack.wake.y, pad: 48 });
+    (pack.props || []).forEach(function (p) {
+      avoid.push({ x: p.x, y: p.y, pad: p.kind === "cottage" || p.kind === "airship" || p.kind === "hut" || p.kind === "stall" ? 56 : 24 });
+    });
+    function pathDist(x, y) {
+      var best = 1e9;
+      var i, p;
+      for (p = 0; p < paths.length; p++) {
+        for (i = 0; i < paths[p].length - 2; i += 2) {
+          best = Math.min(best, segDist(x, y, paths[p][i], paths[p][i + 1], paths[p][i + 2], paths[p][i + 3]));
+        }
+      }
+      return best;
+    }
+    function onLand(x, y) {
+      var shapes = (pack.walk.circles || []).concat(pack.walk.rects || []);
+      var i, sh;
+      for (i = 0; i < shapes.length; i++) {
+        sh = shapes[i];
+        if (sh.id && String(sh.id).indexOf("trail-") === 0) continue;
+        if (sh.group === "span") continue;
+        if (inside(sh, x, y, 16)) return true;
+      }
+      return false;
+    }
+    function clear(x, y, pathPad) {
+      if (!onLand(x, y)) return false;
+      if (pathDist(x, y) < pathPad) return false;
+      var i, a, need;
+      for (i = 0; i < avoid.length; i++) {
+        a = avoid[i];
+        need = a.pad;
+        if (Math.hypot(x - a.x, y - a.y) < need) return false;
+      }
+      return true;
+    }
+    function put(kind, x, y, extra) {
+      var o = { kind: kind, x: Math.round(x), y: Math.round(y) };
+      var k;
+      if (extra) for (k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) o[k] = extra[k];
+      pack.props.push(o);
+      avoid.push({ x: o.x, y: o.y, pad: o.block ? 28 : 16 });
+    }
+    (jobs || []).forEach(function (job) {
+      var placed = 0;
+      var tries = 0;
+      var box = job.box;
+      var cx = (box[0] + box[2]) / 2 * T;
+      var cy = (box[1] + box[3]) / 2 * T;
+      var rx = (box[2] - box[0]) / 2 * T;
+      var ry = (box[3] - box[1]) / 2 * T;
+      var limit = job.n * 50;
+      while (placed < job.n && tries < limit) {
+        tries += 1;
+        var ang = rnd() * Math.PI * 2;
+        var rad = job.rim ? (0.62 + rnd() * 0.34) : Math.sqrt(rnd()) * 0.92;
+        var x = cx + Math.cos(ang) * rx * rad;
+        var y = cy + Math.sin(ang) * ry * rad;
+        var block = job.block || 0;
+        var pathPad = block ? block + 12 : 16;
+        if (!clear(x, y, pathPad)) continue;
+        var extra = {};
+        if (block) extra.block = block;
+        if (job.colors) extra.c = job.colors[(rnd() * job.colors.length) | 0];
+        put(job.kind, x, y, extra);
+        placed += 1;
+      }
+    });
+    (fences || []).forEach(function (f) {
+      var i, x, y, n;
+      n = f.n || 3;
+      for (i = 0; i < n; i++) {
+        x = f.x0 + (f.x1 - f.x0) * (n === 1 ? 0 : i / (n - 1));
+        y = f.y0 + (f.y1 - f.y0) * (n === 1 ? 0 : i / (n - 1));
+        if (!clear(x, y, 18)) continue;
+        put(f.kind, x, y, null);
+      }
+    });
+    (pack.props || []).forEach(function (p) {
+      if (p.block) return;
+      if (p.kind !== "tree" && p.kind !== "bush") return;
+      var r = p.kind === "tree" ? 8 : 6;
+      if (pathDist(p.x, p.y) <= r + 12) return;
+      var spots = []
+        .concat(pack.npcs || [], pack.texts || [], pack.pickups || [], pack.hooks || [], pack.spawns || [], pack.extras || []);
+      if (pack.lamp) spots.push(pack.lamp);
+      if (pack.wake) spots.push(pack.wake);
+      var i, q;
+      for (i = 0; i < spots.length; i++) {
+        q = spots[i];
+        if (q && Math.hypot(p.x - q.x, p.y - q.y) < r + 8) return;
+      }
+      for (i = 0; i < pack.props.length; i++) {
+        q = pack.props[i];
+        if (q === p) continue;
+        if (Math.hypot(p.x - q.x, p.y - q.y) < r + 14) return;
+      }
+      p.block = r;
+    });
+  }
+
+  var bloom = ["#ffd0e8", "#ffe08a", "#c6b6ff"];
+  dressIsland(ember, 0x5f17, [
+    { kind: "tree", box: [38, 16, 66, 58], n: 26, block: 8 },
+    { kind: "bush", box: [38, 16, 66, 58], n: 16, block: 6 },
+    { kind: "tuft", box: [38, 16, 66, 58], n: 18 },
+    { kind: "flower", box: [38, 16, 66, 58], n: 10, colors: bloom },
+    { kind: "stump", box: [38, 16, 66, 58], n: 3 },
+    { kind: "log", box: [38, 16, 66, 58], n: 2 },
+    { kind: "tree", box: [62, 28, 106, 68], n: 10, block: 8, rim: true },
+    { kind: "bush", box: [62, 28, 106, 68], n: 14, block: 6, rim: true },
+    { kind: "flower", box: [62, 28, 106, 68], n: 16, colors: bloom },
+    { kind: "tuft", box: [62, 28, 106, 68], n: 24 },
+    { kind: "rock", box: [62, 28, 106, 68], n: 5, rim: true },
+    { kind: "stump", box: [62, 28, 106, 68], n: 2 },
+    { kind: "log", box: [62, 28, 106, 68], n: 2 },
+    { kind: "tree", box: [84, 4, 118, 38], n: 6, block: 8, rim: true },
+    { kind: "bush", box: [84, 4, 118, 38], n: 5, block: 6, rim: true },
+    { kind: "rock", box: [84, 4, 118, 38], n: 7, rim: true },
+    { kind: "tuft", box: [84, 4, 118, 38], n: 12 },
+    { kind: "flower", box: [84, 4, 118, 38], n: 4, colors: bloom },
+    { kind: "rock", box: [102, 38, 134, 70], n: 10 },
+    { kind: "tree", box: [102, 38, 134, 70], n: 4, block: 8, rim: true },
+    { kind: "stump", box: [102, 38, 134, 70], n: 3 },
+    { kind: "tuft", box: [102, 38, 134, 70], n: 8 },
+    { kind: "bush", box: [44, 56, 62, 74], n: 3, block: 6 },
+    { kind: "flower", box: [44, 56, 62, 74], n: 4, colors: bloom },
+    { kind: "bush", box: [70, 89, 104, 104], n: 4, block: 6 },
+    { kind: "tuft", box: [2, 34, 20, 52], n: 6 },
+    { kind: "bush", box: [2, 34, 20, 52], n: 3, block: 6 }
+  ], [
+    { kind: "fence", x0: 64 * T, y0: 14 * T, x1: 64 * T, y1: 19 * T, n: 3 },
+    { kind: "fence", x0: 82 * T, y0: 14 * T, x1: 82 * T, y1: 19 * T, n: 3 }
+  ]);
+  dressIsland(cinder, 0xc1ad, [
+    { kind: "tree", box: [20, 26, 76, 78], n: 16, block: 7 },
+    { kind: "bush", box: [20, 26, 76, 78], n: 10, block: 5 },
+    { kind: "rock", box: [20, 26, 76, 78], n: 14 },
+    { kind: "stump", box: [20, 26, 76, 78], n: 6 },
+    { kind: "log", box: [20, 26, 76, 78], n: 4 },
+    { kind: "tuft", box: [20, 26, 76, 78], n: 16 },
+    { kind: "tree", box: [72, 46, 106, 74], n: 5, block: 7, rim: true },
+    { kind: "rock", box: [72, 46, 106, 74], n: 8 },
+    { kind: "stump", box: [72, 46, 106, 74], n: 3 },
+    { kind: "tuft", box: [2, 44, 18, 60], n: 4 },
+    { kind: "tree", box: [8, 18, 20, 30], n: 2, block: 7 },
+    { kind: "rock", box: [24, 0, 72, 24], n: 6, rim: true },
+    { kind: "tree", box: [24, 0, 72, 24], n: 3, block: 7, rim: true },
+    { kind: "tuft", box: [26, 74, 92, 98], n: 6 }
+  ], [
+    { kind: "fence_burnt", x0: 30 * T, y0: 76 * T, x1: 42 * T, y1: 76 * T, n: 4 },
+    { kind: "fence_burnt", x0: 70 * T, y0: 76 * T, x1: 88 * T, y1: 76 * T, n: 4 },
+    { kind: "fence_burnt", x0: 30 * T, y0: 82 * T, x1: 40 * T, y1: 82 * T, n: 3 }
+  ]);
+
+  var landWalkable = SF.walkable;
+  SF.walkable = function (x, y) {
+    if (!landWalkable(x, y)) return false;
+    var props = SF.PROPS;
+    if (!props) return true;
+    var i, p, r, dx, dy;
+    for (i = 0; i < props.length; i++) {
+      p = props[i];
+      r = p.block;
+      if (!r) continue;
+      dx = x - p.x;
+      dy = y - p.y;
+      if (dx * dx + dy * dy < r * r) return false;
+    }
+    return true;
+  };
   cinder.spots = {
     vledge: P(98, 34),
     maw: P(137, 12),

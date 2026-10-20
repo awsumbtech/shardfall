@@ -156,22 +156,150 @@
     return s;
   }, 2, 2);
 
+  prop("basalt", function () {
+    var s = Art.spr(18, 14);
+    disc(s, 9, 8, 6, C.stoneD);
+    disc(s, 6, 9, 4, C.rock);
+    disc(s, 12, 7, 3, C.cliffX);
+    plot(s, 7, 6, C.ashD);
+    plot(s, 11, 10, C.ember);
+    s.ax = 9;
+    s.ay = 12;
+    return s;
+  });
+
+  prop("bush", function () {
+    var s = Art.spr(28, 20);
+    disc(s, 14, 12, 8, C.leafD);
+    disc(s, 8, 13, 6, C.leaf);
+    disc(s, 20, 13, 6, C.green);
+    disc(s, 14, 8, 4, C.leafL);
+    s.ax = 14;
+    s.ay = 18;
+    return s;
+  });
+
+  prop("bush_dead", function () {
+    var s = Art.spr(26, 18);
+    disc(s, 13, 11, 7, C.ashD);
+    disc(s, 7, 12, 5, C.rock);
+    disc(s, 19, 12, 5, C.stoneD);
+    plot(s, 12, 8, C.ash);
+    s.ax = 13;
+    s.ay = 16;
+    return s;
+  });
+
+  prop("tree_dead", function () {
+    var s = Art.spr(36, 64);
+    fill(s, 16, 28, 4, 32, C.ashD);
+    fill(s, 14, 56, 8, 4, C.rock);
+    fill(s, 6, 24, 14, 2, C.stoneD);
+    fill(s, 18, 16, 14, 2, C.ash);
+    fill(s, 4, 16, 3, 10, C.ashD);
+    fill(s, 28, 10, 3, 10, C.stone);
+    fill(s, 20, 8, 2, 10, C.stoneD);
+    plot(s, 17, 40, C.ember);
+    s.ax = 18;
+    s.ay = 60;
+    return s;
+  });
+
+  prop("tuft", function () {
+    var s = Art.spr(12, 16);
+    fill(s, 2, 6, 1, 8, C.leafD);
+    fill(s, 4, 3, 1, 11, C.leaf);
+    fill(s, 6, 5, 1, 9, C.leafL);
+    fill(s, 8, 4, 1, 10, C.green);
+    plot(s, 4, 2, C.leafL);
+    plot(s, 8, 3, C.warm);
+    s.ax = 6;
+    s.ay = 15;
+    return s;
+  });
+
+  prop("tuft_dead", function () {
+    var s = Art.spr(12, 16);
+    fill(s, 2, 7, 1, 7, C.ashD);
+    fill(s, 4, 4, 1, 10, C.stoneD);
+    fill(s, 6, 6, 1, 8, C.ash);
+    fill(s, 8, 5, 1, 9, C.rock);
+    s.ax = 6;
+    s.ay = 15;
+    return s;
+  });
+
+  prop("stump", function () {
+    var s = Art.spr(16, 12);
+    fill(s, 3, 4, 10, 6, C.wood);
+    fill(s, 4, 5, 8, 2, C.woodL);
+    plot(s, 6, 6, C.woodD);
+    plot(s, 9, 6, C.woodD);
+    fill(s, 2, 9, 12, 2, C.woodD);
+    s.ax = 8;
+    s.ay = 11;
+    return s;
+  });
+
+  prop("log", function () {
+    var s = Art.spr(28, 12);
+    fill(s, 2, 4, 22, 6, C.wood);
+    fill(s, 2, 4, 22, 2, C.woodL);
+    fill(s, 22, 3, 5, 7, C.woodD);
+    plot(s, 24, 5, C.woodL);
+    plot(s, 6, 7, C.woodD);
+    plot(s, 12, 6, C.woodD);
+    s.ax = 14;
+    s.ay = 11;
+    return s;
+  });
+
+  function fenceSprite(post, rail, broken) {
+    var s = Art.spr(36, 22);
+    fill(s, 3, 6, 3, 14, post);
+    fill(s, 30, 6, 3, 14, post);
+    fill(s, 4, 8, 28, 2, rail);
+    if (!broken) fill(s, 4, 13, 28, 2, rail);
+    else fill(s, 4, 13, 16, 2, rail);
+    plot(s, 4, 5, C.stoneL);
+    plot(s, 31, 5, C.stoneL);
+    s.ax = 18;
+    s.ay = 20;
+    return s;
+  }
+  prop("fence", function () { return fenceSprite(C.wood, C.woodL, false); });
+  prop("fence_burnt", function () { return fenceSprite(C.ashD, C.rock, true); });
+
   function house(wall, wallD, roof, door, win) {
-    var s = Art.spr(72, 140);
-    fill(s, 8, 52, 56, 80, wall);
-    fill(s, 8, 52, 10, 80, wallD);
-    fill(s, 4, 40, 64, 16, roof);
-    fill(s, 14, 26, 44, 16, roof);
-    fill(s, 24, 12, 24, 16, C.woodD);
-    fill(s, 28, 88, 16, 44, door);
-    fill(s, 14, 64, 14, 16, win);
-    fill(s, 44, 64, 14, 16, win);
-    plot(s, 18, 68, C.lite);
-    plot(s, 48, 68, C.lite);
-    fill(s, 52, 16, 5, 22, C.stoneD);
-    plot(s, 54, 12, C.ash);
-    s.ax = 36;
-    s.ay = 132;
+    var s = Art.spr(164, 128);
+    fill(s, 8, 108, 148, 14, C.stoneD);
+    fill(s, 8, 108, 148, 3, C.stone);
+    fill(s, 14, 64, 136, 46, wall);
+    fill(s, 14, 64, 8, 46, wallD);
+    fill(s, 4, 54, 156, 14, roof);
+    fill(s, 18, 42, 128, 14, roof);
+    fill(s, 34, 32, 96, 12, roof);
+    fill(s, 52, 24, 60, 10, C.woodD);
+    fill(s, 116, 8, 12, 38, C.stoneD);
+    fill(s, 114, 6, 16, 5, C.stone);
+    plot(s, 119, 4, C.ashL);
+    plot(s, 123, 3, C.ash);
+    fill(s, 70, 84, 24, 38, door);
+    fill(s, 74, 88, 16, 10, C.woodL);
+    plot(s, 88, 104, C.gold);
+    fill(s, 28, 74, 24, 16, win);
+    fill(s, 112, 74, 24, 16, win);
+    fill(s, 28, 74, 24, 2, C.woodD);
+    fill(s, 112, 74, 24, 2, C.woodD);
+    fill(s, 32, 78, 6, 8, C.lite);
+    fill(s, 116, 78, 6, 8, C.lite);
+    fill(s, 26, 92, 28, 4, C.wood);
+    plot(s, 30, 90, C.bloom);
+    plot(s, 36, 89, C.warm);
+    plot(s, 42, 90, C.leaf);
+    plot(s, 46, 91, C.leafL);
+    s.ax = 82;
+    s.ay = 122;
     return s;
   }
   function greatLamp(lit) {
@@ -537,26 +665,26 @@
   organicTile("grass", { salt: 11, colors: [C.grass, C.grassD, C.grassL, C.leaf], tufts: 18, tuft: C.leaf, hi: C.leafL });
   organicTile("grass_light", { salt: 23, colors: [C.grassL, C.grass, C.grassD, C.warm], tufts: 14, tuft: C.leafL, hi: C.grassL });
   organicTile("grass_dark", { salt: 37, colors: [C.grassD, C.grassX, C.grass, C.leafD], tufts: 16, tuft: C.grass, hi: C.leaf });
-  cellTile("cliff", { a: C.cliff, b: C.cliffD, grout: C.cliffX, speck: C.cliffL });
-  cellTile("shore", { a: C.tide, b: C.tideD, grout: C.leafD, tuft: C.foam, hi: C.tideL });
-  cellTile("shore_light", { a: C.tideL, b: C.foam, grout: C.tide, tuft: C.grassL, hi: C.lite });
-  cellTile("gold", { a: C.goldD, b: C.sand, grout: C.wood, speck: C.gold, tuft: C.warm });
-  cellTile("gold_light", { a: C.warm, b: C.gold, grout: C.goldD, speck: C.lite });
-  organicTile("ash", { salt: 41, colors: [C.ash, C.ashD, C.ashL, C.rock], specks: 10, speck: C.ember, rock: C.stone });
-  organicTile("ash_light", { salt: 53, colors: [C.ashL, C.ash, C.sand, C.rock], specks: 8, speck: C.emberH, rock: C.stone });
-  organicTile("ash_rock", { salt: 67, colors: [C.rock, C.stoneD, C.ash, C.cliffX], specks: 14, speck: C.ember, rock: C.stone });
-  organicTile("ash_ember", { salt: 71, colors: [C.ashD, C.cliffX, C.rock, C.ember], specks: 16, speck: C.emberH, rock: C.stoneD });
-  cellTile("stone", { a: C.stone, b: C.stoneD, grout: C.armorD, speck: C.stoneL });
-  cellTile("stone_light", { a: C.stoneL, b: C.stone, grout: C.stoneD, speck: C.warm });
-  organicTile("vault", { salt: 83, colors: [C.rock, C.ashD, C.void, C.cliffX], specks: 12, speck: C.ember, rock: C.stoneD });
-  cellTile("path", { a: C.path, b: C.pathD, grout: C.wood, speck: C.pathL, tuft: C.pathL });
-  cellTile("cobble", { a: C.stone, b: C.ash, grout: C.stoneD, speck: C.tideD, tuft: C.stoneL });
-  cellTile("plank", { a: C.wood, b: C.woodD, grout: C.woodL, speck: C.woodD });
-  cellTile("dock", { a: C.tide, b: C.wood, grout: C.tideD, speck: C.woodD, tuft: C.foam });
-  cellTile("pier", { a: C.woodL, b: C.wood, grout: C.tide, speck: C.woodD, tuft: C.foam });
-  cellTile("sand", { a: C.sand, b: C.gold, grout: C.warm, speck: C.goldD, tuft: C.foam });
-  cellTile("hold", { a: C.woodD, b: C.rock, grout: C.ashD, speck: C.void, tuft: C.bone });
-  cellTile("wood", { a: C.woodL, b: C.wood, grout: C.woodD, speck: C.goldD });
+  organicTile("cliff", { salt: 151, colors: [C.cliff, C.cliffD, C.cliffX, C.stoneD], specks: 8, speck: C.cliffL, rock: C.cliffX });
+  organicTile("shore", { salt: 157, colors: [C.tide, C.tideD, C.sand, C.foam], tufts: 6, tuft: C.weed, hi: C.tideL, specks: 4, speck: C.foam });
+  organicTile("shore_light", { salt: 163, colors: [C.tideL, C.foam, C.sand, C.tide], tufts: 4, tuft: C.grassL, specks: 3, speck: C.foam });
+  organicTile("gold", { salt: 167, colors: [C.path, C.pathD, C.sand, C.stone], tufts: 5, tuft: C.grassD, specks: 4, speck: C.goldD, rock: C.stoneD });
+  organicTile("gold_light", { salt: 173, colors: [C.sand, C.pathL, C.warm, C.path], tufts: 3, tuft: C.grass, specks: 3, speck: C.goldD });
+  organicTile("ash", { salt: 41, colors: [C.stoneD, C.ashD, C.stone, C.rock], specks: 4, speck: C.stone, rock: C.cliffX });
+  organicTile("ash_light", { salt: 53, colors: [C.ash, C.stone, C.ashD, C.stoneL], specks: 3, speck: C.ashL, rock: C.stoneD });
+  organicTile("ash_rock", { salt: 67, colors: [C.rock, C.stoneD, C.cliffX, C.ashD], specks: 6, speck: C.stone, rock: C.cliffX });
+  organicTile("ash_ember", { salt: 71, colors: [C.ashD, C.stoneD, C.rock, C.cliffX], specks: 5, speck: C.ember, rock: C.stoneD });
+  organicTile("stone", { salt: 89, colors: [C.stone, C.stoneD, C.stoneL, C.ash], specks: 6, speck: C.stoneL, rock: C.stoneD });
+  organicTile("stone_light", { salt: 97, colors: [C.stoneL, C.stone, C.ash, C.sand], specks: 4, speck: C.ashL, rock: C.stone });
+  organicTile("vault", { salt: 83, colors: [C.rock, C.ashD, C.stoneD, C.void], specks: 4, speck: C.ember, rock: C.cliffX });
+  organicTile("path", { salt: 103, colors: [C.path, C.pathD, C.sand, C.wood], tufts: 4, tuft: C.grassD, specks: 6, speck: C.pathL, rock: C.stone });
+  organicTile("cobble", { salt: 109, colors: [C.stone, C.ash, C.stoneD, C.stoneL], specks: 5, speck: C.stoneL, rock: C.stoneD });
+  organicTile("plank", { salt: 113, colors: [C.wood, C.woodD, C.woodL, C.pathD], specks: 3, speck: C.woodD });
+  organicTile("dock", { salt: 127, colors: [C.wood, C.tideD, C.woodD, C.tide], specks: 4, speck: C.foam, rock: C.woodD });
+  organicTile("pier", { salt: 131, colors: [C.woodL, C.wood, C.woodD, C.tide], specks: 3, speck: C.foam });
+  organicTile("sand", { salt: 137, colors: [C.sand, C.goldD, C.pathL, C.foam], specks: 5, speck: C.foam, rock: C.path });
+  organicTile("hold", { salt: 139, colors: [C.woodD, C.rock, C.ashD, C.void], specks: 4, speck: C.bone, rock: C.stoneD });
+  organicTile("wood", { salt: 149, colors: [C.woodL, C.wood, C.woodD, C.path], specks: 3, speck: C.woodD });
 
   Art.pattern = function (name) {
     if (!Art._patterns) Art._patterns = {};

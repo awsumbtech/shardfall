@@ -128,7 +128,7 @@ button:focus-visible {
   top: calc(1px + env(safe-area-inset-top));
   left: calc(6px + env(safe-area-inset-left));
   right: calc(100px + env(safe-area-inset-right));
-  max-width: 280px;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -195,27 +195,27 @@ button:focus-visible {
 
 #vitals-text {
   margin: 0;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  line-height: 1;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
 #saved {
   color: var(--gold);
   margin-left: 6px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 #questline {
   margin-top: 0;
   font-family: var(--serif);
-  font-size: 11px;
-  line-height: 1;
+  font-size: 13px;
+  line-height: 1.25;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -226,10 +226,11 @@ button:focus-visible {
   border: 0;
   background: none;
   box-shadow: none;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.3;
   color: var(--cyan);
+  white-space: normal;
   transition: opacity 0.6s linear;
 }
 
@@ -242,10 +243,10 @@ body[data-calm="1"] #coach { transition: none; }
   z-index: 6;
   left: 50%;
   right: auto;
-  top: 2px;
+  top: 84px;
   transform: translateX(-50%);
   width: max-content;
-  max-width: 42%;
+  max-width: 70%;
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 700;
@@ -818,6 +819,11 @@ button.ghost {
   background: rgba(8, 6, 20, 0.5);
 }
 
+#pause {
+  align-items: center;
+  justify-content: center;
+}
+
 #pause .card {
   display: flex;
   flex-direction: column;
@@ -975,12 +981,18 @@ body[data-mode="results"] #toast,
 body[data-mode="results"] #banner,
 body[data-mode="dialogue"] #hud,
 body[data-mode="dialogue"] #place-banner,
+body[data-mode="dialogue"] #toast,
+body[data-mode="dialogue"] #banner,
 body[data-mode="dialogue"] #mapwrap,
 body[data-mode="cutscene"] #hud,
 body[data-mode="cutscene"] #place-banner,
+body[data-mode="cutscene"] #toast,
+body[data-mode="cutscene"] #banner,
 body[data-mode="cutscene"] #mapwrap,
 body[data-reveal="1"] #hud,
 body[data-reveal="1"] #place-banner,
+body[data-reveal="1"] #toast,
+body[data-reveal="1"] #banner,
 body[data-reveal="1"] #corner,
 body[data-reveal="1"] #mapwrap,
 body[data-mode="battle"] #hud,
@@ -1077,8 +1089,8 @@ body[data-modal="1"] #corner {
   #title .actions { flex-direction: row; flex-wrap: wrap; }
   #title .actions button { width: auto; flex: 1 1 140px; }
   #hud { right: calc(100px + env(safe-area-inset-right)); }
-  #questline { -webkit-line-clamp: 1; }
-  #place-banner { top: 2px; max-width: 42%; }
+  #questline { -webkit-line-clamp: 2; }
+  #place-banner { top: 84px; max-width: 70%; }
   #mapwrap {
     width: 84px;
     height: 84px;

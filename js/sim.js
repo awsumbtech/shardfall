@@ -738,10 +738,12 @@ SF.collectPickup = function (item) {
     SF.burst(item.x, item.y, "#9af6ff", 10, 50);
     SF.emit("pickup");
     var got = s.shardsHeld;
-    var sub = "The lamp on the hill needs " + SF.QUEST_SHARDS + ".";
-    if (s.quest === "awaken") sub = "Talk to Old Maren, up the hill.";
-    else if (got >= SF.QUEST_SHARDS) sub = "Bring them to the lamp. Press Place shards.";
-    SF.pushBanner("Sky-shard " + got + " of " + SF.QUEST_SHARDS, sub, 2.6);
+    var onCinder = SF.islandId === "cinderveil";
+    var need = onCinder ? (SF.CINDER_SHARDS || 3) : SF.QUEST_SHARDS;
+    var sub = onCinder ? ("The ridge lamp needs " + need + ".") : ("The lamp on the hill needs " + need + ".");
+    if (!onCinder && s.quest === "awaken") sub = "Talk to Old Maren, up the hill.";
+    else if (got >= need) sub = onCinder ? "Bring them to the ridge lamp." : "Bring them to the lamp. Press Place shards.";
+    SF.pushBanner("Sky-shard " + got + " of " + need, sub, 2.6);
   } else if (item.kind === "cog") {
     s.cogs = (s.cogs || 0) + 1;
     SF.floater(item.x, item.y, "+ cog", "#ffb15a");
@@ -1135,6 +1137,7 @@ SF.updateCamera = function (dt) {
 
 SF.pumpMessages = function (dt) {
   var s = SF.state;
+  if (s.mode === "dialogue" || s.mode === "cutscene" || s.revealPan) return;
   if (s.toast) {
     s.toast.ttl -= dt;
     if (s.toast.ttl <= 0) s.toast = null;

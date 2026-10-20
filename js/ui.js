@@ -474,7 +474,8 @@ SF.syncUI = function () {
     placeEl.hidden = true;
   }
 
-  var fieldChrome = s.mode !== "title" && s.mode !== "battle" && s.mode !== "results";
+  var quiet = s.mode === "dialogue" || s.mode === "cutscene" || s.revealPan;
+  var fieldChrome = s.mode !== "title" && s.mode !== "battle" && s.mode !== "results" && !quiet;
   var toast = document.getElementById("toast");
   if (s.toast && fieldChrome) {
     toast.hidden = false;

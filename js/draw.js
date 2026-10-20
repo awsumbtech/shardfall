@@ -273,12 +273,12 @@ SF.landTiles = function (name, lit) {
   var map = {
     ember: lit ? ["grass_light", "grass_light"] : ["grass", "grass_light"],
     perch: ["shore", "shore_light"],
-    cinder: ["gold", "gold_light"],
+    cinder: ["ash", "ash_rock"],
     span: ["stone", "stone_light"],
-    quay: ["cobble", "stone_light"],
+    quay: ["stone", "ash"],
     ash: ["ash", "ash_rock"],
     vault: ["vault", "ash_ember"],
-    scar: ["gold", "path"],
+    scar: ["gold", "stone"],
     ridge: ["ash_ember", "ash_rock"],
     salt: ["dock", "pier"],
     shore: ["sand", "gold_light"],
@@ -295,11 +295,17 @@ SF.landTiles = function (name, lit) {
 SF.drawLands = function (ctx, s) {
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!s.flags.lampLit;
   var pixel = window.Art && Art.fillPattern;
+  function solids(group) {
+    return (SF.groups[group] || []).filter(function (c) {
+      return !(c.id && String(c.id).indexOf("trail-") === 0);
+    });
+  }
   function cliff(group) {
-    if (!SF.groups[group] || !SF.groups[group].length) return;
+    var shapes = solids(group);
+    if (!shapes.length) return;
     ctx.save();
-    ctx.translate(0, 12);
-    SF.traceGroup(ctx, SF.groups[group], 2);
+    ctx.translate(0, 16);
+    SF.traceGroup(ctx, shapes, 3);
     if (pixel) {
       ctx.clip();
       Art.fillPattern(ctx, SF.cliffTile ? SF.cliffTile(group) : (group === "quay" ? "stone" : "cliff"));
@@ -310,40 +316,58 @@ SF.drawLands = function (ctx, s) {
     }
     ctx.restore();
   }
-  function top(group, name, light) {
-    if (!SF.groups[group] || !SF.groups[group].length) return;
+  function paintShapes(shapes, tileName, fallback) {
+    if (!shapes || !shapes.length) return;
     ctx.save();
-    ctx.translate(-3, -4);
-    SF.traceGroup(ctx, SF.groups[group], 2);
+    SF.traceGroup(ctx, shapes, 0);
+    ctx.clip();
+    if (pixel) Art.fillPattern(ctx, tileName);
+    else {
+      ctx.fillStyle = fallback || "#5cba78";
+      ctx.fillRect(-4000, -4000, 8000, 8000);
+    }
+    ctx.restore();
+  }
+  function highlight(group, light) {
+    var shapes = solids(group);
+    if (!shapes.length) return;
+    ctx.save();
+    ctx.translate(-3, -5);
+    SF.traceGroup(ctx, shapes, 2);
     if (pixel) {
       ctx.clip();
-      Art.fillPattern(ctx, light || name);
+      Art.fillPattern(ctx, light);
     } else {
       ctx.fillStyle = "#e7ffc4";
       ctx.fill();
     }
     ctx.restore();
-    ctx.save();
-    SF.traceGroup(ctx, SF.groups[group], 0);
-    ctx.clip();
-    if (pixel) Art.fillPattern(ctx, name);
-    else {
-      ctx.fillStyle = "#5cba78";
-      ctx.fillRect(-4000, -4000, 8000, 8000);
-    }
-    ctx.restore();
   }
-  Object.keys(SF.groups || {}).forEach(function (name) {
-    cliff(name);
+  var names = Object.keys(SF.groups || {});
+  names.forEach(cliff);
+  names.forEach(function (name) {
     var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
-    top(name, tiles[0], tiles[1]);
-    ctx.save();
-    SF.traceGroup(ctx, SF.groups[name], 0);
-    var edge = (SF.LANDS[name] && SF.LANDS[name].lo) || "#2a4030";
-    ctx.strokeStyle = edge;
-    ctx.lineWidth = 3;
+    highlight(name, tiles[1] || tiles[0]);
+  });
+  names.forEach(function (name) {
+    var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
+    paintShapes(SF.groups[name], tiles[0]);
+  });
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 3;
+  names.forEach(function (name) {
+    var shapes = solids(name);
+    if (!shapes.length) return;
+    SF.traceGroup(ctx, shapes, 0);
+    ctx.strokeStyle = (SF.LANDS[name] && SF.LANDS[name].lo) || "#2a4030";
     ctx.stroke();
-    ctx.restore();
+  });
+  ctx.restore();
+  names.forEach(function (name) {
+    var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
+    paintShapes(SF.groups[name], tiles[0]);
   });
 
   var hollow = SF.circle("hollow");
@@ -375,23 +399,57 @@ SF.drawGround = function (ctx, s) {
   ctx.beginPath();
   SF.traceGroup(ctx, (SF.WALK.circles || []).concat(SF.WALK.rects || []), 0);
   ctx.clip();
-  if (window.Art && Art.pattern) {
-    var pathTile = Art.pattern("path");
+  if (SF.PATHS && SF.PATHS.length) {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     SF.PATHS.forEach(function (path) {
-      var i, t, steps, x0, y0, x1, y1, len, x, y;
+      var i, t, steps, x0, y0, x1, y1, len, x, y, px, py, wobble, wide;
       for (i = 0; i < path.length - 2; i += 2) {
         x0 = path[i];
         y0 = path[i + 1];
         x1 = path[i + 2];
         y1 = path[i + 3];
         len = Math.hypot(x1 - x0, y1 - y0) || 1;
-        steps = Math.ceil(len / 8);
-        for (t = 0; t <= steps; t++) {
-          x = Math.round(x0 + (x1 - x0) * (t / steps));
-          y = Math.round(y0 + (y1 - y0) * (t / steps));
-          ctx.drawImage(pathTile, x - 8, y - 6);
-          ctx.drawImage(pathTile, x - 2, y + 2);
-          ctx.drawImage(pathTile, x + 4, y - 2);
+        steps = Math.max(1, Math.ceil(len / 6));
+        px = x0;
+        py = y0;
+        for (t = 1; t <= steps; t++) {
+          x = x0 + (x1 - x0) * (t / steps);
+          y = y0 + (y1 - y0) * (t / steps);
+          wobble = ((Math.imul(((x0 + y0 + i * 13) | 0) ^ (t * 17), 747796405) >>> 0) % 9);
+          wide = 5 + wobble;
+          if ((wobble + t) % 11 === 0) {
+            px = x;
+            py = y;
+            continue;
+          }
+          ctx.strokeStyle = "rgba(96, 122, 58, 0.18)";
+          ctx.lineWidth = wide + 14;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.strokeStyle = "rgba(146, 112, 66, 0.42)";
+          ctx.lineWidth = wide + 6;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.strokeStyle = "rgba(164, 124, 72, 0.58)";
+          ctx.lineWidth = wide;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          if ((wobble + t) % 4 === 0) {
+            ctx.fillStyle = "rgba(92, 64, 38, 0.65)";
+            ctx.fillRect(x - 1, y + (wobble % 3) - 1, 2, 1);
+          } else if ((wobble + t) % 5 === 0) {
+            ctx.fillStyle = "rgba(214, 186, 130, 0.45)";
+            ctx.fillRect(x, y - 1, 1, 1);
+          }
+          px = x;
+          py = y;
         }
       }
     });
@@ -418,17 +476,27 @@ SF.drawGround = function (ctx, s) {
     sp = specks[i];
     cull = view && (sp.x < view.l || sp.x > view.r || sp.y < view.t || sp.y > view.b);
     if (cull) continue;
-    var ash = sp.group === "ash" || sp.group === "vault" || sp.group === "span";
+    var ash = sp.group === "ash" || sp.group === "vault" || sp.group === "ridge" || sp.group === "cinder";
     var quay = sp.group === "quay" || sp.group === "perch";
-    if (sp.k > 0.92) {
-      ctx.fillStyle = ash ? "#e06828" : (quay ? "#8ad4d4" : (sp.k > 0.97 ? "#f0d078" : "#ffd0e4"));
-      ctx.fillRect(sp.x, sp.y, 2, 2);
-      ctx.fillRect(sp.x - 1, sp.y + 1, 1, 1);
-      ctx.fillRect(sp.x + 2, sp.y + 1, 1, 1);
-    } else if (sp.k > 0.45) {
-      ctx.fillStyle = ash ? "#6e6460" : (quay ? "#1a5868" : "#1e5828");
+    if (ash) {
+      if (sp.k > 0.992) {
+        ctx.fillStyle = "#ffb15a";
+        ctx.fillRect(sp.x, sp.y, 1, 1);
+        ctx.fillStyle = "#a04418";
+        ctx.fillRect(sp.x + 1, sp.y, 2, 1);
+      } else if (sp.k > 0.78) {
+        ctx.fillStyle = "#3a342e";
+        ctx.fillRect(sp.x, sp.y, 2, 1);
+        ctx.fillStyle = "#6a625c";
+        ctx.fillRect(sp.x, sp.y, 1, 1);
+      }
+    } else if (sp.k > 0.94) {
+      ctx.fillStyle = quay ? "#8ad4d4" : (sp.k > 0.98 ? "#f0d078" : "#ffd0e4");
+      ctx.fillRect(sp.x, sp.y, 2, 1);
+    } else if (sp.k > 0.55) {
+      ctx.fillStyle = quay ? "#1a5868" : "#1e5828";
       ctx.fillRect(sp.x, sp.y, 1, 2);
-      ctx.fillStyle = ash ? "#b0a49c" : "#8ed45c";
+      ctx.fillStyle = quay ? "#8ad4d4" : "#8ed45c";
       ctx.fillRect(sp.x, sp.y, 1, 1);
     }
   }
@@ -489,8 +557,9 @@ SF.buildTerrainSheet = function (lit) {
   var fake = { flags: { lampLit: !!lit, cinderLit: SF.islandId === "cinderveil" && !!lit } };
   Object.keys(SF.groups || {}).forEach(function (name) {
     (SF.groups[name] || []).forEach(function (c) {
+      if (c.id && String(c.id).indexOf("trail-") === 0) return;
       var f = SF.foot(c);
-      bctx.drawImage(SF.blobs.shadow, f.x - f.rx * 1.15, f.y - f.ry * 0.45 + 18, f.rx * 2.3, f.ry * 1.25);
+      bctx.drawImage(SF.blobs.shadow, f.x - f.rx * 1.15, f.y - f.ry * 0.45 + 22, f.rx * 2.3, f.ry * 1.35);
     });
   });
   SF.drawLands(bctx, fake);
@@ -605,10 +674,29 @@ SF.drawPropArt = function (ctx, prop, lit) {
   else if (id === "flower") {
     var c = prop.c || "";
     id = (c.indexOf("9af") !== -1 || c.indexOf("c8be") !== -1) ? "flower_tide" : (c.indexOf("ffb") !== -1 || c.indexOf("ffe") !== -1 || c.indexOf("e7a") !== -1 ? "flower_gold" : "flower");
-  } else if (id === "tree" && (SF.islandId === "cinderveil")) id = "tree_bare";
+  }   else if (id === "tree" && (SF.islandId === "cinderveil")) id = "tree_dead";
+  else if (id === "bush" && (SF.islandId === "cinderveil")) id = "bush_dead";
+  else if (id === "rock" && (SF.islandId === "cinderveil")) id = "basalt";
+  else if (id === "tuft" && (SF.islandId === "cinderveil")) id = "tuft_dead";
   if (!Art._makers[id]) return false;
   var sc = Art.fieldScale ? Art.fieldScale(id) : 1;
   Art.sprite(ctx, id, prop.x, prop.y, { scale: sc, frame: 0, facing: "down" });
+  if (prop.kind === "cottage") {
+    var t = SF.reduceMotion ? 0.35 : (SF.anim || 0);
+    var sx = prop.x + 40;
+    var sy = prop.y - 116;
+    var i, puff;
+    ctx.save();
+    for (i = 0; i < 3; i++) {
+      puff = (t * 0.28 + i * 0.34) % 1;
+      ctx.globalAlpha = (1 - puff) * 0.42;
+      ctx.fillStyle = "#ddd4cc";
+      ctx.beginPath();
+      ctx.arc(sx + Math.sin(t * 0.7 + i) * 1.5, sy - puff * 16, 1.6 + puff * 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
   return true;
 };
 
@@ -1508,7 +1596,7 @@ SF.drawEdgeArrow = function (ctx, w, h, s) {
   var sy = (goal.y - s.camY) * zoom + h / 2;
   var left = 28;
   var right = w - 28;
-  var top = 46;
+  var top = 88;
   var bottom = h - 150;
   if (!sensed && sx > left && sx < right && sy > top && sy < bottom) return;
   var cx = w / 2;
