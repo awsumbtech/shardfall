@@ -652,6 +652,18 @@ function placeActors(actors, zone, side, groundY) {
     if (sh > tallest) tallest = sh;
     specs.push({ actor: actor, cell: cell, scale: scale, src: src, sh: sh });
   }
+  // Party sprites share one scale. A slightly wider frame (Kestrel) used to
+  // round down a quarter-step and draw at about half the others' size.
+  if (side === "party" && specs.length > 1) {
+    var shared = specs[0].scale;
+    for (i = 1; i < specs.length; i++) if (specs[i].scale > shared) shared = specs[i].scale;
+    tallest = 0;
+    for (i = 0; i < specs.length; i++) {
+      specs[i].scale = shared;
+      specs[i].sh = specs[i].src.h * shared;
+      if (specs[i].sh > tallest) tallest = specs[i].sh;
+    }
+  }
   var minFeet = zone.y + labelH + tallest + 4;
   var maxFeet = zone.y + zone.h - 6;
   var feetLine = maxFeet;
@@ -891,29 +903,74 @@ function drawBattleFx(ctx, b, spots) {
   });
 }
 
+function drawStatRow(ctx, tag, cur, max, x, y, w, rowH, fill) {
+  var size = Math.min(12, Math.max(9, rowH - 3));
+  var text = tag + " " + cur + "/" + max;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#d7e6ff";
+  var mid = Math.round(y + rowH / 2);
+  ctx.font = "700 " + size + "px system-ui, sans-serif";
+  while (size > 9 && ctx.measureText(text).width > w - 20) {
+    size -= 1;
+    ctx.font = "700 " + size + "px system-ui, sans-serif";
+  }
+  if (ctx.measureText(text).width > w - 16) text = tag + " " + cur;
+  if (ctx.measureText(text).width > w - 14) text = tag;
+  var tw = Math.ceil(ctx.measureText(text).width);
+  ctx.fillText(text, x, mid);
+  var barW = w - tw - 4;
+  if (barW >= 8) bar(ctx, x + tw + 4, mid - 3, barW, 5, max ? cur / max : 0, fill);
+}
+
 function drawPartyCards(ctx, b, party, x, y, w, h) {
   var n = party.length || 1;
-  var gap = 6;
+  var gap = n > 2 ? 4 : 6;
   var bw = Math.floor((w - gap * (n - 1)) / n);
   party.forEach(function (a, i) {
     var cx = x + i * (bw + gap);
     artWindow(ctx, cx, y, bw, h);
-    var portrait = Math.min(48, h - 16);
-    drawPortrait(ctx, a.sprite, cx + 10, y + Math.round((h - portrait) / 2), portrait);
-    var textX = cx + portrait + 18;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
-    ctx.font = "700 15px Palatino, Georgia, serif";
-    ctx.fillText(a.name, textX, y + 4);
-    var barW = Math.max(36, cx + bw - 12 - textX);
-    var labelW = Math.min(78, Math.round(barW * 0.46));
-    ctx.font = "700 13px system-ui, sans-serif";
-    ctx.fillStyle = "#d7e6ff";
-    ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 22);
-    bar(ctx, textX + labelW, y + 24, Math.max(20, barW - labelW), 6, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
-    ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 42);
-    bar(ctx, textX + labelW, y + 44, Math.max(20, barW - labelW), 6, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cx + 3, y + 3, Math.max(4, bw - 6), Math.max(4, h - 6));
+    ctx.clip();
+    var sideBySide = bw >= 168;
+    if (sideBySide) {
+      var portrait = Math.min(48, h - 16);
+      drawPortrait(ctx, a.sprite, cx + 10, y + Math.round((h - portrait) / 2), portrait);
+      var textX = cx + portrait + 18;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
+      ctx.font = "700 15px Palatino, Georgia, serif";
+      ctx.fillText(a.name, textX, y + 4);
+      var barW = Math.max(36, cx + bw - 12 - textX);
+      var labelW = Math.min(78, Math.round(barW * 0.46));
+      ctx.font = "700 13px system-ui, sans-serif";
+      ctx.fillStyle = "#d7e6ff";
+      ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 22);
+      bar(ctx, textX + labelW, y + 24, Math.max(20, barW - labelW), 6, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
+      ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 42);
+      bar(ctx, textX + labelW, y + 44, Math.max(20, barW - labelW), 6, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
+    } else {
+      var pad = 4;
+      var face = Math.max(16, Math.min(26, h - 38, bw - 40));
+      drawPortrait(ctx, a.sprite, cx + pad, y + pad, face);
+      var nameX = cx + pad + face + 4;
+      var nameW = Math.max(12, cx + bw - pad - nameX);
+      var choices = [a.name].concat(labelChoices(a, b, true));
+      var name = pickFitting(ctx, choices, nameW, 13, 9);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
+      ctx.font = "700 " + name.size + "px Palatino, Georgia, serif";
+      ctx.fillText(name.text, nameX, y + pad + face / 2);
+      var statTop = y + pad + face + 2;
+      var statH = Math.max(11, Math.floor((y + h - pad - statTop) / 2));
+      drawStatRow(ctx, "HP", a.hp, a.maxHp, cx + pad, statTop, bw - pad * 2, statH, "#ef6d7a");
+      drawStatRow(ctx, "SP", a.sp, a.maxSp, cx + pad, statTop + statH, bw - pad * 2, statH, "#7eb6ff");
+    }
+    ctx.restore();
     if (b.phase === "target" && b.aim === "ally" && a.alive) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 3;

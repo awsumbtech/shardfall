@@ -1152,7 +1152,9 @@
   }
 
   function paintPortrait(id) {
-    var body = battleRaw(id, "idle", 0);
+    // Same left-facing head as the battle sprite, so the HUD and turn
+    // icons look toward the enemies on the left.
+    var body = Art.mirror(battleRaw(id, "idle", 0));
     var spec = SPECS[id];
     var s = Art.spr(32, 32);
     var bg = id === "kestrel" ? C.tealD : (id === "tamsin" ? C.vestD : C.coatD);
