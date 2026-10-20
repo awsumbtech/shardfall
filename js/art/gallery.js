@@ -77,7 +77,7 @@
 
     var people = ["wayfarer", "kestrel", "tamsin", "maren", "hesk", "ilsa", "cantor", "villager_a", "villager_b", "brenna", "osric", "nessa", "sera", "pip", "lark", "jory", "brant", "dorrie", "maud", "ellis", "sile"];
     var foes = ["wisp", "brumekin", "choirling", "ashling", "cinderhound", "cinder_maw", "saltwisp", "drowned", "stormgull", "tidewyrm", "choir_soldier", "sentinel", "hush_raider", "sootwing"];
-    var props = ["chest", "chest_open", "lamp_cold", "lamp_lit", "shard", "skiff", "cog", "sign", "tree", "rock", "cottage", "workshop", "stones", "ruin", "flower", "blossom", "hut", "stilt", "stall", "wreckhull", "gatearch", "raft", "signpost", "inn"];
+    var props = ["chest", "chest_open", "lamp_cold", "lamp_lit", "shard", "skiff", "cog", "sign", "tree", "tree_birch", "tree_pine", "tree_apple", "tree_grove", "tree_dead", "tree_dead_lean", "tree_dead_snap", "tree_bare", "bush", "bush_b", "bush_dead", "tuft", "tuft_b", "tuft_bloom", "tuft_dead", "rock", "rock_b", "basalt", "log", "log_char", "stump", "stump_char", "crate", "fence", "fence_burnt", "cottage", "workshop", "stones", "ruin", "flower", "flower_gold", "flower_tide", "blossom", "hut", "stilt", "stall", "wreckhull", "gatearch", "raft", "signpost", "inn"];
     var dirs = ["down", "left", "right", "up"];
 
     function actorBlock(id) {

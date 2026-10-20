@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shardfall prop contact sheet</title>
+  <style>
+    html, body { margin: 0; background: #1a1224; color: #f4efe6; font: 14px/1.3 ui-monospace, monospace; }
+    h1 { font: 600 18px/1.2 system-ui, sans-serif; margin: 16px 20px 4px; }
+    p { margin: 0 20px 12px; color: #d4cdc2; }
+    canvas { display: block; margin: 0 auto 24px; background: #241810; }
+  </style>
+</head>
+<body>
+  <h1>Act 1 props, 1:1 next to the hero, then 3×</h1>
+  <p>Hero is 24×38. Trees should read at about twice that height.</p>
+  <canvas id="sheet"></canvas>
+  <script src="../js/art/core.js"></script>
+  <script src="../js/art/actors.js"></script>
+  <script src="../js/art/props.js"></script>
+  <script>
+    var ids = Art.PROP_IDS.slice();
+    var cols = 4;
+    var scale = 3;
+    var cellW = 280;
+    var cellH = 300;
+    var rows = Math.ceil(ids.length / cols);
+    var stripH = 120;
+    var canvas = document.getElementById("sheet");
+    canvas.width = cols * cellW;
+    canvas.height = stripH + rows * cellH + 8;
+    var g = canvas.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = "#2a2018";
+    g.fillRect(0, 0, canvas.width, canvas.height);
+
+    function blit(id, x, y, sc) {
+      var src = Art.frameOf(id, "walk", "down", 0);
+      g.imageSmoothingEnabled = false;
+      g.drawImage(src, Math.round(x), Math.round(y), src.width * sc, src.height * sc);
+      return src;
+    }
+
+    g.fillStyle = "#3e9a44";
+    g.fillRect(0, 0, canvas.width / 2, stripH);
+    g.fillStyle = "#6a625c";
+    g.fillRect(canvas.width / 2, 0, canvas.width / 2, stripH);
+    var hero = blit("wayfarer", 24, stripH - 42, 1);
+    blit("tree_oak", 70, stripH - 78, 1);
+    blit("tree_pine", 140, stripH - 84, 1);
+    blit("tree_grove", 200, stripH - 80, 1);
+    blit("tree_dead", canvas.width / 2 + 20, stripH - 76, 1);
+    blit("tree_dead_lean", canvas.width / 2 + 80, stripH - 70, 1);
+    blit("tree_dead_snap", canvas.width / 2 + 150, stripH - 56, 1);
+    blit("log", canvas.width / 2 + 220, stripH - 24, 1);
+    blit("crate", canvas.width / 2 + 270, stripH - 24, 1);
+    blit("stump", canvas.width / 2 + 310, stripH - 22, 1);
+    g.fillStyle = "#1c1424";
+    g.font = "12px monospace";
+    g.fillText("hero " + hero.width + "x" + hero.height + "   living 1:1", 8, 14);
+    g.fillStyle = "#f4efe6";
+    g.fillText("ash 1:1", canvas.width / 2 + 8, 14);
+
+    ids.forEach(function (id, i) {
+      var col = i % cols;
+      var row = (i / cols) | 0;
+      var x = col * cellW;
+      var y = stripH + row * cellH;
+      var ash = /dead|bare|char|basalt|burnt/.test(id);
+      g.fillStyle = ash ? "#5a5048" : "#2f6a38";
+      g.fillRect(x + 8, y + 8, cellW - 16, cellH - 16);
+      var src = Art.frameOf(id, "walk", "down", 0);
+      var dw = src.width * scale;
+      var dh = src.height * scale;
+      blit(id, x + (cellW - dw) / 2, y + 36 + (220 - dh) / 2, scale);
+      g.fillStyle = "#f4efe6";
+      g.font = "14px monospace";
+      g.fillText(id, x + 16, y + 28);
+      g.fillText(src.width + "x" + src.height, x + 16, y + cellH - 18);
+    });
+  </script>
+</body>
+</html>

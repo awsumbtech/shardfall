@@ -46,6 +46,7 @@ var SHELL = [
   "js/art/core.js",
   "js/art/actors.js",
   "js/art/world.js",
+  "js/art/props.js",
   "js/art/scenes.js",
   "js/art/gallery.js",
   "js/draw.js",
