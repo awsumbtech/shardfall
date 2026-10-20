@@ -1,7 +1,8 @@
 "use strict";
 
-// Tiles, buildings, and the Hush cloud stamps. Ground patterns repeat 1:1
-// in world space. Trees, plants, and small props live in js/art/props.js.
+// Tiles, markers, and the Hush cloud stamps. Ground patterns repeat 1:1
+// in world space. Trees and plants live in js/art/props.js. Structures
+// live in js/art/buildings.js.
 (function () {
   var C = Art.C;
   var plot = Art.plot;
@@ -46,27 +47,6 @@
     s.ay = 14;
     return s;
   });
-
-  function lamp(lit) {
-    var s = Art.spr(16, 32);
-    fill(s, 7, 14, 2, 14, C.woodD);
-    fill(s, 4, 26, 8, 3, C.stone);
-    fill(s, 6, 10, 4, 4, C.wood);
-    var gem = lit ? C.gold : C.violet;
-    var hot = lit ? C.lite : C.core;
-    plot(s, 8, 4, hot);
-    plot(s, 6, 7, gem);
-    plot(s, 8, 6, gem);
-    plot(s, 10, 7, gem);
-    plot(s, 8, 9, lit ? C.goldD : C.violetD);
-    plot(s, 7, 7, hot);
-    plot(s, 9, 7, gem);
-    s.ax = 8;
-    s.ay = 30;
-    return s;
-  }
-  prop("lamp_lit", function () { return lamp(true); }, 2, 2);
-  prop("lamp_cold", function () { return lamp(false); }, 2, 2);
 
   prop("shard", function () {
     var s = Art.spr(11, 15);
@@ -118,59 +98,6 @@
     return s;
   }, 2, 2);
 
-  function house(wall, wallD, roof, door, win) {
-    var s = Art.spr(164, 128);
-    fill(s, 8, 108, 148, 14, C.stoneD);
-    fill(s, 8, 108, 148, 3, C.stone);
-    fill(s, 14, 64, 136, 46, wall);
-    fill(s, 14, 64, 8, 46, wallD);
-    fill(s, 4, 54, 156, 14, roof);
-    fill(s, 18, 42, 128, 14, roof);
-    fill(s, 34, 32, 96, 12, roof);
-    fill(s, 52, 24, 60, 10, C.woodD);
-    fill(s, 116, 8, 12, 38, C.stoneD);
-    fill(s, 114, 6, 16, 5, C.stone);
-    plot(s, 119, 4, C.ashL);
-    plot(s, 123, 3, C.ash);
-    fill(s, 70, 84, 24, 38, door);
-    fill(s, 74, 88, 16, 10, C.woodL);
-    plot(s, 88, 104, C.gold);
-    fill(s, 28, 74, 24, 16, win);
-    fill(s, 112, 74, 24, 16, win);
-    fill(s, 28, 74, 24, 2, C.woodD);
-    fill(s, 112, 74, 24, 2, C.woodD);
-    fill(s, 32, 78, 6, 8, C.lite);
-    fill(s, 116, 78, 6, 8, C.lite);
-    fill(s, 26, 92, 28, 4, C.wood);
-    plot(s, 30, 90, C.bloom);
-    plot(s, 36, 89, C.warm);
-    plot(s, 42, 90, C.leaf);
-    plot(s, 46, 91, C.leafL);
-    s.ax = 82;
-    s.ay = 122;
-    return s;
-  }
-  function greatLamp(lit) {
-    var s = Art.spr(32, 160);
-    fill(s, 14, 28, 4, 120, C.woodD);
-    fill(s, 8, 140, 16, 8, C.stone);
-    fill(s, 10, 24, 12, 10, C.wood);
-    var gem = lit ? C.gold : C.violet;
-    var hot = lit ? C.lite : C.core;
-    fill(s, 8, 8, 16, 16, gem);
-    fill(s, 12, 12, 8, 8, hot);
-    plot(s, 16, 6, hot);
-    plot(s, 6, 16, gem);
-    plot(s, 26, 16, gem);
-    s.ax = 16;
-    s.ay = 152;
-    return s;
-  }
-  prop("great_lamp", function () { return greatLamp(false); }, 2, 1);
-  prop("great_lamp_lit", function () { return greatLamp(true); }, 2, 1);
-  prop("cottage", function () { return house(C.cream, C.sand, C.shawl, C.wood, C.shard); }, 2, 2);
-  prop("workshop", function () { return house(C.ashL, C.ash, C.vestD, C.woodD, C.warm); }, 2, 2);
-
   prop("stones", function () {
     var s = Art.spr(26, 22);
     fill(s, 3, 8, 4, 12, C.stone);
@@ -180,174 +107,6 @@
     fill(s, 4, 8, 1, 4, C.stoneL);
     s.ax = 13;
     s.ay = 20;
-    return s;
-  }, 2, 2);
-
-  prop("ruin", function () {
-    var s = Art.spr(22, 18);
-    fill(s, 2, 6, 5, 10, C.stone);
-    fill(s, 8, 3, 6, 13, C.stoneD);
-    fill(s, 15, 8, 4, 8, C.stone);
-    plot(s, 10, 6, C.ember);
-    plot(s, 9, 10, C.stoneL);
-    s.ax = 11;
-    s.ay = 16;
-    return s;
-  }, 2, 2);
-
-  prop("plank", function () {
-    var s = Art.spr(18, 6);
-    fill(s, 1, 2, 16, 2, C.woodL);
-    plot(s, 4, 2, C.woodD);
-    plot(s, 9, 3, C.woodD);
-    plot(s, 13, 2, C.wood);
-    s.ax = 9;
-    s.ay = 4;
-    return s;
-  }, 2, 2);
-
-  prop("bench", function () {
-    var s = Art.spr(22, 12);
-    fill(s, 2, 4, 18, 3, C.woodL);
-    fill(s, 3, 7, 2, 3, C.woodD);
-    fill(s, 17, 7, 2, 3, C.wood);
-    fill(s, 2, 3, 18, 1, C.wood);
-    s.ax = 11;
-    s.ay = 10;
-    return s;
-  }, 2, 2);
-
-  prop("skiff", function () {
-    var s = Art.spr(48, 30);
-    fill(s, 6, 14, 36, 8, C.wood);
-    fill(s, 4, 16, 40, 4, C.woodD);
-    fill(s, 10, 12, 16, 6, C.woodL);
-    fill(s, 18, 8, 2, 14, C.woodD);
-    plot(s, 20, 6, C.shardH);
-    plot(s, 22, 10, C.paper);
-    plot(s, 26, 14, C.shard);
-    plot(s, 20, 16, C.cream);
-    plot(s, 24, 12, C.gold);
-    fill(s, 8, 15, 4, 2, C.teal);
-    fill(s, 34, 15, 5, 2, C.scarf);
-    plot(s, 14, 18, C.goldD);
-    plot(s, 30, 18, C.woodL);
-    s.ax = 24;
-    s.ay = 24;
-    return s;
-  }, 2, 2);
-
-  prop("hut", function () {
-    var s = Art.spr(28, 24);
-    var i;
-    fill(s, 4, 12, 20, 9, C.sand);
-    fill(s, 6, 14, 4, 3, C.gold);
-    fill(s, 16, 14, 4, 3, C.woodD);
-    fill(s, 11, 15, 6, 6, C.wood);
-    for (i = 0; i < 7; i++) fill(s, 3 + i, 11 - i, 22 - i * 2, 1, i % 2 ? C.tealD : C.teal);
-    fill(s, 12, 2, 3, 4, C.woodD);
-    s.ax = 14;
-    s.ay = 22;
-    return s;
-  });
-
-  prop("stilt", function () {
-    var s = Art.spr(22, 28);
-    fill(s, 3, 10, 2, 16, C.woodD);
-    fill(s, 16, 10, 2, 16, C.wood);
-    fill(s, 1, 8, 20, 3, C.woodL);
-    fill(s, 3, 6, 16, 2, C.tide);
-    fill(s, 5, 4, 12, 2, C.wood);
-    plot(s, 7, 5, C.foam);
-    plot(s, 13, 5, C.gold);
-    s.ax = 11;
-    s.ay = 26;
-    return s;
-  });
-
-  prop("stall", function () {
-    var s = Art.spr(28, 22);
-    fill(s, 6, 16, 2, 4, C.woodD);
-    fill(s, 20, 16, 2, 4, C.wood);
-    fill(s, 3, 12, 22, 5, C.wood);
-    fill(s, 5, 13, 6, 3, C.gold);
-    fill(s, 14, 13, 7, 3, C.scarf);
-    fill(s, 2, 6, 24, 6, C.red);
-    fill(s, 4, 7, 20, 2, C.redD);
-    fill(s, 2, 11, 24, 1, C.woodD);
-    s.ax = 14;
-    s.ay = 20;
-    return s;
-  });
-
-  prop("wreckhull", function () {
-    var s = Art.spr(36, 24);
-    fill(s, 4, 12, 26, 7, C.woodD);
-    fill(s, 2, 16, 32, 4, C.rock);
-    fill(s, 8, 6, 3, 12, C.wood);
-    fill(s, 20, 4, 2, 12, C.bone);
-    fill(s, 6, 13, 12, 2, C.ash);
-    plot(s, 24, 14, C.tide);
-    plot(s, 26, 15, C.weed);
-    plot(s, 12, 8, C.goldD);
-    plot(s, 14, 15, C.foam);
-    s.ax = 18;
-    s.ay = 21;
-    return s;
-  });
-
-  prop("gatearch", function () {
-    var s = Art.spr(32, 28);
-    fill(s, 2, 8, 6, 16, C.stone);
-    fill(s, 24, 8, 6, 16, C.stoneD);
-    fill(s, 2, 4, 28, 6, C.stoneL);
-    fill(s, 8, 10, 16, 14, C.woodD);
-    fill(s, 10, 12, 12, 2, C.goldD);
-    fill(s, 15, 12, 2, 10, C.gold);
-    plot(s, 16, 6, C.gold);
-    plot(s, 8, 6, C.stone);
-    s.ax = 16;
-    s.ay = 26;
-    return s;
-  });
-
-  prop("raft", function () {
-    var s = Art.spr(40, 18);
-    var x;
-    fill(s, 2, 8, 36, 6, C.wood);
-    fill(s, 2, 12, 36, 2, C.woodD);
-    for (x = 4; x < 36; x += 6) fill(s, x, 8, 1, 6, C.woodD);
-    fill(s, 6, 4, 8, 5, C.woodL);
-    fill(s, 24, 3, 8, 6, C.violetD);
-    plot(s, 26, 5, C.gold);
-    plot(s, 30, 5, C.gold);
-    s.ax = 20;
-    s.ay = 16;
-    return s;
-  });
-
-  prop("inn", function () {
-    var s = Art.spr(14, 24);
-    fill(s, 6, 10, 2, 12, C.woodD);
-    fill(s, 3, 20, 8, 2, C.wood);
-    fill(s, 4, 3, 6, 7, C.gold);
-    fill(s, 5, 4, 4, 5, C.warm);
-    plot(s, 6, 6, C.lite);
-    plot(s, 3, 8, C.goldD);
-    plot(s, 10, 8, C.goldD);
-    s.ax = 7;
-    s.ay = 22;
-    return s;
-  });
-
-  prop("bell", function () {
-    var s = Art.spr(12, 18);
-    fill(s, 5, 2, 2, 3, C.wood);
-    fill(s, 3, 5, 6, 7, C.gold);
-    fill(s, 2, 10, 8, 2, C.goldD);
-    plot(s, 6, 13, C.gold);
-    s.ax = 6;
-    s.ay = 16;
     return s;
   }, 2, 2);
 
@@ -545,3 +304,10 @@
     return canvas;
   };
 })();
+
+// Structures live in js/art/buildings.js. This insert keeps that file on the
+// parser's script list without a new index.html src (sw.js is left alone).
+// document.write during parse runs before js/art/props.js.
+if (typeof document !== "undefined" && document.readyState === "loading") {
+  document.write('<script src="js/art/buildings.js"><\/script>');
+}
