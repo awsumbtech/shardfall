@@ -6,6 +6,13 @@ A personal, ad-free, non-commercial pseudo open-world RPG for the browser. A cen
 
 The live site updates when the Pages workflow runs on `main`. It does not deploy from a pull request.
 
+## v0.2 — Act 1: The Cinder Road
+
+People talk like themselves. A conversation shows a face and a line, and Reduce flashing still shows the whole line at once.
+The title opens on a cloud sea, islands drifting past a lamp.
+Emberhold has a quiet theme now. Strikes, dashes, shards, and the lamp have their own sounds, and each speaker has a voice.
+Music and effects have their own volume. Haptics can be turned off. The same Reduce flashing switch lives in Settings.
+
 ## v0.1.1 — Steady light
 
 The screen stays steady. Flashes are softer, and Reduce flashing is on until you turn it off.

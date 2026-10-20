@@ -93,6 +93,7 @@
         <div class="actions">
           <button id="continue" type="button" hidden>Continue</button>
           <button id="newgame" type="button">New Game</button>
+          <button id="title-settings" type="button" class="ghost">Settings</button>
           <button id="title-news" type="button" class="ghost">What's new in v0.1.1</button>
           <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
@@ -108,12 +109,27 @@
         <p id="pause-stats"></p>
         <p id="pause-note"></p>
         <button id="resume" type="button">Resume</button>
+        <button id="pause-settings" type="button" class="ghost">Settings</button>
         <button id="pause-news" type="button" class="ghost">What's new in v0.1.1</button>
         <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
         <button id="pause-save" type="button" class="ghost">Save</button>
         <button id="pause-load" type="button" class="ghost">Load</button>
         <button id="pause-reset" type="button" class="ghost">Reset save</button>
         <button id="pause-title" type="button" class="ghost">Title</button>
+      </div>
+    </div>
+
+    <div id="settings" hidden>
+      <div class="card scroll">
+        <h2>Settings</h2>
+        <label class="slider" for="music-vol">Music <span id="music-vol-num">75</span></label>
+        <input id="music-vol" type="range" min="0" max="100" value="75" aria-label="Music volume">
+        <label class="slider" for="sfx-vol">Effects <span id="sfx-vol-num">80</span></label>
+        <input id="sfx-vol" type="range" min="0" max="100" value="80" aria-label="Effects volume">
+        <button id="set-haptics" type="button" class="ghost" aria-pressed="true">Haptics: On</button>
+        <button id="set-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
+        <p class="fine">Haptics are a short buzz on a hit, a shard, and the lamp, when the phone allows it.</p>
+        <button id="set-close" type="button">Close</button>
       </div>
     </div>
 
@@ -136,6 +152,11 @@
   <script src="js/content/dialogue/cinderveil.js"></script>
   <script src="js/dialogue.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/haptics.js"></script>
+  <script src="js/title.js"></script>
+  <script src="js/feel.js"></script>
   <script src="js/save.js"></script>
   <script src="js/sim.js"></script>
   <script src="js/draw.js"></script>

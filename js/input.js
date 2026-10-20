@@ -124,6 +124,7 @@ SF.bindInput = function () {
   document.getElementById("btn-pause").addEventListener("pointerdown", function (e) {
     e.preventDefault();
     SF.sfx.ensure();
+    SF.emit("ui");
     if (SF.state && SF.state.mode === "pause") SF.resumeGame();
     else SF.pauseGame();
   });
@@ -141,6 +142,10 @@ SF.bindInput = function () {
     if (!s) return;
     if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) !== -1) e.preventDefault();
     SF.sfx.ensure();
+    if (SF.settingsOpen && SF.settingsOpen()) {
+      if (e.code === "Escape" && SF.closeSettings) SF.closeSettings();
+      return;
+    }
     if (e.repeat) return;
     SF.inputState.keys.add(e.code);
     SF.syncKeyAxes();
@@ -194,7 +199,9 @@ SF.bindInput = function () {
   });
 
   function allowScroll(e) {
-    return e.target && e.target.closest && e.target.closest(".scroll");
+    if (!e.target || !e.target.closest) return false;
+    if (e.target.closest("input, textarea, select")) return true;
+    return !!e.target.closest(".scroll");
   }
   document.addEventListener("touchmove", function (e) {
     if (!allowScroll(e)) e.preventDefault();

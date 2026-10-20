@@ -8,6 +8,11 @@ People talk like themselves now. Maren, Kestrel, and the Cantor have a real scri
 A conversation shows a face and a line. Tap once to finish the line, tap again to go on. Replies are big enough for a thumb.
 What you ask is remembered. Reduce flashing still shows the whole line at once.
 
+The title opens on a cloud sea, islands drifting past a lamp.
+Emberhold has a quiet theme now. A strike, a dash, a shard, and the lamp each have a sound, and each person has a voice when they talk.
+Music and effects have their own volume. Haptics can be turned off. The same Reduce flashing switch lives in Settings.
+Sound waits for the first tap, and it rests when the phone sleeps.
+
 ## v0.1.1 — Steady light
 
 The screen stays steady. Flashes are softer, and Reduce flashing is on until you turn it off.
