@@ -372,10 +372,35 @@ SF.syncUI = function () {
   setText("questline", SF.questText(s));
   var coach = SF.coachLine ? SF.coachLine(s) : "";
   var coachEl = document.getElementById("coach");
-  if (coach) {
-    coachEl.hidden = false;
-    setText("coach", coach);
-  } else coachEl.hidden = true;
+  if (!s.hints) s.hints = {};
+  if (!s.hints.faded) s.hints.faded = {};
+  if (!coach || s.hints.faded[coach]) {
+    coachEl.hidden = true;
+    coachEl.classList.remove("fading");
+    s._hintText = "";
+  } else {
+    if (s._hintText !== coach) {
+      s._hintText = coach;
+      s._hintAt = SF.anim || 0;
+      coachEl.classList.remove("fading");
+    }
+    var age = (SF.anim || 0) - (s._hintAt || 0);
+    if (age > 3.4) {
+      s.hints.faded[coach] = true;
+      coachEl.hidden = true;
+      coachEl.classList.remove("fading");
+    } else {
+      coachEl.hidden = false;
+      setText("coach", coach);
+      var calm = SF.calm && SF.calm();
+      if (!calm && age > 2.4) coachEl.classList.add("fading");
+      else coachEl.classList.remove("fading");
+      if (calm && age > 2.6) {
+        s.hints.faded[coach] = true;
+        coachEl.hidden = true;
+      }
+    }
+  }
   var prompt = "";
   if (s.mode === "play" && SF.actionFor) prompt = SF.actionFor(s, SF.nearestInteract()).prompt;
   var promptEl = document.getElementById("prompt");

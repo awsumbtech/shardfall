@@ -554,6 +554,14 @@
       plot(s, 14, 4, C.lite);
       return s;
     }
+    if (pose === "victory") {
+      s = Art.shift(s, 0, -2);
+      weapon(s, d, true);
+      plot(s, 12, 4, d.shard ? C.shardH : (d.core || C.gold));
+      plot(s, 13, 3, d.shard ? C.shard : C.warm);
+      plot(s, 11, 5, C.gold);
+      return s;
+    }
     return s;
   }
 
@@ -1124,7 +1132,49 @@
     if (facing === "left") s = Art.mirror(s);
     return s;
   }
-  Art.add("cinder_maw", function (pose, facing, frame) { return maw(pose, facing, frame); }, 2, 1);
+  function mawBattle(pose, facing) {
+    var s = Art.spr(36, 50);
+    var shut = pose === "hurt";
+    disc(s, 14, 32, 11, C.ashD);
+    disc(s, 12, 22, 7, C.rock);
+    fill(s, 6, 8, 4, 14, C.rock);
+    fill(s, 11, 4, 3, 12, C.ash);
+    plot(s, 7, 6, C.ember);
+    plot(s, 12, 3, C.emberH);
+    disc(s, 24, 26, 11, pose === "hurt" ? C.rock : C.ash);
+    disc(s, 26, 20, 5, C.ashD);
+    plot(s, 28, 18, pose === "hurt" ? C.ashD : C.emberH);
+    plot(s, 29, 18, C.void);
+    fill(s, 20, shut ? 26 : 22, 14, shut ? 6 : 14, C.void);
+    var i;
+    for (i = 0; i < 4; i++) {
+      plot(s, 22 + i * 3, shut ? 26 : 22, C.tooth);
+      plot(s, 22 + i * 3, shut ? 31 : 34, C.bone);
+    }
+    disc(s, 26, shut ? 28 : 29, pose === "cast" ? 4 : 3, pose === "hurt" ? C.goldD : C.emberH);
+    plot(s, 26, shut ? 28 : 29, C.lite);
+    fill(s, 8, 42, 6, 7, C.rock);
+    fill(s, 16, 44, 5, 5, C.ashD);
+    fill(s, 24, 44, 5, 5, C.rock);
+    if (pose === "attack") {
+      fill(s, 32, 24, 4, 5, C.ember);
+      plot(s, 34, 25, C.emberH);
+    }
+    if (pose === "cast") {
+      plot(s, 30, 10, C.emberH);
+      plot(s, 32, 12, C.ember);
+      plot(s, 28, 14, C.gold);
+    }
+    Art.outline(s);
+    s.ax = 18;
+    s.ay = 48;
+    if (facing === "left") s = Art.mirror(s);
+    return s;
+  }
+  Art.add("cinder_maw", function (pose, facing, frame) {
+    if (pose === "walk") return maw(pose, facing, frame);
+    return mawBattle(pose, facing);
+  }, 2, 1);
 
   function gull(pose, facing, frame) {
     var s = Art.spr(26, 16);
@@ -1173,7 +1223,46 @@
     if (facing === "left") s = Art.mirror(s);
     return s;
   }
-  Art.add("tidewyrm", function (pose, facing, frame) { return wyrm(pose, facing, frame); }, 2, 1);
+  function wyrmBattle(pose, facing, frame) {
+    var s = Art.spr(38, 54);
+    var phase = (frame % 2) ? 1 : 0;
+    if (pose === "hurt") phase = 0;
+    var coils = [
+      [11, 46, 6, C.tideD],
+      [16, 38, 6, C.tide],
+      [12, 30, 5, C.tideD],
+      [18, 24, 6, C.tide],
+      [24, 18, 6, C.sea],
+      [30, 12, 7, C.tideL]
+    ];
+    var i, c, y;
+    for (i = 0; i < coils.length; i++) {
+      c = coils[i];
+      y = c[1] + (pose === "hurt" ? 2 : ((i + phase) % 2 ? -1 : 1));
+      disc(s, c[0], y, c[2], c[3]);
+      plot(s, c[0], y - c[2] + 1, C.foam);
+    }
+    disc(s, 30, 11, 7, C.sea);
+    fill(s, 32, 4, 3, 6, C.bone);
+    plot(s, 28, 10, pose === "hurt" ? C.tideD : C.eye);
+    plot(s, 34, 13, C.tooth);
+    plot(s, 36, 14, C.tooth);
+    disc(s, 16, 32, pose === "cast" ? 3 : 2, pose === "hurt" ? C.goldD : C.foam);
+    if (pose === "attack") fill(s, 34, 13, 4, 2, C.tooth);
+    if (pose === "cast") {
+      plot(s, 22, 16, C.lite);
+      plot(s, 20, 18, C.foam);
+    }
+    Art.outline(s);
+    s.ax = 20;
+    s.ay = 52;
+    if (facing === "left") s = Art.mirror(s);
+    return s;
+  }
+  Art.add("tidewyrm", function (pose, facing, frame) {
+    if (pose === "walk") return wyrm(pose, facing, frame);
+    return wyrmBattle(pose, facing, frame);
+  }, 2, 1);
 
   function sentinel(pose, facing, frame) {
     var s = Art.spr(20, 32);
@@ -1210,6 +1299,80 @@
     s.ay = 31;
     return s;
   }
+
+  iconPortrait("wisp", C.violetD, function (s) {
+    disc(s, 16, 17, 9, C.violet);
+    disc(s, 16, 17, 5, C.core);
+    plot(s, 14, 15, C.lite);
+    plot(s, 18, 16, C.white);
+  });
+  iconPortrait("saltwisp", C.sea, function (s) {
+    disc(s, 16, 17, 9, C.tide);
+    disc(s, 16, 17, 5, C.foam);
+    plot(s, 14, 15, C.lite);
+    plot(s, 19, 18, C.tideL);
+  });
+  iconPortrait("brumekin", C.hushD, function (s) {
+    disc(s, 16, 18, 9, C.hush);
+    fill(s, 8, 8, 3, 8, C.goldD);
+    fill(s, 21, 8, 3, 8, C.gold);
+    disc(s, 16, 20, 3, C.ember);
+    plot(s, 16, 19, C.emberH);
+  });
+  iconPortrait("ashling", C.ashD, function (s) {
+    disc(s, 16, 18, 8, C.ash);
+    disc(s, 11, 20, 4, C.rock);
+    plot(s, 13, 16, C.ember);
+    plot(s, 19, 16, C.emberH);
+    fill(s, 12, 24, 3, 4, C.ashD);
+    fill(s, 18, 24, 3, 4, C.rock);
+  });
+  iconPortrait("sootwing", C.rock, function (s) {
+    disc(s, 16, 18, 5, C.ash);
+    fill(s, 4, 14, 10, 3, C.rock);
+    fill(s, 18, 12, 10, 3, C.ashD);
+    plot(s, 22, 16, C.emberH);
+  });
+  iconPortrait("cinderhound", C.rock, function (s) {
+    fill(s, 6, 16, 16, 8, C.ashD);
+    fill(s, 18, 14, 8, 6, C.ash);
+    fill(s, 8, 12, 10, 4, C.ember);
+    plot(s, 24, 16, C.emberH);
+    plot(s, 26, 18, C.eye);
+    fill(s, 22, 20, 4, 2, C.tooth);
+  });
+  iconPortrait("cinder_maw", C.rock, function (s) {
+    disc(s, 16, 18, 11, C.ashD);
+    fill(s, 8, 16, 16, 8, C.void);
+    fill(s, 10, 14, 2, 4, C.tooth);
+    fill(s, 14, 14, 2, 4, C.tooth);
+    fill(s, 18, 14, 2, 4, C.bone);
+    disc(s, 16, 20, 3, C.emberH);
+    plot(s, 16, 20, C.lite);
+  });
+  iconPortrait("stormgull", C.stoneD, function (s) {
+    fill(s, 12, 14, 8, 5, C.stoneL);
+    fill(s, 18, 15, 6, 3, C.gold);
+    fill(s, 3, 12, 12, 3, C.stone);
+    fill(s, 16, 10, 10, 3, C.cloud);
+    plot(s, 14, 16, C.eye);
+  });
+  iconPortrait("tidewyrm", C.sea, function (s) {
+    var i;
+    for (i = 0; i < 5; i++) disc(s, 6 + i * 5, 18 + (i % 2 ? -3 : 3), 4, i % 2 ? C.tide : C.tideD);
+    disc(s, 24, 14, 6, C.tideL);
+    plot(s, 26, 13, C.eye);
+    plot(s, 28, 16, C.tooth);
+    disc(s, 14, 18, 2, C.foam);
+  });
+  iconPortrait("sentinel", C.stoneD, function (s) {
+    fill(s, 10, 8, 12, 8, C.stoneL);
+    fill(s, 8, 16, 16, 12, C.stone);
+    fill(s, 12, 12, 8, 4, C.hush);
+    plot(s, 14, 13, C.shardH);
+    plot(s, 18, 13, C.lite);
+    fill(s, 12, 26, 8, 3, C.stoneD);
+  });
 
   Art.addPortrait("maw", function () {
     return badge(C.rock, function (s) {
