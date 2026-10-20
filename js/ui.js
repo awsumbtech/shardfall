@@ -83,9 +83,9 @@ SF.beginNew = function () {
   s.mode = "play";
   s.camX = s.player.x;
   s.camY = s.player.y;
-  SF.pushToast("You wake on the stones. The shard in your hand is warm.");
   SF.saveGame({ silent: true });
   SF.sfx.ensure();
+  if (SF.startDialogue) SF.startDialogue("emberhold.wake");
   SF.syncUI();
 };
 
@@ -182,6 +182,7 @@ SF.bindUI = function () {
     SF.syncUI();
   });
   document.getElementById("dialogue").addEventListener("pointerdown", function (e) {
+    if (e.target.closest && e.target.closest("#dlg-choices button")) return;
     e.preventDefault();
     SF.advanceDialogue();
   });
@@ -253,10 +254,7 @@ SF.syncUI = function () {
   var dialogue = document.getElementById("dialogue");
   var showTalk = s.mode === "dialogue" && s.dialogue;
   dialogue.hidden = !showTalk;
-  if (showTalk) {
-    document.getElementById("who").textContent = s.dialogue.speaker;
-    document.getElementById("line").textContent = s.dialogue.lines[s.dialogue.i];
-  }
+  if (showTalk && SF.paintDialogue) SF.paintDialogue();
 
   document.getElementById("skip").hidden = s.mode !== "cutscene";
 

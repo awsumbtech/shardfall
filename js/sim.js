@@ -360,65 +360,53 @@ SF.releaseHolds = function () {
   SF.inputState.dashEdge = false;
 };
 
-SF.openDialogue = function (talk) {
-  if (!talk || talk.cutscene) return;
-  SF.releaseHolds();
+SF.onDialogueEvent("meet_maren", function () {
   var s = SF.state;
-  s.dialogue = {
-    speaker: talk.speaker,
-    lines: talk.lines,
-    i: 0,
-    lock: 0.22,
-    after: talk.after || "note"
-  };
-  s.mode = "dialogue";
-  SF.emit("talk");
-};
+  s.flags.metMaren = true;
+  if (s.quest === "awaken") s.quest = "gather";
+  s.player.hp = s.player.maxHp;
+  SF.saveGame({ silent: true });
+});
 
-SF.advanceDialogue = function () {
+SF.onDialogueEvent("maren_mend", function () {
   var s = SF.state;
-  var d = s.dialogue;
-  if (!d || s.mode !== "dialogue" || d.lock > 0) return;
-  d.i += 1;
-  if (d.i >= d.lines.length) {
-    var after = d.after;
-    s.dialogue = null;
-    s.mode = "play";
-    SF.onDialogueEnd(after);
-  } else {
-    d.lock = 0.05;
-    SF.emit("talk");
-  }
-};
+  s.player.hp = s.player.maxHp;
+  SF.saveGame({ silent: true });
+});
 
-SF.onDialogueEnd = function (after) {
+SF.onDialogueEvent("quest_lamp_done", function () {
   var s = SF.state;
-  var p = s.player;
-  if (after === "maren_first" || after === "maren_heal") {
-    if (after === "maren_first") s.flags.metMaren = true;
-    if (s.quest === "awaken") s.quest = "gather";
-    p.hp = p.maxHp;
-    SF.saveGame({ silent: true });
-  }
-  if (after === "kestrel_first") {
-    s.flags.metKestrel = true;
-    s.flags.kestrelHint = true;
-    SF.pushToast("Kestrel's note: the span is too wide to walk. Dash from the lip.");
-    SF.saveGame({ silent: true });
-  }
-  if (after === "kestrel_sail") {
-    s.flags.kestrelAfter = true;
-    s.quest = "hooked";
-    SF.pushToast("The route to Cinderveil is real. Not today — but real.");
-    SF.saveGame({ silent: true });
-  }
-  if (after === "cantor_first") {
-    s.flags.metCantor = true;
-    s.flags.heardChoir = true;
-    s.discovered.hollow = true;
-    SF.saveGame({ silent: true });
-  }
-};
+  s.flags.metMaren = true;
+  s.player.hp = s.player.maxHp;
+  SF.saveGame({ silent: true });
+});
+
+SF.onDialogueEvent("kestrel_hint", function () {
+  var s = SF.state;
+  s.flags.metKestrel = true;
+  s.flags.kestrelHint = true;
+  SF.pushToast("Kestrel's note: the span is too wide to walk. Dash from the lip.");
+  SF.saveGame({ silent: true });
+});
+
+SF.onDialogueEvent("open_sail_menu", function () {
+  var s = SF.state;
+  var first = !s.flags.kestrelAfter;
+  s.flags.metKestrel = true;
+  s.flags.kestrelHint = true;
+  s.flags.kestrelAfter = true;
+  if (s.quest === "awaken" || s.quest === "gather" || s.quest === "stirring") s.quest = "hooked";
+  if (first) SF.pushToast("The route to Cinderveil is real. Hold the rail when the wind takes.");
+  SF.saveGame({ silent: true });
+});
+
+SF.onDialogueEvent("meet_cantor", function () {
+  var s = SF.state;
+  s.flags.metCantor = true;
+  s.flags.heardChoir = true;
+  s.discovered.hollow = true;
+  SF.saveGame({ silent: true });
+});
 
 SF.nearestInteract = function (range) {
   var s = SF.state;
@@ -514,9 +502,13 @@ SF.coachLine = function (s) {
 };
 
 SF.tryLamp = function () {
-  var talk = SF.talkLamp(SF.state);
-  if (talk.cutscene) SF.beginCutscene();
-  else SF.openDialogue(talk);
+  var s = SF.state;
+  if (!s.flags.lampLit && s.shardsHeld >= SF.QUEST_SHARDS) {
+    SF.beginCutscene();
+    return;
+  }
+  var id = SF.emberholdLampNode ? SF.emberholdLampNode(s) : "inspect.lamp_cold";
+  SF.startDialogue(id);
 };
 
 SF.tryInteract = function () {
@@ -541,13 +533,11 @@ SF.tryInteract = function () {
     return;
   }
   if (near.kind === "npc") {
-    var n = near.ref;
-    if (n.id === "maren") SF.openDialogue(SF.talkMaren(s));
-    else if (n.id === "kestrel") SF.openDialogue(SF.talkKestrel(s));
-    else SF.openDialogue(SF.talkCantor(s));
+    var nodeId = SF.routeDialogue ? SF.routeDialogue(near.ref.id, s) : "";
+    SF.startDialogue(nodeId || near.ref.id);
     return;
   }
-  SF.openDialogue({ speaker: near.ref.speaker, lines: near.ref.lines, after: "note" });
+  SF.startDialogue(near.ref.node || ("inspect." + near.ref.id));
 };
 
 SF.beginCutscene = function () {
@@ -969,6 +959,7 @@ SF.update = function (dt) {
   if (s.mode === "pause") return;
   if (s.mode === "dialogue") {
     if (s.dialogue) s.dialogue.lock = Math.max(0, s.dialogue.lock - dt);
+    if (SF.tickDialogue) SF.tickDialogue(dt);
     if ((SF.consumeInteract || function () { return false; })()) SF.advanceDialogue();
     SF.updateCamera(dt);
     SF.updateFx(dt);

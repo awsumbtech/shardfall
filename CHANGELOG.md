@@ -2,6 +2,12 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.2 — Act 1: The Cinder Road
+
+People talk like themselves now. Maren, Kestrel, and the Cantor have a real script, and the road west is written down.
+A conversation shows a face and a line. Tap once to finish the line, tap again to go on. Replies are big enough for a thumb.
+What you ask is remembered. Reduce flashing still shows the whole line at once.
+
 ## v0.1.1 — Steady light
 
 The screen stays steady. Flashes are softer, and Reduce flashing is on until you turn it off.
