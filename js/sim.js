@@ -34,6 +34,9 @@ SF.makeEnemies = function () {
       dashed: -1,
       stun: 0,
       dormant: !!sp.dormant,
+      encounter: sp.encounter || null,
+      bg: sp.bg || null,
+      boss: !!sp.boss || !!(kind && kind.boss),
       tell: 0,
       tellKind: "",
       phaseN: 1,
@@ -63,6 +66,10 @@ SF.fresh = function () {
     enemySave: {},
     picked: {},
     drops: {},
+    gold: 0,
+    inventory: {},
+    voyageCount: 0,
+    lastRest: { island: "emberhold", x: SF.WAKE.x, y: SF.WAKE.y },
     flags: {
       metMaren: false,
       metKestrel: false,
@@ -1112,7 +1119,7 @@ SF.update = function (dt) {
     SF.updateFx(dt);
     return;
   }
-  if (s.mode === "sailmenu" || s.mode === "hand") return;
+  if (s.mode === "sailmenu" || s.mode === "hand" || s.mode === "shop" || s.mode === "inn" || s.mode === "notice" || s.mode === "battle") return;
   if (s.mode === "dialogue") {
     if (s.voyageTalk && s.voyage) s.voyage.t += dt;
     if (s.approach && s.approach.kind === "cantor") {

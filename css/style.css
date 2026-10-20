@@ -533,7 +533,7 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 }
 #choices button:disabled, #hand-list button:disabled { opacity: 0.55; }
 
-#sail, #hand {
+#sail, #hand, #shop, #inn, #notice {
   position: absolute;
   inset: 0;
   z-index: 8;
@@ -541,30 +541,59 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
   align-items: center;
   justify-content: center;
   padding: 18px;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
   background: rgba(10, 6, 24, 0.55);
 }
-#sail[hidden], #hand[hidden] { display: none; }
-#sail .card, #hand .card { width: min(420px, 100%); }
-#sail-map {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0;
+#sail[hidden], #hand[hidden], #shop[hidden], #inn[hidden], #notice[hidden] { display: none; }
+#sail .card, #hand .card, #shop .card, #inn .card, #notice .card {
+  width: min(420px, 100%);
+  max-height: calc(100dvh - 36px - env(safe-area-inset-bottom));
 }
-#sail-map .isle {
-  flex: 1;
-  min-height: 64px;
+#sail-chart {
+  position: relative;
+  height: 220px;
+  margin: 8px 0 12px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--serif);
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, #3a2458, #140c28 72%);
+  border: 1px solid rgba(255, 244, 220, 0.18);
 }
-#sail-map .isle.here { border-color: var(--gold); }
-#sail-map .lane { width: 36px; height: 2px; background: rgba(255, 211, 122, 0.75); }
-#isle-ember { background: #2f6a48; }
-#isle-cinder { background: #6e4038; }
+#sail-routes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+#sail-routes line {
+  stroke: rgba(255, 211, 122, 0.45);
+  stroke-width: 0.6;
+  stroke-dasharray: 1.5 1.2;
+}
+.chart-isle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 84px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff8ee;
+  font-family: var(--serif);
+  font-size: 13px;
+}
+.chart-isle.here { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.chart-isle.locked, .chart-isle:disabled { opacity: 0.55; }
+#sail-list button, #shop-list button, #inn .card > button, #notice .card > button, #shop .card > button {
+  width: 100%;
+  min-height: 48px;
+  margin: 6px 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  text-align: left;
+  padding: 8px 12px;
+}
+#sail-list button:disabled { opacity: 0.55; }
 
 #skip {
   position: absolute;
@@ -780,6 +809,15 @@ body[data-mode="hand"] #prompt,
 body[data-mode="voyage"] #controls,
 body[data-mode="voyage"] #corner,
 body[data-mode="voyage"] #prompt,
+body[data-mode="shop"] #controls,
+body[data-mode="shop"] #corner,
+body[data-mode="shop"] #prompt,
+body[data-mode="inn"] #controls,
+body[data-mode="inn"] #corner,
+body[data-mode="inn"] #prompt,
+body[data-mode="notice"] #controls,
+body[data-mode="notice"] #corner,
+body[data-mode="notice"] #prompt,
 body[data-mode="battle"] #controls,
 body[data-mode="battle"] #hud,
 body[data-mode="battle"] #corner,

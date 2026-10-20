@@ -20,6 +20,7 @@ for (const file of [
   "js/data/encounters.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
+  "js/content/dialogue/world.js",
   "js/dialogue.js",
   "js/audio.js",
   "js/music.js",
@@ -27,9 +28,18 @@ for (const file of [
   "js/save.js",
   "js/sim.js",
   "js/cinder.js",
+  "js/content/maps/kinds.js",
+  "js/content/maps/chart.js",
+  "js/content/maps/emberhold.js",
+  "js/content/maps/cinderveil.js",
+  "js/content/maps/saltmere.js",
+  "js/content/maps/highspire.js",
+  "js/content/maps/gullrock.js",
+  "js/content/maps/drift.js",
   "js/grapple.js",
   "js/battle/battle.js",
-  "js/menu/field.js"
+  "js/menu/field.js",
+  "js/world.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
@@ -311,6 +321,7 @@ const scriptNorm = norm(script);
 for (const node of Object.values(SF.dialogueNodes)) {
   for (const line of node.lines) {
     const text = SF.lineText ? SF.lineText(line) : (typeof line === "string" ? line : line.text);
+    if (text === "(Script pending)") continue;
     if (!scriptNorm.includes(norm(text))) {
       console.error("script missing line from", node.id, text);
       process.exit(1);
@@ -981,4 +992,215 @@ const seenPhase = SF._lastResult && roadFight.flags.mawDead;
 if (!seenPhase) fail("maw result missing");
 
 SF.mountIsland("emberhold");
+
+const worldIssues = SF.auditWorld();
+if (worldIssues.length) {
+  console.error(worldIssues.join("\n"));
+  process.exit(1);
+}
+if (SF.islandId !== "emberhold") fail("auditWorld did not restore Emberhold");
+
+SF.seaFightChance = 0;
+const locked = freshPlay();
+locked.flags.sailUnlocked = true;
+locked.flags.lampLit = true;
+locked.flags.act1 = false;
+SF.startVoyage("saltmere");
+if (SF.islandId !== "emberhold" || locked.voyage) fail("Saltmere opened before Act 1");
+SF.startVoyage("highspire");
+if (locked.voyage) fail("Highspire opened before Act 1");
+if (SF.destinationOpen("gullrock") || SF.destinationOpen("drift")) fail("optional islets opened before Act 1");
+SF.startVoyage("gullrock");
+if (locked.voyage) fail("Gullrock opened before Act 1");
+SF.startVoyage("drift");
+if (locked.voyage) fail("the Drift Market opened before Act 1");
+
+const trip = freshPlay();
+trip.flags.sailUnlocked = true;
+trip.flags.act1 = true;
+trip.flags.lampLit = true;
+trip.flags.metCinderKestrel = true;
+SF.startVoyage("saltmere");
+if (trip.mode !== "voyage" || !trip.voyage || trip.voyage.to !== "saltmere") fail("the crossing to Saltmere did not start");
+if (trip.flags.party_kestrel || trip.flags.party_tamsin) fail("companions joined on the sail");
+SF.finishVoyage();
+if (SF.islandId !== "saltmere" || !SF.walkable(trip.player.x, trip.player.y)) {
+  fail("Saltmere landing missed the dock " + trip.player.x + "," + trip.player.y);
+}
+if (SF.zoneAt(trip.player.x, trip.player.y).name !== "Saltmere") fail("Saltmere did not name the town");
+
+const holt = SF.npcById("holt");
+trip.player.x = holt.x;
+trip.player.y = holt.y;
+SF.tryInteract();
+if (!trip.dialogue || trip.dialogue.id !== "saltmere.harbormaster" || trip.dialogue.speaker !== "Brenna Holt") {
+  fail("Holt did not use the placeholder node");
+}
+const holtLine = SF.lineText(trip.dialogue.lines[0]);
+if (holtLine !== "(Script pending)" || trip.dialogue.lines.length !== 1) fail("Holt's line was not the placeholder");
+finishTalk(trip);
+
+if (!SF.destinationOpen("gullrock") || !SF.destinationOpen("drift") || !SF.destinationOpen("saltmere")) {
+  fail("Act 1 did not open Saltmere, Gullrock, and the Drift Market");
+}
+
+const worldNpcs = [];
+["saltmere", "highspire", "drift"].forEach((id) => {
+  SF.ISLANDS[id].npcs.forEach((n) => worldNpcs.push(n));
+});
+if (worldNpcs.length !== 12) fail("expected 12 new speaking NPCs, saw " + worldNpcs.length);
+worldNpcs.forEach((n) => {
+  const node = SF.dialogueNodes[n.node];
+  const speaker = n.node === "saltmere.kids" ? "Pip and Lark" : n.name;
+  if (!node || node.speaker !== speaker || node.lines.length !== 1 || node.lines[0] !== "(Script pending)") {
+    fail("placeholder missing for " + (n && n.node));
+  }
+});
+
+const chest = SF.EXTRAS.find((ex) => ex.id === "chest-sm-town");
+trip.player.x = chest.x;
+trip.player.y = chest.y;
+SF.tryInteract();
+if (SF.itemCount("tonic") !== 1 || SF.itemCount("ether") !== 1 || !trip.picked[chest.id]) {
+  fail("town chest did not give its items");
+}
+SF.tryInteract();
+if (SF.itemCount("tonic") !== 1) fail("chest paid twice");
+const chestSave = JSON.parse(JSON.stringify(SF.exportState(trip)));
+const chestBack = SF.fresh();
+if (!SF.applySave(chestBack, chestSave) || chestSave.v !== 3) fail("chest save was rejected");
+if (!chestBack.picked[chest.id] || (chestBack.inventory.tonic || 0) !== 1) fail("chest did not stay open in the save");
+SF.state = trip;
+
+SF.mountIsland("saltmere");
+trip.island = "saltmere";
+SF.state = trip;
+trip.enemies = SF.makeEnemies();
+trip.gold = 200;
+const stall = SF.EXTRAS.find((ex) => ex.id === "sm-shop");
+SF.openShop(stall);
+if (trip.mode !== "shop") fail("shop did not open");
+if (!SF.buyFromShop("tonic")) fail("could not buy a tonic");
+if (trip.gold !== 170 || SF.itemCount("tonic") !== 2) fail("buy did not charge the catalog price " + trip.gold);
+trip.gold = 0;
+if (SF.buyFromShop("ether")) fail("bought an ether with no marks");
+if (SF.shopBuy("ether")) fail("shopBuy took an ether with no marks");
+if (!SF.sellToShop("tonic")) fail("could not sell a tonic");
+if (trip.gold !== 15 || SF.itemCount("tonic") !== 1) fail("sell price was wrong " + trip.gold);
+SF.closeWorldPanel();
+
+const inn = SF.EXTRAS.find((ex) => ex.id === "sm-inn");
+const shore = trip.enemies.find((e) => e.encounter === "sm_saltwisps");
+const wyrm = trip.enemies.find((e) => e.kind === "tidewyrm");
+shore.alive = false;
+shore.hp = 0;
+wyrm.alive = false;
+wyrm.hp = 0;
+trip.flags.tidewyrmDead = true;
+trip.player.hp = 4;
+trip.player.x = inn.x;
+trip.player.y = inn.y;
+SF.tryInteract();
+if (trip.mode !== "inn") fail("inn prompt did not open");
+SF.restAtInn(inn);
+if (trip.player.hp !== trip.player.maxHp) fail("rest did not fill heart");
+if (trip.mode !== "play") fail("rest left the inn open");
+const shoreBack = trip.enemies.find((e) => e.id === shore.id);
+const wyrmBack = trip.enemies.find((e) => e.kind === "tidewyrm");
+if (!shoreBack.alive) fail("field enemy did not respawn at the inn");
+if (wyrmBack.alive || !trip.flags.tidewyrmDead) fail("the Tidewyrm respawned");
+const innSave = SF.readSave();
+if (!innSave || innSave.v !== 3 || innSave.player.hp !== trip.player.maxHp) fail("inn did not save");
+
+const hooked = freshPlay();
+hooked.flags.act1 = true;
+hooked.flags.sailUnlocked = true;
+hooked.player.grapple = true;
+SF.mountIsland("saltmere");
+hooked.island = "saltmere";
+hooked.enemies = SF.makeEnemies();
+hooked.player.x = -242;
+hooked.player.y = 30;
+hooked.player.fx = -1;
+hooked.player.fy = 0;
+hooked.player.grappleCd = 0;
+hooked.player.safeX = -242;
+hooked.player.safeY = 30;
+if (!SF.fireGrapple(hooked.player, { x: -1, y: 0 })) fail("wreck hook did not fire");
+let pulls = 0;
+while (hooked.player.grappleT > 0 && pulls < 40) {
+  SF.update(0.02);
+  pulls += 1;
+}
+if (!SF.walkable(hooked.player.x, hooked.player.y) || hooked.player.x > -400) {
+  fail("wreck hook missed the Holdfast " + hooked.player.x + "," + hooked.player.y);
+}
+
+SF.mountIsland("highspire");
+const gateState = freshPlay();
+gateState.flags.act1 = true;
+gateState.flags.sailUnlocked = true;
+SF.mountIsland("highspire");
+gateState.island = "highspire";
+gateState.enemies = SF.makeEnemies();
+const gateSign = SF.EXTRAS.find((ex) => ex.id === "hs-gate-sign");
+gateState.player.x = gateSign.x;
+gateState.player.y = gateSign.y;
+SF.tryInteract();
+if (gateState.mode !== "notice" || !gateState.notice || gateState.notice.text !== "The gate is shut.") {
+  fail("the gate scene opened before Saltmere's lamp was lit");
+}
+SF.closeWorldPanel();
+gateState.flags.saltmere_lamp = "lit";
+SF.tryInteract();
+if (gateState.mode !== "notice" || !gateState.notice || gateState.notice.text !== "Story continues in Act 2") {
+  fail("the Highspire gate did not say Act 2 is closed");
+}
+
+const sea = freshPlay();
+sea.flags.sailUnlocked = true;
+sea.flags.act1 = true;
+sea.flags.metCinderKestrel = true;
+SF.seaFightChance = 1;
+SF.startVoyage("drift");
+SF.update(1.2);
+if (!sea.battle || sea.battle.id !== "sea_hush_raiders" || sea.battle.bg !== "hush_deck" || sea.battle.canFlee !== true || sea.battle.boss) {
+  fail("sea fight did not call sea_hush_raiders");
+}
+sea.battle = null;
+sea.voyage = null;
+sea.mode = "play";
+SF.seaFightChance = 0;
+
+const touch = freshPlay();
+touch.flags.act1 = true;
+SF.mountIsland("saltmere");
+touch.island = "saltmere";
+touch.mode = "play";
+touch.enemies = SF.makeEnemies();
+touch.touchCd = 0;
+const saltWisp = touch.enemies.find((e) => e.id === "sm-wisp-shore");
+if (!SF.touchFoe(saltWisp)) fail("saltwisp touch did not start a fight");
+if (!touch.battle || touch.battle.id !== "sm_saltwisps" || touch.battle.fieldId !== saltWisp.id || touch.battle.bg !== "saltmere_shore" || touch.battle.canFlee !== true) {
+  fail("saltwisp fight was not sm_saltwisps");
+}
+touch.battle = null;
+touch.mode = "play";
+touch.touchCd = 0;
+const boss = touch.enemies.find((e) => e.encounter === "boss_tidewyrm");
+if (!SF.touchFoe(boss)) fail("Tidewyrm touch did not start a fight");
+if (!touch.battle || touch.battle.id !== "boss_tidewyrm" || touch.battle.bg !== "saltmere_wreck" || touch.battle.canFlee !== false || !touch.battle.boss || touch.battle.fieldId !== boss.id) {
+  fail("Tidewyrm did not start boss_tidewyrm");
+}
+if (touch.battle.onWin) touch.battle.onWin();
+touch.battle = null;
+touch.mode = "play";
+if (touch.flags.tidewyrm_dead !== true || touch.flags.tidewyrmDead !== true) fail("the Tidewyrm win did not set tidewyrm_dead");
+touch.player.x = SF.LAMP.x;
+touch.player.y = SF.LAMP.y;
+SF.tryInteract();
+if (touch.flags.saltmere_lamp !== "lit") fail("the Saltmere lamp did not light after the Tidewyrm");
+SF.seaFightChance = null;
+SF.mountIsland("emberhold");
+
 console.log("smoke ok");

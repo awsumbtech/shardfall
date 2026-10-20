@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#140c28">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="description" content="Shardfall — a personal, ad-free shard-tale. Wake on Emberhold, sail to Cinderveil, and relight the lamps.">
+  <meta name="description" content="Shardfall — a personal, ad-free shard-tale. Wake on Emberhold, sail the Hush, and relight the lamps.">
   <title>Shardfall</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23140c28'/%3E%3Cpath d='M16 4 L23 16 L16 28 L9 16 Z' fill='%238ef6ff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
@@ -86,16 +86,39 @@
 
     <div id="sail" hidden>
       <div class="card scroll">
-        <h2>The Quickmercy</h2>
-        <p id="sail-note">Kestrel's skiff. The Hush opens west.</p>
-        <div id="sail-map" aria-hidden="true">
-          <div class="isle" id="isle-ember">Emberhold</div>
-          <div class="lane"></div>
-          <div class="isle" id="isle-cinder">Cinderveil</div>
+        <h2>Sail chart</h2>
+        <p id="sail-note">Pick an island the skiff can reach.</p>
+        <div id="sail-chart">
+          <svg id="sail-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
         </div>
-        <button id="sail-ember" type="button">Sail to Emberhold</button>
-        <button id="sail-cinder" type="button">Sail to Cinderveil</button>
-        <button id="sail-close" type="button" class="ghost">Stay</button>
+        <div id="sail-list"></div>
+        <button id="sail-close" type="button" class="ghost" data-sail="close">Stay</button>
+      </div>
+    </div>
+
+    <div id="shop" hidden>
+      <div class="card scroll">
+        <h2 id="shop-title">Shop</h2>
+        <p id="shop-gold">Marks: 0</p>
+        <div id="shop-list"></div>
+        <button id="shop-close" type="button" class="ghost">Close</button>
+      </div>
+    </div>
+
+    <div id="inn" hidden>
+      <div class="card scroll">
+        <h2 id="inn-title">Inn</h2>
+        <p id="inn-copy">Rest here?</p>
+        <button id="inn-yes" type="button">Rest</button>
+        <button id="inn-no" type="button" class="ghost">Not now</button>
+      </div>
+    </div>
+
+    <div id="notice" hidden>
+      <div class="card scroll">
+        <h2 id="notice-title">Notice</h2>
+        <p id="notice-copy"></p>
+        <button id="notice-close" type="button">Close</button>
       </div>
     </div>
 
@@ -112,7 +135,7 @@
 
     <div id="title">
       <div class="title-card">
-        <p class="eyebrow">v0.3 · Act 1, the Cinder Road</p>
+        <p class="eyebrow">v0.3 · The Wider Hush</p>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
         </div>
@@ -164,7 +187,7 @@
 
     <div id="modal" hidden>
       <div class="card scroll">
-        <h2 id="modal-title">What's new in v0.2.1</h2>
+        <h2 id="modal-title">What's new in v0.3</h2>
         <div id="news-body"></div>
         <p id="modal-copy"></p>
         <div class="actions">
@@ -184,6 +207,7 @@
   <script src="js/data/encounters.js"></script>
   <script src="js/content/dialogue/emberhold.js"></script>
   <script src="js/content/dialogue/cinderveil.js"></script>
+  <script src="js/content/dialogue/world.js"></script>
   <script src="js/dialogue.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/music.js"></script>
@@ -194,6 +218,14 @@
   <script src="js/save.js"></script>
   <script src="js/sim.js"></script>
   <script src="js/cinder.js"></script>
+  <script src="js/content/maps/kinds.js"></script>
+  <script src="js/content/maps/chart.js"></script>
+  <script src="js/content/maps/emberhold.js"></script>
+  <script src="js/content/maps/cinderveil.js"></script>
+  <script src="js/content/maps/saltmere.js"></script>
+  <script src="js/content/maps/highspire.js"></script>
+  <script src="js/content/maps/gullrock.js"></script>
+  <script src="js/content/maps/drift.js"></script>
   <script src="js/grapple.js"></script>
   <script src="js/draw.js"></script>
   <script src="js/battle/battle.js"></script>
@@ -201,6 +233,7 @@
   <script src="js/input.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/menu/field.js"></script>
+  <script src="js/world.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

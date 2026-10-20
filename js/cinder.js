@@ -112,7 +112,7 @@ SF.EXTRAS = [];
 
 SF.mountIsland = function (id) {
   var pack = SF.ISLANDS[id] || SF.ISLANDS.emberhold;
-  SF.islandId = pack === SF.ISLANDS.cinderveil ? "cinderveil" : "emberhold";
+  SF.islandId = SF.ISLANDS[id] ? id : "emberhold";
   SF.WAKE = pack.wake;
   SF.LAMP = pack.lamp;
   SF.WALK = pack.walk;
@@ -215,7 +215,16 @@ SF.travelTo = function (island) {
   s.voyage = null;
   s.voyageTalk = false;
   s.pendingTalk = null;
-  SF.pushBanner(island === "cinderveil" ? "Cinderveil" : "Emberhold", island === "cinderveil" ? "Lowmoor Quay takes the line." : "Emberhold, under the old lamp.", 2.4);
+  var arrival = {
+    emberhold: ["Emberhold", "Emberhold, under the old lamp."],
+    cinderveil: ["Cinderveil", "Lowmoor Quay takes the line."],
+    saltmere: ["Saltmere", "A stilt town. The lamp is dim."],
+    highspire: ["Lowgate", "The road up to the gate."],
+    gullrock: ["Gullrock", "A small rock."],
+    drift: ["Drift Market", "The Drift Market."]
+  };
+  var line = arrival[island] || [island, ""];
+  SF.pushBanner(line[0], line[1], 2.4);
   if (SF.cuePlaceMusic) SF.cuePlaceMusic(s);
   SF.saveGame({ silent: true });
 };
@@ -374,7 +383,7 @@ SF.cinderQuestText = function (s) {
     return "Place " + need + " shards on the hurt core (" + held + "/" + need + ").";
   }
   if (q === "cantor") return "The Cantor is on the ridge. Spare, Listen, or Refuse.";
-  if (q === "act1") return "End of Act 1. Ahead lies Highspire, and the last of the Lanternwrights.";
+  if (q === "act1") return "Act 1 is done. Open the sail chart.";
   return null;
 };
 

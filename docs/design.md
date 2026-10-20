@@ -1,9 +1,9 @@
 # Shardfall — living design doc
 
-**Current build:** v0.3, Act 1 with turn-based fights. Emberhold, then Cinderveil by skiff. The shared names and dialogue ids for the islands live in `docs/v0.2-spec.md`. The battle, party, and item contract is `docs/v0.3-spec.md`.
+**Current build:** v0.3, The Wider Hush. Fights are turn-based. Act 1 is solo. After it, the sail chart reaches Saltmere, Gullrock, the Drift Market, and Lowgate under Highspire. Act 2's spoken lines are not in the game yet. The shared build notes are in `docs/v0.3-spec.md`. Act 1's names and dialogue ids stay in `docs/v0.2-spec.md`.
 **Play:** https://awsumbtech.github.io/shardfall/ once the Pages workflow has run on `main`.
 
-This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new in v0.2" panel. This file can spoil secrets.
+This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new" panel. This file can spoil secrets.
 
 ## Pillars
 
@@ -37,7 +37,7 @@ Shards are also the offering a lamp eats. Emberhold's great lamp wants five. Spa
 
 ### Regions
 
-v0.2 is two islands. Emberhold is the starter drift. Cinderveil is the ash island west of it, reached on Kestrel's skiff.
+Emberhold is the starter drift. Cinderveil is the ash island west of it, reached on Kestrel's skiff. After Act 1, the sail chart also opens Saltmere, Gullrock, the Drift Market, and Highspire's gate town, Lowgate. The city gate itself stays locked until Saltmere's lamp is lit (`saltmere_lamp` = `lit`). Even then the gate does not open. The line on it is "Story continues in Act 2".
 
 ```
         Whisper Hollow (secret ledge)
@@ -65,7 +65,33 @@ v0.2 is two islands. Emberhold is the starter drift. Cinderveil is the ash islan
 
 **Whisper Hollow** is west of Maren's grove, along a narrower ledge. It is on the map as land, and easy to walk past. The air there is blue. The Cantor stands in it and does not fight. A heartblossom grows off to the side.
 
-**Cinderveil** is the second island: ash-grey grass, ember cracks, a teal rim on Lowmoor Quay. Tamsin Reed works a hook in her workshop. Brother Hesk mutters about the Choir. The Ashfields hold three cogs and a Cold Nook. Two hooked gaps — wider than a dash — lead to Warden Ilsa and the Ember Vault. The Cinder Maw feeds on the core. The hurt lamp takes three shards. The Cantor is there after, with Spare, Listen, or Refuse. The words are in `docs/script/act1.md`.
+**Cinderveil** is the second island: ash-grey grass, ember cracks, a teal rim on Lowmoor Quay. Tamsin Reed works a hook in her workshop. Brother Hesk mutters about the Choir. The Ashfields hold three cogs and a Cold Nook. Two hooked gaps — wider than a dash — lead to Warden Ilsa and the Ember Vault. The Cinder Maw feeds on the core. The hurt lamp takes three shards. The Cantor is there after, with Spare, Listen, or Refuse. The words are in `docs/script/act1.md`. Lowmoor has a shop, and the quay has a bunk where you can rest.
+
+**The sail chart** is the world map. Emberhold and Cinderveil open once the skiff is ready. Saltmere, Gullrock, the Drift Market, and Lowgate open after Act 1. A crossing is a short scene. Every third one can be boarded (`sea_hush_raiders`, on the deck). Act 1 is fought alone. When the act ends, Kestrel and Tamsin join. Each join is a banner, once.
+
+**Saltmere** is a fishing town on stilts. Quinn's Hooks is the shop. The Stilthouse is the inn. The Shore is east, with saltwisps, stormgulls, and a mixed fight. The Holdfast, the sunken wreck, sits under the west pier. The gap is wider than a dash and short enough for the hook. A side rock and the Tidewyrm arena are two more hooks. After the Tidewyrm, the lamp house can take the feed, and the lamp holds.
+
+**Gullrock** is a bare rock. One chest, and one hard fight if you go for it.
+
+**The Drift Market** is a raft with no lamp. Sile Voss sells rare stock, including the gale charm and the tide ward.
+
+**Lowgate** is the town under Highspire. Dorrie Fen keeps the shop. Maud Keel keeps the Switchback inn. Ellis Ward is in town. Warden Brant stands at the gate. The switchback has a Choir patrol and a sentinel. Past the gate there is no road.
+
+People added for Act 2, each with one placeholder line until the script is approved:
+
+| Node | Speaker | Where |
+| --- | --- | --- |
+| `saltmere.harbormaster` | Brenna Holt | Saltmere pier |
+| `saltmere.innkeeper` | Osric Pell | the Stilthouse |
+| `saltmere.shopkeeper` | Nessa Quinn | Quinn's Hooks |
+| `saltmere.sera` | Sera Dunne | the lamp house |
+| `saltmere.kids` | Pip and Lark | the docks |
+| `saltmere.jory` | Jory Hale | the docks |
+| `highspire.captain` | Warden Brant | the gate |
+| `highspire.shopkeeper` | Dorrie Fen | Lowgate shop |
+| `highspire.innkeeper` | Maud Keel | the Switchback |
+| `highspire.ellis` | Ellis Ward | Lowgate |
+| `driftmarket.voss` | Sile Voss | Drift Market |
 
 ### Factions
 
@@ -269,11 +295,11 @@ These are intentions, not promises. Each one should stay fun in a short sitting 
 
 ### v0.2 — Act 1: The Cinder Road
 
-This build. Sail the Quickmercy between Emberhold and Cinderveil, with a short voyage you can skip. Lowmoor Quay, the Ashfields, the Ember Vault. The hand hooks: hold, aim, release. Small Hushborn are pulled in. Big ones pull you. Spare shards buy five hand changes. The quest is Tamsin's three cogs, Ilsa's trial, the Cinder Maw, the vault lamp, and the Cantor's choice. Dialogue prose is data (`startDialogue(id)`); the ids and events are in `docs/v0.2-spec.md`.
+Act 1. Sail the Quickmercy between Emberhold and Cinderveil, with a short voyage you can skip. Lowmoor Quay, the Ashfields, the Ember Vault. The hand hooks: hold, aim, release. Small Hushborn are pulled in. Big ones pull you. Spare shards buy five hand changes. The quest is Tamsin's three cogs, Ilsa's trial, the Cinder Maw, the vault lamp, and the Cantor's choice. Dialogue prose is data (`startDialogue(id)`); the ids and events are in `docs/v0.2-spec.md`.
 
 ### v0.3 — The Wider Hush
 
-This build. Fights are turn-based. Act 1 is the Wayfarer alone: a turn-order strip, skills, items, gear, marks, and levels to 30, about level 8 at the Cinder Maw. Kestrel and Tamsin join after the act ends. The Maw is a phased battle against its core. Saltmere, Highspire, and sea encounters exist as data so the map can place them. The convoy set-piece is later.
+This build. Fights are turn-based. Act 1 is the Wayfarer alone: a turn-order strip, skills, items, gear, marks, and levels to 30, about level 8 at the Cinder Maw. Kestrel and Tamsin join after the act ends. The Maw is a phased battle against its core. The sail chart, Saltmere and the Holdfast, Gullrock, the Drift Market, and Lowgate under a shut gate are in the world. Chests, shops, and inns are on the islands. Spoken Act 2 is still a document, not dialogue in the game. A Driftborn convoy is later.
 
 ### v0.4 — The polite dark
 
@@ -303,7 +329,9 @@ Code map, if a section above needs a change:
 | | |
 | --- | --- |
 | `js/data.js` | Emberhold shape, spawns, hand upgrades |
-| `js/content/dialogue/` | Act 1's lines, as data |
+| `js/content/dialogue/` | Act 1's lines, and Act 2 placeholders |
+| `js/content/maps/` | Sail chart and island packs |
+| `js/world.js` | Chart, chests, shops, inns, field fights |
 | `js/dialogue.js` | The conversation panel, portraits, choices, flags |
 | `js/cinder.js` | Cinderveil, travel, the hand menu, quest markers |
 | `js/grapple.js` | The hook, the Maw, ash foes |
