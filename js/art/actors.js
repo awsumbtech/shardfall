@@ -2,9 +2,10 @@
 
 // Battle poses, portraits, and everyone outside the Act 1 field cast.
 // Map walk and idle for that cast live in js/art/characters.js, which
-// replaces pose "walk" and pose "stand" after this file registers battle.
-// Feet sit on the baseline (ay). Battle poses reuse the side view. The
-// Cinder Maw and the Tidewyrm are taller in battle. Field scale is 1.
+// replaces pose "walk" and pose "stand" after this file registers them.
+// Party battle poses (Wayfarer, Kestrel, Tamsin) are replaced there too.
+// Feet sit on the baseline (ay). Other battle poses reuse the side view.
+// The Cinder Maw and the Tidewyrm are taller in battle. Field scale is 1.
 (function () {
   var C = Art.C;
   var plot = Art.plot;

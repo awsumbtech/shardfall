@@ -1,9 +1,9 @@
 "use strict";
 
-// Field sprites for the Act 1 cast. Chibi 16-bit walk cycles, about 20×28,
-// big head (roughly 1:1.5 head to body), open friendly faces from every
-// side. Battle poses stay in actors.js; this file only replaces walk and
-// the field idle ("stand").
+// Field sprites for the Act 1 cast, plus battle poses for the party
+// (Wayfarer, Kestrel, Tamsin). Field walk is about 20×28. Battle frames
+// are the same chibi, doubled, so they stay larger than the map sprites.
+// Other people and every enemy keep the battle art in actors.js.
 //
 // Faces: no dark brow bars, no scowls, no eye-socket shadows. Eyes are
 // white with one pupil and a highlight. Smile corners sit above the mouth.
@@ -983,7 +983,156 @@
   };
 
   var ORDER = ["wayfarer", "maren", "kestrel", "tamsin", "hesk", "ilsa", "cantor"];
+  var PARTY = { wayfarer: 1, kestrel: 1, tamsin: 1 };
+  var BATTLE = { idle: 1, attack: 1, cast: 1, hurt: 1, victory: 1 };
   var cache = {};
+  var battleCache = {};
+
+  function blit2(s, x, y, rows, map) {
+    var r, c, ch, col, dx, dy;
+    for (r = 0; r < rows.length; r++) {
+      for (c = 0; c < rows[r].length; c++) {
+        ch = rows[r].charAt(c);
+        if (ch === "." || ch === " ") continue;
+        col = map[ch];
+        if (!col) continue;
+        dx = x + c * 2;
+        dy = y + r * 2;
+        Art.plot(s, dx, dy, col);
+        Art.plot(s, dx + 1, dy, col);
+        Art.plot(s, dx, dy + 1, col);
+        Art.plot(s, dx + 1, dy + 1, col);
+      }
+    }
+  }
+
+  function put2(s, rows, x, y, map) {
+    if (!rows) return;
+    blit2(s, x, y, rows, map);
+  }
+
+  // Hurt closes the eyes with a soft lid. The smile stays small, not a scowl.
+  function hurtFace(rows) {
+    var out = rows.slice();
+    var i, seen;
+    seen = 0;
+    for (i = 0; i < out.length; i++) {
+      if (out[i].indexOf("W") === -1) continue;
+      if (seen === 0) out[i] = fitRow(out[i], "DSSSSSSSSS..");
+      else out[i] = fitRow(out[i], "DSnnnnSSSS..");
+      seen += 1;
+    }
+    return out;
+  }
+
+  function fitRow(sample, text) {
+    var w = sample.length;
+    if (text.length > w) return text.slice(0, w);
+    while (text.length < w) text += ".";
+    return text;
+  }
+
+  function armRows(id, pose, frame) {
+    if (id === "kestrel") {
+      if (pose === "attack" && frame) return cut("ccBBBBmm\nBBBBmmTT");
+      if (pose === "attack") return cut(".c\nBB\nBB\nSS\nm.");
+      if (pose === "cast" || pose === "victory") return cut("mm\nmm\nSS\nBB\nBB\ncB");
+      if (pose === "hurt") return cut("BB\ncB\nSS\nSS");
+      return cut("cB\nBB\nBB\nSS\nS.");
+    }
+    if (id === "tamsin") {
+      if (pose === "attack" && frame) return cut("OOOOmmMM\nOqmmmmM.");
+      if (pose === "attack") return cut("Oq\nOO\nMM\nmm");
+      if (pose === "cast" || pose === "victory") return cut("mm\nMM\nOO\nOO\nOq");
+      if (pose === "hurt") return cut("OO\nOq\nSS\nSS");
+      return cut("Oq\nOO\nMM\nmm");
+    }
+    if (pose === "attack" && frame) return cut("ccBBBBGG\nBBBBgggg");
+    if (pose === "attack") return cut(".c\nBB\nSG\ngg");
+    if (pose === "cast" || pose === "victory") return cut("gg\nGG\nSS\nBB\nBB\ncB");
+    if (pose === "hurt") return cut("BB\ncB\nSS\ngg");
+    return cut("cB\nBB\nSG\ngg");
+  }
+
+  function paintBattle(id, spec, pose, frame) {
+    frame = frame ? 1 : 0;
+    var s = blank(spec.sw * 2 + 18, spec.sh * 2, spec.sax * 2, spec.say * 2);
+    var map = spec.map;
+    var bob = 0;
+    var lean = 0;
+    if (pose === "idle") bob = frame ? -2 : 0;
+    else if (pose === "attack") {
+      lean = frame ? 4 : 0;
+      bob = frame ? -2 : 0;
+    }     else if (pose === "cast") bob = frame ? -2 : 0;
+    else if (pose === "victory") bob = frame ? -2 : 0;
+    else if (pose === "hurt") {
+      lean = frame ? -6 : -3;
+      bob = frame ? 2 : 0;
+    }
+    var cape = cut("KKKK\nkkkk\nKkk.\n.kk.");
+    if (spec.torsoSide) {
+      put2(s, cape, spec.torsoSide.x * 2 - 8 + lean, spec.torsoSide.y * 2 + bob, map);
+    }
+    put2(s, spec.legBack && spec.legBack.rows, spec.legBack.x * 2, spec.legBack.y * 2, map);
+    put2(s, spec.legFront && spec.legFront.rows, spec.legFront.x * 2 + (pose === "attack" && frame ? 2 : 0), spec.legFront.y * 2, map);
+    put2(s, spec.torsoSide && spec.torsoSide.rows, spec.torsoSide.x * 2 + lean, spec.torsoSide.y * 2 + bob, map);
+    var extras = spec.extrasSide || [];
+    var i, ex;
+    for (i = 0; i < extras.length; i++) {
+      ex = extras[i];
+      if (ex.arm) continue;
+      put2(s, ex.rows, ex.x * 2 + (ex.sway ? lean : 0), ex.y * 2 + bob, ex.map || map);
+    }
+    var face = pose === "hurt" ? hurtFace(spec.headSide.rows) : spec.headSide.rows;
+    put2(s, face, spec.headSide.x * 2 + lean, spec.headSide.y * 2 + bob, map);
+    var arm = armRows(id, pose, frame);
+    var ax = spec.armSide.x * 2 + lean;
+    var ay = spec.armSide.y * 2 + bob;
+    var headRight = (spec.headSide.x + spec.headSide.rows[0].length) * 2 + lean;
+    if (pose === "attack" && frame) {
+      ax = headRight - 4;
+      ay = spec.headSide.y * 2 + bob + 16;
+    } else if (pose === "cast") {
+      ax = headRight + 2;
+      ay = spec.headSide.y * 2 + bob + 6;
+    } else if (pose === "victory") {
+      ax = headRight + 2;
+      ay = spec.headSide.y * 2 + bob;
+    } else if (pose === "hurt") {
+      ax = spec.torsoSide.x * 2 + lean - 10;
+      ay = spec.torsoSide.y * 2 + bob + 4;
+    } else if (pose === "attack") {
+      ax = spec.torsoSide.x * 2 + lean - 6;
+      ay = spec.armSide.y * 2 + bob - 4;
+    }
+    put2(s, arm, ax, ay, map);
+    if (pose === "cast" || pose === "victory") {
+      var spark = frame ? cut("i.i\n.Y.\ni.i") : cut(".i.\niYi\n.Y.");
+      put2(s, spark, ax + 4, Math.max(0, ay - 6), map);
+    }
+    if (pose === "idle" || pose === "hurt") {
+      for (i = 0; i < extras.length; i++) {
+        ex = extras[i];
+        if (!ex.arm) continue;
+        put2(s, ex.rows, ex.x * 2 + lean, ex.y * 2 + bob, ex.map || map);
+      }
+    }
+    return finish(s);
+  }
+
+  function battle(id, pose, facing, frame) {
+    var face = facing === "left" ? "left" : "right";
+    var f = frame ? 1 : 0;
+    var key = id + "|" + pose + "|" + face + "|" + f;
+    if (!battleCache[key]) {
+      var s = paintBattle(id, SPECS[id], pose, f);
+      if (face === "left") s = Art.mirror(s);
+      battleCache[key] = s;
+    }
+    return Art.clone(battleCache[key]);
+  }
+
 
   function field(id, pose, facing, frame) {
     var dir = facing;
@@ -1006,6 +1155,7 @@
     var prev = Art._makers[id];
     Art.add(id, function (pose, facing, frame) {
       if (pose === "walk" || pose === "stand") return field(id, pose, facing, frame || 0);
+      if (PARTY[id] && BATTLE[pose]) return battle(id, pose, facing, frame || 0);
       if (prev) return prev(pose, facing, frame || 0);
       return field(id, "walk", facing, 0);
     }, Art._scale[id], Art._fieldScale[id]);
