@@ -780,9 +780,63 @@ body[data-mode="hand"] #prompt,
 body[data-mode="voyage"] #controls,
 body[data-mode="voyage"] #corner,
 body[data-mode="voyage"] #prompt,
+body[data-mode="battle"] #controls,
+body[data-mode="battle"] #hud,
+body[data-mode="battle"] #corner,
+body[data-mode="battle"] #mapwrap,
+body[data-mode="battle"] #prompt,
+body[data-mode="results"] #controls,
+body[data-mode="results"] #hud,
+body[data-mode="results"] #corner,
+body[data-mode="results"] #mapwrap,
+body[data-mode="fieldmenu"] #controls,
+body[data-mode="fieldmenu"] #mapwrap,
+body[data-mode="fieldmenu"] #prompt,
 body[data-modal="1"] #controls,
 body[data-modal="1"] #corner {
   display: none;
+}
+
+#fieldmenu {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(6, 12, 32, 0.55);
+}
+
+#field-card {
+  width: min(412px, 100%);
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(18, 42, 96, 0.96), rgba(8, 20, 58, 0.98));
+  border: 2px solid rgba(196, 220, 255, 0.85);
+  color: #f4f7ff;
+}
+
+#field-card h2 { color: #d7e6ff; }
+#field-gold, #field-note { font-size: 16px; }
+#field-note { color: #ffd37a; min-height: 1.2em; }
+#field-body { display: flex; flex-direction: column; gap: 8px; }
+#field-body button, #field-back {
+  min-height: 56px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(232, 242, 255, 0.2), rgba(232, 242, 255, 0.06));
+  border: 1px solid rgba(196, 220, 255, 0.7);
+  font-size: 18px;
+  text-align: left;
+  line-height: 1.25;
+}
+#field-back { width: 100%; margin-top: 8px; }
+#field-body button.ghost { color: rgba(244, 247, 255, 0.8); }
+.field-stat {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 16px;
+  line-height: 1.35;
 }
 
 @media (orientation: landscape) {

@@ -228,11 +228,51 @@ function buildTitle() {
   };
 }
 
+function buildBattle() {
+  var bpm = 128;
+  var chords = [[55, 59, 62], [50, 53, 57], [48, 52, 55], [53, 57, 60]];
+  var notes = [];
+  var ost = [67, 70, 74, 70, 67, 70, 72, 70];
+  var b, step, chord;
+  for (b = 0; b < 32; b++) {
+    notes.push({
+      t: at(bpm, b * 0.5),
+      d: 0.08,
+      f: b % 2 === 0 ? 180 : 120,
+      slide: 70,
+      type: "square",
+      g: b % 4 === 0 ? 0.045 : 0.028,
+      a: 0.004
+    });
+    chord = chords[Math.floor(b / 8)];
+    if (b % 2 === 0) notes.push(toneNote(bpm, b, 0.22, chord[0] - 12, "triangle", 0.04, 0.008));
+  }
+  for (step = 0; step < 32; step++) {
+    notes.push(toneNote(bpm, step, 0.28, ost[step % ost.length], "square", step % 4 === 0 ? 0.03 : 0.018, 0.01));
+  }
+  var lead = [0, 4, 8, 12, 16, 20, 24, 28];
+  var tones = [79, 77, 74, 72, 76, 74, 70, 67];
+  for (b = 0; b < lead.length; b++) {
+    notes.push(toneNote(bpm, lead[b], 1.4, tones[b], "square", 0.028, 0.015, { harm: 2, harmG: 0.12 }));
+  }
+  return {
+    bpm: bpm,
+    loop: at(bpm, 32),
+    filter: 2200,
+    notes: notes,
+    drones: [
+      { type: "triangle", g: 0.03, changes: chordChanges(bpm, chords, 0, 0) },
+      { type: "square", g: 0.012, changes: chordChanges(bpm, chords, 2, 0) }
+    ]
+  };
+}
+
 var THEMES = {
   emberhold: buildEmberhold(),
   cinderveil: buildCinderveil(),
   sail: buildSail(),
   boss: buildBoss(),
+  battle: buildBattle(),
   title: buildTitle()
 };
 
@@ -460,7 +500,7 @@ ThemePlayer.prototype.dispose = function () {
 };
 
 var Music = {
-  names: ["title", "emberhold", "cinderveil", "sail", "boss"],
+  names: ["title", "emberhold", "cinderveil", "sail", "boss", "battle"],
   _want: null,
   _live: null,
   _player: null,

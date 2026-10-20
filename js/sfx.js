@@ -195,6 +195,13 @@ function playNamed(ctx, dest, name, opts) {
     tone(ctx, dest, now, 523, 0.12, "triangle", 0.045, 0, 0.008);
     tone(ctx, dest, now + 0.09, 659, 0.12, "triangle", 0.045, 0, 0.008);
     tone(ctx, dest, now + 0.18, 784, 0.2, "triangle", 0.04, 0, 0.008);
+    return;
+  }
+  if (name === "fanfare") {
+    tone(ctx, dest, now, 523, 0.12, "triangle", 0.05, 0, 0.008);
+    tone(ctx, dest, now + 0.12, 659, 0.12, "triangle", 0.05, 0, 0.008);
+    tone(ctx, dest, now + 0.24, 784, 0.14, "triangle", 0.05, 0, 0.008);
+    tone(ctx, dest, now + 0.4, 1046, 0.28, "triangle", 0.045, 0, 0.01);
   }
 }
 
@@ -202,7 +209,7 @@ var Sfx = {
   names: [
     "footstep", "whoosh", "impact", "dash", "grapple", "latch", "pull",
     "pickup", "lamp", "blip", "ui", "hurt", "death", "enemyHurt", "enemyDeath",
-    "roar", "level"
+    "roar", "level", "fanfare"
   ],
 
   play: function (name, opts) {

@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.2.1";
+SF.VERSION = "0.3";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -20,9 +20,10 @@ SF.STRIKE_ARC = 0.28;
 SF.XP_NEED = [0, 24, 70, 110];
 
 SF.WHATS_NEW = [
-  "Act 1 is told again, from the waking stones to the last lamp on Cinderveil.",
-  "After the Cinder Maw, the Cantor walks up the ridge. You can spare them, hear them out, or refuse.",
-  "Kestrel meets you at Lowmoor Quay. Ahead lies Highspire, and the last of the Lanternwrights."
+  "Fights are turn-based. Walk into a foe, or press Fight when one is close.",
+  "Act 1 is fought alone. Kestrel and Tamsin join after the act ends.",
+  "The pause button opens the menu: party, skills, items, gear, and save.",
+  "Levels go to 30. Marks are the coins. Old saves keep going."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

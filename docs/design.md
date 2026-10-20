@@ -1,13 +1,13 @@
 # Shardfall — living design doc
 
-**Current build:** v0.2, Act 1: The Cinder Road. Emberhold, then Cinderveil by skiff. The shared names and dialogue ids live in `docs/v0.2-spec.md`.
+**Current build:** v0.3, Act 1 with turn-based fights. Emberhold, then Cinderveil by skiff. The shared names and dialogue ids for the islands live in `docs/v0.2-spec.md`. The battle, party, and item contract is `docs/v0.3-spec.md`.
 **Play:** https://awsumbtech.github.io/shardfall/ once the Pages workflow has run on `main`.
 
 This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new in v0.2" panel. This file can spoil secrets.
 
 ## Pillars
 
-- **A phone game first.** One thumb on a stick, the other on Strike, Dash, and Talk. It has to feel good in portrait and in landscape, at 60fps, with no page scroll and no pinch zoom.
+- **A phone game first.** One thumb on a stick, the other on Fight, Dash, and Talk. In a fight the commands sit in the bottom thumb zone. It has to feel good in portrait and in landscape, at 60fps, with no page scroll and no pinch zoom.
 - **A place, not a level.** Emberhold is small, but it has a hill, a scar, a dock, a broken span, and a ledge you can miss.
 - **Light that pushes the cloud back.** Relighting a lamp is the verb of the game. Combat and errands exist so the lamp can catch.
 - **Polite strange.** The Hushborn are dangerous. The people are specific. The Cantor is frightening because the manners are perfect.
@@ -112,31 +112,41 @@ Points of interest in v0.1:
 
 ### Combat
 
-Real-time. The Wayfarer swings a short arc in the direction they are facing. Hits shove and show a number. The spark on a core is small and warm, not a white flash. A tiny pause sells the connect. Dash is a burst with a sliver of invulnerability and a cooldown drawn on the button. After the lamp, the dash is Shardstep: longer, sooner, and it singes anything it crosses.
+Fights are turn-based, on their own screen. The field is still real time: walk, dash, and the hook. There is no swing. Touch a foe, or press Fight when one is close, and `Battle.start(encounterId, opts)` opens the battle. Winning removes that field foe and saves it. Losing returns the party to the last lamp or the waking stones at half HP. Marks, items, and XP stay. Boss fights cannot be fled.
 
-Three Hushborn:
+The turn order is a strip at the top. Speed fills a gauge. The actor who fills it acts, then waits again. Defend comes back sooner. The commands are Attack, Skill, Item, Defend, and Flee, in large buttons along the bottom. Tap a foe or a party portrait to aim. The log is plain: "Kestrel attacks!", "Wisp is defeated.", "Level up!".
 
-| | Heart | Strike | Notes |
-| --- | --- | --- | --- |
-| Wisp | 18 | 5 | Fast, close, no shard. Three on Emberhold, none of them on top of the waking stones. The lamp unmakes the ones still up. |
-| Brumekin | 50 | 9 | Slow. Winds up, then lunges. Drops a shard. One in the Scar, one on the lip of the span — not in Maren's dooryard. |
-| Choirling | 32 | 7 | Keeps distance and throws a violet note. Drops a shard. One on Cinderstep. |
+The party holds up to three. Through Act 1 the Wayfarer fights alone, including the Cinder Maw, and a solo fight shows one wide party card under the turn strip. Kestrel joins when `party_kestrel` is set. Tamsin joins when `party_tamsin` is set. Act 2 departure scenes set those flags after `act1_end`. The first sail and the grapple gift do not. If `act1_end` is reached and either flag is missing, both are set, and the banners read "Kestrel joined the party." and "Tamsin joined the party." The same happens for a save that is already past the end of Act 1. No new spoken lines. XP from a win goes to every member who has joined. A member who joins later starts at the Wayfarer's level.
 
-Getting hit shoves the Wayfarer and grants a short invulnerability. Heart starts at 40. A lethal blow does not end the journey: the shard hauls you to the waking stones with a bit more than half a heart. Nothing already collected is lost. Hushborn that have been killed stay killed, and that fact is saved. They do not patrol back to life when you reload.
+Stats are HP, SP, Attack, Defense, Magic, and Speed. Elements are Ember, Tide, Gale, and Shard. One hit, or Scan, shows a foe's weakness. A weakness deals more. A resist deals less. The Cinder Maw is one target: its core. At about 60% HP the log says "The core flares." At about 30% it says "The core is open." The core is weak to Shard and resists Ember. Winning still runs the old Maw events: the cracked core, then the vault lamp, then the Cantor.
 
-Maren heals on every conversation. Two heartblossoms (meadow, and the hollow) heal a chunk, or deepen max heart if you are already full.
+Field foes and the encounter they start:
+
+| Field | Encounter |
+| --- | --- |
+| Emberhold wisps | `em_wisps` |
+| Brumekin | `em_brumekin` |
+| Choirling | `em_choirling` |
+| Ashlings | `cv_ashlings` |
+| Sootwing | `cv_mixed` |
+| Cinderbrute | `cv_cinderhound` |
+| Cinder Maw | `boss_cinder_maw` |
+
+Saltmere, Highspire, and the skiff use `sm_saltwisps`, `sm_drowned`, `sm_gulls`, `sm_mixed`, `boss_tidewyrm`, `hs_choir_patrol`, `hs_sentinel`, and `sea_hush_raiders`. WORLD can set `spawn.encounter` to any of these ids. Background ids are `emberhold_meadow`, `emberhold_scar`, `cinderveil_ash`, `ember_vault`, `saltmere_shore`, `saltmere_wreck`, `highspire_road`, and `hush_deck`.
+
+`Music.play("battle")` plays for a normal fight and `Music.play("boss")` for a boss. A win plays the `fanfare` effect. Hits pulse haptics. Reduce flashing keeps the core glow steady and skips shake.
+
+A fall off the island still hauls the Wayfarer back. It is not a battle loss. Maren, on a conversation, fills the party's HP and SP. Brumekin and Choirlings still drop the sky-shards the lamp quest counts.
 
 ### Progression
 
-Experience comes from Hushborn. Thresholds are 24, 70, and 110.
+Levels run from 1 to 30. The XP to reach the next level is `18 + 4.2×L + 0.55×L²`, rounded, and summed. A normal Act 1 that fights the foes on the road is about level 5 after Emberhold and about level 8 at the Maw. Each member has their own growth. A level-up fills that member's HP and SP and shows the stat changes. New skills arrive at set levels, six each by level 20. The Wayfarer learns Shard Bolt, Scan, Mend, Lampflare, Shard Ward, and Skybreak. Kestrel learns Quickshot, Steal, Twin Cut, Gale Shot, Smoke Step, and Killing Shot. Tamsin learns Spark Coil, Patch Up, Overclock, Tonic Spray, Tide Filter, and Field Kit.
 
-- Level 2: +10 heart, filled.
-- Level 3: +2 strike, +8 heart, filled.
-- Level 4: +2 strike, +12 heart, filled.
+Marks are the coins (`state.gold`). Shops call `SF.shopBuy(id)` and `SF.shopSell(id)` with ids from `js/data/items.js`. The pack starts with 4 Tonics and 2 Ethers. Gear has three slots: Weapon, Armor, Charm. The menu shows the numbers, such as "Attack +6". The pause button opens that menu: Party, Skills, Items, Equip, Save, Settings.
 
-A full clear of the six Hushborn is exactly level 4 (wisps 10 each, brumekin 24 each, the Choirling 32). The lamp's shockwave grants experience for the wisps it unmakes, so lighting early can level you.
+A v0.2 save (and a v0.1 save) loads as v0.3. Old XP is kept and scaled by 1.25, then read on the new curve. A journey still inside Act 1 stays a party of one. A save already past `act1_end` gains Kestrel and Tamsin, with the join banners, if those flags were missing. The pack starts with a few tonics so the road is not empty. v0.3 saves store `party`, `inventory`, `gold`, and `known`.
 
-The quest reward is not a level. It is Shardstep, on the hand itself. Spare shards after the lamp buy changes at Tamsin's bench. There is no second weapon.
+Shardstep is still the lamp's reward, and spare shards still buy hand changes at Tamsin's bench. Bright Edge adds 3 Attack. Deep Heart adds 14 HP. Those numbers are part of the Wayfarer's battle stats.
 
 ### NPCs and the quest
 
@@ -147,7 +157,7 @@ One quest: **relight Emberhold's lamp.**
 3. **Light.** With five or more, Place shards on the lamp plays a short lighting. You can skip it. The lamp catches, five shards are spent, wisps come apart, heavier Hushborn crack, and Shardstep awakens. The tracker points at Kestrel: "Talk to Kestrel on Vane's Perch."
 4. **The hook.** Kestrel, after the lamp, names Cinderveil and offers the Quickmercy. The offer ends by dispatching `open_sail_menu`, which opens the sail menu. The first crossing is the sail scene. The tracker reads "Sail to Cinderveil."
 
-The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Strike when a core is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
+The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Fight when a foe is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
 
 The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without him.
 
@@ -155,13 +165,13 @@ Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or tw
 
 ### Save
 
-`localStorage` key `shardfall.v1`. One slot. The save stores place, facing, heart, level, strike, shards in hand, which pickups are gone, where dropped shards fell, which Hushborn are dead and how hurt the living ones are, quest stage, story flags, discoveries, and time on the Hush. Enemy positions reset to their homes on load so a reload cannot leave one inside a wall. Mid-fight damage is kept.
+`localStorage` key `shardfall.v1`. One slot. The save stores place, facing, the party, the pack, marks, shards in hand, which pickups are gone, where dropped shards fell, which Hushborn are dead, quest stage, story flags, discoveries, and time on the Hush. Enemy positions reset to their homes on load so a reload cannot leave one inside a wall. A v0.2 save migrates. A save from a future version number is ignored.
 
 The game autosaves about every eight seconds, on a pickup, a kill, the end of a conversation, the lamp, a level, and when the page hides or you pause. The pause menu can Save, Load, or Reset. Reset deletes only `shardfall.v1` and returns to the title. New Game asks before it replaces a save. Continue is hidden when there is nothing to continue. Mute (`shardfall.mute`) and Reduce flashing (`shardfall.reduceFlash`) are separate keys so they survive Reset. Reduce flashing defaults to on. Unset means on.
 
-A save from a future version number is ignored rather than half-applied. v0.2 writes `v: 2` and still reads `v: 1`. A v0.1 journey that already lit the lamp, or that had reached `hooked`, unlocks the skiff. Quest names stay as they were. A gather save stays a gather save. Mute, Reduce flashing, music volume, effects volume, and haptics stay on their own keys.
+A save from a future version number is ignored rather than half-applied. v0.3 writes `v: 3` and still reads `v: 1` and `v: 2`. A v0.1 journey that already lit the lamp, or that had reached `hooked`, unlocks the skiff. Quest names stay as they were. A gather save stays a gather save. Mute, Reduce flashing, music volume, effects volume, and haptics stay on their own keys.
 
-`node tools/smoke.mjs` rebuilds the island rules, a strike, Maren's first talk, the lighting, a dash from the lip, and a save round-trip. It does not open a browser.
+`node tools/smoke.mjs` rebuilds the island rules, a battle, Maren's first talk, the lighting, a dash from the lip, the Maw, and a save round-trip. It does not open a browser.
 
 ## Art direction
 
@@ -183,7 +193,7 @@ Hiding the page suspends the audio context. Showing it resumes, if audio was alr
 
 ### Music
 
-`Music.play(name)` crossfades (about 1.2 seconds) to a procedural loop. Names: `title`, `emberhold`, `cinderveil`, `sail`, `boss`. Anything else is ignored. `Music.current()` is the theme now playing or the one just requested. `Music.stop()` fades out. `Music.setVolume(v)` is the music slider.
+`Music.play(name)` crossfades (about 1.2 seconds) to a procedural loop. Names: `title`, `emberhold`, `cinderveil`, `sail`, `battle`, `boss`. Anything else is ignored. `Music.current()` is the theme now playing or the one just requested. `Music.stop()` fades out. `Music.setVolume(v)` is the music slider.
 
 ```js
 Music.play("cinderveil");
@@ -218,6 +228,7 @@ The feel loop calls `Music.play("title")` while the title is up. Leaving the tit
 | `enemyDeath` | a Hushborn comes apart. The feel loop plays one of these when any foe dies, including several at once. |
 | `roar` | the Cinder Maw, when the fight begins |
 | `level` | a level |
+| `fanfare` | a battle is won |
 
 `SF.emit(name)` still accepts the v0.1 names (`swing`, `hit`, `hurt`, `dash`, `pickup`, `lamp`, `talk`, `death`, `level`, `ui`).
 
@@ -232,7 +243,7 @@ Tested against a 412×915 CSS viewport, portrait and landscape, which is the cla
 - The page is `position: fixed`, `touch-action: none`, and it cancels touchmove so the browser does not scroll, pull-to-refresh, or bounce.
 - The viewport meta locks scale and requests the safe area. The stick, buttons, and panels pad with `env(safe-area-inset-*)`.
 - The stick's grab area is the whole lower-left. The knob travels inside a fixed base. Analog tilt scales speed.
-- Strike, Dash, and Talk are separate pointers, so a thumb can hold the stick and tap Strike in the same moment. Strike repeats on a cooldown while held. Dash and Talk fire once per press.
+- Fight, Dash, and Talk are separate pointers, so a thumb can hold the stick and tap Fight in the same moment. Fight starts a battle with a nearby foe. Dash and Talk fire once per press. In battle, the command buttons are at least 56px tall and sit in the bottom third of a 412×915 portrait screen.
 - Canvas backing-store pixel ratio is capped at 2. Glows are pre-drawn images, not per-frame blurs. The context is not desynchronized. Resize ignores one-pixel jitter so the bitmap is not cleared in a loop. Islands, their shadows, the bridge, and the ground specks are painted once into a world sheet and the camera copies the visible slice, including a margin for shake. The sheet is rebuilt when the lamp is lit or the walk map changes, so a later island is included. Clouds are painted once into a softer sheet, then the view drifts across it. Sky and vignette gradients are cached. At 412×915 CSS pixels with a device pixel ratio of 3.5, play holds a frame.
 - Reduce flashing sits on the title screen, in the pause menu, and in Settings. All three are the same switch (`shardfall.reduceFlash`). It is on by default. It turns off shake, the hurt vignette, hit sparks, the invulnerability fade, and the pulsing ready-light, and a line of dialogue arrives whole. The objective marker stays, held still.
 - Switching apps or unfocusing the tab pauses and saves, so a pocket does not eat the run.
@@ -260,9 +271,9 @@ These are intentions, not promises. Each one should stay fun in a short sitting 
 
 This build. Sail the Quickmercy between Emberhold and Cinderveil, with a short voyage you can skip. Lowmoor Quay, the Ashfields, the Ember Vault. The hand hooks: hold, aim, release. Small Hushborn are pulled in. Big ones pull you. Spare shards buy five hand changes. The quest is Tamsin's three cogs, Ilsa's trial, the Cinder Maw, the vault lamp, and the Cantor's choice. Dialogue prose is data (`startDialogue(id)`); the ids and events are in `docs/v0.2-spec.md`.
 
-### v0.3 — Convoy
+### v0.3 — The Wider Hush
 
-A Driftborn flotilla. One set-piece that is not a fight: escort or race a sister skiff across a storm gap. Reputation with Lanternwrights and Driftborn becomes a visible thing, still light. A lamp-well under an island: tighter rooms, the same combat, a brumekin that has learned the corridors. The atlas of sailed routes starts here.
+This build. Fights are turn-based. Act 1 is the Wayfarer alone: a turn-order strip, skills, items, gear, marks, and levels to 30, about level 8 at the Cinder Maw. Kestrel and Tamsin join after the act ends. The Maw is a phased battle against its core. Saltmere, Highspire, and sea encounters exist as data so the map can place them. The convoy set-piece is later.
 
 ### v0.4 — The polite dark
 
@@ -296,7 +307,10 @@ Code map, if a section above needs a change:
 | `js/dialogue.js` | The conversation panel, portraits, choices, flags |
 | `js/cinder.js` | Cinderveil, travel, the hand menu, quest markers |
 | `js/grapple.js` | The hook, the Maw, ash foes |
-| `js/sim.js` | Movement, combat, quest, the dash gap's actual behavior |
+| `js/sim.js` | Movement, quest, the dash gap. Contact calls `Battle.start` |
+| `js/battle/` | Turn order, commands, the Maw, results |
+| `js/data/party.js`, `enemies.js`, `skills.js`, `items.js`, `encounters.js` | Party, foes, skills, items, encounter ids |
+| `js/menu/field.js` | Field menu: party, skills, items, equip |
 | `js/draw.js` | How the drift looks |
 | `js/ui.js`, `css/style.css` | Buttons, panels, safe areas |
 | `js/save.js` | The v2 save, and v1 reads |

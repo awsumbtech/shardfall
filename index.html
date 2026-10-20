@@ -26,9 +26,9 @@
       <div class="panel" id="prompt" hidden></div>
       <div id="place-row">
         <div id="place">The Waking Stones</div>
-        <button id="btn-patch" type="button">v0.2.1</button>
+        <button id="btn-patch" type="button">v0.3</button>
       </div>
-      <div id="keys">WASD move · J strike · K dash · G hook · E talk · Esc pause</div>
+      <div id="keys">WASD move · K dash · G hook · E talk · Esc menu</div>
     </div>
 
     <div id="mapwrap"><canvas id="minimap" aria-hidden="true"></canvas></div>
@@ -65,9 +65,9 @@
           <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 16h12M14 9l8 7-8 7"/><path d="M20 16h6"/></svg>
           <span>Dash</span>
         </button>
-        <button class="btn" id="btn-attack" type="button" aria-label="Strike">
+        <button class="btn" id="btn-attack" type="button" aria-label="Fight">
           <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 25L22 8M18 8h6v6M10 22l4 4"/></svg>
-          <span>Strike</span>
+          <span>Fight</span>
         </button>
       </div>
     </div>
@@ -112,7 +112,7 @@
 
     <div id="title">
       <div class="title-card">
-        <p class="eyebrow">v0.2.1 · Act 1, the Cinder Road</p>
+        <p class="eyebrow">v0.3 · Act 1, the Cinder Road</p>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
         </div>
@@ -122,11 +122,11 @@
           <button id="continue" type="button" hidden>Continue</button>
           <button id="newgame" type="button">New Game</button>
           <button id="title-settings" type="button" class="ghost">Settings</button>
-          <button id="title-news" type="button" class="ghost">What's new in v0.2.1</button>
+          <button id="title-news" type="button" class="ghost">What's new in v0.3</button>
           <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
         </div>
-        <p class="legend">Stick on the left. Strike, dash, hook, and talk on the right.<br>Keys: WASD · J strike · K dash · G hook · E talk · Esc pause · M mute</p>
+        <p class="legend">Stick on the left. Fight, dash, hook, and talk on the right.<br>Keys: WASD · K dash · G hook · E talk · Esc menu · M mute</p>
       </div>
     </div>
 
@@ -138,7 +138,7 @@
         <p id="pause-note"></p>
         <button id="resume" type="button">Resume</button>
         <button id="pause-settings" type="button" class="ghost">Settings</button>
-        <button id="pause-news" type="button" class="ghost">What's new in v0.2.1</button>
+        <button id="pause-news" type="button" class="ghost">What's new in v0.3</button>
         <button id="pause-hand" type="button" class="ghost">The hand</button>
         <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
         <button id="pause-save" type="button" class="ghost">Save</button>
@@ -177,6 +177,11 @@
   </div>
 
   <script src="js/data.js"></script>
+  <script src="js/data/skills.js"></script>
+  <script src="js/data/items.js"></script>
+  <script src="js/data/party.js"></script>
+  <script src="js/data/enemies.js"></script>
+  <script src="js/data/encounters.js"></script>
   <script src="js/content/dialogue/emberhold.js"></script>
   <script src="js/content/dialogue/cinderveil.js"></script>
   <script src="js/dialogue.js"></script>
@@ -191,8 +196,11 @@
   <script src="js/cinder.js"></script>
   <script src="js/grapple.js"></script>
   <script src="js/draw.js"></script>
+  <script src="js/battle/battle.js"></script>
+  <script src="js/battle/draw.js"></script>
   <script src="js/input.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/menu/field.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
