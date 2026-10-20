@@ -1,7 +1,7 @@
 "use strict";
 
-// Tiles, props, and the Hush cloud stamps. Ground patterns repeat 1:1 in
-// world space. Grass and ash use a larger organic tile with no grout grid.
+// Tiles, buildings, and the Hush cloud stamps. Ground patterns repeat 1:1
+// in world space. Trees, plants, and small props live in js/art/props.js.
 (function () {
   var C = Art.C;
   var plot = Art.plot;
@@ -118,158 +118,6 @@
     return s;
   }, 2, 2);
 
-  prop("tree", function () {
-    var s = Art.spr(40, 76);
-    fill(s, 18, 36, 5, 34, C.wood);
-    fill(s, 16, 66, 9, 4, C.woodD);
-    disc(s, 20, 28, 14, C.leaf);
-    disc(s, 12, 32, 10, C.leafD);
-    disc(s, 28, 30, 10, C.green);
-    disc(s, 18, 18, 6, C.leafL);
-    s.ax = 20;
-    s.ay = 72;
-    return s;
-  }, 2, 1);
-
-  prop("tree_bare", function () {
-    var s = Art.spr(24, 36);
-    fill(s, 11, 16, 3, 16, C.woodD);
-    plot(s, 8, 14, C.wood);
-    plot(s, 6, 12, C.woodD);
-    plot(s, 15, 13, C.wood);
-    plot(s, 17, 10, C.ash);
-    plot(s, 12, 8, C.wood);
-    plot(s, 12, 6, C.ashD);
-    s.ax = 12;
-    s.ay = 34;
-    return s;
-  }, 2, 2);
-
-  prop("rock", function () {
-    var s = Art.spr(16, 12);
-    disc(s, 8, 6, 5, C.stone);
-    disc(s, 6, 7, 3, C.stoneD);
-    plot(s, 5, 5, C.stoneL);
-    plot(s, 9, 4, C.stoneL);
-    s.ax = 8;
-    s.ay = 10;
-    return s;
-  }, 2, 2);
-
-  prop("basalt", function () {
-    var s = Art.spr(18, 14);
-    disc(s, 9, 8, 6, C.stoneD);
-    disc(s, 6, 9, 4, C.rock);
-    disc(s, 12, 7, 3, C.cliffX);
-    plot(s, 7, 6, C.ashD);
-    plot(s, 11, 10, C.ember);
-    s.ax = 9;
-    s.ay = 12;
-    return s;
-  });
-
-  prop("bush", function () {
-    var s = Art.spr(28, 20);
-    disc(s, 14, 12, 8, C.leafD);
-    disc(s, 8, 13, 6, C.leaf);
-    disc(s, 20, 13, 6, C.green);
-    disc(s, 14, 8, 4, C.leafL);
-    s.ax = 14;
-    s.ay = 18;
-    return s;
-  });
-
-  prop("bush_dead", function () {
-    var s = Art.spr(26, 18);
-    disc(s, 13, 11, 7, C.ashD);
-    disc(s, 7, 12, 5, C.rock);
-    disc(s, 19, 12, 5, C.stoneD);
-    plot(s, 12, 8, C.ash);
-    s.ax = 13;
-    s.ay = 16;
-    return s;
-  });
-
-  prop("tree_dead", function () {
-    var s = Art.spr(36, 64);
-    fill(s, 16, 28, 4, 32, C.ashD);
-    fill(s, 14, 56, 8, 4, C.rock);
-    fill(s, 6, 24, 14, 2, C.stoneD);
-    fill(s, 18, 16, 14, 2, C.ash);
-    fill(s, 4, 16, 3, 10, C.ashD);
-    fill(s, 28, 10, 3, 10, C.stone);
-    fill(s, 20, 8, 2, 10, C.stoneD);
-    plot(s, 17, 40, C.ember);
-    s.ax = 18;
-    s.ay = 60;
-    return s;
-  });
-
-  prop("tuft", function () {
-    var s = Art.spr(12, 16);
-    fill(s, 2, 6, 1, 8, C.leafD);
-    fill(s, 4, 3, 1, 11, C.leaf);
-    fill(s, 6, 5, 1, 9, C.leafL);
-    fill(s, 8, 4, 1, 10, C.green);
-    plot(s, 4, 2, C.leafL);
-    plot(s, 8, 3, C.warm);
-    s.ax = 6;
-    s.ay = 15;
-    return s;
-  });
-
-  prop("tuft_dead", function () {
-    var s = Art.spr(12, 16);
-    fill(s, 2, 7, 1, 7, C.ashD);
-    fill(s, 4, 4, 1, 10, C.stoneD);
-    fill(s, 6, 6, 1, 8, C.ash);
-    fill(s, 8, 5, 1, 9, C.rock);
-    s.ax = 6;
-    s.ay = 15;
-    return s;
-  });
-
-  prop("stump", function () {
-    var s = Art.spr(16, 12);
-    fill(s, 3, 4, 10, 6, C.wood);
-    fill(s, 4, 5, 8, 2, C.woodL);
-    plot(s, 6, 6, C.woodD);
-    plot(s, 9, 6, C.woodD);
-    fill(s, 2, 9, 12, 2, C.woodD);
-    s.ax = 8;
-    s.ay = 11;
-    return s;
-  });
-
-  prop("log", function () {
-    var s = Art.spr(28, 12);
-    fill(s, 2, 4, 22, 6, C.wood);
-    fill(s, 2, 4, 22, 2, C.woodL);
-    fill(s, 22, 3, 5, 7, C.woodD);
-    plot(s, 24, 5, C.woodL);
-    plot(s, 6, 7, C.woodD);
-    plot(s, 12, 6, C.woodD);
-    s.ax = 14;
-    s.ay = 11;
-    return s;
-  });
-
-  function fenceSprite(post, rail, broken) {
-    var s = Art.spr(36, 22);
-    fill(s, 3, 6, 3, 14, post);
-    fill(s, 30, 6, 3, 14, post);
-    fill(s, 4, 8, 28, 2, rail);
-    if (!broken) fill(s, 4, 13, 28, 2, rail);
-    else fill(s, 4, 13, 16, 2, rail);
-    plot(s, 4, 5, C.stoneL);
-    plot(s, 31, 5, C.stoneL);
-    s.ax = 18;
-    s.ay = 20;
-    return s;
-  }
-  prop("fence", function () { return fenceSprite(C.wood, C.woodL, false); });
-  prop("fence_burnt", function () { return fenceSprite(C.ashD, C.rock, true); });
-
   function house(wall, wallD, roof, door, win) {
     var s = Art.spr(164, 128);
     fill(s, 8, 108, 148, 14, C.stoneD);
@@ -355,59 +203,6 @@
     plot(s, 13, 2, C.wood);
     s.ax = 9;
     s.ay = 4;
-    return s;
-  }, 2, 2);
-
-  prop("flower", function () {
-    var s = Art.spr(8, 10);
-    fill(s, 3, 6, 1, 3, C.leaf);
-    plot(s, 2, 3, C.bloom);
-    plot(s, 4, 3, C.bloom);
-    plot(s, 3, 2, C.bloom);
-    plot(s, 3, 4, C.bloom);
-    plot(s, 3, 3, C.gold);
-    s.ax = 3;
-    s.ay = 9;
-    return s;
-  }, 2, 2);
-
-  prop("flower_gold", function () {
-    var s = Art.spr(8, 10);
-    fill(s, 3, 6, 1, 3, C.leafD);
-    plot(s, 2, 3, C.warm);
-    plot(s, 4, 3, C.gold);
-    plot(s, 3, 2, C.warm);
-    plot(s, 3, 4, C.goldD);
-    plot(s, 3, 3, C.lite);
-    s.ax = 3;
-    s.ay = 9;
-    return s;
-  }, 2, 2);
-
-  prop("flower_tide", function () {
-    var s = Art.spr(8, 10);
-    fill(s, 3, 6, 1, 3, C.weed);
-    plot(s, 2, 3, C.tideL);
-    plot(s, 4, 3, C.foam);
-    plot(s, 3, 2, C.tide);
-    plot(s, 3, 4, C.tideL);
-    plot(s, 3, 3, C.lite);
-    s.ax = 3;
-    s.ay = 9;
-    return s;
-  }, 2, 2);
-
-  prop("blossom", function () {
-    var s = Art.spr(10, 12);
-    fill(s, 4, 7, 1, 4, C.leaf);
-    plot(s, 4, 3, C.bloom);
-    plot(s, 2, 5, C.bloom);
-    plot(s, 6, 5, C.bloom);
-    plot(s, 3, 6, C.hp);
-    plot(s, 5, 6, C.hp);
-    plot(s, 4, 5, C.gold);
-    s.ax = 4;
-    s.ay = 11;
     return s;
   }, 2, 2);
 
@@ -528,20 +323,6 @@
     plot(s, 30, 5, C.gold);
     s.ax = 20;
     s.ay = 16;
-    return s;
-  });
-
-  prop("signpost", function () {
-    var s = Art.spr(18, 20);
-    fill(s, 8, 8, 2, 10, C.woodD);
-    fill(s, 2, 2, 14, 8, C.paper);
-    fill(s, 3, 3, 12, 6, C.sand);
-    plot(s, 5, 5, C.ink);
-    plot(s, 7, 5, C.ink);
-    plot(s, 9, 6, C.ink);
-    plot(s, 11, 5, C.ink);
-    s.ax = 9;
-    s.ay = 18;
     return s;
   });
 
