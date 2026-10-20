@@ -209,7 +209,7 @@ SF.onMawDead = function () {
   s.flags.mawFight = false;
   s.quest = "relight";
   s.pools = [];
-  SF.pushBanner("The Maw unthreads", "The core is hungry, and clear.");
+  SF.pushBanner("The Cinder Maw", "The core is cracked and dim, but whole.");
   if (window.Music) Music.play("cinderveil");
   SF.saveGame({ silent: true });
   if (SF.startDialogue) SF.startDialogue("cinderveil.maw.defeated");

@@ -290,20 +290,41 @@ if (cantorChoices.join(",") !== "spare,listen,refuse") {
   process.exit(1);
 }
 const script = fs.readFileSync("docs/script/act1.md", "utf8");
+function norm(text) {
+  return String(text || "").replace(/\*/g, "").toLowerCase();
+}
+const scriptNorm = norm(script);
 for (const node of Object.values(SF.dialogueNodes)) {
   for (const line of node.lines) {
-    if (!script.includes(line)) {
-      console.error("script missing line from", node.id, line);
+    const text = SF.lineText ? SF.lineText(line) : (typeof line === "string" ? line : line.text);
+    if (!scriptNorm.includes(norm(text))) {
+      console.error("script missing line from", node.id, text);
       process.exit(1);
     }
   }
   for (const choice of node.choices || []) {
-    if (!script.includes(choice.text)) {
+    if (!scriptNorm.includes(norm(choice.text))) {
       console.error("script missing choice from", node.id, choice.text);
       process.exit(1);
     }
   }
 }
+if (!SF.dialogueNodes["bark.ilsa.no_grapple"]) {
+  console.error("missing bark.ilsa.no_grapple");
+  process.exit(1);
+}
+["spare", "listen", "refuse"].forEach((choice) => {
+  const epi = SF.dialogueNodes["cinderveil.kestrel.epilogue_" + choice];
+  const finale = SF.dialogueNodes["cinderveil.act1.finale"];
+  if (!epi || epi.next !== "cinderveil.act1.finale" || epi.onEnd !== "epilogue_done") {
+    console.error("epilogue is not wired", choice, epi && epi.next, epi && epi.onEnd);
+    process.exit(1);
+  }
+  if (!finale || !norm(SF.lineText(finale.lines[0])).includes("highspire")) {
+    console.error("finale does not name Highspire");
+    process.exit(1);
+  }
+});
 
 const unknown = freshPlay();
 SF.startDialogue("no.such.line");
@@ -326,7 +347,7 @@ if (!SF.state.dialogue) {
 const ending = freshPlay();
 SF.startDialogue("cinderveil.cantor.confront");
 guard = 0;
-while (ending.mode === "dialogue" && guard < 30) {
+while (ending.mode === "dialogue" && guard < 40) {
   ending.dialogue.lock = 0;
   if (ending.dialogue.phase === "choice") {
     const listen = ending.dialogue.choices.findIndex((c) => c.setFlags && c.setFlags.cantor_choice === "listen");
@@ -334,8 +355,8 @@ while (ending.mode === "dialogue" && guard < 30) {
   } else SF.advanceDialogue();
   guard += 1;
 }
-if (ending.flags.cantor_choice !== "listen" || ending.mode !== "play") {
-  console.error("cantor choice did not land", ending.flags.cantor_choice, ending.mode);
+if (ending.flags.cantor_choice !== "listen" || ending.mode !== "play" || !ending.flags.epilogueHeard || ending.quest !== "act1") {
+  console.error("cantor choice did not land", ending.flags.cantor_choice, ending.mode, ending.quest, ending.flags.epilogueHeard);
   process.exit(1);
 }
 SF.saveGame({ silent: true });
@@ -345,19 +366,35 @@ if (!kept || kept.flags.cantor_choice !== "listen") {
   process.exit(1);
 }
 
+function heardLines(state) {
+  const heard = [];
+  let steps = 0;
+  while (state.mode === "dialogue" && state.dialogue && state.dialogue.phase !== "choice" && steps < 24) {
+    heard.push(state.dialogue.full);
+    state.dialogue.lock = 0;
+    SF.advanceDialogue();
+    steps += 1;
+  }
+  return heard.join("\n");
+}
 const thanks = freshPlay();
-thanks.flags.lampLit = true;
 thanks.flags.asked_maren = "hush";
 SF.startDialogue("emberhold.maren.lamp_lit");
-guard = 0;
-while (thanks.mode === "dialogue" && thanks.dialogue.phase !== "choice" && guard < 12) {
-  thanks.dialogue.lock = 0;
-  SF.advanceDialogue();
-  guard += 1;
+const hushText = heardLines(thanks);
+if (!hushText.includes("pulling back from the cliffs") || hushText.includes("I still can't tell you")) {
+  console.error("lamp thanks ignored the hush flag", hushText);
+  process.exit(1);
 }
-const thankText = thanks.dialogue.choices.map((c) => c.text).join(" | ");
-if (!thankText.includes("tide") || thankText.includes("longer step")) {
-  console.error("lamp thanks ignored the hush flag", thankText);
+if (thanks.mode !== "play" || (thanks.dialogue && thanks.dialogue.choices && thanks.dialogue.choices.length)) {
+  console.error("lamp thanks should close without a reply");
+  process.exit(1);
+}
+const handThanks = freshPlay();
+handThanks.flags.asked_maren = "hand";
+SF.startDialogue("emberhold.maren.lamp_lit");
+const handText = heardLines(handThanks);
+if (!handText.includes("I still can't tell you") || handText.includes("pulling back from the cliffs")) {
+  console.error("lamp thanks ignored the hand flag", handText);
   process.exit(1);
 }
 
@@ -391,7 +428,7 @@ function fail(msg) {
 
 function finishTalk(state) {
   let guard = 0;
-  while (state.mode === "dialogue" && guard < 48) {
+  while (state.mode === "dialogue" && guard < 80) {
     if (!state.dialogue) break;
     state.dialogue.lock = 0;
     if (state.dialogue.phase === "choice") SF.chooseDialogue(0);
@@ -453,7 +490,7 @@ road.player.x = tamsin.x;
 road.player.y = tamsin.y;
 SF.tryInteract();
 finishTalk(road);
-if (road.quest !== "cogs" || !road.flags.cogsStarted || road.flags.tamsin_mood !== "earnest") fail("cogs did not start");
+if (road.quest !== "cogs" || !road.flags.cogsStarted) fail("cogs did not start");
 needMarker("cogs");
 ["cog-link", "cog-ash", "cog-lip"].forEach((id) => {
   const cog = SF.PICKUPS.find((p) => p.id === id);
@@ -546,16 +583,12 @@ road.shardsHeld = 3;
 SF.tryInteract();
 if (!road.dialogue || road.dialogue.id !== "cinderveil.lamp.relit") fail("the core did not relight");
 finishTalk(road);
-if (!road.flags.cinderLit || road.quest !== "cantor" || road.shardsHeld !== 0) fail("the Cantor was not called");
-needMarker("cantor");
-
-const cantor = SF.npcById("cantor");
-road.player.x = cantor.x;
-road.player.y = cantor.y;
-SF.tryInteract();
-finishTalk(road);
-if (road.flags.cantor_choice !== "spare" || road.quest !== "act1") fail("Spare did not end Act 1");
+if (!road.flags.cinderLit || road.shardsHeld !== 0) fail("the lamp did not take its shards");
+if (road.flags.cantor_choice !== "spare" || road.quest !== "act1" || !road.flags.epilogueHeard || road.mode !== "play") {
+  fail("Spare did not play through to the quay " + road.quest + " " + road.mode + " " + road.flags.cantor_choice);
+}
 if (SF.objectivePoint(road)) fail("Act 1 should rest without a marker");
+if (SF.islandId !== "cinderveil") fail("the epilogue left Cinderveil");
 
 const yanked = freshPlay();
 SF.mountIsland("cinderveil");
@@ -571,6 +604,125 @@ mite.x = 360;
 mite.y = 80;
 if (!SF.fireGrapple(yanked.player, { x: 1, y: 0 })) fail("could not hook a small foe");
 if (yanked.player.grapplePull !== "yank") fail("small foe was not pulled");
+SF.mountIsland("emberhold");
+
+const gate = freshPlay();
+SF.mountIsland("cinderveil");
+gate.island = "cinderveil";
+gate.enemies = SF.makeEnemies();
+gate.player.grapple = false;
+gate.player.x = SF.npcById("ilsa").x;
+gate.player.y = SF.npcById("ilsa").y;
+SF.tryInteract();
+if (!gate.dialogue || gate.dialogue.id !== "bark.ilsa.no_grapple") fail("Ilsa let someone cross without a grapple");
+SF.mountIsland("emberhold");
+
+const past = SF.fresh();
+if (!SF.applySave(past, {
+  v: 2,
+  quest: "cantor",
+  island: "cinderveil",
+  shardsHeld: 0,
+  flags: {
+    lampLit: true,
+    shardstep: true,
+    mawDead: true,
+    cinderLit: true,
+    vaultOpen: true,
+    grapple: true,
+    metCantor: true,
+    heardChoir: true
+  },
+  discovered: { hollow: true },
+  player: Object.assign({}, body, { x: 1450, y: -20, grapple: true, shardstep: true }),
+  enemies: []
+})) fail("past-boss save was rejected");
+if (!past.flags.met_cantor) fail("a hollow meeting was not kept");
+past.mode = "play";
+SF.state = past;
+SF.update(0.05);
+if (!past.dialogue || past.dialogue.id !== "cinderveil.cantor.confront" || !past.approach) {
+  fail("a save past the Maw did not bring the Cantor up");
+}
+const greeted = past.dialogue.lines.map((line) => SF.lineText(line)).join("\n");
+if (!greeted.includes("Hello again") || greeted.includes("I've wanted to meet you")) {
+  fail("the Cantor did not remember the hollow " + greeted);
+}
+const opening = past.dialogue.full;
+SF.advanceDialogue();
+if (!past.dialogue || past.dialogue.full !== opening || past.dialogue.i !== 0 || !past.approach) {
+  fail("a tap cut the Cantor off while they were walking");
+}
+past.approach.t = past.approach.dur;
+SF.update(0.2);
+if (past.approach || !past.dialogue || past.dialogue.i !== 0 || past.dialogue.full !== opening) {
+  fail("the walk skipped the Cantor's entrance");
+}
+
+const mid = SF.fresh();
+if (!SF.applySave(mid, {
+  v: 2,
+  quest: "cantor",
+  island: "cinderveil",
+  flags: { lampLit: true, mawDead: true, cinderLit: true, cantor_choice: "listen" },
+  player: Object.assign({}, body, { x: 20, y: 90 }),
+  enemies: []
+})) fail("mid-reply save was rejected");
+mid.mode = "play";
+SF.state = mid;
+SF.update(0.05);
+if (!mid.dialogue || mid.dialogue.id !== "cinderveil.cantor.listen") fail("a half-heard reply did not resume");
+
+const quay = SF.fresh();
+if (!SF.applySave(quay, {
+  v: 2,
+  quest: "act1",
+  island: "cinderveil",
+  flags: { lampLit: true, mawDead: true, cinderLit: true, act1: true, cantor_choice: "refuse", needsEpilogue: true },
+  player: Object.assign({}, body, { x: 20, y: 90 }),
+  enemies: []
+})) fail("epilogue save was rejected");
+quay.mode = "play";
+SF.state = quay;
+SF.update(0.05);
+if (!quay.dialogue || quay.dialogue.id !== "cinderveil.kestrel.epilogue_refuse") fail("the quay epilogue did not resume");
+
+const done = SF.fresh();
+if (!SF.applySave(done, {
+  v: 1,
+  quest: "act1",
+  flags: { lampLit: true, mawDead: true, cinderLit: true, act1: true, cantor_choice: "spare", metCantor: true },
+  player: Object.assign({}, body, { x: 20, y: 90 }),
+  enemies: []
+})) fail("finished v1 save was rejected");
+if (!done.flags.cantorGone || done.island !== "cinderveil") fail("a finished act did not stay finished");
+done.mode = "play";
+SF.state = done;
+SF.update(0.05);
+if (done.dialogue || done.mode !== "play") fail("a finished act started the Cantor again");
+
+["spare", "listen", "refuse"].forEach((choice) => {
+  const branch = freshPlay();
+  SF.mountIsland("cinderveil");
+  branch.island = "cinderveil";
+  SF.startDialogue("cinderveil.cantor.confront");
+  let steps = 0;
+  let sawEpilogue = false;
+  let sawFinale = false;
+  while (branch.mode === "dialogue" && steps < 40) {
+    if (branch.dialogue.id.indexOf("epilogue_" + choice) >= 0) sawEpilogue = true;
+    if (branch.dialogue.id === "cinderveil.act1.finale") sawFinale = true;
+    branch.dialogue.lock = 0;
+    if (branch.dialogue.phase === "choice") {
+      const pick = branch.dialogue.choices.findIndex((c) => c.setFlags && c.setFlags.cantor_choice === choice);
+      SF.chooseDialogue(pick);
+    } else SF.advanceDialogue();
+    steps += 1;
+  }
+  if (!sawEpilogue || !sawFinale || branch.mode !== "play" || branch.flags.cantor_choice !== choice || !branch.flags.epilogueHeard) {
+    fail(choice + " did not reach its epilogue and the end of the act");
+  }
+});
 SF.mountIsland("emberhold");
 
 console.log("smoke ok");

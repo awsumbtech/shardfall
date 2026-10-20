@@ -87,6 +87,10 @@ SF.applySave = function (s, data) {
   s.drops = data.drops || {};
   s.flags = Object.assign(s.flags, data.flags || {});
   s.discovered = Object.assign(s.discovered, data.discovered || {});
+  if (s.flags.metCantor && (s.flags.heardChoir || s.discovered.hollow)) s.flags.met_cantor = true;
+  if (s.flags.met_cantor) s.flags.metCantor = true;
+  if (s.flags.hesk_mood) s.flags.metHesk = true;
+  if (s.flags.act1) s.flags.cantorGone = true;
   s.stats = Object.assign(s.stats, data.stats || {});
   s.hints = Object.assign(s.hints, data.hints || {});
   if (data.hints && data.hints.moved == null && s.playTime > 2) s.hints.moved = true;
@@ -95,6 +99,9 @@ SF.applySave = function (s, data) {
   p.grapple = !!sp.grapple || !!s.flags.grapple;
   s.flags.grapple = p.grapple || !!s.flags.grapple;
   s.island = data.island || "emberhold";
+  if (!data.island && (s.flags.mawDead || s.flags.cinderLit || s.quest === "cantor" || s.quest === "relight" || s.quest === "maw" || s.quest === "act1" || s.quest === "quay" || s.quest === "cogs" || s.quest === "vault" || s.quest === "trial" || s.quest === "seal")) {
+    s.island = "cinderveil";
+  }
   if (SF.mountIsland) SF.mountIsland(s.island);
   if (SF.makeEnemies) s.enemies = SF.makeEnemies();
   p.x = sp.x;

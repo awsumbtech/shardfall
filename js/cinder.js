@@ -48,15 +48,16 @@ SF.ISLANDS.cinderveil = {
     { id: "tamsin", name: "Tamsin Reed", x: -110, y: -50 },
     { id: "hesk", name: "Brother Hesk", x: 80, y: 50 },
     { id: "ilsa", name: "Warden Ilsa", x: 900, y: 60 },
-    { id: "cantor", name: "The Cantor", x: 1340, y: 90, when: "cinderLit" }
+    { id: "cantor", name: "The Cantor", x: 1340, y: 90, when: "cinderLit", until: "cantorGone" }
   ],
   texts: [
-    { id: "quay-sign", x: 70, y: -20, speaker: "Lowmoor Sign", node: "inspect.lowmoor_sign" },
+    { id: "quay-sign", x: 70, y: -20, speaker: "Quay Sign", node: "inspect.lowmoor_sign" },
     { id: "quay-bell", x: 40, y: -50, speaker: "Quay Bell", node: "inspect.quay_bell" },
-    { id: "ash-path", x: 300, y: 70, speaker: "Ember Path", node: "inspect.ember_path" },
-    { id: "hesk-crate", x: 110, y: 70, speaker: "Choir Crate", node: "inspect.choir_crate" },
-    { id: "ilsa-order", x: 860, y: 80, speaker: "Ilsa's Order", node: "inspect.ilsa_order" },
-    { id: "vault-seal", x: 1250, y: 20, speaker: "Vault Seal", node: "inspect.vault_seal" },
+    { id: "ash-path", x: 300, y: 70, speaker: "Path Lamps", node: "inspect.ember_path" },
+    { id: "ash-cog", x: 430, y: 10, speaker: "Cog", node: "inspect.ash_cog" },
+    { id: "hesk-crate", x: 110, y: 70, speaker: "Hesk's Hideout", node: "inspect.choir_crate" },
+    { id: "ilsa-order", x: 860, y: 80, speaker: "Posted Order", node: "inspect.ilsa_order" },
+    { id: "vault-seal", x: 1250, y: 20, speaker: "Vault Door", node: "inspect.vault_seal" },
     { id: "maw-mouth", x: 1320, y: 20, speaker: "The Cinder Maw", node: "cinderveil.maw.prefight" },
     { id: "maw-tooth", x: 1280, y: -40, speaker: "Maw Tooth", node: "inspect.maw_tooth" }
   ],
@@ -127,8 +128,11 @@ SF.mountIsland = function (id) {
 };
 
 SF.npcHidden = function (n) {
-  if (!n || !n.when) return false;
-  return !(SF.state && SF.state.flags && SF.state.flags[n.when]);
+  if (!n) return false;
+  var flags = SF.state && SF.state.flags;
+  if (n.until && flags && flags[n.until]) return true;
+  if (!n.when) return false;
+  return !(flags && flags[n.when]);
 };
 
 SF.npcById = function (id) {
@@ -188,7 +192,7 @@ SF.travelTo = function (island) {
   var s = SF.state;
   if (!s || !SF.ISLANDS[island]) return;
   if (SF.islandId === island) {
-    s.mode = "play";
+    if (s.mode !== "dialogue" && s.mode !== "pause") s.mode = "play";
     return;
   }
   SF.snapshotEnemies();
@@ -335,6 +339,7 @@ SF.noteZone = function (zone) {
   var s = SF.state;
   if (!s || !zone) return;
   if (zone.id === "ashnook") s.discovered.ashnook = true;
+  if (zone.id === "vault-heart" || zone.id === "vault-yard") s.discovered.vault = true;
   if (zone.id === "vault-heart" && s.flags.vaultOpen && s.quest === "trial") s.quest = "seal";
 };
 
@@ -368,11 +373,8 @@ SF.cinderQuestText = function (s) {
     var held = s.shardsHeld || 0;
     return "Place " + need + " shards on the hurt core (" + held + "/" + need + ").";
   }
-  if (q === "cantor") return "The Cantor is here. Spare, Listen, or Refuse.";
-  if (q === "act1") {
-    var choice = s.flags.cantor_choice || "your choice";
-    return "Act 1 rests. You chose " + choice + ".";
-  }
+  if (q === "cantor") return "The Cantor is on the ridge. Spare, Listen, or Refuse.";
+  if (q === "act1") return "End of Act 1. Ahead lies Highspire, and the last of the Lanternwrights.";
   return null;
 };
 
@@ -525,7 +527,8 @@ SF.CINDER_SHARDS = 3;
     var f = (s && s.flags) || {};
     if (who === "kestrel") {
       if (!f.metCinderKestrel) return "cinderveil.kestrel.arrive";
-      return "bark.kestrel.scarf";
+      if (f.cantor_choice && !f.epilogueHeard) return "cinderveil.kestrel.epilogue_" + f.cantor_choice;
+      return "";
     }
     if (who === "tamsin") {
       if (s && s.player && s.player.grapple) return "bark.tamsin.bench";
@@ -534,13 +537,13 @@ SF.CINDER_SHARDS = 3;
       return "cinderveil.tamsin.cogs_start";
     }
     if (who === "hesk") return f.metHesk ? "bark.hesk.crate" : "cinderveil.hesk.rumor";
-    if (who === "ilsa") return f.vaultOpen ? "bark.ilsa.post" : "cinderveil.ilsa.trial";
+    if (who === "ilsa") {
+      if (!s || !s.player || !s.player.grapple) return "bark.ilsa.no_grapple";
+      if (!f.vaultOpen) return "cinderveil.ilsa.trial";
+      return "";
+    }
     if (who === "cantor") {
-      if (f.act1) {
-        if (f.cantor_choice === "listen") return "cinderveil.cantor.listen";
-        if (f.cantor_choice === "refuse") return "cinderveil.cantor.refuse";
-        return "cinderveil.cantor.spare";
-      }
+      if (f.cantor_choice || f.act1 || f.cantorGone) return "";
       return "cinderveil.cantor.confront";
     }
     return "";
@@ -565,7 +568,7 @@ SF.CINDER_SHARDS = 3;
     s.player.grapple = true;
     s.flags.grapple = true;
     if (s.quest === "cogs" || s.quest === "quay") s.quest = "vault";
-    SF.pushBanner("The grapple", "The shard throws the line. Do not let go first.");
+    SF.pushBanner("The grapple", "Aim at a hook point. Don't let go over the Hush.");
     SF.saveGame({ silent: true });
   });
 
@@ -591,7 +594,7 @@ SF.CINDER_SHARDS = 3;
     if (SF.wakeMaw) SF.wakeMaw();
     if (window.Music) Music.play("boss");
     if (window.Sfx) Sfx.play("roar");
-    SF.pushBanner("The Cinder Maw", "The teeth are weather. Strike the seed.");
+    SF.pushBanner("The Cinder Maw", "A bright point of light pulses in the middle of its chest.");
     SF.saveGame({ silent: true });
   });
 
@@ -603,8 +606,12 @@ SF.CINDER_SHARDS = 3;
     s.flags.cinderLit = true;
     s.quest = "cantor";
     if (SF.emit) SF.emit("lamp");
-    SF.pushBanner("The core takes the shards", "Orange returns to the ash. The Cantor is here.");
+    SF.pushBanner("Cinderveil's lamp", "Orange light pours out across the island.", 3.2);
     SF.saveGame({ silent: true });
+    if (!s.flags.cantor_choice && !s.flags.act1) {
+      SF.beginCantorApproach();
+      if (SF.startDialogue) SF.startDialogue("cinderveil.cantor.confront");
+    }
   });
 
   SF.onDialogueEvent("act1_end", function () {
@@ -612,9 +619,24 @@ SF.CINDER_SHARDS = 3;
     if (!s) return;
     s.flags.act1 = true;
     s.flags.metCantor = true;
+    s.flags.cantorGone = true;
     s.quest = "act1";
-    var choice = s.flags.cantor_choice || "your word";
-    SF.pushBanner("Act 1 rests", "You chose " + choice + ". The Cantor will remember.");
+    if (SF.parkCantor && s.approach) SF.parkCantor();
+    s.approach = null;
+    if (!s.flags.epilogueHeard) {
+      s.flags.needsEpilogue = true;
+      var id = s.dialogue && s.dialogue.id ? String(s.dialogue.id) : "";
+      if (id.indexOf("epilogue") < 0 && id.indexOf("act1.finale") < 0) SF.playEpilogue();
+    }
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("epilogue_done", function () {
+    var s = SF.state;
+    if (!s) return;
+    s.flags.epilogueHeard = true;
+    s.flags.needsEpilogue = false;
+    s.quest = "act1";
     SF.saveGame({ silent: true });
   });
 
@@ -635,6 +657,112 @@ SF.CINDER_SHARDS = 3;
     var s = SF.state;
     if (!s) return;
     s.flags.metHesk = true;
+    s.discovered.vault = true;
     SF.saveGame({ silent: true });
   });
 })();
+
+SF.parkCantor = function () {
+  var s = SF.state;
+  if (!s || !s.approach) return;
+  s.cantorAt = { x: s.approach.toX, y: s.approach.toY };
+  s.approach = null;
+  if (s.dialogue && s.dialogue.holdForApproach) {
+    s.dialogue.holdForApproach = false;
+    s.dialogue.lock = 0;
+  }
+};
+
+SF.cantorWorldPos = function () {
+  var s = SF.state;
+  if (!s) return null;
+  if (s.approach && s.approach.kind === "cantor") {
+    var a = s.approach;
+    var u = a.dur <= 0 ? 1 : Math.max(0, Math.min(1, a.t / a.dur));
+    var k = u * u * (3 - 2 * u);
+    return {
+      x: a.fromX + (a.toX - a.fromX) * k,
+      y: a.fromY + (a.toY - a.fromY) * k
+    };
+  }
+  if (s.cantorAt) return { x: s.cantorAt.x, y: s.cantorAt.y };
+  return null;
+};
+
+SF.beginCantorApproach = function () {
+  var s = SF.state;
+  if (!s || s.approach) return;
+  if (s.flags.cantor_choice || s.flags.act1 || s.flags.cantorGone) return;
+  if (SF.islandId === "cinderveil" && SF.LAMP && SF.walkable(SF.LAMP.x, SF.LAMP.y)) {
+    if (SF.dist(s.player.x, s.player.y, SF.LAMP.x, SF.LAMP.y) > 220) {
+      s.player.x = SF.LAMP.x;
+      s.player.y = SF.LAMP.y;
+      s.player.safeX = SF.LAMP.x;
+      s.player.safeY = SF.LAMP.y;
+      s.player.px = SF.LAMP.x;
+      s.player.py = SF.LAMP.y;
+      s.camX = SF.LAMP.x;
+      s.camY = SF.LAMP.y;
+    }
+  }
+  s.approach = {
+    kind: "cantor",
+    t: 0,
+    dur: 3.1,
+    fromX: 1264,
+    fromY: 72,
+    toX: 1396,
+    toY: 18
+  };
+};
+
+SF.playEpilogue = function () {
+  var s = SF.state;
+  if (!s || s.flags.epilogueHeard) return;
+  var choice = s.flags.cantor_choice;
+  if (choice !== "spare" && choice !== "listen" && choice !== "refuse") return;
+  var playing = s.dialogue && s.dialogue.id ? String(s.dialogue.id) : "";
+  if (playing.indexOf("epilogue_" + choice) >= 0 || playing.indexOf("act1.finale") >= 0) return;
+  s.flags.cantorGone = true;
+  s.flags.needsEpilogue = true;
+  s.approach = null;
+  s.cantorAt = null;
+  if (SF.islandId !== "cinderveil" && SF.mountIsland) SF.mountIsland("cinderveil");
+  var kestrel = SF.npcById("kestrel");
+  var x = kestrel ? kestrel.x + 28 : SF.DOCKS.cinderveil.x;
+  var y = kestrel ? kestrel.y - 8 : SF.DOCKS.cinderveil.y;
+  if (!SF.walkable(x, y)) {
+    x = SF.DOCKS.cinderveil.x;
+    y = SF.DOCKS.cinderveil.y;
+  }
+  s.player.x = x;
+  s.player.y = y;
+  s.player.safeX = x;
+  s.player.safeY = y;
+  s.player.px = x;
+  s.player.py = y;
+  s.player.fall = 0;
+  s.camX = x;
+  s.camY = y;
+  s.island = "cinderveil";
+  if (SF.startDialogue) SF.startDialogue("cinderveil.kestrel.epilogue_" + choice);
+};
+
+SF.maybeCantor = function () {
+  var s = SF.state;
+  if (!s || s.mode !== "play" || s.dialogue || s.approach) return;
+  if (SF.islandId !== "cinderveil") return;
+  if (s.flags.needsEpilogue && s.flags.cantor_choice && !s.flags.epilogueHeard) {
+    SF.playEpilogue();
+    return;
+  }
+  if (s.flags.cantor_choice && !s.flags.act1 && !s.flags.epilogueHeard) {
+    var reply = "cinderveil.cantor." + s.flags.cantor_choice;
+    if (SF.dialogueNodes && SF.dialogueNodes[reply] && SF.startDialogue) SF.startDialogue(reply);
+    return;
+  }
+  if (!s.flags.cantor_choice && !s.flags.act1 && s.flags.cinderLit && (s.flags.mawDead || s.quest === "cantor")) {
+    SF.beginCantorApproach();
+    if (SF.startDialogue) SF.startDialogue("cinderveil.cantor.confront");
+  }
+};

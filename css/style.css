@@ -412,19 +412,24 @@ body[data-calm="1"] #btn-interact.ready {
   left: calc(12px + env(safe-area-inset-left));
   right: calc(12px + env(safe-area-inset-right));
   bottom: calc(12px + env(safe-area-inset-bottom));
-  max-height: calc(100% - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  max-height: min(78dvh, calc(100% - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   padding: 14px 16px 12px;
   border-radius: 18px;
   background: rgba(16, 10, 36, 0.94);
   border: 1px solid rgba(255, 211, 122, 0.38);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-  overflow: auto;
+  overflow: hidden;
 }
 
 #dlg-row {
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 #dlg-portrait {
@@ -435,22 +440,39 @@ body[data-calm="1"] #btn-interact.ready {
   background: #241838;
 }
 
-#dlg-copy { flex: 1; min-width: 0; }
+#dlg-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 #who {
+  flex: 0 0 auto;
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--gold);
 }
 
+#who[hidden] { display: none; }
+
 #line {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 28dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   font-family: var(--serif);
   font-size: 18px;
   line-height: 1.35;
   margin: 6px 0 8px;
-  min-height: 2.6em;
 }
+
+#line em { font-style: italic; }
 
 #line.typing::after {
   content: "";
@@ -472,16 +494,21 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 #dlg-choices {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   gap: 8px;
   margin-top: 4px;
 }
 
 #dlg-choices:empty { display: none; }
 
+#dlg-hint { flex: 0 0 auto; }
+
 #dlg-choices button {
   min-height: 48px;
   width: 100%;
   text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 211, 122, 0.5);

@@ -86,7 +86,7 @@ SF.fresh = function () {
       emberTold: false,
       grapple: false
     },
-    discovered: { cinder: false, hollow: false, ashnook: false },
+    discovered: { cinder: false, hollow: false, ashnook: false, vault: false },
     stats: { foes: 0, shardsEver: 0 },
     hints: { strike: false, span: false, talk: false, moved: false, dash: false, hook: false },
     player: {
@@ -469,6 +469,7 @@ SF.onDialogueEvent("open_sail_menu", function () {
 SF.onDialogueEvent("meet_cantor", function () {
   var s = SF.state;
   s.flags.metCantor = true;
+  s.flags.met_cantor = true;
   s.flags.heardChoir = true;
   s.discovered.hollow = true;
   SF.saveGame({ silent: true });
@@ -637,11 +638,16 @@ SF.tryInteract = function () {
   }
   if (near.kind === "npc") {
     if (SF.islandId === "cinderveil" && near.ref.id === "kestrel" && s.flags.metCinderKestrel && SF.openSailMenu) {
+      if (s.flags.cantor_choice && !s.flags.epilogueHeard && SF.playEpilogue) {
+        SF.playEpilogue();
+        if (s.mode === "dialogue") return;
+      }
       SF.openSailMenu();
       return;
     }
     var nodeId = SF.routeDialogue ? SF.routeDialogue(near.ref.id, s) : "";
-    SF.startDialogue(nodeId || near.ref.id);
+    if (!nodeId) return;
+    SF.startDialogue(nodeId);
     return;
   }
   if (near.ref && near.ref.node === "cinderveil.maw.prefight") {
@@ -676,7 +682,7 @@ SF.applyCutscene = function () {
   s.player.shardstep = true;
   s.flags.shardstep = true;
   if (s.quest === "gather" || s.quest === "awaken") s.quest = "stirring";
-  SF.pushBanner("The lamp remembers", "Shardstep awakens — farther, sooner, and it singes.");
+  SF.pushBanner("Shardstep", "Your next dash carries you twice as far.");
   s.ring = { x: SF.LAMP.x, y: SF.LAMP.y, life: 0.9, max: 480 };
   SF.burst(SF.LAMP.x, SF.LAMP.y, "#ffe39a", 26, 110);
   s.enemies.forEach(function (e) {
@@ -1043,6 +1049,10 @@ SF.updatePlayer = function (dt) {
     SF.noteHint("span");
   }
   if (zone.id === "hollow") s.discovered.hollow = true;
+  if (zone.id === "scar" && s.flags.metMaren && !s.flags.scarBark && s.mode === "play" && SF.startDialogue) {
+    s.flags.scarBark = true;
+    SF.startDialogue("bark.maren.scar");
+  }
   if (SF.noteZone) SF.noteZone(zone);
   if (!s.hints.moved && SF.dist(p.x, p.y, SF.WAKE.x, SF.WAKE.y) > 28) SF.noteHint("moved");
 };
@@ -1057,6 +1067,10 @@ SF.updateCamera = function (dt) {
   } else if (s.mode === "cutscene") {
     targetX = SF.LAMP.x;
     targetY = SF.LAMP.y - 8;
+  } else if (s.approach && s.approach.kind === "cantor" && SF.cantorWorldPos) {
+    var spot = SF.cantorWorldPos();
+    targetX = spot ? (s.player.x + spot.x) * 0.5 : s.player.x;
+    targetY = spot ? (s.player.y + spot.y) * 0.5 : s.player.y;
   } else {
     targetX = s.player.x + s.player.fx * 26;
     targetY = s.player.y + s.player.fy * 18;
@@ -1101,6 +1115,10 @@ SF.update = function (dt) {
   if (s.mode === "sailmenu" || s.mode === "hand") return;
   if (s.mode === "dialogue") {
     if (s.voyageTalk && s.voyage) s.voyage.t += dt;
+    if (s.approach && s.approach.kind === "cantor") {
+      s.approach.t += dt;
+      if (s.approach.t >= s.approach.dur && SF.parkCantor) SF.parkCantor();
+    }
     if (s.dialogue) s.dialogue.lock = Math.max(0, s.dialogue.lock - dt);
     if (SF.tickDialogue) SF.tickDialogue(dt);
     if ((SF.consumeInteract || function () { return false; })()) SF.advanceDialogue();
@@ -1125,6 +1143,11 @@ SF.update = function (dt) {
     var pending = s.pendingTalk;
     s.pendingTalk = null;
     SF.startDialogue(pending);
+    SF.updateCamera(dt);
+    return;
+  }
+  if (SF.maybeCantor) SF.maybeCantor();
+  if (s.mode !== "play") {
     SF.updateCamera(dt);
     return;
   }

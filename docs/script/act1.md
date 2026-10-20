@@ -1,322 +1,291 @@
 # Shardfall — Act 1: The Cinder Road
 
-A screenplay. The Wayfarer does not speak. A star is a choice, and the game remembers some of them. The id under a heading is the node the game plays, word for word. One box is one or two sentences. A scene should skim in under a minute.
+*Script draft v2, for Brian's review.*
 
-The lamp catching on Emberhold is still a cutscene, not a conversation. Everything said out loud is below.
+## Story summary
 
-What a choice remembers:
+**The setting.** A hundred years ago, in the Sundering, the Heartshard that held the sky together cracked, and the world broke into floating islands over the Hush, a glowing cloud sea. Anything that falls into the Hush comes back as a Hushborn, a monster made of cloud and hunger. The Lanternwrights built great lamps from fallen sky-shards to keep the Hush off each island. Now the lamps are failing, few Lanternwrights are left, and the Hollow Choir says that's for the best: the sky should finish falling so the world can start over.
 
-- `asked_maren` — `hush` or `hand`. Changes Maren's thanks, and unlocks a line from Kestrel if you asked about the hand.
-- `sail_answer` — `yes`, `ask`, or `hand`. Changes what Kestrel says the next time you talk, on the dock.
-- `tamsin_mood` — `earnest` or `wary`. Changes her nag, and how the grapple fits.
-- `hesk_mood` — `steady` or `pressed`. Changes what you can tell Warden Ilsa.
-- `cantor_choice` — `spare`, `listen`, or `refuse`. The end of Act 1. Each one lands differently.
+**Characters**
+
+- **The Wayfarer.** The player. No memory, and a piece of the Heartshard fused into one hand. Speaks only through reply choices.
+- **Old Maren.** Emberhold's lamp-keeper. Warm, practical, tired, and alone at the job for years.
+- **Kestrel Vane.** A fast-talking Driftborn sky-sailor (she/her) who loves her patched skiff, the *Quickmercy*. Brave, but she likes getting paid.
+- **Tamsin Reed.** A young tinkerer on Cinderveil. Excited, nerdy, always three sentences ahead of herself.
+- **Brother Hesk.** A frightened Choir deserter who apologizes constantly and knows what they've done.
+- **Warden Ilsa.** A Lanternwright soldier guarding the Ember Vault. Blunt and dutiful, and slow to trust.
+- **The Cantor.** Leader of the Hollow Choir. Calm, polite, and sure they're the good guy. Wants the Wayfarer's shard, given freely.
+- **The Cinder Maw.** A huge Hushborn eating Cinderveil's core. A boss, not a speaker.
+
+**Act 1 beats**
+
+1. The Wayfarer wakes at the Waking Stones. Maren explains the Hush and the lamps. Emberhold's lamp is nearly out, so she asks for 5 sky-shards.
+2. Kestrel won't sail while the lamp is failing. She sends the Wayfarer across the broken span (dash) to find more shards.
+3. Optional: the Cantor, in Whisper Hollow, is friendly, curious about the hand, and plants doubt.
+4. The lamp is relit, and the hand learns Shardstep, a longer dash. A shaken Maren reports that Cinderveil's lamp went dark a week ago. Kestrel offers to sail there.
+5. The crossing: Kestrel explains the Driftborn and the danger of the Hush.
+6. At Lowmoor Quay on Cinderveil, Tamsin offers to fit a Grapple to the shard if the Wayfarer brings her 3 cogs from the Ashfields.
+7. Brother Hesk reveals that the Choir lured a Cinder Maw into the Ember Vault to eat the island's core, as a test for the shard-bearer.
+8. Warden Ilsa lets the Wayfarer attempt the Vault crossing once they have the Grapple.
+9. Boss fight: the Cinder Maw.
+10. The Wayfarer relights Cinderveil's lamp, and Ilsa admits she misjudged them.
+11. The Cantor admits the Maw was a test and asks for the shard, or for the Wayfarer to join. The Wayfarer chooses Spare, Listen, or Refuse. Kestrel closes the act, bound for the Lanternwrights at Highspire.
+
+**Flags used in this act**
+
+- `asked_maren` = `hush` | `hand`. Changes one of Maren's lines after the lamp is lit.
+- `met_cantor` = `true`. Set when you meet the Cantor in Whisper Hollow. Unlocks a reply for Kestrel and changes the Cantor's greeting on Cinderveil.
+- `sail_answer` = `yes` | `ask` | `cantor`. Changes Kestrel's line if you talk to her again before sailing.
+- `hesk_mood` = `steady` | `pressed`. Decides how much Hesk tells you, and what you can tell Ilsa.
+- `cantor_choice` = `spare` | `listen` | `refuse`. The end of the act.
 
 ---
 
 ## Emberhold
 
-### Wake
+### The Waking Stones
 
 `emberhold.wake`
 
-*Dusk the color of a bruise that has decided to be pretty. Grass in the mouth. The hand will not open all the way. A shard has taken the job of a pulse. The words in the stone are newer than the stone.*
+*Dusk. You wake in a ring of standing stones with no memory of your name. A sliver of glowing blue crystal has grown into your right palm.*
 
-THE WAKING STONES
-You wake with grass in your teeth and a star clenched in your hand.
+*Down the hill, smoke rises from a cottage chimney. Up on the ridge, a great lamp flickers weakly.*
 
-THE WAKING STONES
-The stone is older than the crack. The words cut into it are not: the lamp is up the hill.
+*When the scene ends, the player can move, and a prompt teaches Dash.*
 
 ### Old Maren
 
 `emberhold.maren.intro`
 
-*A cottage that has won an argument with the weather. She is already looking at the hand, not the face. Somewhere a kettle takes this personally. When this talk ends, the errand begins: five shards, for the lamp, not for her.*
+**OLD MAREN:** Oh, you're up. You've been lying out on those stones since yesterday. I'm Maren.
 
-OLD MAREN
-You're awake. Good. I had a bet with the kettle, and I hate losing to a kettle.
+**OLD MAREN:** Do you know your name? No? That's all right. I'll call you Wayfarer till it comes back to you.
 
-OLD MAREN
-I am Maren. I keep the lamp up this hill. The lamp keeps the Hush off the grass.
+**OLD MAREN:** Let me see that hand. I've handled sky-shards all my life, and I've never seen one grow into a person.
 
-OLD MAREN
-Dash the gaps you cannot walk. Strike the bright core in a thing of mist.
+**OLD MAREN:** Now, the lamp up the hill keeps the Hush off this island, and it's nearly out. The Hushborn are already coming up past the Scar at night.
 
-OLD MAREN
-Five sky-shards wake the lamp. Set them on the plinth yourself — I will not take them from your hand.
+**OLD MAREN:** It needs five sky-shards. My knees won't get me out to where they fall anymore. Will you find them and set them in the lamp?
 
-OLD MAREN
-If you tear, come talk. I mend. That is the whole of my magic.
-
-* What is the Hush, really? → `emberhold.maren.ask_hush` *(remembers asked_maren = hush)*
-* Why is this in my hand? → `emberhold.maren.ask_hand` *(remembers asked_maren = hand)*
-* I'll find the shards. → `emberhold.maren.intro_go`
+- "What's the Hush?" → `emberhold.maren.ask_hush` *(sets `asked_maren = hush`)*
+- "What is this thing in my hand?" → `emberhold.maren.ask_hand` *(sets `asked_maren = hand`)*
+- "I'll get them." → `emberhold.maren.intro_go`
 
 `emberhold.maren.ask_hush`
 
-OLD MAREN
-A tide with a memory. It wants the sky to finish breaking, and the grass has voted no.
+**OLD MAREN:** The cloud sea under the islands. A hundred years ago the Heartshard cracked, the sky broke apart, and everything underneath went into the Hush.
 
-OLD MAREN
-We do not win forever. We light lamps. Go find five shards. The grass is waiting on you, not on a speech.
+**OLD MAREN:** Whatever falls in comes back as Hushborn, made of cloud and hunger. A lit lamp is the only thing they won't cross.
+
+*Continues to `emberhold.maren.intro_go`.*
 
 `emberhold.maren.ask_hand`
 
-OLD MAREN
-It fused when you woke. I did not put it there. If the lamp did, it has not confessed.
+**OLD MAREN:** I wish I knew. It looks like a sky-shard, but it's brighter than any I've held.
 
-OLD MAREN
-Treat it like a tool that chose you. Tools still need a person. You will do.
+**OLD MAREN:** While you were asleep, the lamp flared every time your hand twitched. Whatever that is, the lamp knows it.
+
+*Continues to `emberhold.maren.intro_go`.*
 
 `emberhold.maren.intro_go`
 
-OLD MAREN
-Good. The lamp is up the hill. The dock is down. Bring me your opinions if you start leaking.
+**OLD MAREN:** Shards glow, so they're easy to spot. Some Hushborn carry them too. Hit the bright spot in the middle and they'll drop them.
 
-### While the shards are out
+**OLD MAREN:** Where the path's broken, run and jump. Folk holding a shard can leap farther than they should, and yours is part of you.
+
+**OLD MAREN:** If you get hurt, come back and I'll patch you up. And say hello to Kestrel at the dock.
+
+*When the scene ends, the quest "Five Shards for the Lamp" begins.*
+
+### Maren, while you're still searching
 
 `emberhold.maren.waiting`
 
-*She says this any time you come back torn, or merely unfinished. The number in the second line is however many shards are in the hand. She mends you either way.*
+**OLD MAREN:** There you are. Sit and let me look at you. You've got {shards} so far, and the lamp needs five.
 
-OLD MAREN
-Still walking. Good. The hill has not wandered off, and neither have I.
+**OLD MAREN:** If the hill's picked clean, try the far side of the broken span, east of the lamp. Be careful out there.
 
-OLD MAREN
-You hold {shards}. The lamp eats five. Some glow in the grass. Some fall out of a core, if you ask with the sharp end.
-
-OLD MAREN
-Come back torn. Talk, and I will put you back in the right order.
-
-### The lamp
-
-*Five shards, on the plinth, by a living hand. The beam goes gold. Wisps come apart. Heavier things crack and stay. The hand learns a longer step. If you look at the lamp before that, or after, it has a shorter thing to say. Those are inspect lines, at the end of this act.*
-
-### After the light
-
-`emberhold.maren.lamp_lit`
-
-*She heard it before she saw you. If you never stopped to meet her, this is also the introduction. The extra reply only appears if you asked her something the first time.*
-
-OLD MAREN
-There. The grass remembers green. I heard it from the kettle, which is now unbearable.
-
-OLD MAREN
-You set the shards on the plinth yourself. That is the work. I do not take a turn at someone else's lamp.
-
-OLD MAREN
-Your hand has a longer step. Use it. Kestrel will feel the wind and pretend the idea was his.
-
-* You called the Hush a tide. → `emberhold.maren.lit_hush` *(only if you asked about the Hush)*
-* The hand took a longer step. → `emberhold.maren.lit_hand` *(only if you asked about the hand)*
-* Kestrel will take the credit. → `emberhold.maren.lit_plain`
-
-`emberhold.maren.lit_hush`
-
-OLD MAREN
-You called it a tide. You pushed it back a step. Tides notice. Do not get loud about a step.
-
-`emberhold.maren.lit_hand`
-
-OLD MAREN
-The longer step is still yours. If the hand starts taking credit, remind it who woke up.
-
-`emberhold.maren.lit_plain`
-
-OLD MAREN
-Kestrel names winds after himself. Let him. The lamp knows who carried the shards. So does the grass.
+*When the scene ends, the Wayfarer's health is restored.*
 
 ### Kestrel, before the lamp
 
 `emberhold.kestrel.span`
 
-*Vane's Perch. A skiff with a shard-lit sail and a grudge against heroism. Goggles stay on. When this talk ends, he has told you about the span, and about the stones that face the wrong way.*
+*Vane's Perch, a small dock at the island's edge. A woman in flight goggles is hammering a patch onto a little skiff that's mostly patches already.*
 
-KESTREL VANE
-Kestrel Vane. The Quickmercy is winning an argument about nails, and I am losing it.
+**KESTREL VANE:** Hey, it's the sleeper! Kestrel Vane. And this beauty's the *Quickmercy*, fastest skiff on the wind. Ignore the patches.
 
-KESTREL VANE
-She will not sail while the lamp holds its breath. Last time I insisted, she sailed a circle and called it a principle.
+**KESTREL VANE:** Yes, a sailor sitting on a dock. With the lamp this low, Hushborn come up into the wind lanes. I'm not taking her out till it's lit.
 
-KESTREL VANE
-East of the lamp, the span is broken. Dash from the lip. Walking is how a person becomes weather.
+**KESTREL VANE:** Maren's got you hunting shards? East of the lamp, the old stone span's broken. Too far to jump on foot, but I hear that hand does tricks.
 
-KESTREL VANE
-On the far islet, look behind the stones that face the wrong sky. Interesting things rarely face the lamp.
+**KESTREL VANE:** On the far side, check behind the standing stones. Shards pile up back there, out of the wind.
 
-* Come with me. → `emberhold.kestrel.span_no`
-* Save me a nail. → `emberhold.kestrel.span_nail`
+- "Come with me." → `emberhold.kestrel.span_no`
+- "What's in it for you?" → `emberhold.kestrel.span_pay`
 
 `emberhold.kestrel.span_no`
 
-KESTREL VANE
-And leave her with the last word? I have a reputation with this hammer. Light the lamp. Then we talk about west.
+**KESTREL VANE:** Me, on foot? No thanks, mate. Light that lamp and I'll take you anywhere the wind goes.
 
-`emberhold.kestrel.span_nail`
+`emberhold.kestrel.span_pay`
 
-KESTREL VANE
-She eats nails. I eat pride. Between us the hull stays up. Light the lamp, and the west gets a real name.
+**KESTREL VANE:** Honestly? No lamp, no sailing. No sailing, no paying work. You light it, I eat this month.
+
+*When the scene ends, the broken span is marked on the map.*
 
 `emberhold.kestrel.dark`
 
-*If you come back before the lamp, and he has already said his piece.*
+*If you come back before the lamp is lit.*
 
-KESTREL VANE
-Still the wrong wind. She refuses to be heroic, which is why we are both still here.
+**KESTREL VANE:** Still dark up there. The span's east of the lamp. Get a running start and dash right at the edge.
 
-KESTREL VANE
-The stones face the lamp. Look the other way. That is the hint. I will not draw you a map. Maps get confident.
+**KESTREL VANE:** And check behind those stones.
 
-### The offer
+*When the scene ends, nothing changes.*
 
-`emberhold.kestrel.offer_sail`
-
-*The lamp is lit. The tiller, allegedly, has muscles. This is the offer to sail. The crossing itself is the next scene, when the wind is actually taken.*
-
-KESTREL VANE
-There. You lit it, and the tiller unclenched. Don't repeat that. She will deny having muscles.
-
-KESTREL VANE
-West, under the bright crack: Cinderveil. Ash, a quay, a lamp that forgot its job.
-
-KESTREL VANE
-We can take you. One of us will complain the whole way. I have already nominated her.
-
-* Take me west. → `emberhold.kestrel.sail_yes` *(remembers sail_answer = yes)*
-* What are we sailing into? → `emberhold.kestrel.sail_what` *(remembers sail_answer = ask)*
-* The hand did the clever part. → `emberhold.kestrel.sail_hand` *(only if you asked Maren about the hand; remembers sail_answer = hand)*
-
-`emberhold.kestrel.sail_yes`
-
-KESTREL VANE
-Good. I like a short yes. When the wind takes, hold the rail. The Hush is not water, and falling is a hobby for other crews.
-
-`emberhold.kestrel.sail_what`
-
-KESTREL VANE
-A hearth that lost an argument and kept the coals. Lowmoor Quay. Something in the ash has been eating their light.
-
-KESTREL VANE
-We are going to be impolite about it. Hold the rail when the wind takes. Compliment the sail after, if you must.
-
-`emberhold.kestrel.sail_hand`
-
-KESTREL VANE
-Maren told you the hand has ideas? Ideas don't trim a sail. You do. I'll shout which rope. You may pretend you already knew.
-
-### Still on the dock
-
-*The next time you talk to him, he remembers how you answered. All three of these open the same door. The words are the only difference.*
-
-`emberhold.kestrel.docked`
-
-KESTREL VANE
-West is still west. The hull voted yes, which she will deny if you ask her in front of me.
-
-KESTREL VANE
-Say the word at the rail. And if a mask compliments the paint, do not offer it a tour.
-
-`emberhold.kestrel.docked_ask`
-
-KESTREL VANE
-Cinderveil has not gotten simpler since you asked. Ash, a quay, a lamp with its eyes shut.
-
-KESTREL VANE
-The hull is ready. My metaphor budget is not. Hold the rail when you mean it.
-
-`emberhold.kestrel.docked_hand`
-
-KESTREL VANE
-Still interviewing your own hand? Leave the philosophy on the dock. It tangles in the lines.
-
-KESTREL VANE
-West is the same west. The rope I shout will be the right rope. Probably.
-
-### The Cantor, optional
+### Whisper Hollow (optional)
 
 `emberhold.cantor.intro`
 
-*Whisper Hollow. Blue air. A mask, a gold hem, and no interest in the dock. They do not fight. They are not a step on the errand. They are a promise that the manners continue.*
+*Whisper Hollow, a misty dip in the hills. A tall figure in a pale mask and gold-trimmed robes sits on a rock, as if they've been expecting you.*
 
-THE CANTOR
-Wayfarer. A pulse, in a shard, on a hill. How stubborn of you both.
+**THE CANTOR:** Hello. Please don't be alarmed. I'm called the Cantor, and I lead the Hollow Choir. You may hear unkind things about us.
 
-THE CANTOR
-Maren keeps a lamp against a tide. We are what the tide remembers. The Hollow Choir, if you need a name for the manners.
+**THE CANTOR:** May I see your hand? Remarkable. That's a piece of the Heartshard, you know. The very thing that broke the sky.
 
-THE CANTOR
-I will not spoil her grass. Mention to the sailor that the patches are admired. I do not wait on docks.
+**THE CANTOR:** Maren will tell you the lamps are saving us. Ask her how many islands have fallen in her lifetime, lamps and all.
 
-THE CANTOR
-We keep a door. Not on this island. Not while you are still enjoying being kind.
+- "What does the Choir want?" → `emberhold.cantor.want`
+- "Stay away from Maren." → `emberhold.cantor.warn`
+
+`emberhold.cantor.want`
+
+**THE CANTOR:** For the suffering to stop. The sky has been falling for a hundred years. We'd like it to finish, so the world can begin again.
+
+**THE CANTOR:** Light her lamp. I won't stop you. Just keep an open mind.
+
+`emberhold.cantor.warn`
+
+**THE CANTOR:** Of course. I have nothing against her. She's a good woman, doing her best with what she was taught.
+
+*When the scene ends, sets `met_cantor = true`.*
 
 `emberhold.cantor.again`
 
-THE CANTOR
-Still listening. You are still mending. I find it touching, which I will deny if asked in company.
+**THE CANTOR:** Hello again. Did you ask Maren about the fallen islands?
 
-THE CANTOR
-Kindness is not nothing. It is only not the end. The grass is having a good day. Do not waste it on me.
+**THE CANTOR:** She'll know the number. She's watched them go out from that hill. I'll be here if you want to talk.
 
-### Barks, if the hill is feeling talkative
+*When the scene ends, nothing changes.*
 
-`bark.maren.kettle`
+### The lamp is lit (cutscene)
 
-OLD MAREN
-The kettle says you'll be late. I told it to mind its water.
+*No dialogue node. You set five shards on the plinth. As your hand comes near, the shard in your palm burns hot, and the lamp flares gold all at once, far brighter than it should. The Hushborn on the hill scatter. Light runs from the lamp back into your hand, and your next dash carries you twice as far. You've learned Shardstep.*
 
-`bark.maren.grass`
+### Maren, after the light
 
-OLD MAREN
-Grass is up. That's the whole report. I like a short report.
+`emberhold.maren.lamp_lit`
 
-`bark.kestrel.nail`
+*Maren has climbed the hill. She's out of breath, looking from the lamp to you and back.*
 
-KESTREL VANE
-If you hand me that nail, hand me the right one. She can tell. I cannot, and I live with the shame.
+**OLD MAREN:** I saw that from the garden. Shards don't do that. That lamp hasn't burned so bright since I was a girl.
 
-`bark.kestrel.scarf`
+**OLD MAREN:** Your hand lit up before the lamp did. I don't know what you are, love, but I'm glad you came.
 
-KESTREL VANE
-Scarf stays on. Goggles stay on. Heroics stay off until the lamp says otherwise.
+**OLD MAREN** *(if `asked_maren = hush`)*: You asked me about the Hush. Look, it's pulling back from the cliffs. That's your doing.
 
-`bark.cantor.hem`
+**OLD MAREN** *(if `asked_maren = hand`)*: You asked what that shard was. I still can't tell you. But I think the lamps could.
 
-THE CANTOR
-Lovely wind. Do not waste a compliment on me. I already kept it.
+**OLD MAREN:** There's something else. Cinderveil's lamp, out west, went dark a week ago. No one's heard a word from them since.
+
+**OLD MAREN:** The Lanternwrights there would never let it go out. Something's wrong. Kestrel can take you.
+
+*When the scene ends: `quest_lamp_done`. Kestrel's offer unlocks at the dock.*
+
+### Kestrel's offer
+
+`emberhold.kestrel.offer_sail`
+
+**KESTREL VANE:** You did it! I saw that from down here. Looked like a second sunrise.
+
+**KESTREL VANE:** Maren tell you about Cinderveil? I run cargo there. A week dark means they're in real trouble.
+
+**KESTREL VANE:** I'll take you. Free this trip, since you lit my lamp. After that I charge like anybody else.
+
+- "Let's go." → `emberhold.kestrel.sail_yes` *(sets `sail_answer = yes`)*
+- "What's waiting for us there?" → `emberhold.kestrel.sail_what` *(sets `sail_answer = ask`)*
+- "I met someone in a mask, in Whisper Hollow." → `emberhold.kestrel.sail_cantor` *(only if `met_cantor`; sets `sail_answer = cantor`)*
+
+`emberhold.kestrel.sail_yes`
+
+**KESTREL VANE:** That's what I like to hear. Climb aboard when you're ready.
+
+`emberhold.kestrel.sail_what`
+
+**KESTREL VANE:** Cinderveil's a mining island. Ash on everything. Lowmoor Quay's the town: good people, awful tea.
+
+**KESTREL VANE:** With the lamp out, there'll be Hushborn on the ridge. Bring that hand.
+
+`emberhold.kestrel.sail_cantor`
+
+**KESTREL VANE:** Gold trim? Very polite? That's the Cantor. They lead the Hollow Choir. Half the Driftborn won't dock anywhere they've been.
+
+**KESTREL VANE:** They want the sky to finish falling. Whatever they told you, don't buy it.
+
+*When the scene ends (after any reply): `open_sail_menu`.*
+
+`emberhold.kestrel.docked`
+
+*If you talk to Kestrel again before setting sail.*
+
+**KESTREL VANE:** Ready? Cinderveil's half a day west. Just say the word.
+
+**KESTREL VANE** *(if `sail_answer = ask`)*: Still ash, still Hushborn, still awful tea. Nothing's changed.
+
+**KESTREL VANE** *(if `sail_answer = cantor`)*: And if that mask turns up again, walk the other way.
+
+*When the scene ends, the sail menu opens again.*
+
+### Barks
+
+`bark.maren.scar` — **OLD MAREN:** Stay away from the Scar after dark. That's where they climb up.
 
 ---
 
 ## The crossing
 
-*Wind lanes over the Hush. Not a menu of names. The bright lanes look like roads and behave like mouths. The Quickmercy takes the dull one, and complains at a new pitch, which is how Kestrel knows he is right.*
-
 `cinderveil.sail.depart`
 
-KESTREL VANE
-Off the perch. Rail in your hand. If you let go, do it on an island, not in a cloud with ambitions.
+**KESTREL VANE:** Lines off! Grab the rail and keep a hand on it. One rule on my boat: nobody goes over the side.
 
-KESTREL VANE
-She likes you, by the way. She shows it by complaining at a slightly different pitch.
+**KESTREL VANE:** I'm Driftborn. When the sky broke, my great-grandparents' island went into the Hush. They were out fishing, so they lived.
+
+**KESTREL VANE:** We've lived on the wind ever since. Cargo, fishing, never settling anywhere.
+
+*When the scene ends, the skiff picks up speed.*
 
 `cinderveil.sail.lane`
 
-KESTREL VANE
-These are wind lanes. The bright ones are pretty. Pretty, over the Hush, is often a mouth.
+*The skiff slides into a current of moving air. Faint streaks of light run ahead of it.*
 
-KESTREL VANE
-We take the dull lane. She hates the dull lane. That is how I know it is the right one.
+**KESTREL VANE:** This is a wind lane. Stay in one and you fly. Drift out and you start sinking toward the Hush.
+
+**KESTREL VANE:** See those lights down there, moving? Hushborn. When a lamp goes out, they rise and follow boats. I lost two friends that way last spring.
+
+**KESTREL VANE:** So yes, I sat on the dock. I like being brave. I like being alive more.
+
+*When the scene ends, the crossing continues.*
 
 `cinderveil.sail.sight`
 
-*A grey island under the bright crack. An orange seam, like a hearth that refused to concede.*
+*A grey island rises out of the cloud. Smoke drifts over its ridge. The lamp on top is dark.*
 
-KESTREL VANE
-There. Grey island, orange seam, a crack in the sky like a held match. Cinderveil.
+**KESTREL VANE:** That's Cinderveil. You can usually see that lamp from an hour out.
 
-KESTREL VANE
-Looks like a hearth that lost the argument and kept the coals. That's our stop.
+**KESTREL VANE:** Hold on. I'm bringing us in to Lowmoor Quay.
+
+*When the scene ends, the skiff docks.*
 
 ---
 
@@ -326,458 +295,286 @@ Looks like a hearth that lost the argument and kept the coals. That's our stop.
 
 `cinderveil.kestrel.arrive`
 
-*Ash on the ropes. The ridge lamp is dark, which Kestrel takes as a personal insult on behalf of a boat.*
+*Lowmoor Quay. Ash covers everything. The shutters are nailed closed, and the few people outside hurry past with their heads down.*
 
-KESTREL VANE
-Lowmoor Quay. Smile like we meant to. If you look surprised, the dock charges extra.
+**KESTREL VANE:** This is grim. Last time I was here, there was music on this dock.
 
-KESTREL VANE
-That ridge lamp is dark. Rude. Tamsin will already be mid-sentence. Try to find the beginning of it.
+**KESTREL VANE:** Go find Tamsin Reed. She's got a workbench by the warehouse. If anyone knows what's going on, it's her, and she'll tell you all of it.
 
-KESTREL VANE
-I'll stay with the hull. If I leave her, she picks up new opinions, and we are at quota.
+**KESTREL VANE:** I'll stay with the *Quickmercy*. People get desperate when the lamp's out, and she's our only way home.
+
+*When the scene ends, Tamsin's bench is marked on the map.*
 
 ### Tamsin Reed
 
 `cinderveil.tamsin.cogs_start`
 
-*A bench, a vise, and a person who has already decided your hand is a project. When this talk ends, the Ashfields owe her three cogs. The grapple comes after, not before.*
+**TAMSIN REED:** Oh! Is that it? Is that the shard? Kestrel said, but I thought she was joking, she jokes a lot. Sorry. Hi. I'm Tamsin.
 
-TAMSIN REED
-You're the hand. Kestrel said hand, I heard project, and I cleared the bench.
+**TAMSIN REED:** Okay, idea. I built a grapple line, but nothing I have can power it. A raw shard could. *Your* shard could!
 
-TAMSIN REED
-I'm Tamsin. I fit clever things into less clever things until both of them work out of spite.
+**TAMSIN REED:** You'd hook onto ledges and pull yourself across gaps. I just need three cogs to finish it. The old mine carts in the Ashfields are full of them, north of the quay.
 
-TAMSIN REED
-Three cogs, out in the Ashfields. Kick the right dust. The wrong dust kicks back.
+- "I'll find them." → `cinderveil.tamsin.cogs_yes`
+- "Why would I need a grapple?" → `cinderveil.tamsin.cogs_why`
 
-* I'll bring you three. → `cinderveil.tamsin.cogs_earnest` *(remembers tamsin_mood = earnest)*
-* Define wrong dust. → `cinderveil.tamsin.cogs_wary` *(remembers tamsin_mood = wary)*
+`cinderveil.tamsin.cogs_yes`
 
-`cinderveil.tamsin.cogs_earnest`
+**TAMSIN REED:** Yes! Watch out for Hushborn out there. They've gotten really bold. Knocking-on-doors bold.
 
-TAMSIN REED
-Yes. Three. Not two and a bold attitude. I tried that. The attitude is still in a sling.
+`cinderveil.tamsin.cogs_why`
 
-`cinderveil.tamsin.cogs_wary`
+**TAMSIN REED:** Because of the Ember Vault! It's the cave under the ridge where the island's core is. The core keeps Cinderveil in the air, and the lamp runs off it.
 
-TAMSIN REED
-Wrong dust has teeth and a grudge. Right dust is just embarrassed. The teeth introduce themselves.
+**TAMSIN REED:** Something got in there, and the lamp died the same night. The bridge burned too, so a grapple's the only way across.
+
+*When the scene ends (after either reply): `quest_cogs_start`.*
 
 `cinderveil.tamsin.cogs_waiting`
 
-*Back too soon, or not soon enough. She can see your pockets. She is not invited to parties.*
+**TAMSIN REED:** Any luck? No, I can tell. You're not clinking.
 
-TAMSIN REED
-No cogs, no grapple. I can offer a pep talk. The pep talk does not hook onto cliffs.
+**TAMSIN REED:** Try the tipped-over carts in the Ashfields. The cogs roll out and get buried.
 
-TAMSIN REED
-I counted your pockets with my eyes, which is a skill, and also why people don't invite me to things.
-
-* Still looking. → `cinderveil.tamsin.wait_earnest` *(only if you promised her three)*
-* The dust has opinions. → `cinderveil.tamsin.wait_wary` *(only if you asked about the dust)*
-* Show me the bench again. → `cinderveil.tamsin.wait_bench`
-
-`cinderveil.tamsin.wait_earnest`
-
-TAMSIN REED
-You said you'd bring them, and you haven't. I respect the suspense. My bench does not.
-
-`cinderveil.tamsin.wait_wary`
-
-TAMSIN REED
-The dust introduce itself? If you still have both boots, you're winning. Go embarrass a cog.
-
-`cinderveil.tamsin.wait_bench`
-
-TAMSIN REED
-Bench, hammer, and a cup of tea I won't share — it has a bolt in it. Three cogs is the whole long story.
-
-### The grapple
+*When the scene ends, nothing changes.*
 
 `cinderveil.tamsin.grapple_gift`
 
-*Three cogs on the bench. She fits the line into the shard the way other people fit a greeting. When this talk ends, the hand can throw a rope at a cliff.*
+**TAMSIN REED:** Three! You got all three! Okay, hold out your hand. This won't hurt. It might tingle. Probably just tingle.
 
-TAMSIN REED
-Three. I love you in a strictly mechanical way. Hold still.
+*Tamsin clamps a small brass reel to your wrist and threads its line into the shard. The shard pulses, and the reel hums.*
 
-TAMSIN REED
-This is a handshake. The shard throws the line, the cliff agrees, and you do not let go first.
+**TAMSIN REED:** Done! Aim at a hook point and the shard does the rest. Just don't let go over the Hush.
 
-* It fits. → `cinderveil.tamsin.gift_earnest` *(only if you were earnest)*
-* If it bites, I'm blaming you. → `cinderveil.tamsin.gift_wary` *(only if you were wary)*
-* Point me at the vault. → `cinderveil.tamsin.gift_vault`
+**TAMSIN REED:** Now go show Warden Ilsa. She said nobody goes near the Vault without a way across. Now you've got one.
 
-`cinderveil.tamsin.gift_earnest`
-
-TAMSIN REED
-It fits because you went and got the ugly parts. I like you. That's a technical assessment.
-
-`cinderveil.tamsin.gift_wary`
-
-TAMSIN REED
-If it bites, it learned that from the dust, not from me. Mostly not from me.
-
-`cinderveil.tamsin.gift_vault`
-
-TAMSIN REED
-Ilsa has the door, and a face like a closed ledger. She deducts marks for poetry, so cross and don't recite.
+*When the scene ends: `grant_grapple`.*
 
 ### Brother Hesk
 
 `cinderveil.hesk.rumor`
 
-*A crate that has recently become a lifestyle. He left the Hollow Choir. They were nice about it. That is the part that scared him. He knows the Cantor is coming, and he knows the thing in the vault is not the Cantor.*
+*Behind a stack of crates by the water, a thin man in a torn grey robe flinches when you come close.*
 
-BROTHER HESK
-Oh. A face. Hello. Sorry — I am Brother Hesk.
+**BROTHER HESK:** Oh! Sorry. Sorry, I thought you were... never mind. Please don't tell anyone I'm here.
 
-BROTHER HESK
-I was Hollow Choir. I am now this crate, and the crate is winning.
+**BROTHER HESK:** I'm H-Hesk. Brother Hesk. I was in the Hollow Choir. I left. They don't really let people leave.
 
-BROTHER HESK
-They smiled when I left. Nobody shouted. That is how you know to run.
+**BROTHER HESK:** You're the one with the shard, aren't you? Then you should know. The thing in the Ember Vault... the Choir put it there.
 
-BROTHER HESK
-When you light the lamp, the Cantor will come admire it. They love a fresh hope. It is their favorite seasoning.
-
-* Breathe. Tell me the useful part. → `cinderveil.hesk.steady` *(remembers hesk_mood = steady)*
-* What does the Cantor want? → `cinderveil.hesk.pressed` *(remembers hesk_mood = pressed)*
+- "Take your time. Tell me everything." → `cinderveil.hesk.steady` *(sets `hesk_mood = steady`)*
+- "Get to the point." → `cinderveil.hesk.pressed` *(sets `hesk_mood = pressed`)*
 
 `cinderveil.hesk.steady`
 
-BROTHER HESK
-Useful, yes. The thing in the vault is a Maw — hunger, not the Cantor.
+**BROTHER HESK:** Th-thank you. Sorry. It's a Cinder Maw, a huge Hushborn. They lured it up from the Hush with burning shards and led it into the Vault.
 
-BROTHER HESK
-Do not bow to it. The Cantor is the one with manners, and they hand your clever words back sharper.
+**BROTHER HESK:** It's eating the island's core. That's why the lamp died. When the core's gone, Cinderveil falls.
+
+**BROTHER HESK:** And it's a test. For you. The Cantor wanted to see what the shard-bearer would do. They knew you'd come.
+
+**BROTHER HESK:** If you beat it, the Cantor will come to you, and they'll be kind. Please remember I warned you.
 
 `cinderveil.hesk.pressed`
 
-BROTHER HESK
-They want the sky to finish its sentence. Islands are the pause. You, with a shard that woke, are a word that refused to end.
+**BROTHER HESK:** S-sorry! There's a Cinder Maw in the Vault, eating the core. If it finishes, the island falls.
 
-BROTHER HESK
-I said no. Then I said no again, from a crate, with my voice doing this. Please do not make a hobby of being brave at me.
+**BROTHER HESK:** The Choir led it there. That's all. I'm sorry, I can't... please, just go.
+
+*When the scene ends, the Ember Vault is marked on the map.*
 
 ### Warden Ilsa
 
 `cinderveil.ilsa.trial`
 
-*The Ember Vault. No bridge. She has already counted the ways in, and the number is one. When this talk ends, the gap is yours to cross.*
+*Plays only once you have the Grapple. On a cliff above a wide chasm, a woman in scarred Lanternwright armor stands guard. The Vault door glows on the far side.*
 
-WARDEN ILSA
-Hold. Warden Ilsa. The Ember Vault stays shut while something in it chews the core.
+**WARDEN ILSA:** Halt. Warden Ilsa, Lanternwright Order. That's a grapple. Tamsin's?
 
-WARDEN ILSA
-You want in. The trial is the gap: your own line, your own weight, no bridge and no speech.
+**WARDEN ILSA:** Something in the Vault is eating the core. The bridge burned. My orders are to hold this cliff.
 
-WARDEN ILSA
-Fall, and the Hush files you under weather. I will not argue with its paperwork.
+**WARDEN ILSA:** I can't cross. You might. Make it over and the Vault is yours. Fall, and nobody comes for you.
 
-* I'll cross. → `cinderveil.ilsa.cross`
-* Hesk says the Cantor collects words. → `cinderveil.ilsa.hesk` *(only if you asked Hesk for the useful part)*
-* Hesk says they want the sky finished. → `cinderveil.ilsa.hesk_dark` *(only if you asked what the Cantor wants)*
+- "Understood." → `cinderveil.ilsa.cross`
+- "Hesk says the Choir put the Maw there." → `cinderveil.ilsa.hesk` *(only if you've talked to Hesk)*
+- "Hesk says it's a test. For me." → `cinderveil.ilsa.test` *(only if `hesk_mood = steady`)*
 
 `cinderveil.ilsa.cross`
 
-WARDEN ILSA
-Then cross. The door knows weight. I know hesitation. Go.
+**WARDEN ILSA:** Good. Go.
 
 `cinderveil.ilsa.hesk`
 
-WARDEN ILSA
-Hesk talks when he is afraid. He is always afraid. He is also right. Cross. Fear is not a key I honor.
+**WARDEN ILSA:** The deserter. He told me too, after two days of apologizing. I believe him. It doesn't change the job.
 
-`cinderveil.ilsa.hesk_dark`
+`cinderveil.ilsa.test`
 
-WARDEN ILSA
-A finished sky. I have heard the sermon. I kept the door anyway. You keep your feet. That is the whole trial.
+**WARDEN ILSA:** Then pass it. Go.
+
+*When the scene ends: `vault_open`.*
 
 ### The Cinder Maw
 
 `cinderveil.maw.prefight`
 
-*The core-light gutters. Ash leans toward a throat. The bright seed in the chest is the island, on loan. Strike that. When the last line ends, the fight begins.*
+*The Ember Vault. The island's core, a crystal the size of a house, glows a weak orange. Wrapped around it, chewing, is an enormous shape of grey cloud and live embers.*
 
-THE CINDER MAW
-Ash inhales. The vault's core-light gutters in a throat that should not have learned how.
+*It turns toward you. A bright point of light pulses in the middle of its chest. That's where to hit it.*
 
-THE CINDER MAW
-It turns. A seed burns in the chest. That seed is the island, borrowed. Strike that.
-
-THE CINDER MAW
-The teeth are only weather. Kestrel would call this a bad room, and he would be late.
+*When the scene ends: `boss_start`.*
 
 `cinderveil.maw.defeated`
 
-*The shape forgets how to hold. The seed remains, small and offended, which is as close as a core comes to being ready.*
+*The Cinder Maw comes apart into drifting ash. The core is cracked and dim, but whole.*
 
-THE CINDER MAW
-The shape forgets the grudge. Ash lies down. The seed sits in the quiet, small and deeply offended.
+*The shard in your hand pulls toward the ridge above, where the lamp is waiting.*
 
-THE CINDER MAW
-It will be a lamp again if you ask with shards. Cores are bad at gratitude. Ask anyway.
+*When the scene ends, the path up to the ridge opens.*
 
-### The lamp, again
+### The lamp, relit
 
 `cinderveil.lamp.relit`
 
-*Shards on the hurt core. Orange returns to the ash like a rumor that turned out to be true. Down at the quay, the little lamps agree with each other. Then the air behind you becomes a parlor.*
+*You press your hand to the cold lamp on the ridge. The shard burns hot, and orange light climbs the glass, then pours out across the island.*
 
-CINDERVEIL'S LAMP
-You set the shards on the hurt core. It takes them the way a fever breaks: all at once, and then the room is different.
+*Down at Lowmoor, lights come on in window after window. The Hush pulls back from the shore.*
 
-CINDERVEIL'S LAMP
-Orange comes back into the ash. Down at Lowmoor, the little lamps agree, one by one.
+**WARDEN ILSA:** I watched from the cliff. That was well done. I was wrong about you.
 
-CINDERVEIL'S LAMP
-For a breath the Hush steps off the quay. Someone behind you clears a throat, as if the dark were a parlor.
+**WARDEN ILSA:** I'm sending word to the Order at Highspire. They'll want to see that hand.
+
+*When the scene ends: `quest_cinder_lamp_done`. Footsteps on the ridge path.*
 
 ### The Cantor
 
 `cinderveil.cantor.confront`
 
-*They did not hurry. The Maw was a stomach. This is the sentence after the meal. Three replies. The game remembers which one, and Act 2 can ask.*
+*A figure in a pale mask walks up the ridge path, alone and unhurried. Ilsa reaches for her sword. The Cantor raises both open hands.*
 
-THE CANTOR
-Wayfarer. You lit another one. If this is a hobby, it is an expensive one, and I am terribly fond of it.
+**THE CANTOR** *(if `met_cantor`)*: Hello again, Wayfarer. You lit Maren's lamp, and now this one. I hoped you would.
 
-THE CANTOR
-The Maw was a stomach. I am a sentence. You may interrupt. Most guests apologize instead.
+**THE CANTOR** *(if not `met_cantor`)*: Hello, Wayfarer. I'm the Cantor, of the Hollow Choir. I've wanted to meet you for some time.
 
-THE CANTOR
-Come along, hear the ending, or refuse. Only one of those is yours.
+**THE CANTOR:** I owe you honesty, so here it is. The Maw was ours. I needed to know if the shard chose you, or just landed on you.
 
-* Spare them. → `cinderveil.cantor.spare` *(remembers cantor_choice = spare)*
-* Listen. → `cinderveil.cantor.listen` *(remembers cantor_choice = listen)*
-* Refuse. → `cinderveil.cantor.refuse` *(remembers cantor_choice = refuse)*
+**THE CANTOR:** It chose you. The lamps have never answered anyone the way they answer you.
+
+**THE CANTOR:** The sky has been dying for a hundred years, one island at a time. Each lamp you light buys a few years of fear. Then it goes out, and the people go down with it.
+
+**THE CANTOR:** That shard is the last of the Heartshard. With it, we could let the sky come down all at once, gently, and let the world start over.
+
+**THE CANTOR:** I won't take it from you. Give it to me, or better yet, come with us. What do you say?
+
+- "Just go. Leave Cinderveil alone." → `cinderveil.cantor.spare` *(sets `cantor_choice = spare`)*
+- "Tell me the rest." → `cinderveil.cantor.listen` *(sets `cantor_choice = listen`)*
+- "No. I'm keeping the lamps lit." → `cinderveil.cantor.refuse` *(sets `cantor_choice = refuse`)*
 
 `cinderveil.cantor.spare`
 
-THE CANTOR
-Spare. You put the knife down and left me the conversation. How like a person who keeps a lamp.
+**THE CANTOR:** That's fair. You've had a long day, and I've given you a lot to think about.
 
-THE CANTOR
-I accept the delay. Tell the brother who fled that I remain polite. He will know which of us that frightens.
-
-`cinderveil.kestrel.epilogue_spare`
-
-*Kestrel, who has been pretending not to have followed you off the quay.*
-
-KESTREL VANE
-You let the mask walk. I would have introduced a wrench. Wrenches are a kind of theology. Next time, vote wrench.
+**THE CANTOR:** The Choir will leave Cinderveil alone. You have my word. When you're ready to talk, we'll find you.
 
 `cinderveil.cantor.listen`
 
-THE CANTOR
-Then hear it once, cleanly. The sky is mid-sentence. We would like a period. Islands are the comma.
+**THE CANTOR:** Thank you. Most people have stopped me by now.
 
-THE CANTOR
-The shard in your hand has refused that period since you woke. I dress well for waiting.
+**THE CANTOR:** Ask yourself why this lamp failed so fast. The lamps draw on the island cores, and every core is running down. The Maw only sped this one up.
 
-`cinderveil.kestrel.epilogue_listen`
+**THE CANTOR:** Saltmere's core is nearly spent. Its lamp will go dark before the next full moon, and I won't have to lift a finger. Go and see for yourself.
 
-KESTREL VANE
-You let them finish. Brave. I'll be over here, not making eye contact with the sky. Get on the boat when your ears stop ringing.
+**THE CANTOR:** When you've watched a whole island fall, come and find me. I think you'll understand then.
 
 `cinderveil.cantor.refuse`
 
-THE CANTOR
-No is a complete sentence. I did tell the others you might. They hoped I was being modest.
+**THE CANTOR:** I'm sorry to hear that. I mean it.
 
-THE CANTOR
-Keep the lamp, the sailor, and the hand that will not finish the sentence. When the sky does it anyway, hold a rail.
+**THE CANTOR:** Then I'll stop asking. Wherever you go, the Choir will be there, and sooner or later that shard comes with us.
+
+**THE CANTOR:** Goodbye, Wayfarer. Light as many lamps as you like.
+
+*Whichever reply you choose, the Cantor then walks down the path and is gone. When the scene ends: `act1_end`, and the matching Kestrel epilogue plays.*
+
+### Epilogues
+
+*Back at Lowmoor Quay, Kestrel is waiting at the gangplank.*
+
+`cinderveil.kestrel.epilogue_spare`
+
+**KESTREL VANE:** Ilsa told me. You just let them walk off? Your call, mate. I'll be sleeping with one eye open.
+
+**KESTREL VANE:** She says the Lanternwrights want you at Highspire. Good news is they pay. Let's go.
+
+`cinderveil.kestrel.epilogue_listen`
+
+**KESTREL VANE:** Saltmere? I've got friends on Saltmere. If that mask is right about the full moon, we haven't got long.
+
+**KESTREL VANE:** Highspire first. The Lanternwrights are the only ones who can tell us if it's true. Get aboard.
 
 `cinderveil.kestrel.epilogue_refuse`
 
-KESTREL VANE
-No. Excellent. No is a hull. It keeps the weather on the outside. Welcome aboard. Don't track ash onto the ash.
+**KESTREL VANE:** You told the Cantor no, to their face? Bravest thing I've seen all year. Maybe also the dumbest.
 
-*The act ends on that landing. The Choir is not done. Neither is the hand. The Quickmercy is still arguing about which of you said the true thing.*
+**KESTREL VANE:** Ilsa says the Order wants you at Highspire. Let's get there before the Choir does.
 
-### Barks, if the ash is feeling talkative
+*The* Quickmercy *pulls away from the quay. Behind it, Cinderveil's lamp burns orange. Ahead lies Highspire, and the last of the Lanternwrights. End of Act 1.*
 
-`bark.tamsin.bench`
+### Barks
 
-TAMSIN REED
-Don't touch the cup. The cup is structural.
+`bark.tamsin.bench` — **TAMSIN REED:** Don't touch the tea! There's a bolt soaking in it. It's a long story. It's actually a short story.
 
-`bark.tamsin.dust`
+`bark.hesk.crate` — **BROTHER HESK:** I'm not hiding. I'm... yes, I'm hiding. Sorry.
 
-TAMSIN REED
-If the ash squeaks, squeak back. Dominance. I read it in a pamphlet Hesk will not admit is his.
-
-`bark.hesk.crate`
-
-BROTHER HESK
-I am not hiding. The crate is hiding. I am inspecting the crate from the inside.
-
-`bark.hesk.sorry`
-
-BROTHER HESK
-Sorry. That one was for earlier. I save them up, and then they leak.
-
-`bark.ilsa.post`
-
-WARDEN ILSA
-If you are lost, you are not. The gap is that way. So is the mistake.
-
-`bark.ilsa.count`
-
-WARDEN ILSA
-One way in. It is the hard way. I already counted.
-
-`bark.quay.ash`
-
-LOWMOOR
-A gull made of cinders lands, remembers it is not a gull, and leaves.
-
-`bark.maw.breath`
-
-THE EMBER VAULT
-Something in the vault exhales. The ash on the floor leans toward it, eager and stupid.
+`bark.ilsa.no_grapple` — **WARDEN ILSA:** No way across, no crossing. Come back when you can reach the far side.
 
 ---
 
 ## Things you can look at
 
-*Signs, stones, and objects. One or two lines. They are not errands.*
+*Inspect text. The bold label names the object; nobody is speaking.*
 
 ### Emberhold
 
-`inspect.waking_stones`
+`inspect.waking_stones` — **WAKING STONES:** A ring of old standing stones. The grass in the middle is flattened in the shape of a person. That was you.
 
-WAKING STONES
-Fell in the first night. Rose with a shard for a pulse.
+`inspect.scar` — **THE SCAR:** A long tear in the meadow where the ground drops into the Hush. A sign reads: KEEP BACK AFTER DARK. —M.
 
-WAKING STONES
-Under that, newer, a careful hand: If you wake, the lamp is up the hill. Talk to Old Maren.
+`inspect.quickmercy` — **THE QUICKMERCY:** The name is hand-painted on the bow, and the paint is fresh. There are more patches than original wood.
 
-`inspect.scar`
+`inspect.lamp_cold` — **GREAT LAMP:** Emberhold's lamp. The glass is cold, and the light inside barely flickers. The plinth has five empty sockets.
 
-THE SCAR
-Here the meadow tore. Do not follow the lights down.
+`inspect.lamp_hungry` — **GREAT LAMP:** The light brightens a little as your hand comes near. You have {shards} of 5 shards.
 
-THE SCAR
-Smaller, almost worn off: The lights are weather that learned a grudge. — M.
+`inspect.lamp_lit` — **GREAT LAMP:** A steady gold light. The mist has backed away from the cliffs.
 
-`inspect.quickmercy`
+`inspect.wrong_sky` — **STANDING STONES:** A row of stones, all facing the lamp. Dirt and leaves have piled up behind them, out of the wind.
 
-NAMEPLATE
-QUICKMERCY. The letters are polished. The dents have been kept, like arguments she won.
+`inspect.heartblossom` — **HEARTBLOSSOM:** A small red flower that only grows near lamps. Maren uses it for burns.
 
-NAMEPLATE
-Along the keel, scratched and then half scratched out: she bites.
+`inspect.rope_bridge` — **ROPE BRIDGE:** A sign reads: ONE AT A TIME. Someone has scratched underneath: OR NONE.
 
-`inspect.lamp_cold`
+`inspect.span_planks` — **BROKEN SPAN:** What's left of the old stone span. The gap is too wide to cross on foot.
 
-GREAT LAMP
-A violet quiet. It wants sky-shards. It will not pick them out of the grass itself.
-
-GREAT LAMP
-Old Maren is down the hill. She will not carry them either. The hill is full of principles.
-
-`inspect.lamp_hungry`
-
-GREAT LAMP
-It is awake enough to be hungry. You hold {shards}. It eats five, from a living hand, on the plinth.
-
-`inspect.lamp_lit`
-
-GREAT LAMP
-Gold, and a long breath. The little path-lamps have caught. The Hush has been asked to wait outside.
-
-`inspect.wrong_sky`
-
-THE WRONG SKY
-Standing stones, all facing Emberhold's lamp, as if the light owed them an explanation.
-
-THE WRONG SKY
-Behind them the sky is the same sky. It does not seem to know it has been called wrong.
-
-`inspect.heartblossom`
-
-HEARTBLOSSOM
-A blossom the color of a healed scrape. It smells like rain that changed its mind.
-
-`inspect.rope_bridge`
-
-ROPE BRIDGE
-Rope, plank, and a sign someone nailed upside down on purpose.
-
-ROPE BRIDGE
-THE OTHER WAY IS FASTER. THE OTHER WAY IS A MISTAKE.
-
-`inspect.span_planks`
-
-FALLEN PLANKS
-Planks hung in the gap, going nowhere on purpose. They are not a path. They are a warning with grain.
-
-`inspect.sail_patch`
-
-THE SAIL
-A patch in slightly the wrong yellow. Threaded along the hem: she chose this color. Do not fix it. — K.V.
+`inspect.sail_patch` — **SAIL PATCH:** A bright yellow patch, neatly stitched. Along the seam: K.V. FIXED THIS. DON'T TOUCH.
 
 ### Cinderveil
 
-`inspect.lowmoor_sign`
+`inspect.lowmoor_sign` — **QUAY SIGN:** LOWMOOR QUAY. Chalked underneath: LAMP OUT. STAY INSIDE AFTER DARK.
 
-QUAY SIGN
-LOWMOOR QUAY. ASH IS FREE. OPINIONS ARE NOT. PLEASE DO NOT FEED THE HUSH.
+`inspect.tamsin_bench` — **TAMSIN'S BENCH:** Springs, wire, half-built gadgets, and a cold cup of tea. A note on the vise says NEED 3 COGS!!!
 
-QUAY SIGN
-Under that, quicker: Tamsin, the bench is not a suggestion box. Stop leaving cogs in the suggestion box.
+`inspect.ash_cog` — **COG:** A brass cog half-buried in ash, still in good shape. Tamsin will want this.
 
-`inspect.tamsin_bench`
+`inspect.vault_seal` — **VAULT DOOR:** A heavy iron door stamped with the Lanternwright crest. It's warm to the touch.
 
-TAMSIN'S BENCH
-A bench, a vise, and a teacup with a bolt in it. The bolt has been winning for some time.
+`inspect.cinder_core` — **CINDERVEIL'S CORE:** The crystal that holds the island up. Deep bite marks run across its surface.
 
-TAMSIN'S BENCH
-Chalked on the wood: THREE COGS. NOT TWO. NOT A PROMISE.
+`inspect.maw_tooth` — **MAW TOOTH:** A tooth as long as your arm, made of hardened ash. It crumbles when you touch it.
 
-`inspect.ash_cog`
+`inspect.choir_crate` — **HESK'S HIDEOUT:** A blanket, half a loaf of bread, and a stack of Choir pamphlets. The top one reads: LET THE SKY FALL. LET THE WORLD BEGIN AGAIN.
 
-ASH COG
-A cog in the ash, warm as a coin someone was ashamed of. It ticks once, like it recognized you and regrets it.
+`inspect.ilsa_order` — **POSTED ORDER:** THE EMBER VAULT IS CLOSED BY ORDER OF THE LANTERNWRIGHTS. NO EXCEPTIONS. —WARDEN ILSA
 
-`inspect.vault_seal`
+`inspect.quay_bell` — **QUAY BELL:** The town's warning bell. The rope is frayed from being rung so often.
 
-VAULT SEAL
-EMBER VAULT. LANTERNWRIGHT SEAL. Under the wax, Ilsa's hand: If you can read this, you are too close. Good.
-
-`inspect.cinder_core`
-
-CINDER CORE
-The island's heart, dim as a coal under a story. Something has been breathing through it.
-
-`inspect.maw_tooth`
-
-A TOOTH
-A tooth in the ash, if clouds had teeth. It is still warm. It does not deserve to be.
-
-`inspect.choir_crate`
-
-HESK'S CRATE
-A crate, a blanket, three polite pamphlets, and a note: I am not here. — H.
-
-HESK'S CRATE
-The note is here. Hesk is also here. The pamphlets are sorry about both facts.
-
-`inspect.ilsa_order`
-
-POSTED ORDERS
-No bridges. No speeches. No feeding the vault. If the vault asks, that counts as feeding.
-
-`inspect.quay_bell`
-
-QUAY BELL
-A quay bell stuffed with ash so it cannot ring. Someone was tired of news. The news came anyway.
-
-`inspect.ember_path`
-
-ASH PATH
-Stakes along an ash path, unlit. They look embarrassed, which is a lot of work for a stick.
+`inspect.ember_path` — **PATH LAMPS:** A row of small lamps leading up the ridge, all dark.

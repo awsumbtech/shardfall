@@ -322,7 +322,7 @@ SF.syncUI = function () {
   if (SF.uiModal) {
     var newsMode = SF.uiModal.kind === "news";
     document.getElementById("news-body").hidden = !newsMode;
-    document.getElementById("modal-title").textContent = newsMode ? "What's new in v0.2" : "Shardfall";
+    document.getElementById("modal-title").textContent = newsMode ? "What's new in v" + SF.VERSION : "Shardfall";
     document.getElementById("modal-copy").hidden = newsMode;
     document.getElementById("modal-copy").textContent = newsMode ? "" : SF.uiModal.text;
     document.getElementById("modal-yes").hidden = newsMode;

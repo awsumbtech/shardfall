@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.2";
+SF.VERSION = "0.2.1";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -20,9 +20,9 @@ SF.STRIKE_ARC = 0.28;
 SF.XP_NEED = [0, 24, 70, 110];
 
 SF.WHATS_NEW = [
-  "The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.",
-  "Tamsin fits a grapple to your hand. Hook the gaps, pull small Hushborn, or haul yourself toward the big ones.",
-  "People talk like themselves, and what you ask is remembered. The Cinder Maw waits, and the Cantor is not done."
+  "Act 1 is told again, from the waking stones to the last lamp on Cinderveil.",
+  "After the Cinder Maw, the Cantor walks up the ridge. You can spare them, hear them out, or refuse.",
+  "Kestrel meets you at Lowmoor Quay. Ahead lies Highspire, and the last of the Lanternwrights."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
@@ -58,7 +58,12 @@ SF.NPCS = [
 SF.TEXTS = [
   { id: "wake-stone", x: -82, y: 88, speaker: "Waking Stones", node: "inspect.waking_stones" },
   { id: "scar-stone", x: 125, y: 168, speaker: "The Scar", node: "inspect.scar" },
-  { id: "hull", x: -78, y: 540, speaker: "Nameplate", node: "inspect.quickmercy" }
+  { id: "hull", x: -78, y: 540, speaker: "The Quickmercy", node: "inspect.quickmercy" },
+  { id: "wrong-sky", x: 500, y: -50, speaker: "Standing Stones", node: "inspect.wrong_sky" },
+  { id: "heartblossom", x: 170, y: -50, speaker: "Heartblossom", node: "inspect.heartblossom" },
+  { id: "rope-bridge", x: -20, y: 365, speaker: "Rope Bridge", node: "inspect.rope_bridge" },
+  { id: "span-planks", x: 250, y: -100, speaker: "Broken Span", node: "inspect.span_planks" },
+  { id: "sail-patch", x: -48, y: 530, speaker: "Sail Patch", node: "inspect.sail_patch" }
 ];
 
 SF.PICKUPS = [
