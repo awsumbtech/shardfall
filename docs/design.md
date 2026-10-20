@@ -151,7 +151,7 @@ The first minute teaches one thing at a time, and only until you have done it: m
 
 The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without him.
 
-Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or two sentences. Tap, E, Enter, or Space finishes a line that is still arriving, then advances. With Reduce flashing on, or when the system asks for less motion, the line arrives whole and the caret does not blink. Choices are large buttons. A choice can set `state.flags`, and a later choice can require those flags. Flags are saved with the journey. When a conversation closes, each node's `onEnd` is dispatched in order (`SF.onDialogueEvent`, or the window event `sf:dialogue`) so gameplay can hook it. `startDialogue(id)` starts a node. An unknown id plays one placeholder line and does not throw. The Act 1 script is `docs/script/act1.md`; the nodes are `js/content/dialogue/`. Nothing hunts you while you are reading, paused, or watching the lamp catch.
+Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or two sentences. Tap, E, Enter, or Space finishes a line that is still arriving, then advances. Each new line blips in that speaker's pitch. While letters are still arriving, the same voice ticks every few characters. With Reduce flashing on, or when the system asks for less motion, the line arrives whole, the caret does not blink, and that line is a single blip. Choices are large buttons. A choice can set `state.flags`, and a later choice can require those flags. Flags are saved with the journey. When a conversation closes, each node's `onEnd` is dispatched in order (`SF.onDialogueEvent`, or the window event `sf:dialogue`) so gameplay can hook it. `startDialogue(id)` starts a node. An unknown id plays one placeholder line and does not throw. The Act 1 script is `docs/script/act1.md`; the nodes are `js/content/dialogue/`. Nothing hunts you while you are reading, paused, or watching the lamp catch.
 
 ### Save
 
@@ -167,17 +167,63 @@ A save from a future version number is ignored rather than half-applied. v0.1 wr
 
 Stylized and colorful. No textures, no spritesheets, no downloads. Everything is canvas shapes, a handful of cached soft glows, and system fonts (a serif for the story, a round sans for the buttons).
 
-The sky is a dusk gradient: indigo up high, peach at the cloud line, with a thin crack of light that never quite sets. Clouds are large, slow, and slightly behind the camera so the sea feels deeper than the islands. Islands have a cliff of terracotta under the grass, a pale rim on the sunward edge, and a soft shadow on the Hush. Emberhold is green. Cinderstep is coin-gold. Vane's Perch is teal, like shallow water that forgot it was cloud. Whisper Hollow is the same island with a blue wash.
+The sky is a dusk gradient: indigo up high, peach at the cloud line, with a thin crack of light that never quite sets. Clouds are large, slow, and slightly behind the camera so the sea feels deeper than the islands. The title, before a journey starts, is its own picture on that same canvas: a cloud sea and a few drifting islands under the wordmark. Reduce flashing holds the lamp steady and leaves out the motes. Reduce motion holds the picture still. Islands have a cliff of terracotta under the grass, a pale rim on the sunward edge, and a soft shadow on the Hush. Emberhold is green. Cinderstep is coin-gold. Vane's Perch is teal, like shallow water that forgot it was cloud. Whisper Hollow is the same island with a blue wash.
 
 Glow is the language. Shards are cyan diamonds. The unlit lamp is a dim violet crystal. The lit lamp is gold, with a beam and a wash over the grass, and the little stakes along the path catch. The hand-shard is the Wayfarer's brightest point. Hushborn are soft bodies with a hard core: wisps violet, brumekin amber and horned, Choirlings tall with a cracked mask.
 
-UI is dark glass and gold hairlines, large round buttons, a heart bar and a thin experience bar. The title sits at the bottom of the portrait screen so the lamp hill shows above it. In landscape the title is a panel on the left.
+UI is dark glass and gold hairlines, large round buttons, a heart bar and a thin experience bar. The title sits at the bottom of the portrait screen so the cloud sea shows above it. In landscape the title is a panel on the left.
 
 Hits no longer blink the Wayfarer on and off. A hit is a small warm spark and, unless Reduce flashing is on, a faint red edge that fades in about a quarter second. The lamp's glow does not strobe. Screen shake is a short, small drift, and it is off entirely when Reduce flashing is on or `prefers-reduced-motion` is set. The canvas is a normal 2D context. Its backing store is reallocated only when the CSS size actually changes by a couple of pixels, so a phone URL bar cannot clear the frame every tick. The game itself still moves; it is a game.
 
 ## Audio
 
-WebAudio only, after the first tap or key. A quiet set of tones: swing, hit, hurt, dash, pickup, the lamp's chord, a level, a dialogue tick. There is no music bed in v0.1. Mute is the speaker button or M, and it is remembered.
+WebAudio only, created on the first tap or key. A short silent buffer plays inside that gesture so a phone will actually start the context. Mute is the speaker button or M. Music volume, effects volume, haptics, and Reduce flashing are separate settings, remembered on their own keys so Reset does not clear them: `shardfall.musicVol`, `shardfall.sfxVol`, `shardfall.haptics`, plus the existing `shardfall.mute` and `shardfall.reduceFlash`. Haptics default on. Volumes default to 0.75 music and 0.8 effects, on a 0–1 scale (`setVolume` also accepts 0–100).
+
+Hiding the page suspends the audio context. Showing it resumes, if audio was already unlocked. The journey still pauses and saves when the page hides.
+
+### Music
+
+`Music.play(name)` crossfades (about 1.2 seconds) to a procedural loop. Names: `title`, `emberhold`, `cinderveil`, `sail`, `boss`. Anything else is ignored. `Music.current()` is the theme now playing or the one just requested. `Music.stop()` fades out. `Music.setVolume(v)` is the music slider.
+
+```js
+Music.play("cinderveil");
+Music.current();
+Music.setVolume(0.8);
+```
+
+The loops are synthesized in the page: a calm hopeful Emberhold, an ashy driving Cinderveil, an open sailing tune, a tense but listenable boss bed, and a slow title. They are built to return to their first chord, so the seam is a breath rather than a click.
+
+The feel loop calls `Music.play("title")` while the title is up. Leaving the title calls `Music.play("emberhold")` only when the current theme is still `title` or empty. A later `Music.play("cinderveil")`, `Music.play("sail")`, or `Music.play("boss")` sticks, including through the pause menu, until the next call. Returning to the title always comes back to `title`. Call `Music.play` when a voyage, an island, or a fight begins, and again after a load if the Wayfarer is already there.
+
+### Effects
+
+`Sfx.play(name, opts)` plays a short synthesized effect. `Sfx.setVolume(v)` is the effects slider. Unknown names do nothing. `opts.speaker` picks the dialogue pitch; if it is omitted, a `blip` uses the open conversation's speaker. Known voices (Old Maren, Kestrel Vane, the Cantor, Tamsin Reed, Brother Hesk, Warden Ilsa, the Cinder Maw, plus the stones and the lamp) have their own pitch. Any other name is hashed onto a scale, so a new speaker still sounds distinct.
+
+| name | when |
+| --- | --- |
+| `footstep` | walking. The feel loop plays this from movement. |
+| `whoosh` | the swing starts. `SF.emit("swing")` maps here. |
+| `impact` | a strike connects. `SF.emit("hit")` maps here. |
+| `dash` | dash |
+| `grapple` | grapple fired. No caller until the hand has one. |
+| `latch` | the hook catches |
+| `pull` | the reel in |
+| `pickup` | a shard or a blossom |
+| `lamp` | a lamp relights. Slow swell. |
+| `blip` | a line of dialogue, in that speaker's pitch. `SF.emit("talk")` maps here. The dialogue engine calls it when a line starts, and again every few letters while the line is arriving. |
+| `ui` | a button |
+| `hurt` | the Wayfarer is hit |
+| `death` | the shard hauls them back to the stones |
+| `enemyHurt` | a Hushborn flinches, when it should sound different from the weapon impact |
+| `enemyDeath` | a Hushborn comes apart. The feel loop plays one of these when any foe dies, including several at once. |
+| `roar` | the boss. No caller until that fight exists. |
+| `level` | a level |
+
+`SF.emit(name)` still accepts the v0.1 names (`swing`, `hit`, `hurt`, `dash`, `pickup`, `lamp`, `talk`, `death`, `level`, `ui`).
+
+### Haptics
+
+`Haptics.pulse(pattern)` calls `navigator.vibrate` when the toggle is on and the phone supports it. Patterns are short. `Sfx.play` already pulses on `impact` (12ms), `hurt` (18ms), `pickup` (10ms), and `lamp` (12ms, a gap, 16ms). `Haptics.setEnabled(false)` is the settings toggle and is remembered.
 
 ## Controls and the phone
 
@@ -187,8 +233,8 @@ Tested against a 412×915 CSS viewport, portrait and landscape, which is the cla
 - The viewport meta locks scale and requests the safe area. The stick, buttons, and panels pad with `env(safe-area-inset-*)`.
 - The stick's grab area is the whole lower-left. The knob travels inside a fixed base. Analog tilt scales speed.
 - Strike, Dash, and Talk are separate pointers, so a thumb can hold the stick and tap Strike in the same moment. Strike repeats on a cooldown while held. Dash and Talk fire once per press.
-- Canvas backing-store pixel ratio is capped at 2. Glows are pre-drawn images, not per-frame blurs. The context is not desynchronized. Resize ignores one-pixel jitter so the bitmap is not cleared in a loop.
-- Reduce flashing sits on the title screen and in the pause menu. It is on by default. It turns off shake, the hurt vignette, hit sparks, the invulnerability fade, and the pulsing ready-light. The objective marker stays, held still.
+- Canvas backing-store pixel ratio is capped at 2. Glows are pre-drawn images, not per-frame blurs. The context is not desynchronized. Resize ignores one-pixel jitter so the bitmap is not cleared in a loop. Islands, their shadows, the bridge, and the ground specks are painted once into a world sheet and the camera copies the visible slice, including a margin for shake. The sheet is rebuilt when the lamp is lit or the walk map changes, so a later island is included. Clouds are painted once into a softer sheet, then the view drifts across it. Sky and vignette gradients are cached. At 412×915 CSS pixels with a device pixel ratio of 3.5, play holds a frame.
+- Reduce flashing sits on the title screen, in the pause menu, and in Settings. All three are the same switch (`shardfall.reduceFlash`). It is on by default. It turns off shake, the hurt vignette, hit sparks, the invulnerability fade, and the pulsing ready-light, and a line of dialogue arrives whole. The objective marker stays, held still.
 - Switching apps or unfocusing the tab pauses and saves, so a pocket does not eat the run.
 
 Keyboard exists for a desk. The on-screen buttons stay visible there too.
@@ -235,7 +281,7 @@ These are for Brian. v0.1 picked an answer so the build could exist. None of the
 5. **Art.** Stay procedural, which keeps the game a single folder with no assets, or move to drawn sprites once the islands multiply.
 6. **The hand.** One gift at a time (dash, then grapple), or a small build you spend shards on. v0.1 is one gift. v0.2's note above leans toward a few choices. Worth deciding before those choices exist.
 7. **How much they talk.** Act 1 is a full script now, still one or two sentences a box. If a scene runs long on the phone, cut a line before adding one.
-8. **Sound.** On after the first tap, quiet, and easy to mute. It can default to muted if the phone speaker is the wrong call.
+8. **Sound.** On after the first tap, with separate music and effects sliders, and easy to mute. Haptics start on, for a hit, a shard, and the lamp. It can still default to muted if the phone speaker is the wrong call.
 
 ## Tinkering
 
@@ -251,7 +297,12 @@ Code map, if a section above needs a change:
 | `js/ui.js`, `css/style.css` | Buttons, panels, safe areas |
 | `js/save.js` | The v1 save shape |
 | `js/input.js` | Stick, buttons, keys, the no-scroll guards |
-| `js/audio.js` | Tones |
+| `js/audio.js` | Shared context, unlock, mute, volumes, visibility |
+| `js/music.js` | `Music.play` loops and crossfades |
+| `js/sfx.js` | `Sfx.play` |
+| `js/haptics.js` | Short `navigator.vibrate` patterns |
+| `js/title.js` | Title cloud sea |
+| `js/feel.js` | Which theme, footsteps, foe-death cue |
 | `.github/workflows/pages.yml` | The Pages deploy |
 
 `SF.audit()` returns a list of layout problems (a pickup off the grass, a dash from the lip that misses, a ledge you cannot walk). The smoke script runs it.

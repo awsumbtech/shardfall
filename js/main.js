@@ -25,6 +25,7 @@ SF.boot = function () {
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     SF.update(dt);
+    if (SF.feel) SF.feel(dt);
     SF._resizeTick = (SF._resizeTick || 0) + 1;
     if (SF._resizeTick % 30 === 0) SF.resize();
     SF.draw();

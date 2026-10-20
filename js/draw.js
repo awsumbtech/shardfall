@@ -13,6 +13,14 @@ SF.zoomFor = function (w, h) {
   return SF.clamp(Math.min(w, h) / 300, 1, 1.85);
 };
 
+SF.viewRect = function (pad) {
+  var zoom = SF.zoom || 1;
+  var s = SF.state;
+  var hw = SF.viewW / (2 * zoom) + pad;
+  var hh = SF.viewH / (2 * zoom) + pad;
+  return { l: s.camX - hw, r: s.camX + hw, t: s.camY - hh, b: s.camY + hh };
+};
+
 SF.makeBlob = function (size, inner, outer) {
   var c = document.createElement("canvas");
   c.width = size;
@@ -88,13 +96,18 @@ SF.traceGroup = function (ctx, circles, grow) {
 };
 
 SF.drawSky = function (ctx, w, h, s) {
-  var g = ctx.createLinearGradient(0, 0, 0, h);
-  var lit = s.flags && s.flags.lampLit;
-  g.addColorStop(0, lit ? "#2a1860" : "#1a1038");
-  g.addColorStop(0.42, lit ? "#6a4a86" : "#4c356c");
-  g.addColorStop(0.72, lit ? "#f0b59a" : "#e39a8c");
-  g.addColorStop(1, lit ? "#f8d7b4" : "#f0c6ae");
-  ctx.fillStyle = g;
+  var lit = !!(s.flags && s.flags.lampLit);
+  var key = (lit ? "L" : "D") + ":" + w + "x" + h;
+  if (SF._skyKey !== key) {
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, lit ? "#2a1860" : "#1a1038");
+    g.addColorStop(0.42, lit ? "#6a4a86" : "#4c356c");
+    g.addColorStop(0.72, lit ? "#f0b59a" : "#e39a8c");
+    g.addColorStop(1, lit ? "#f8d7b4" : "#f0c6ae");
+    SF._skyGrad = g;
+    SF._skyKey = key;
+  }
+  ctx.fillStyle = SF._skyGrad;
   ctx.fillRect(0, 0, w, h);
 
   var t = SF.anim;
@@ -124,17 +137,62 @@ SF.drawSky = function (ctx, w, h, s) {
   ctx.restore();
 };
 
+SF.cloudStamp = function () {
+  var clouds = SF.clouds;
+  if (!clouds || !clouds.length) return "0";
+  var a = clouds[0];
+  var b = clouds[clouds.length - 1];
+  return clouds.length + ":" + a.x + ":" + a.y + ":" + b.x + ":" + b.y;
+};
+
+SF.buildCloudSheet = function () {
+  var clouds = SF.clouds;
+  var minX = Infinity;
+  var minY = Infinity;
+  var maxX = -Infinity;
+  var maxY = -Infinity;
+  var i, c;
+  for (i = 0; i < clouds.length; i++) {
+    c = clouds[i];
+    if (c.x - c.s < minX) minX = c.x - c.s;
+    if (c.x + c.s > maxX) maxX = c.x + c.s;
+    if (c.y - c.s < minY) minY = c.y - c.s;
+    if (c.y + c.s > maxY) maxY = c.y + c.s;
+  }
+  var worldW = Math.max(1, maxX - minX);
+  var worldH = Math.max(1, maxY - minY);
+  var ppm = 0.5;
+  var maxDim = 2048;
+  if (worldW * ppm > maxDim) ppm = maxDim / worldW;
+  if (worldH * ppm > maxDim) ppm = Math.min(ppm, maxDim / worldH);
+  var sheet = document.createElement("canvas");
+  sheet.width = Math.max(1, Math.ceil(worldW * ppm));
+  sheet.height = Math.max(1, Math.ceil(worldH * ppm));
+  var g = sheet.getContext("2d");
+  g.setTransform(ppm, 0, 0, ppm, -minX * ppm, -minY * ppm);
+  g.globalAlpha = 0.55;
+  for (i = 0; i < clouds.length; i++) {
+    c = clouds[i];
+    g.drawImage(SF.blobs[c.kind] || SF.blobs.cloud, c.x - c.s, c.y - c.s * 0.45, c.s * 2, c.s);
+  }
+  SF._cloudSheet = sheet;
+  SF._cloudBox = { minX: minX, minY: minY };
+  SF._cloudPpm = ppm;
+  SF._cloudStamp = SF.cloudStamp();
+};
+
 SF.drawClouds = function (ctx, s) {
-  var t = SF.anim;
-  var ox = s.camX * 0.18;
-  var oy = s.camY * 0.18;
-  ctx.save();
-  SF.clouds.forEach(function (c) {
-    var sprite = SF.blobs[c.kind] || SF.blobs.cloud;
-    ctx.globalAlpha = 0.55;
-    ctx.drawImage(sprite, c.x + ox + t * c.drift * 0.15 - c.s, c.y + oy - c.s * 0.45, c.s * 2, c.s);
-  });
-  ctx.restore();
+  if (!SF.clouds || !SF.clouds.length || !SF.blobs) return;
+  if (!SF._cloudSheet || SF._cloudStamp !== SF.cloudStamp()) SF.buildCloudSheet();
+  var z = SF.zoom || 1;
+  var pad = 6;
+  var left = s.camX - SF.viewW / (2 * z) - pad;
+  var top = s.camY - SF.viewH / (2 * z) - pad;
+  var vw = SF.viewW / z + pad * 2;
+  var vh = SF.viewH / z + pad * 2;
+  var drift = Math.sin(SF.anim * 0.07) * 36;
+  var b = SF._cloudBox;
+  SF.blitSheet(ctx, SF._cloudSheet, SF._cloudPpm, left - s.camX * 0.18 - drift, top - s.camY * 0.18, left, top, vw, vh, b.minX, b.minY);
 };
 
 SF.drawLands = function (ctx, s) {
@@ -158,10 +216,16 @@ SF.drawLands = function (ctx, s) {
     SF.traceGroup(ctx, SF.groups[group], 0);
     ctx.clip();
     var anchor = SF.groups[group][0];
-    var g = ctx.createRadialGradient(anchor.x, anchor.y, 20, anchor.x, anchor.y, anchor.r * 2.2);
-    g.addColorStop(0, colors.hi);
-    g.addColorStop(0.55, colors.mid);
-    g.addColorStop(1, colors.lo);
+    var gradKey = group + ":" + colors.hi + ":" + colors.mid + ":" + colors.lo;
+    if (!SF._landGrad) SF._landGrad = {};
+    var g = SF._landGrad[gradKey];
+    if (!g) {
+      g = ctx.createRadialGradient(anchor.x, anchor.y, 20, anchor.x, anchor.y, anchor.r * 2.2);
+      g.addColorStop(0, colors.hi);
+      g.addColorStop(0.55, colors.mid);
+      g.addColorStop(1, colors.lo);
+      SF._landGrad[gradKey] = g;
+    }
     ctx.fillStyle = g;
     ctx.fillRect(-1200, -1200, 2800, 2800);
     ctx.restore();
@@ -214,12 +278,145 @@ SF.drawGround = function (ctx, s) {
   });
   ctx.restore();
 
-  SF.specks.forEach(function (sp) {
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = sp.k > 0.7 ? "rgba(255,255,255,0.55)" : "rgba(20,70,40,0.28)";
+  var view = SF._baking ? null : SF.viewRect(24);
+  var specks = SF.specks;
+  var i, sp, cull;
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  for (i = 0; i < specks.length; i++) {
+    sp = specks[i];
+    cull = view && (sp.x < view.l || sp.x > view.r || sp.y < view.t || sp.y > view.b);
+    if (sp.k <= 0.7 || cull) continue;
+    ctx.fillRect(sp.x, sp.y, 2, 2);
+  }
+  ctx.fillStyle = "rgba(20,70,40,0.28)";
+  for (i = 0; i < specks.length; i++) {
+    sp = specks[i];
+    cull = view && (sp.x < view.l || sp.x > view.r || sp.y < view.t || sp.y > view.b);
+    if (sp.k > 0.7 || cull) continue;
     ctx.fillRect(sp.x, sp.y, sp.k > 0.5 ? 2 : 1.4, sp.k > 0.5 ? 2 : 1.4);
+  }
+  ctx.restore();
+};
+
+SF.terrainKey = function (lit) {
+  return (lit ? "1" : "0") + ":" + SF.WALK.circles.length + ":" + (SF.specks ? SF.specks.length : 0) + ":" + SF.WALK.rects.length;
+};
+
+SF.terrainBounds = function () {
+  var minX = Infinity;
+  var minY = Infinity;
+  var maxX = -Infinity;
+  var maxY = -Infinity;
+  function add(x, y) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  var i, c, r, circles, rects;
+  circles = SF.WALK.circles;
+  for (i = 0; i < circles.length; i++) {
+    c = circles[i];
+    add(c.x - c.r * 1.2 - 8, c.y - c.r - 16);
+    add(c.x + c.r * 1.2 + 8, c.y + c.r * 1.3 + 24);
+  }
+  rects = SF.WALK.rects;
+  for (i = 0; i < rects.length; i++) {
+    r = rects[i];
+    add(r.x - 16, r.y - 16);
+    add(r.x + r.w + 16, r.y + r.h + 16);
+  }
+  if (SF.LAMP) {
+    add(SF.LAMP.x - 360, SF.LAMP.y - 360);
+    add(SF.LAMP.x + 360, SF.LAMP.y + 360);
+  }
+  return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+};
+
+SF.buildTerrainSheet = function (lit) {
+  var b = SF.terrainBounds();
+  var worldW = Math.max(1, b.maxX - b.minX);
+  var worldH = Math.max(1, b.maxY - b.minY);
+  var ppm = 1.6;
+  var maxDim = 4096;
+  if (worldW * ppm > maxDim) ppm = maxDim / worldW;
+  if (worldH * ppm > maxDim) ppm = Math.min(ppm, maxDim / worldH);
+  var sheet = document.createElement("canvas");
+  sheet.width = Math.max(1, Math.ceil(worldW * ppm));
+  sheet.height = Math.max(1, Math.ceil(worldH * ppm));
+  var bctx = sheet.getContext("2d");
+  bctx.setTransform(ppm, 0, 0, ppm, -b.minX * ppm, -b.minY * ppm);
+  SF._landGrad = {};
+  SF._baking = true;
+  var fake = { flags: { lampLit: !!lit } };
+  SF.groups.ember.concat(SF.groups.perch, SF.groups.cinder).forEach(function (c) {
+    bctx.drawImage(SF.blobs.shadow, c.x - c.r * 1.15, c.y - c.r * 0.45 + 18, c.r * 2.3, c.r * 1.25);
   });
-  ctx.globalAlpha = 1;
+  SF.drawLands(bctx, fake);
+  SF.drawBridge(bctx);
+  SF.drawGround(bctx, fake);
+  SF._baking = false;
+  SF._terrain = sheet;
+  SF._terrainBox = b;
+  SF._terrainPpm = ppm;
+  SF._terrainKey = SF.terrainKey(lit);
+};
+
+SF.drawTerrain = function (ctx, s) {
+  if (!SF.groups || !SF.specks || !SF.blobs || !SF.WALK) return;
+  var lit = !!(s.flags && s.flags.lampLit);
+  var key = SF.terrainKey(lit);
+  if (!SF._terrain || SF._terrainKey !== key) SF.buildTerrainSheet(lit);
+  var sheet = SF._terrain;
+  var b = SF._terrainBox;
+  var ppm = SF._terrainPpm;
+  var z = SF.zoom || 1;
+  var pad = 8;
+  var left = s.camX - SF.viewW / (2 * z) - pad;
+  var top = s.camY - SF.viewH / (2 * z) - pad;
+  var vw = SF.viewW / z + pad * 2;
+  var vh = SF.viewH / z + pad * 2;
+  SF.blitSheet(ctx, sheet, ppm, left, top, left, top, vw, vh, b.minX, b.minY);
+};
+
+SF.blitSheet = function (ctx, sheet, ppm, srcLeft, srcTop, destLeft, destTop, vw, vh, originX, originY) {
+  var srcX = (srcLeft - originX) * ppm;
+  var srcY = (srcTop - originY) * ppm;
+  var srcW = vw * ppm;
+  var srcH = vh * ppm;
+  var destX = destLeft;
+  var destY = destTop;
+  var destW = vw;
+  var destH = vh;
+  var cut;
+  if (srcX < 0) {
+    cut = -srcX;
+    srcX = 0;
+    srcW -= cut;
+    destX += cut / ppm;
+    destW -= cut / ppm;
+  }
+  if (srcY < 0) {
+    cut = -srcY;
+    srcY = 0;
+    srcH -= cut;
+    destY += cut / ppm;
+    destH -= cut / ppm;
+  }
+  if (srcX + srcW > sheet.width) {
+    cut = srcX + srcW - sheet.width;
+    srcW -= cut;
+    destW -= cut / ppm;
+  }
+  if (srcY + srcH > sheet.height) {
+    cut = srcY + srcH - sheet.height;
+    srcH -= cut;
+    destH -= cut / ppm;
+  }
+  if (srcW < 1 || srcH < 1 || destW <= 0 || destH <= 0) return;
+  ctx.drawImage(sheet, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
 };
 
 SF.drawBridge = function (ctx) {
@@ -923,12 +1120,22 @@ SF.drawFx = function (ctx, s) {
 };
 
 SF.drawVignette = function (ctx, w, h, s) {
-  var lit = s.flags && s.flags.lampLit;
-  var g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.72);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, lit ? "rgba(20,8,40,0.28)" : "rgba(12,6,28,0.48)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+  var lit = !!(s.flags && s.flags.lampLit);
+  var key = (lit ? "1" : "0") + ":" + w + "x" + h;
+  if (SF._vigKey !== key) {
+    var sheet = document.createElement("canvas");
+    sheet.width = Math.max(1, Math.round(w * 0.5));
+    sheet.height = Math.max(1, Math.round(h * 0.5));
+    var gctx = sheet.getContext("2d");
+    var g = gctx.createRadialGradient(sheet.width / 2, sheet.height / 2, Math.min(sheet.width, sheet.height) * 0.35, sheet.width / 2, sheet.height / 2, Math.max(sheet.width, sheet.height) * 0.72);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, lit ? "rgba(20,8,40,0.28)" : "rgba(12,6,28,0.48)");
+    gctx.fillStyle = g;
+    gctx.fillRect(0, 0, sheet.width, sheet.height);
+    SF._vig = sheet;
+    SF._vigKey = key;
+  }
+  ctx.drawImage(SF._vig, 0, 0, w, h);
 };
 
 SF.draw = function () {
@@ -940,6 +1147,10 @@ SF.draw = function () {
   var h = SF.viewH;
   var dpr = SF.dpr;
   if (!w || !h) return;
+  if (s.mode === "title" && SF.drawTitleScene) {
+    SF.drawTitleScene(ctx, w, h, dpr);
+    return;
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
   SF.drawSky(ctx, w, h, s);
@@ -957,12 +1168,7 @@ SF.draw = function () {
     dpr * (h / 2 - s.camY * zoom + sy)
   );
   SF.drawClouds(ctx, s);
-  SF.groups.ember.concat(SF.groups.perch, SF.groups.cinder).forEach(function (c) {
-    ctx.drawImage(SF.blobs.shadow, c.x - c.r * 1.15, c.y - c.r * 0.45 + 18, c.r * 2.3, c.r * 1.25);
-  });
-  SF.drawLands(ctx, s);
-  SF.drawBridge(ctx);
-  SF.drawGround(ctx, s);
+  SF.drawTerrain(ctx, s);
   SF.entityList(s).forEach(function (ent) { ent.draw(ctx); });
   SF.drawFx(ctx, s);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -976,7 +1182,8 @@ SF.drawMap = function () {
   var canvas = SF.map;
   var s = SF.state;
   if (!canvas || !s || s.mode === "title") return;
-  var ctx = canvas.getContext("2d");
+  if (!SF._mapCtx || SF._mapCtx.canvas !== canvas) SF._mapCtx = canvas.getContext("2d");
+  var ctx = SF._mapCtx;
   var w = canvas.width;
   var h = canvas.height;
   ctx.setTransform(1, 0, 0, 1, 0, 0);

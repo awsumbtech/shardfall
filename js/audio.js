@@ -3,141 +3,221 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.sfx = {
+SF.MUSIC_VOL_KEY = "shardfall.musicVol";
+SF.SFX_VOL_KEY = "shardfall.sfxVol";
+SF.HAPTICS_KEY = "shardfall.haptics";
+
+function clamp01(n) {
+  if (n < 0) return 0;
+  if (n > 1) return 1;
+  return n;
+}
+
+function unitVolume(v) {
+  var n = Number(v);
+  if (!isFinite(n)) return null;
+  if (n > 1) n = n / 100;
+  return clamp01(n);
+}
+
+function rampGain(param, value, ctx) {
+  var now = ctx.currentTime;
+  var next = Math.max(0, value);
+  try {
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(param.value, now);
+    param.linearRampToValueAtTime(next, now + 0.05);
+  } catch (err) {
+    param.value = next;
+  }
+}
+
+SF.audio = {
   ctx: null,
   master: null,
+  music: null,
+  sfx: null,
   muted: false,
-  pad: null,
+  unlocked: false,
+  musicVol: 0.75,
+  sfxVol: 0.8,
 
-  ensure: function () {
-    if (this.muted) return null;
+  store: function () {
+    var ls = null;
+    try {
+      ls = SF.storage ? SF.storage() : window.localStorage;
+    } catch (err) {
+      ls = null;
+    }
+    return ls;
+  },
+
+  load: function () {
+    var ls = this.store();
+    if (ls) {
+      this.muted = ls.getItem(SF.MUTE_KEY) === "1";
+      var mv = parseFloat(ls.getItem(SF.MUSIC_VOL_KEY));
+      var sv = parseFloat(ls.getItem(SF.SFX_VOL_KEY));
+      if (isFinite(mv)) this.musicVol = clamp01(mv);
+      if (isFinite(sv)) this.sfxVol = clamp01(sv);
+    }
+    if (window.Haptics && Haptics.load) Haptics.load();
+    this.applyGains(true);
+  },
+
+  applyGains: function (instant) {
+    if (!this.ctx) return;
+    if (instant) {
+      if (this.master) this.master.gain.value = this.muted ? 0 : 1;
+      if (this.music) this.music.gain.value = this.musicVol;
+      if (this.sfx) this.sfx.gain.value = this.sfxVol;
+      return;
+    }
+    if (this.master) rampGain(this.master.gain, this.muted ? 0 : 1, this.ctx);
+    if (this.music) rampGain(this.music.gain, this.musicVol, this.ctx);
+    if (this.sfx) rampGain(this.sfx.gain, this.sfxVol, this.ctx);
+  },
+
+  context: function () {
+    if (this.ctx) return this.ctx;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     try {
-      if (!this.ctx) {
-        this.ctx = new AC();
-        this.master = this.ctx.createGain();
-        this.master.gain.value = 0.2;
-        this.master.connect(this.ctx.destination);
-      }
-      if (this.ctx.state === "suspended") this.ctx.resume();
+      this.ctx = new AC({ latencyHint: "interactive" });
+      this.master = this.ctx.createGain();
+      this.music = this.ctx.createGain();
+      this.sfx = this.ctx.createGain();
+      this.comp = this.ctx.createDynamicsCompressor();
+      this.comp.threshold.value = -10;
+      this.comp.knee.value = 18;
+      this.comp.ratio.value = 2.4;
+      this.comp.attack.value = 0.01;
+      this.comp.release.value = 0.22;
+      this.music.connect(this.master);
+      this.sfx.connect(this.master);
+      this.master.connect(this.comp);
+      this.comp.connect(this.ctx.destination);
+      this.applyGains(true);
       return this.ctx;
     } catch (err) {
+      this.ctx = null;
       return null;
     }
   },
 
-  tone: function (freq, dur, type, gain, slide) {
-    var ctx = this.ensure();
-    if (!ctx || !this.master) return;
-    var t = ctx.currentTime;
-    var osc = ctx.createOscillator();
-    var g = ctx.createGain();
-    osc.type = type || "sine";
-    osc.frequency.setValueAtTime(freq, t);
-    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(40, slide), t + dur);
-    g.gain.setValueAtTime(gain, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g);
-    g.connect(this.master);
-    osc.start(t);
-    osc.stop(t + dur + 0.02);
-  },
-
-  noise: function (dur, gain) {
-    var ctx = this.ensure();
-    if (!ctx || !this.master) return;
-    var n = Math.floor(ctx.sampleRate * dur);
-    var buffer = ctx.createBuffer(1, n, ctx.sampleRate);
-    var data = buffer.getChannelData(0);
-    for (var i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
-    var src = ctx.createBufferSource();
-    src.buffer = buffer;
-    var filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.value = 900;
-    var g = ctx.createGain();
-    g.gain.value = gain;
-    src.connect(filter);
-    filter.connect(g);
-    g.connect(this.master);
-    src.start();
-  },
-
-  swing: function () {
-    this.noise(0.08, 0.15);
-    this.tone(520, 0.09, "triangle", 0.05, 240);
-  },
-
-  hit: function () {
-    this.tone(680, 0.07, "square", 0.04, 180);
-  },
-
-  hurt: function () {
-    this.tone(180, 0.16, "sawtooth", 0.05, 70);
-  },
-
-  dash: function () {
-    this.tone(240, 0.14, "sine", 0.06, 720);
-  },
-
-  pickup: function () {
-    this.tone(660, 0.08, "sine", 0.05);
-    var self = this;
-    setTimeout(function () { self.tone(880, 0.12, "sine", 0.05); }, 70);
-  },
-
-  lamp: function () {
-    this.tone(392, 0.4, "sine", 0.06);
-    this.tone(494, 0.5, "sine", 0.04);
-    this.tone(587, 0.7, "triangle", 0.04);
-  },
-
-  level: function () {
-    this.tone(523, 0.1, "triangle", 0.05);
-    var self = this;
-    setTimeout(function () { self.tone(659, 0.1, "triangle", 0.05); }, 90);
-    setTimeout(function () { self.tone(784, 0.18, "triangle", 0.05); }, 180);
-  },
-
-  talk: function () {
-    this.tone(740, 0.04, "sine", 0.03);
-  },
-
-  death: function () {
-    this.tone(300, 0.25, "sine", 0.05, 90);
-  },
-
-  ui: function () {
-    this.tone(500, 0.05, "sine", 0.03);
+  unlock: function () {
+    var ctx = this.context();
+    if (!ctx) return null;
+    if (ctx.state === "suspended") {
+      try {
+        var resumed = ctx.resume();
+        if (resumed && resumed.catch) resumed.catch(function () {});
+      } catch (err) {
+        /* autoplay can refuse until a later tap */
+      }
+    }
+    if (!this.unlocked) {
+      this.unlocked = true;
+      try {
+        var buf = ctx.createBuffer(1, 8, ctx.sampleRate);
+        var src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(this.master);
+        src.start(0);
+      } catch (err2) {
+        /* the resume above is the important part */
+      }
+      if (window.Music && Music._want) Music._go(Music._want);
+    }
+    return ctx;
   },
 
   setMuted: function (muted) {
-    this.muted = muted;
-    if (this.master) this.master.gain.value = muted ? 0 : 0.2;
+    this.muted = !!muted;
+    this.applyGains(false);
+    var ls = this.store();
+    if (!ls) return;
     try {
-      window.localStorage.setItem(SF.MUTE_KEY, muted ? "1" : "0");
+      ls.setItem(SF.MUTE_KEY, this.muted ? "1" : "0");
     } catch (err) {
       /* private mode */
     }
   },
 
-  loadMute: function () {
+  setMusicVolume: function (v) {
+    var n = unitVolume(v);
+    if (n == null) return;
+    this.musicVol = n;
+    this.applyGains(false);
+    var ls = this.store();
+    if (!ls) return;
     try {
-      this.muted = window.localStorage.getItem(SF.MUTE_KEY) === "1";
+      ls.setItem(SF.MUSIC_VOL_KEY, String(Math.round(n * 100) / 100));
     } catch (err) {
-      this.muted = false;
+      /* private mode */
+    }
+  },
+
+  setSfxVolume: function (v) {
+    var n = unitVolume(v);
+    if (n == null) return;
+    this.sfxVol = n;
+    this.applyGains(false);
+    var ls = this.store();
+    if (!ls) return;
+    try {
+      ls.setItem(SF.SFX_VOL_KEY, String(Math.round(n * 100) / 100));
+    } catch (err) {
+      /* private mode */
+    }
+  },
+
+  onVisibility: function () {
+    if (!this.ctx || !this.unlocked) return;
+    if (typeof document !== "undefined" && document.hidden) {
+      try { this.ctx.suspend(); } catch (err) { /* already stopped */ }
+    } else {
+      try {
+        var resumed = this.ctx.resume();
+        if (resumed && resumed.catch) resumed.catch(function () {});
+      } catch (err2) {
+        /* resume on the next tap */
+      }
     }
   }
 };
 
+SF.sfx = {
+  ensure: function () { return SF.audio.unlock(); },
+  setMuted: function (muted) { SF.audio.setMuted(muted); },
+  loadMute: function () { SF.audio.load(); }
+};
+
+Object.defineProperty(SF.sfx, "muted", {
+  configurable: true,
+  get: function () { return SF.audio.muted; },
+  set: function (v) { SF.audio.setMuted(!!v); }
+});
+
 SF.emit = function (name) {
-  var fn = SF.sfx[name];
-  if (typeof fn === "function") {
-    try {
-      fn.call(SF.sfx);
-    } catch (err) {
-      /* audio is optional */
-    }
+  if (!window.Sfx || !name) return;
+  var map = { swing: "whoosh", hit: "impact", talk: "blip" };
+  var id = map[name] || name;
+  var opts = null;
+  if (id === "blip" && SF.state && SF.state.dialogue && SF.state.dialogue.speaker) {
+    opts = { speaker: SF.state.dialogue.speaker };
+  }
+  try {
+    Sfx.play(id, opts);
+  } catch (err) {
+    /* audio is optional */
   }
 };
+
+if (typeof document !== "undefined") {
+  var unlockGesture = function () { SF.audio.unlock(); };
+  document.addEventListener("pointerdown", unlockGesture, true);
+  document.addEventListener("keydown", unlockGesture, true);
+  document.addEventListener("touchend", unlockGesture, true);
+  document.addEventListener("visibilitychange", function () { SF.audio.onVisibility(); });
+}

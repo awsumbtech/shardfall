@@ -223,9 +223,14 @@ SF.tickDialogue = function (dt) {
   }
   d.acc = (d.acc || 0) + (dt || 0);
   var step = 0.026;
+  if (!d.shown) d.blipAt = 0;
   while (d.acc >= step && d.shown < d.full.length) {
     d.acc -= step;
     d.shown += 1;
+    if (d.shown - (d.blipAt || 0) >= 6) {
+      d.blipAt = d.shown;
+      if (window.Sfx) Sfx.play("blip", { speaker: d.speaker });
+    }
   }
   if (d.shown >= d.full.length) {
     d.shown = d.full.length;

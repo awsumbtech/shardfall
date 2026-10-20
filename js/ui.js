@@ -28,6 +28,28 @@ SF.setReduceFlash = function (on) {
 SF.toggleMute = function () {
   SF.sfx.setMuted(!SF.sfx.muted);
   SF.sfx.ensure();
+  SF.emit("ui");
+  SF.syncUI();
+};
+
+SF.settingsOpen = function () {
+  var el = document.getElementById("settings");
+  return !!(el && !el.hidden);
+};
+
+SF.openSettings = function () {
+  var el = document.getElementById("settings");
+  if (!el) return;
+  el.hidden = false;
+  document.body.dataset.settings = "1";
+  SF.syncUI();
+};
+
+SF.closeSettings = function () {
+  var el = document.getElementById("settings");
+  if (el) el.hidden = true;
+  document.body.dataset.settings = "0";
+  SF.emit("ui");
   SF.syncUI();
 };
 
@@ -130,6 +152,37 @@ SF.bindUI = function () {
   }
   bindCalm("title-calm");
   bindCalm("pause-calm");
+  bindCalm("set-calm");
+  function openSettingsFrom(id) {
+    document.getElementById(id).addEventListener("click", function () {
+      SF.sfx.ensure();
+      SF.emit("ui");
+      SF.openSettings();
+    });
+  }
+  openSettingsFrom("title-settings");
+  openSettingsFrom("pause-settings");
+  document.getElementById("set-close").addEventListener("click", SF.closeSettings);
+  document.getElementById("set-haptics").addEventListener("click", function () {
+    SF.sfx.ensure();
+    SF.emit("ui");
+    if (window.Haptics) {
+      Haptics.setEnabled(!Haptics.enabled);
+      if (Haptics.enabled) Haptics.pulse(12);
+    }
+    SF.syncUI();
+  });
+  function bindRange(id, numId, apply) {
+    var el = document.getElementById(id);
+    var num = document.getElementById(numId);
+    el.addEventListener("input", function () {
+      SF.sfx.ensure();
+      if (num) num.textContent = el.value;
+      apply(Number(el.value) / 100);
+    });
+  }
+  bindRange("music-vol", "music-vol-num", function (v) { SF.audio.setMusicVolume(v); });
+  bindRange("sfx-vol", "sfx-vol-num", function (v) { SF.audio.setSfxVolume(v); });
   document.getElementById("title-reset").addEventListener("click", function () {
     SF.sfx.ensure();
     SF.ask("Erase the saved journey from this browser?", "Erase", function () {
@@ -315,7 +368,7 @@ SF.syncUI = function () {
   talkBtn.setAttribute("aria-label", label);
   talkBtn.classList.toggle("ready", s.mode === "play" && !!SF.nearestInteract());
   var calmOn = !!SF.reduceFlash;
-  ["title-calm", "pause-calm"].forEach(function (id) {
+  ["title-calm", "pause-calm", "set-calm"].forEach(function (id) {
     var el = document.getElementById(id);
     if (!el) return;
     var text = "Reduce flashing: " + (calmOn ? "On" : "Off");
@@ -323,6 +376,15 @@ SF.syncUI = function () {
     el.setAttribute("aria-pressed", calmOn ? "true" : "false");
   });
   document.body.dataset.calm = SF.calm() ? "1" : "0";
+  var hapticsOn = !(window.Haptics) || Haptics.enabled;
+  var hap = document.getElementById("set-haptics");
+  if (hap) {
+    var hapText = "Haptics: " + (hapticsOn ? "On" : "Off");
+    if (hap.textContent !== hapText) hap.textContent = hapText;
+    hap.setAttribute("aria-pressed", hapticsOn ? "true" : "false");
+  }
+  syncRange("music-vol", "music-vol-num", SF.audio ? SF.audio.musicVol : 0.75);
+  syncRange("sfx-vol", "sfx-vol-num", SF.audio ? SF.audio.sfxVol : 0.8);
 
   document.getElementById("btn-mute").classList.toggle("is-muted", !!SF.sfx.muted);
   document.getElementById("btn-mute").setAttribute("aria-pressed", SF.sfx.muted ? "true" : "false");
@@ -333,4 +395,13 @@ SF.syncUI = function () {
 function setText(id, text) {
   var el = document.getElementById(id);
   if (el && el.textContent !== text) el.textContent = text;
+}
+
+function syncRange(id, numId, value) {
+  var el = document.getElementById(id);
+  if (!el || document.activeElement === el) return;
+  var pct = String(Math.round((value == null ? 0 : value) * 100));
+  if (el.value !== pct) el.value = pct;
+  var num = document.getElementById(numId);
+  if (num && num.textContent !== pct) num.textContent = pct;
 }
