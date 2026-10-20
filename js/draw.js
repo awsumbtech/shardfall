@@ -1114,42 +1114,19 @@ SF.blitSheet = function (ctx, sheet, ppm, srcLeft, srcTop, destLeft, destTop, vw
 
 SF.drawBridge = function (ctx) {
   var rects = SF.WALK.rects || [];
-  var r = null;
-  var i;
-  for (i = 0; i < rects.length; i++) {
-    if (rects[i].id === "rope") r = rects[i];
-  }
-  if (!r) return;
+  if (!window.Art) return;
+  var i, br, img;
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  if (window.Art && Art.pattern) {
-    ctx.beginPath();
-    ctx.rect(r.x, r.y, r.w, r.h);
-    ctx.clip();
-    Art.fillPattern(ctx, "plank");
-    ctx.fillStyle = "#5c3820";
-    ctx.fillRect(r.x, r.y, 3, r.h);
-    ctx.fillRect(r.x + r.w - 3, r.y, 3, r.h);
-    var y;
-    for (y = r.y + 6; y < r.y + r.h; y += 8) ctx.fillRect(r.x + 3, y, r.w - 6, 1);
-  } else {
-    ctx.fillStyle = "#8a5436";
-    roundRect(ctx, r.x, r.y, r.w, r.h, 8);
-    ctx.fill();
+  for (i = 0; i < rects.length; i++) {
+    br = rects[i];
+    img = null;
+    if (br.id === "rope" && Art.ropeBridge) img = Art.ropeBridge(br.w, br.h);
+    else if (br.id === "pier" && Art.dockDeck) img = Art.dockDeck(br.w, br.h);
+    if (img) ctx.drawImage(img, br.x, br.y, br.w, br.h);
   }
   ctx.restore();
 };
-
-function roundRect(ctx, x, y, w, h, rad) {
-  var r = Math.min(rad, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
 
 SF.drawPropArt = function (ctx, prop, lit) {
   if (!window.Art || !Art.sprite) return false;
@@ -1173,8 +1150,8 @@ SF.drawPropArt = function (ctx, prop, lit) {
   Art.sprite(ctx, id, prop.x, prop.y, { scale: sc, frame: 0, facing: "down" });
   if (prop.kind === "cottage") {
     var t = SF.reduceMotion ? 0.35 : (SF.anim || 0);
-    var sx = prop.x + 40;
-    var sy = prop.y - 116;
+    var sx = prop.x + 30;
+    var sy = prop.y - 86;
     var i, puff;
     ctx.save();
     for (i = 0; i < 3; i++) {
@@ -1896,6 +1873,9 @@ SF.drawBobber = function (ctx, x, y) {
 
 SF.entityList = function (s) {
   var list = [];
+  if (window.Art && Art.landmarkDraws) {
+    Art.landmarkDraws().forEach(function (item) { list.push(item); });
+  }
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!s.flags.lampLit;
   SF.PROPS.forEach(function (prop) {
     list.push({ y: prop.y, draw: function (ctx) { SF.drawProp(ctx, prop, lit); } });

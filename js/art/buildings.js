@@ -1,0 +1,913 @@
+"use strict";
+
+// Act 1 structures. Sprites are 1:1 with the field (Art.fieldScale is 1).
+// The hero is about 20×28. Maren's cottage rises about three of those
+// (ridge to feet ~84px, chimney cap included ~89px).
+// Cottage and workshop chimneys sit on the smoke point in draw.js:
+// world (prop.x + 30, prop.y - 86) → sprite (ax + 30, ay - 86).
+// The great lamp's crystal center is ay - 136, so the existing halo
+// (crystalY = lamp.y - 126, sprite drawn at y + 10) lands on the gem.
+(function () {
+  var C = Art.C;
+  var plot = Art.plot;
+  var fill = Art.fill;
+
+  function prop(id, maker) {
+    Art.add(id, function () {
+      var s = maker();
+      Art.outline(s);
+      return s;
+    }, 2, 1);
+  }
+
+  function line(s, x0, y0, x1, y1, c) {
+    var n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) | 0;
+    var i;
+    if (!n) {
+      plot(s, x0, y0, c);
+      return;
+    }
+    for (i = 0; i <= n; i++) {
+      plot(s, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c);
+    }
+  }
+
+  function disc(s, cx, cy, r, c) {
+    var y, x;
+    for (y = -r; y <= r; y++) {
+      for (x = -r; x <= r; x++) {
+        if (x * x + y * y <= r * r + r * 0.35) plot(s, cx + x, cy + y, c);
+      }
+    }
+  }
+
+  function fillPoly(s, pts, cFn) {
+    var i, y, minY = 9999, maxY = -9999;
+    for (i = 0; i < pts.length; i++) {
+      if (pts[i][1] < minY) minY = pts[i][1];
+      if (pts[i][1] > maxY) maxY = pts[i][1];
+    }
+    for (y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
+      var nodes = [];
+      var j = pts.length - 1;
+      for (i = 0; i < pts.length; i++) {
+        var yi = pts[i][1], yj = pts[j][1];
+        var xi = pts[i][0], xj = pts[j][0];
+        if ((yi <= y && yj > y) || (yj <= y && yi > y)) {
+          nodes.push(xi + (y - yi) * (xj - xi) / (yj - yi));
+        }
+        j = i;
+      }
+      nodes.sort(function (a, b) { return a - b; });
+      var n, x, x0, x1, c;
+      for (n = 0; n + 1 < nodes.length; n += 2) {
+        x0 = Math.ceil(nodes[n]);
+        x1 = Math.floor(nodes[n + 1]);
+        for (x = x0; x <= x1; x++) {
+          c = typeof cFn === "function" ? cFn(x, y) : cFn;
+          if (c) plot(s, x, y, c);
+        }
+      }
+    }
+  }
+
+  function spanAt(y, peak, left, right) {
+    if (y < peak[1] || y > left[1]) return null;
+    var t = (y - peak[1]) / (left[1] - peak[1] || 1);
+    return [
+      peak[0] + (left[0] - peak[0]) * t,
+      peak[0] + (right[0] - peak[0]) * t
+    ];
+  }
+
+  function roofCap(s, peak, left, right, thick, colorFn) {
+    var y, y1 = left[1];
+    for (y = peak[1]; y <= y1; y++) {
+      var span = spanAt(y, peak, left, right);
+      if (!span) continue;
+      var x, x0 = Math.ceil(span[0]), x1 = Math.floor(span[1]);
+      for (x = x0; x <= x1; x++) {
+        var edge = Math.min(x - span[0], span[1] - x);
+        var base = y1 - y;
+        if (edge > thick && base > thick) continue;
+        plot(s, x, y, colorFn(x, y, edge, base));
+      }
+    }
+  }
+
+  function thatchTone(x, y, cx) {
+    var row = Math.floor(y / 3);
+    var shift = (row & 1) ? 3 : 0;
+    var along = (x + shift) % 6;
+    var right = x > cx + 8;
+    if (along === 5 || y % 3 === 2) return right ? C.woodD : C.wood;
+    if (right) return (x + row) % 2 ? C.pathD : C.goldD;
+    return (x + row) % 2 ? C.pathL : C.sand;
+  }
+
+  function shingleTone(x, y, cx) {
+    var row = (y % 4) === 0;
+    var course = Math.floor((x + (Math.floor(y / 4) & 1 ? 3 : 0)) / 5);
+    var right = x > cx + 2;
+    if (row) return right ? C.ink : C.stoneD;
+    if ((course + y) % 5 === 0) return right ? C.ashD : C.ash;
+    return right ? C.stoneD : (course % 2 ? C.stone : C.stoneL);
+  }
+
+  function stoneCourses(s, x, y, w, h, lite, mid, dark) {
+    var row, col, yy, xx, shade;
+    for (yy = 0; yy < h; yy++) {
+      row = Math.floor(yy / 4);
+      for (xx = 0; xx < w; xx++) {
+        col = xx + (row & 1 ? 2 : 0);
+        shade = mid;
+        if (yy % 4 === 0) shade = dark;
+        else if (col % 7 === 0) shade = dark;
+        else if (xx < 2 || yy % 4 === 1) shade = lite;
+        plot(s, x + xx, y + yy, shade);
+      }
+    }
+  }
+
+  function timberPost(s, x, y, h, lite, mid, dark) {
+    fill(s, x, y, 3, h, mid);
+    fill(s, x, y, 1, h, lite);
+    fill(s, x + 2, y, 1, h, dark);
+  }
+
+  function timberBeam(s, x, y, w) {
+    fill(s, x, y, w, 3, C.wood);
+    fill(s, x, y, w, 1, C.woodL);
+    fill(s, x, y + 2, w, 1, C.woodD);
+  }
+
+  function windowLit(s, x, y, w, h, warm) {
+    fill(s, x - 1, y - 1, w + 2, h + 2, C.woodD);
+    fill(s, x, y, w, h, warm ? C.goldD : C.winD);
+    fill(s, x, y, w, 1, C.wood);
+    fill(s, x, y, 1, h, C.wood);
+    var glass = warm ? C.warm : C.win;
+    var hot = warm ? C.lite : C.winL;
+    fill(s, x + 1, y + 1, Math.floor(w / 2) - 1, Math.floor(h / 2) - 1, hot);
+    fill(s, x + Math.floor(w / 2) + 1, y + 1, Math.floor(w / 2) - 2, Math.floor(h / 2) - 1, glass);
+    fill(s, x + 1, y + Math.floor(h / 2) + 1, w - 2, Math.floor(h / 2) - 2, warm ? C.gold : C.winM);
+    fill(s, x + Math.floor(w / 2), y, 1, h, C.woodD);
+    fill(s, x, y + Math.floor(h / 2), w, 1, C.woodD);
+    if (warm) plot(s, x + 2, y + 2, C.white);
+  }
+
+  function flowerBox(s, x, y, w) {
+    fill(s, x, y, w, 4, C.wood);
+    fill(s, x, y, w, 1, C.woodL);
+    fill(s, x, y + 3, w, 1, C.woodD);
+    plot(s, x + 2, y - 1, C.leaf);
+    plot(s, x + 3, y - 2, C.bloom);
+    plot(s, x + 5, y - 1, C.hp);
+    plot(s, x + 7, y - 2, C.gold);
+    plot(s, x + 8, y - 1, C.leafL);
+    plot(s, x + w - 3, y - 1, C.bloom);
+  }
+
+  function bloomAt(s, x, y, petal) {
+    plot(s, x, y, petal);
+    plot(s, x - 1, y, petal);
+    plot(s, x + 1, y, petal);
+    plot(s, x, y - 1, petal);
+    plot(s, x, y + 1, C.gold);
+    plot(s, x, y + 2, C.leafD);
+    plot(s, x, y + 3, C.leaf);
+  }
+
+  function door(s, x, y, w, h, openGlow) {
+    fill(s, x - 1, y, w + 2, h, C.woodD);
+    var i;
+    for (i = 0; i < w; i += 4) fill(s, x + i, y + 1, 3, h - 2, i % 8 ? C.wood : C.woodL);
+    fill(s, x, y + Math.floor(h * 0.45), w, 1, C.woodD);
+    plot(s, x + w - 3, y + Math.floor(h * 0.48), C.gold);
+    plot(s, x + w - 3, y + Math.floor(h * 0.48) + 1, C.goldD);
+    fill(s, x - 2, y + h - 2, w + 4, 2, C.stone);
+    if (openGlow) {
+      fill(s, x + 2, y + 3, w - 4, h - 8, C.ember);
+      fill(s, x + 4, y + 6, w - 8, h - 14, C.emberH);
+      plot(s, x + Math.floor(w / 2), y + 8, C.white);
+    }
+  }
+
+  // Mouth of the flue is the smoke origin. mx/my are sprite pixels.
+  function chimney(s, mx, my, lit) {
+    var x = mx - 5;
+    var y = my - 3;
+    stoneCourses(s, x, y + 6, 10, 26, C.stoneL, C.stone, C.stoneD);
+    fill(s, x - 1, y + 2, 12, 4, C.stoneD);
+    fill(s, x, y + 3, 10, 2, C.stone);
+    fill(s, x + 2, y + 1, 6, 3, C.void);
+    plot(s, mx, my, lit ? C.ember : C.ashD);
+    plot(s, mx - 1, my, C.ashD);
+    plot(s, mx + 1, my, C.ink);
+    plot(s, mx, my + 1, lit ? C.emberH : C.ash);
+  }
+
+  function ivy(s, x, y0, y1) {
+    var y;
+    for (y = y0; y <= y1; y += 3) {
+      plot(s, x, y, C.leafD);
+      plot(s, x + ((y >> 1) & 1 ? 1 : -1), y + 1, C.leaf);
+      if ((y % 6) === 0) plot(s, x + 1, y, C.leafL);
+    }
+  }
+
+  function massRoof(s, peak, left, right, tone) {
+    var y, x, span, x0, x1, drop;
+    for (y = peak[1]; y <= left[1] + 3; y++) {
+      span = spanAt(Math.min(y, left[1]), peak, left, right);
+      if (!span) continue;
+      drop = y > left[1] ? y - left[1] : 0;
+      x0 = Math.ceil(span[0]) - 3 + drop;
+      x1 = Math.floor(span[1]) + 3 - drop;
+      for (x = x0; x <= x1; x++) {
+        if (drop && ((x + y) % 5 === 0)) continue;
+        plot(s, x, y, tone(x, y, x <= span[0] + 1 || x >= span[1] - 1));
+      }
+    }
+  }
+
+  function dwelling(kind) {
+    var home = kind === "home";
+    var s = Art.spr(128, 98);
+    var ax = 62;
+    var ay = 92;
+    var wall = home ? C.cream : C.ashL;
+    var wallD = home ? C.sand : C.ash;
+    var side = home ? C.path : C.ash;
+    var peak = [62, 8];
+    var eaveL = [10, 46];
+    var eaveR = [114, 46];
+
+    // Receding side wall, then the front under the eave. The gable is roof.
+    fillPoly(s, [[6, 56], [22, 48], [22, ay - 2], [10, ay - 2]], function (x) {
+      return x < 12 ? C.stoneD : side;
+    });
+    fill(s, 22, 48, 54, 42, wall);
+    fill(s, 70, 48, 40, 42, wallD);
+    fill(s, 22, 48, 88, 3, home ? C.pathD : C.ink);
+
+    massRoof(s, peak, eaveL, eaveR, function (x, y, edge) {
+      if (edge) return C.woodD;
+      return home ? thatchTone(x, y, 62) : shingleTone(x, y, 62);
+    });
+    timberPost(s, 8, 56, 32, C.woodD, C.woodD, C.ink);
+    timberBeam(s, 6, 54, 14);
+
+    if (home) windowLit(s, 52, 22, 12, 10, true);
+
+    stoneCourses(s, 18, 82, 92, 10, C.stoneL, C.stone, C.stoneD);
+    stoneCourses(s, 8, 88, 14, 4, C.stone, C.stoneD, C.ink);
+    timberPost(s, 24, 50, 32, C.woodL, C.wood, C.woodD);
+    timberPost(s, 42, 62, 20, C.woodL, C.wood, C.woodD);
+    timberPost(s, 86, 62, 20, C.wood, C.woodD, C.ink);
+    timberPost(s, 104, 50, 32, C.wood, C.woodD, C.ink);
+    timberBeam(s, 24, 50, 82);
+    timberBeam(s, 24, 78, 82);
+    line(s, 28, 76, 38, 52, C.woodD);
+    line(s, 100, 76, 90, 52, C.wood);
+
+    if (home) {
+      windowLit(s, 28, 58, 12, 12, true);
+      windowLit(s, 88, 58, 12, 12, true);
+      flowerBox(s, 26, 71, 16);
+      flowerBox(s, 86, 71, 16);
+    } else {
+      windowLit(s, 28, 60, 12, 10, false);
+      fill(s, 88, 56, 14, 12, C.ashD);
+      plot(s, 91, 60, C.ink);
+      plot(s, 96, 63, C.ember);
+      plot(s, 99, 58, C.rock);
+    }
+
+    massRoof(s, [62, 66], [40, 74], [86, 74], function (x, y, edge) {
+      if (edge) return C.woodD;
+      return home ? thatchTone(x, y, 62) : shingleTone(x, y, 62);
+    });
+    timberPost(s, 40, 74, 14, C.woodL, C.wood, C.woodD);
+    timberPost(s, 82, 74, 14, C.wood, C.woodD, C.ink);
+    door(s, 56, 74, 12, 16, !home);
+    if (home) {
+      fill(s, 61, 70, 1, 3, C.woodD);
+      fill(s, 59, 72, 5, 3, C.gold);
+      plot(s, 60, 73, C.white);
+      plot(s, 62, 73, C.warm);
+    }
+
+    chimney(s, ax + 30, ay - 86, true);
+    ivy(s, 20, 68, 88);
+
+    if (home) {
+      fill(s, 10, 78, 6, 12, C.wood);
+      fill(s, 10, 78, 6, 1, C.woodL);
+      fill(s, 10, 82, 6, 1, C.metalD);
+      fill(s, 10, 86, 6, 1, C.metal);
+      bloomAt(s, 16, 86, C.bloom);
+      bloomAt(s, 112, 86, C.hp);
+      bloomAt(s, 120, 88, C.gold);
+      plot(s, 6, 90, C.leaf);
+      plot(s, 7, 89, C.leafL);
+      plot(s, 122, 90, C.leafD);
+      plot(s, 34, 91, C.stone);
+      plot(s, 40, 90, C.stoneL);
+      plot(s, 46, 91, C.stoneD);
+    } else {
+      fill(s, 12, 84, 12, 6, C.metalD);
+      fill(s, 14, 82, 8, 3, C.metal);
+      plot(s, 16, 83, C.paper);
+      fill(s, 108, 76, 10, 14, C.woodD);
+      fill(s, 108, 76, 10, 1, C.wood);
+      fill(s, 111, 70, 2, 6, C.wood);
+      plot(s, 114, 74, C.metal);
+      plot(s, 16, 90, C.ember);
+      plot(s, 120, 90, C.ash);
+    }
+
+    s.ax = ax;
+    s.ay = ay;
+    return s;
+  }
+
+  function diamond(s, cx, cy, rx, ry, cFn) {
+    var y, x, w;
+    for (y = -ry; y <= ry; y++) {
+      w = Math.round(rx * (1 - Math.abs(y) / (ry + 0.01)));
+      for (x = -w; x <= w; x++) plot(s, cx + x, cy + y, cFn(x, y, w));
+    }
+  }
+
+  var LAMP_PAL = {
+    lit: { glass: C.goldD, glassHi: C.warm, hot: C.white, mid: C.lite, edge: C.gold, deep: C.goldD, catch: C.warm },
+    cold: { glass: C.violetD, glassHi: C.violet, hot: C.core, mid: C.violet, edge: C.hush, deep: C.violetD, catch: C.core }
+  };
+
+  // Wide iron crown. Crystal center stays on row ay - 136.
+  function greatLamp(lit) {
+    var s = Art.spr(72, 160);
+    var ax = 36;
+    var ay = 152;
+    var cy = ay - 136;
+    var pal = lit ? LAMP_PAL.lit : LAMP_PAL.cold;
+    stoneCourses(s, 16, 138, 40, 13, C.stoneL, C.stone, C.stoneD);
+    fill(s, 12, 148, 48, 4, C.stoneD);
+    fill(s, 22, 132, 28, 8, C.stone);
+    fill(s, 33, 36, 6, 98, C.woodD);
+    fill(s, 33, 36, 2, 98, C.wood);
+    fill(s, 37, 36, 2, 98, C.ink);
+    var band;
+    for (band = 50; band < 128; band += 18) {
+      fill(s, 28, band, 16, 3, C.metalD);
+      fill(s, 28, band, 16, 1, C.metal);
+      plot(s, 30, band + 1, lit ? C.gold : C.stoneL);
+    }
+    fill(s, 10, cy + 12, 52, 10, C.metalD);
+    fill(s, 14, cy + 13, 44, 3, C.metal);
+    fill(s, 18, cy + 10, 36, 4, C.woodD);
+    fill(s, 4, cy - 10, 64, 6, C.metal);
+    fill(s, 4, cy - 10, 64, 1, C.paper);
+    fill(s, 14, 2, 44, 5, C.metalD);
+    fill(s, 24, 1, 24, 3, C.metal);
+    plot(s, ax, 1, lit ? C.lite : C.violet);
+    line(s, 12, cy - 4, 2, cy + 6, C.metal);
+    line(s, 13, cy - 3, 3, cy + 7, C.metalD);
+    line(s, 60, cy - 4, 69, cy + 6, C.metalD);
+    line(s, 59, cy - 3, 68, cy + 7, C.ink);
+    plot(s, 2, cy + 7, lit ? C.gold : C.violet);
+    plot(s, 69, cy + 7, lit ? C.warm : C.violetD);
+    fill(s, 12, cy - 6, 3, 22, C.metal);
+    fill(s, 57, cy - 6, 3, 22, C.metalD);
+    fill(s, 34, cy - 4, 4, 16, C.metalD);
+    diamond(s, ax, cy, 14, 9, function (x, y) {
+      var m = Math.abs(x) * 0.65 + Math.abs(y);
+      if (m <= 1.4) return pal.hot;
+      if (m <= 3.6) return pal.mid;
+      if (x > 4) return pal.deep;
+      if (x < -2) return pal.glassHi;
+      return pal.edge;
+    });
+    if (lit) {
+      plot(s, ax, cy - 1, C.white);
+      plot(s, ax - 2, cy, C.white);
+      plot(s, ax + 3, cy + 1, C.lite);
+      plot(s, ax, cy + 2, C.warm);
+      plot(s, 16, cy, C.gold);
+      plot(s, 55, cy + 1, C.lite);
+      plot(s, 18, cy + 5, C.warm);
+      plot(s, 52, cy + 4, C.gold);
+      plot(s, 22, cy - 3, C.lite);
+      plot(s, 48, cy - 2, C.warm);
+    } else {
+      plot(s, ax, cy, C.core);
+      plot(s, ax + 2, cy + 2, C.violetD);
+      plot(s, ax - 3, cy + 1, C.violet);
+    }
+    s.ax = ax;
+    s.ay = ay;
+    return s;
+  }
+
+  function pathLamp(lit) {
+    var s = Art.spr(18, 40);
+    var pal = lit ? LAMP_PAL.lit : LAMP_PAL.cold;
+    fill(s, 4, 34, 10, 4, C.stone);
+    fill(s, 3, 37, 12, 1, C.stoneD);
+    fill(s, 8, 20, 2, 15, C.woodD);
+    fill(s, 8, 20, 1, 15, C.wood);
+    fill(s, 5, 10, 8, 12, C.metalD);
+    fill(s, 6, 11, 6, 10, pal.glass);
+    fill(s, 6, 11, 1, 10, C.metal);
+    fill(s, 11, 11, 1, 10, C.metalD);
+    fill(s, 5, 8, 8, 3, C.metal);
+    fill(s, 5, 8, 8, 1, C.paper);
+    plot(s, 8, 6, C.metal);
+    plot(s, 8, 5, lit ? C.lite : C.violet);
+    diamond(s, 9, 15, 3, 5, function (x, y) {
+      if (Math.abs(x) + Math.abs(y) <= 1) return pal.hot;
+      return x < 0 ? pal.glassHi : pal.edge;
+    });
+    if (lit) plot(s, 9, 14, C.white);
+    s.ax = 9;
+    s.ay = 38;
+    return s;
+  }
+
+  function hut() {
+    var s = Art.spr(56, 72);
+    var ax = 28;
+    var ay = 66;
+    var peak = [28, 12];
+    var eaveL = [8, 32];
+    var eaveR = [48, 32];
+    fillPoly(s, [peak, eaveL, eaveR], C.sand);
+    fill(s, 12, 32, 28, 28, C.sand);
+    fill(s, 32, 32, 12, 28, C.pathD);
+    roofCap(s, peak, eaveL, eaveR, 7, function (x, y, edge) {
+      if (edge < 1.2) return C.woodD;
+      return thatchTone(x, y, 28);
+    });
+    fill(s, 8, 32, 40, 2, C.woodD);
+    stoneCourses(s, 10, 54, 36, 12, C.stoneL, C.stone, C.stoneD);
+    timberPost(s, 12, 34, 20, C.woodL, C.wood, C.woodD);
+    timberPost(s, 40, 34, 20, C.wood, C.woodD, C.ink);
+    timberBeam(s, 12, 34, 30);
+    windowLit(s, 16, 38, 8, 10, true);
+    door(s, 28, 42, 8, 20, false);
+    line(s, 42, 38, 50, 46, C.paper);
+    line(s, 44, 38, 52, 46, C.sand);
+    line(s, 42, 42, 50, 40, C.paper);
+    line(s, 44, 44, 50, 42, C.woodL);
+    stoneCourses(s, 36, 6, 8, 14, C.stoneL, C.stone, C.stoneD);
+    fill(s, 35, 4, 10, 3, C.stoneD);
+    fill(s, 38, 5, 4, 2, C.void);
+    bloomAt(s, 8, 62, C.gold);
+    s.ax = ax;
+    s.ay = ay;
+    return s;
+  }
+
+  function skiff() {
+    var s = Art.spr(78, 52);
+    var y, x, strake;
+    fillPoly(s, [[6, 30], [14, 22], [58, 22], [70, 28], [72, 36], [62, 42], [12, 42], [4, 34]], function (x, y) {
+      strake = Math.floor((y - 22) / 4);
+      if (y > 38) return C.woodD;
+      if (y % 4 === 2) return C.woodD;
+      if (x > 56) return strake % 2 ? C.tealD : C.wood;
+      if (x < 18) return strake % 2 ? C.pathD : C.woodL;
+      if ((x + strake * 5) % 11 === 0) return C.goldD;
+      return strake % 2 ? C.wood : C.path;
+    });
+    fill(s, 14, 22, 48, 2, C.woodL);
+    for (x = 16; x < 64; x += 7) plot(s, x, 30, C.metalD);
+    line(s, 44, 32, 60, 38, C.ink);
+    plot(s, 58, 39, C.woodD);
+    plot(s, 16, 40, C.tide);
+    plot(s, 24, 41, C.stoneL);
+    plot(s, 34, 40, C.tideD);
+    plot(s, 48, 41, C.foam);
+    fill(s, 32, 4, 2, 22, C.woodD);
+    fill(s, 32, 4, 1, 22, C.wood);
+    fill(s, 20, 6, 26, 2, C.wood);
+    fillPoly(s, [[34, 8], [58, 14], [56, 30], [34, 28]], function (x, y) {
+      if (x > 50 && y > 18 && y < 26) return C.shard;
+      if ((x + y) % 9 === 0) return C.sand;
+      return (y % 5 === 0) ? C.paper : C.cream;
+    });
+    line(s, 40, 12, 48, 24, C.sand);
+    plot(s, 52, 20, C.shardH);
+    plot(s, 53, 22, C.lite);
+    plot(s, 35, 8, C.scarf);
+    plot(s, 36, 9, C.gold);
+    plot(s, 37, 8, C.scarf);
+    disc(s, 22, 32, 3, C.path);
+    plot(s, 22, 32, C.woodD);
+    line(s, 8, 24, 2, 16, C.pathD);
+    disc(s, 2, 14, 2, C.tide);
+    plot(s, 2, 14, C.foam);
+    s.ax = 38;
+    s.ay = 44;
+    return s;
+  }
+
+  function stilt() {
+    var s = Art.spr(36, 52);
+    fill(s, 4, 18, 3, 28, C.woodD);
+    fill(s, 16, 16, 3, 32, C.wood);
+    fill(s, 28, 18, 3, 28, C.woodD);
+    fill(s, 4, 38, 3, 8, C.tideD);
+    fill(s, 16, 40, 3, 8, C.tide);
+    fill(s, 28, 38, 3, 8, C.weedD);
+    plot(s, 5, 37, C.weed);
+    plot(s, 17, 39, C.foam);
+    plot(s, 29, 37, C.tideL);
+    line(s, 6, 26, 17, 32, C.woodD);
+    line(s, 29, 26, 18, 32, C.wood);
+    var x;
+    fill(s, 2, 12, 32, 6, C.wood);
+    for (x = 4; x < 32; x += 4) fill(s, x, 12, 1, 6, C.woodD);
+    fill(s, 2, 12, 32, 1, C.woodL);
+    fill(s, 2, 17, 32, 1, C.woodD);
+    plot(s, 8, 14, C.metalD);
+    plot(s, 18, 15, C.metal);
+    plot(s, 26, 14, C.metalD);
+    fill(s, 22, 9, 6, 3, C.woodL);
+    disc(s, 8, 20, 2, C.path);
+    plot(s, 10, 14, C.goldD);
+    s.ax = 18;
+    s.ay = 48;
+    return s;
+  }
+
+  function stall() {
+    var s = Art.spr(48, 44);
+    timberPost(s, 4, 20, 18, C.woodL, C.wood, C.woodD);
+    timberPost(s, 40, 20, 18, C.wood, C.woodD, C.ink);
+    var x;
+    fill(s, 3, 18, 42, 5, C.wood);
+    for (x = 6; x < 42; x += 5) plot(s, x, 20, C.woodD);
+    fill(s, 3, 18, 42, 1, C.woodL);
+    fillPoly(s, [[2, 18], [24, 4], [46, 18]], function (x, y) {
+      var stripe = Math.floor((x + y) / 3) % 2;
+      return stripe ? C.shawl : C.cream;
+    });
+    fill(s, 2, 17, 44, 2, C.shawlD);
+    fill(s, 8, 24, 8, 6, C.gold);
+    fill(s, 9, 25, 6, 4, C.warm);
+    fill(s, 18, 25, 7, 5, C.scarf);
+    fill(s, 28, 24, 8, 6, C.woodL);
+    plot(s, 30, 26, C.goldD);
+    fill(s, 6, 32, 6, 5, C.woodD);
+    fill(s, 36, 32, 5, 4, C.path);
+    s.ax = 24;
+    s.ay = 40;
+    return s;
+  }
+
+  function raft() {
+    var s = Art.spr(56, 28);
+    var x, y;
+    fill(s, 4, 10, 48, 10, C.wood);
+    for (x = 6; x < 50; x += 5) fill(s, x, 10, 1, 10, C.woodD);
+    fill(s, 4, 10, 48, 1, C.woodL);
+    fill(s, 4, 19, 48, 1, C.woodD);
+    fill(s, 8, 14, 10, 1, C.pathL);
+    fill(s, 34, 13, 12, 1, C.goldD);
+    plot(s, 12, 15, C.metalD);
+    plot(s, 24, 16, C.metal);
+    plot(s, 40, 14, C.metalD);
+    for (y = 10; y <= 18; y += 3) {
+      plot(s, 8, y, C.path);
+      plot(s, 46, y, C.pathD);
+    }
+    fill(s, 14, 5, 8, 6, C.woodL);
+    fill(s, 34, 4, 12, 7, C.violetD);
+    plot(s, 36, 6, C.gold);
+    plot(s, 42, 7, C.goldD);
+    plot(s, 18, 20, C.tide);
+    plot(s, 30, 21, C.foam);
+    s.ax = 28;
+    s.ay = 22;
+    return s;
+  }
+
+  function wreckhull() {
+    var s = Art.spr(56, 40);
+    fillPoly(s, [[6, 20], [16, 14], [40, 16], [50, 24], [44, 32], [8, 32]], C.woodD);
+    var x;
+    for (x = 12; x < 44; x += 4) fill(s, x, 16, 1, 14, C.ink);
+    fill(s, 14, 20, 16, 2, C.ash);
+    fill(s, 8, 30, 36, 3, C.rock);
+    fill(s, 18, 6, 3, 16, C.wood);
+    fill(s, 32, 4, 2, 18, C.bone);
+    plot(s, 32, 4, C.stoneL);
+    plot(s, 20, 26, C.tide);
+    plot(s, 28, 28, C.weed);
+    plot(s, 36, 27, C.foam);
+    plot(s, 22, 18, C.goldD);
+    line(s, 6, 18, 20, 10, C.wood);
+    s.ax = 28;
+    s.ay = 34;
+    return s;
+  }
+
+  function gatearch() {
+    var s = Art.spr(52, 80);
+    stoneCourses(s, 4, 22, 12, 52, C.stoneL, C.stone, C.stoneD);
+    stoneCourses(s, 36, 22, 12, 52, C.stone, C.stoneD, C.ink);
+    stoneCourses(s, 4, 10, 44, 14, C.stoneL, C.stone, C.stoneD);
+    fill(s, 16, 24, 20, 48, C.void);
+    var y;
+    for (y = 28; y < 68; y += 6) {
+      fill(s, 18, y, 16, 1, C.metalD);
+      plot(s, 20, y, C.metal);
+    }
+    fill(s, 24, 24, 2, 46, C.metal);
+    fill(s, 10, 16, 4, 6, C.gold);
+    fill(s, 38, 16, 4, 6, C.goldD);
+    plot(s, 11, 18, C.lite);
+    plot(s, 39, 18, C.warm);
+    plot(s, 26, 14, C.gold);
+    s.ax = 26;
+    s.ay = 74;
+    return s;
+  }
+
+  function ruin() {
+    var s = Art.spr(52, 48);
+    var cols = [14, 18, 26, 30, 22, 36, 34, 16, 12, 24, 18, 10];
+    var i, h, x;
+    for (i = 0; i < cols.length; i++) {
+      h = cols[i];
+      x = 4 + i * 4;
+      stoneCourses(s, x, 42 - h, 4, h, C.stoneL, i > 7 ? C.stoneD : C.stone, C.stoneD);
+      if (h > 20 && (i === 5 || i === 6)) fill(s, x + 1, 42 - h + 6, 2, 8, C.void);
+    }
+    fill(s, 8, 34, 22, 4, C.stoneD);
+    fill(s, 8, 34, 22, 1, C.stone);
+    plot(s, 16, 16, C.leafD);
+    plot(s, 17, 15, C.leaf);
+    plot(s, 18, 17, C.leafL);
+    plot(s, 34, 10, C.leaf);
+    plot(s, 40, 22, C.ember);
+    s.ax = 26;
+    s.ay = 44;
+    return s;
+  }
+
+  function lair() {
+    var s = Art.spr(96, 72);
+    var cx = 48;
+    var y, x, dx, dy, dist, band, col;
+    for (y = 8; y <= 64; y++) {
+      for (x = 6; x <= 90; x++) {
+        dx = x - cx;
+        dy = (y - 48) * 1.05;
+        dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 40 || dist < 8 && y > 60) continue;
+        if (dist < 22 && y < 60) {
+          if (dist < 8) col = C.ember;
+          else if (dist < 13) col = C.vestD;
+          else col = C.void;
+        } else {
+          band = (x * 2 + y) % 9;
+          col = band < 2 ? C.stoneL : (band > 6 ? C.stoneD : C.stone);
+          if (y < 18) col = band > 5 ? C.ashD : C.rock;
+          if (dist > 34) col = C.stoneD;
+        }
+        plot(s, x, y, col);
+      }
+    }
+    fillPoly(s, [[34, 58], [40, 40], [46, 58]], C.bone);
+    fillPoly(s, [[52, 58], [58, 42], [64, 58]], C.stoneL);
+    plot(s, 41, 46, C.paper);
+    plot(s, 57, 48, C.stone);
+    fill(s, 28, 18, 40, 3, C.ashD);
+    plot(s, 36, 16, C.ember);
+    plot(s, 60, 15, C.vestD);
+    stoneCourses(s, 16, 60, 64, 6, C.stone, C.stoneD, C.ink);
+    s.ax = 48;
+    s.ay = 66;
+    return s;
+  }
+
+  function vaultDoor() {
+    var s = Art.spr(40, 68);
+    stoneCourses(s, 2, 8, 36, 54, C.stoneL, C.stone, C.stoneD);
+    fill(s, 8, 16, 24, 40, C.stoneD);
+    fill(s, 10, 18, 20, 36, C.rock);
+    fill(s, 8, 26, 24, 2, C.metalD);
+    fill(s, 8, 40, 24, 2, C.metal);
+    disc(s, 20, 32, 6, C.ember);
+    disc(s, 20, 32, 4, C.vestD);
+    disc(s, 20, 32, 2, C.emberH);
+    plot(s, 20, 32, C.white);
+    line(s, 12, 20, 16, 28, C.ashD);
+    line(s, 28, 22, 22, 30, C.ink);
+    fill(s, 16, 8, 8, 4, C.stoneL);
+    s.ax = 20;
+    s.ay = 62;
+    return s;
+  }
+
+  function bench() {
+    var s = Art.spr(32, 16);
+    fill(s, 2, 4, 28, 4, C.woodL);
+    fill(s, 2, 7, 28, 1, C.wood);
+    fill(s, 2, 4, 28, 1, C.pathL);
+    var x;
+    for (x = 6; x < 28; x += 5) plot(s, x, 6, C.woodD);
+    fill(s, 3, 8, 2, 5, C.woodD);
+    fill(s, 27, 8, 2, 5, C.wood);
+    fill(s, 14, 8, 2, 4, C.woodD);
+    s.ax = 16;
+    s.ay = 14;
+    return s;
+  }
+
+  function fallenPlank() {
+    var s = Art.spr(28, 12);
+    fill(s, 2, 3, 22, 5, C.wood);
+    fill(s, 2, 3, 22, 1, C.woodL);
+    fill(s, 2, 7, 22, 1, C.woodD);
+    plot(s, 6, 5, C.metalD);
+    plot(s, 12, 6, C.metal);
+    plot(s, 18, 5, C.woodD);
+    plot(s, 23, 4, C.woodL);
+    plot(s, 24, 6, C.woodD);
+    plot(s, 8, 4, C.goldD);
+    s.ax = 14;
+    s.ay = 8;
+    return s;
+  }
+
+  function innLantern() {
+    var s = Art.spr(18, 36);
+    fill(s, 8, 14, 2, 16, C.woodD);
+    fill(s, 4, 28, 10, 3, C.wood);
+    fill(s, 5, 4, 8, 12, C.gold);
+    fill(s, 6, 5, 6, 10, C.warm);
+    fill(s, 6, 5, 3, 5, C.lite);
+    plot(s, 8, 8, C.white);
+    fill(s, 4, 3, 10, 2, C.metalD);
+    fill(s, 8, 1, 2, 3, C.metal);
+    plot(s, 4, 10, C.goldD);
+    plot(s, 13, 10, C.goldD);
+    s.ax = 9;
+    s.ay = 32;
+    return s;
+  }
+
+  function quayBell() {
+    var s = Art.spr(18, 40);
+    fill(s, 8, 14, 2, 20, C.woodD);
+    fill(s, 3, 30, 12, 3, C.wood);
+    fill(s, 2, 8, 14, 2, C.wood);
+    fill(s, 8, 4, 2, 6, C.metalD);
+    fill(s, 4, 10, 10, 10, C.gold);
+    fill(s, 4, 10, 3, 8, C.warm);
+    fill(s, 11, 12, 3, 8, C.goldD);
+    fill(s, 3, 18, 12, 2, C.goldD);
+    plot(s, 9, 20, C.metal);
+    plot(s, 9, 14, C.lite);
+    s.ax = 9;
+    s.ay = 36;
+    return s;
+  }
+
+  function ropeBridgeSprite(w, h) {
+    var s = Art.spr(w, h);
+    function ropeAt(y, side) {
+      var t = (y - 4) / (h - 8);
+      var sag = Math.sin(Math.max(0, Math.min(1, t)) * Math.PI) * Math.max(3, w * 0.08);
+      return side < 0 ? 3 + sag : w - 4 - sag;
+    }
+    var y, x, py, lx, rx, shorten;
+    for (y = 2; y < h - 2; y++) {
+      lx = ropeAt(y, -1) | 0;
+      rx = ropeAt(y, 1) | 0;
+      plot(s, lx, y, C.woodD);
+      plot(s, lx + 1, y, C.path);
+      plot(s, rx, y, C.woodD);
+      plot(s, rx - 1, y, C.pathD);
+    }
+    for (y = 6; y < h - 8; y += 8) {
+      lx = (ropeAt(y, -1) | 0) + 4;
+      rx = (ropeAt(y, 1) | 0) - 4;
+      shorten = (y % 24) === 16 ? 3 : 0;
+      for (py = 0; py < 4; py++) {
+        for (x = lx + shorten; x <= rx; x++) {
+          var c = py === 0 ? C.woodL : (py === 3 ? C.woodD : ((x % 7 === 0) ? C.woodD : C.wood));
+          if ((x + y) % 17 === 0) c = C.goldD;
+          plot(s, x, y + py, c);
+        }
+      }
+      plot(s, lx + 1, y + 1, C.metalD);
+      plot(s, rx - 2, y + 2, C.metal);
+    }
+    fill(s, 1, 1, 4, 8, C.woodD);
+    fill(s, w - 5, 1, 4, 8, C.wood);
+    fill(s, 1, h - 9, 4, 8, C.woodD);
+    fill(s, w - 5, h - 9, 4, 8, C.wood);
+    plot(s, 2, 3, C.metal);
+    plot(s, w - 3, 3, C.metalD);
+    s.ax = 0;
+    s.ay = 0;
+    return s;
+  }
+
+  function dockDeckSprite(w, h) {
+    var s = Art.spr(w, h);
+    var y, x, row, shade, joint;
+    for (y = 0; y < h; y++) {
+      row = Math.floor(y / 6);
+      for (x = 0; x < w; x++) {
+        joint = (x + (row & 1 ? 10 : 0)) % 22 === 0;
+        if (y % 6 === 0) shade = C.woodD;
+        else if (joint) shade = C.ink;
+        else if (y % 6 === 1) shade = (row % 5 === 0) ? C.pathL : C.woodL;
+        else if ((x * 3 + y) % 29 === 0) shade = C.goldD;
+        else if (row % 7 === 3) shade = C.pathD;
+        else shade = C.wood;
+        if (x < 3 || x > w - 4) shade = y % 8 < 5 ? C.woodD : C.tideD;
+        plot(s, x, y, shade);
+      }
+    }
+    for (y = 4; y < h; y += 16) {
+      plot(s, 6, y, C.metalD);
+      plot(s, w - 7, y, C.metal);
+    }
+    if (w > 40 && h > 20) {
+      disc(s, 18, h - 10, 3, C.path);
+      plot(s, 18, h - 10, C.woodD);
+      fill(s, w - 28, 8, 10, 6, C.woodL);
+      plot(s, w - 24, 10, C.gold);
+    }
+    s.ax = 0;
+    s.ay = 0;
+    return s;
+  }
+
+  var bridgeCache = {};
+  Art.ropeBridge = function (w, h) {
+    w = w | 0;
+    h = h | 0;
+    var key = w + "x" + h;
+    if (bridgeCache[key]) return bridgeCache[key];
+    bridgeCache[key] = Art.raster(ropeBridgeSprite(w, h));
+    return bridgeCache[key];
+  };
+
+  var dockCache = {};
+  Art.dockDeck = function (w, h) {
+    w = w | 0;
+    h = h | 0;
+    var key = w + "x" + h;
+    if (dockCache[key]) return dockCache[key];
+    dockCache[key] = Art.raster(dockDeckSprite(w, h));
+    return dockCache[key];
+  };
+
+  prop("lamp_lit", function () { return pathLamp(true); });
+  prop("lamp_cold", function () { return pathLamp(false); });
+  prop("great_lamp", function () { return greatLamp(false); });
+  prop("great_lamp_lit", function () { return greatLamp(true); });
+  prop("cottage", function () { return dwelling("home"); });
+  prop("workshop", function () { return dwelling("forge"); });
+  prop("hut", hut);
+  prop("skiff", skiff);
+  prop("stilt", stilt);
+  prop("stall", stall);
+  prop("raft", raft);
+  prop("wreckhull", wreckhull);
+  prop("gatearch", gatearch);
+  prop("ruin", ruin);
+  prop("lair", lair);
+  prop("vault_door", vaultDoor);
+  prop("bench", bench);
+  prop("plank", fallenPlank);
+  prop("inn", innLantern);
+  prop("bell", quayBell);
+
+  Art.landmarkDraws = function () {
+    var out = [];
+    if (!window.SF || SF.islandId !== "cinderveil") return out;
+    (SF.TEXTS || []).forEach(function (t) {
+      if (t.id === "maw-mouth") {
+        out.push({
+          y: t.y - 6,
+          draw: function (ctx) { Art.sprite(ctx, "lair", t.x, t.y, { scale: 1 }); }
+        });
+      } else if (t.id === "vault-seal") {
+        out.push({
+          y: t.y - 6,
+          draw: function (ctx) { Art.sprite(ctx, "vault_door", t.x, t.y, { scale: 1 }); }
+        });
+      }
+    });
+    return out;
+  };
+})();

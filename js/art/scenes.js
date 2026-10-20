@@ -70,12 +70,24 @@
     return Math.max(2, Math.floor(sc.h * 0.28) - spriteH);
   }
 
+  function fitStamp(sc, id, x, y, maxH) {
+    var canvas = Art.frameOf(id, "walk", "down", 0);
+    var scale = canvas.height > maxH ? maxH / canvas.height : 1;
+    sc.g.drawImage(
+      canvas,
+      x | 0,
+      y | 0,
+      Math.max(1, Math.round(canvas.width * scale)),
+      Math.max(1, Math.round(canvas.height * scale))
+    );
+  }
+
   function meadow(sc) {
     sc.bands(0, Math.floor(sc.h * 0.62), DUSK);
     sc.crack(Math.floor(sc.h * 0.08));
     sc.stamp("tree", 2, propTop(sc, 36), 1);
     sc.stamp("tree", Math.max(2, sc.w - 26), Math.max(2, propTop(sc, 36) - 4), 1);
-    sc.stamp("lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 32), 1);
+    fitStamp(sc, "lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 28), 28);
     ground(sc, "grass", Math.floor(sc.h * 0.58));
     sc.tileRow("path", Math.floor(sc.h * 0.72), 1);
     sc.stamp("flower", 20, Math.floor(sc.h * 0.7), 1);
@@ -88,7 +100,7 @@
     ground(sc, "grass_dark", Math.floor(sc.h * 0.55));
     sc.stamp("rock", 12, Math.floor(sc.h * 0.72), 1);
     sc.stamp("rock", sc.w - 40, Math.floor(sc.h * 0.76), 1);
-    sc.stamp("ruin", Math.floor(sc.w * 0.5) - 10, propTop(sc, 18), 1);
+    fitStamp(sc, "ruin", Math.floor(sc.w * 0.5) - 10, propTop(sc, 22), 22);
   }
 
   function ash(sc) {
@@ -109,7 +121,7 @@
       sc.rect(8 + col * Math.floor(sc.w / 4), 10, 10, Math.floor(sc.h * 0.7), Art.hex(col % 2 ? C.stoneD : C.rock));
     }
     ground(sc, "vault", Math.floor(sc.h * 0.72));
-    sc.stamp("lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 32), 1);
+    fitStamp(sc, "lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 28), 28);
     sc.rect(sc.w / 2 - 6, Math.floor(sc.h * 0.62), 12, 8, Art.hex(C.ember));
     sc.rect(sc.w / 2 - 3, Math.floor(sc.h * 0.64), 6, 4, Art.hex(C.lite));
   }
@@ -123,7 +135,7 @@
     sc.tileRow("plank", y + 16, 1);
     sc.rect(10, y - 28, 3, 30, Art.hex(C.woodD));
     sc.rect(sc.w - 20, y - 36, 3, 38, Art.hex(C.wood));
-    sc.stamp("cottage", 18, y - 34, 1);
+    fitStamp(sc, "cottage", 8, y - 30, 28);
     sc.stamp("sign", sc.w - 36, y - 8, 1);
     sc.rect(4, y + 30, sc.w, sc.h, Art.hex(C.tideD));
   }
@@ -168,7 +180,7 @@
     sc.rect(0, Math.floor(sc.h * 0.6), sc.w, 3, Art.hex(C.woodD));
     sc.rect(4, Math.floor(sc.h * 0.58), 3, 20, Art.hex(C.wood));
     sc.rect(sc.w - 8, Math.floor(sc.h * 0.58), 3, 20, Art.hex(C.wood));
-    sc.stamp("skiff", sc.w / 2 - 24, Math.floor(sc.h * 0.28), 1);
+    fitStamp(sc, "skiff", Math.floor(sc.w * 0.5) - 16, Math.floor(sc.h * 0.34), 22);
   }
 
   var SCENES = {
