@@ -16,18 +16,13 @@ const Art = context.Art;
 const RGB = Art.RGB;
 const ids = ["wayfarer", "kestrel", "tamsin"];
 const cells = [
-  { pose: "stand", frame: 0, facing: "down", label: "FIELD FRONT" },
-  { pose: "stand", frame: 0, facing: "right", label: "FIELD SIDE" },
-  { pose: "idle", frame: 0, label: "IDLE 0" },
-  { pose: "idle", frame: 1, label: "IDLE 1" },
-  { pose: "attack", frame: 0, label: "ATTACK 0" },
-  { pose: "attack", frame: 1, label: "ATTACK 1" },
-  { pose: "cast", frame: 0, label: "CAST 0" },
-  { pose: "cast", frame: 1, label: "CAST 1" },
-  { pose: "hurt", frame: 0, label: "HURT KO 0" },
-  { pose: "hurt", frame: 1, label: "HURT KO 1" },
-  { pose: "victory", frame: 0, label: "VICTORY 0" },
-  { pose: "victory", frame: 1, label: "VICTORY 1" }
+  { pose: "stand", frame: 0, facing: "left", label: "FIELD", zoom: 2 },
+  { pose: "idle", frame: 0, facing: "left", label: "BATTLE IDLE" },
+  { pose: "attack", frame: 1, facing: "left", label: "ATTACK" },
+  { pose: "cast", frame: 1, facing: "left", label: "CAST" },
+  { pose: "hurt", frame: 1, facing: "left", label: "HURT" },
+  { pose: "ko", frame: 0, facing: "left", label: "KO" },
+  { pose: "victory", frame: 1, facing: "left", label: "VICTORY" }
 ];
 const names = { wayfarer: "WAYFARER", kestrel: "KESTREL", tamsin: "TAMSIN" };
 
@@ -41,7 +36,7 @@ const baked = ids.map((id) => {
   if (!foe || foe.h !== 38) throw new Error("enemy battle art changed");
   const field = row[0];
   if (field.h > 38) throw new Error(id + " field sprite grew");
-  console.log(id, "field", field.w + "x" + field.h, "battle", row[2].w + "x" + row[2].h);
+  console.log(id, "field", field.w + "x" + field.h, "battle", row[1].w + "x" + row[1].h);
   return { id, row };
 });
 
@@ -101,14 +96,15 @@ function text(x, y, str) {
     cx += 4;
   }
 }
-function blit(spr, dx, dy) {
+function blit(spr, dx, dy, mag) {
+  const z = zoom * (mag || 1);
   for (let y = 0; y < spr.h; y++) {
     for (let x = 0; x < spr.w; x++) {
       const col = RGB[spr.d[y * spr.w + x]];
       if (!col) continue;
-      for (let sy = 0; sy < zoom; sy++) {
-        for (let sx = 0; sx < zoom; sx++) {
-          plot(dx + x * zoom + sx, dy + y * zoom + sy, col[0], col[1], col[2], 255);
+      for (let sy = 0; sy < z; sy++) {
+        for (let sx = 0; sx < z; sx++) {
+          plot(dx + x * z + sx, dy + y * z + sy, col[0], col[1], col[2], 255);
         }
       }
     }
@@ -120,7 +116,7 @@ baked.forEach((entry, i) => {
   entry.row.forEach((spr, c) => {
     const x = 8 + c * cellW;
     text(x, y0, cells[c].label);
-    blit(spr, x + 4, y0 + labelH);
+    blit(spr, x + 4, y0 + labelH, cells[c].zoom || 1);
   });
 });
 

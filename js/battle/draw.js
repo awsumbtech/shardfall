@@ -93,7 +93,7 @@ function paintBg(ctx, id, w, h, t) {
 
 function battlePose(b, actor) {
   if (b.phase === "result" && b.result && b.result.win && !b.result.fled && actor.side === "party" && actor.alive) return "victory";
-  if (!actor.alive) return "hurt";
+  if (!actor.alive) return "ko";
   var art = b.art;
   if (art && (b.phase === "readout" || b.phase === "between")) {
     if (actor.id === art.id) return art.pose || "attack";
