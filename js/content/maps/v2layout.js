@@ -576,6 +576,23 @@ window.SF = SF;
     { kind: "fence_burnt", x0: 30 * T, y0: 82 * T, x1: 40 * T, y1: 82 * T, n: 3 }
   ]);
 
+  // Ground shards the player can walk to after the lamp reveal, without the
+  // secret alcove, Shardstep, or the hook. Emberhold's lamp costs 5, so there
+  // are extras. Cinderveil's lamp costs 3, so the same.
+  ember.pickups.push(
+    { id: "shard-dock", kind: "shard", x: 90 * T, y: 74 * T },
+    { id: "shard-west", kind: "shard", x: 28 * T, y: 43 * T },
+    { id: "shard-perch", kind: "shard", x: 76 * T, y: 96 * T },
+    { id: "shard-scar", kind: "shard", x: 130 * T, y: 60 * T },
+    { id: "shard-hill", kind: "shard", x: 100 * T, y: 32 * T }
+  );
+  cinder.pickups.push(
+    { id: "shard-ash", kind: "shard", x: 50 * T, y: 58 * T },
+    { id: "shard-quay", kind: "shard", x: 66 * T, y: 92 * T },
+    { id: "shard-cliff", kind: "shard", x: 80 * T, y: 66 * T },
+    { id: "shard-rise", kind: "shard", x: 54 * T, y: 40 * T }
+  );
+
   var landWalkable = SF.walkable;
   SF.walkable = function (x, y) {
     if (!landWalkable(x, y)) return false;

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import vm from "node:vm";
+import { spawnSync } from "node:child_process";
 
 const context = {};
 context.window = context;
@@ -1291,14 +1292,28 @@ const aim = SF.objectivePoint(gather);
 const hook = SF.PICKUPS.find((p) => p.id === "shard-hook");
 const step = SF.PICKUPS.find((p) => p.id === "shard-step");
 if (!aim) fail("gather aim missing");
+if (SF.LAMP && Math.hypot(aim.x - SF.LAMP.x, aim.y - SF.LAMP.y) < 8) fail("gather aim pointed at the lamp early");
 if (hook && Math.hypot(aim.x - hook.x, aim.y - hook.y) < 8) fail("aim pointed at shard-hook");
 if (step && Math.hypot(aim.x - step.x, aim.y - step.y) < 8) fail("aim pointed at shard-step");
-const scar = SF.circle("scar");
-const cinderZone = SF.circle("cinder");
-const onCarrier = (scar && Math.hypot(aim.x - scar.x, aim.y - scar.y) < 8) || (cinderZone && Math.hypot(aim.x - cinderZone.x, aim.y - cinderZone.y) < 8);
-if (!onCarrier) fail("gather aim was not a carrier zone " + aim.x + "," + aim.y);
+let nearShard = null;
+let nearD = Infinity;
+SF.PICKUPS.forEach((p) => {
+  if (p.kind !== "shard" || p.secret || gather.picked[p.id] || !SF.shardReachable(p)) return;
+  const d = Math.hypot(gather.player.x - p.x, gather.player.y - p.y);
+  if (d < nearD) {
+    nearD = d;
+    nearShard = p;
+  }
+});
+if (!nearShard || Math.hypot(aim.x - nearShard.x, aim.y - nearShard.y) > 8) {
+  fail("gather aim was not the nearest shard " + (aim && aim.x) + "," + (aim && aim.y));
+}
+if (nearD > SF.SHARD_GLINT && aim.precise !== false) fail("a far shard should be an edge hint");
 if (SF.shardReachable(hook)) fail("shard-hook reachable before grapple");
 gather.player.grapple = true;
 if (!SF.shardReachable(hook)) fail("shard-hook stayed shut after grapple");
+
+const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit" });
+if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
 console.log("smoke ok");
