@@ -85,17 +85,41 @@ Art.fill = function (s, x, y, w, h, c) {
   }
 };
 
+// One-pixel silhouette outline. Interior gaps stay empty so eyes and folds
+// are not filled in with ink.
 Art.outline = function (s, c) {
   var w = s.w;
   var h = s.h;
   var src = s.d;
   var copy = new Uint8Array(src);
-  var x, y, k, nx, ny;
+  var outside = new Uint8Array(w * h);
+  var stack = [];
   var dirs = [1, 0, -1, 0, 0, 1, 0, -1];
+  function push(x, y) {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    var i = y * w + x;
+    if (copy[i] || outside[i]) return;
+    outside[i] = 1;
+    stack.push(x, y);
+  }
+  var x, y, k, nx, ny;
+  for (x = 0; x < w; x++) {
+    push(x, 0);
+    push(x, h - 1);
+  }
+  for (y = 0; y < h; y++) {
+    push(0, y);
+    push(w - 1, y);
+  }
+  while (stack.length) {
+    y = stack.pop();
+    x = stack.pop();
+    for (k = 0; k < 8; k += 2) push(x + dirs[k], y + dirs[k + 1]);
+  }
   c = c || 1;
   for (y = 0; y < h; y++) {
     for (x = 0; x < w; x++) {
-      if (copy[y * w + x]) continue;
+      if (!outside[y * w + x]) continue;
       for (k = 0; k < 8; k += 2) {
         nx = x + dirs[k];
         ny = y + dirs[k + 1];
@@ -358,6 +382,13 @@ Art.tile = function (ctx, name, x, y, scale) {
 Art.spriteSize = function (id, pose, facing) {
   var canvas = Art.frameOf(id, pose || "walk", facing || "down", 0);
   return { w: canvas.width, h: canvas.height, ax: canvas._ax || 0, ay: canvas._ay || 0 };
+};
+
+// Native source size in pixels for one frame. Battle layout should derive
+// on-screen height from this (w, h, ax, ay), not from a fixed multiplier.
+// Walk and battle poses can differ; bosses are taller in battle poses.
+Art.nativeSize = function (id, pose, facing) {
+  return Art.spriteSize(id, pose || "idle", facing || "right");
 };
 
 Art.ids = function () {
