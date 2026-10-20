@@ -29,6 +29,12 @@ SF.boot = function () {
   function frame(now) {
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    if (SF.portraitLock) {
+      SF.draw();
+      SF.syncUI();
+      requestAnimationFrame(frame);
+      return;
+    }
     SF.update(dt);
     if (SF.feel) {
       try { SF.feel(dt); } catch (err) { /* a sound cue must not stop the frame */ }
@@ -40,36 +46,61 @@ SF.boot = function () {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  }
 };
 
 SF.resizeWrites = 0;
 
+SF.BASE_W = 640;
+SF.BASE_H = 360;
+
 SF.resize = function () {
   var canvas = SF.view;
   if (!canvas) return;
-  var rect = canvas.getBoundingClientRect();
+  var vv = window.visualViewport;
+  var cssW = Math.max(1, Math.round(vv && vv.width ? vv.width : window.innerWidth));
+  var cssH = Math.max(1, Math.round(vv && vv.height ? vv.height : window.innerHeight));
   var dpr = Math.min(window.devicePixelRatio || 1, 3);
-  var w = Math.max(1, Math.round(rect.width));
-  var h = Math.max(1, Math.round(rect.height));
-  var bw = Math.round(w * dpr);
-  var bh = Math.round(h * dpr);
-  var first = !SF._cssW;
-  var cssMoved = first || Math.abs(w - SF._cssW) >= 2 || Math.abs(h - SF._cssH) >= 2;
-  var bufMoved = first || Math.abs(bw - SF._bw) >= 4 || Math.abs(bh - SF._bh) >= 4;
-  if (cssMoved || bufMoved) {
-    if (canvas.width !== bw || canvas.height !== bh) {
-      canvas.width = bw;
-      canvas.height = bh;
-      SF.resizeWrites += 1;
-    }
-    SF._bw = bw;
-    SF._bh = bh;
-    SF._cssW = w;
-    SF._cssH = h;
+  var devW = cssW * dpr;
+  var devH = cssH * dpr;
+  var upright = cssH > cssW * 1.12 && cssW <= 900;
+  document.body.dataset.portrait = upright ? "1" : "0";
+  SF.portraitLock = upright;
+  var scale = Math.max(1, Math.floor(devH / SF.BASE_H));
+  if (SF.debugOverview) scale = 1;
+  var logicalH = SF.debugOverview ? Math.max(SF.BASE_H, Math.floor(devH)) : SF.BASE_H;
+  var logicalW = Math.max(SF.BASE_W, Math.floor(devW / scale));
+  if (SF.debugOverview) logicalW = Math.max(SF.BASE_W, Math.floor(devW));
+  var cssCanvasW = logicalW * scale / dpr;
+  var cssCanvasH = logicalH * scale / dpr;
+  var app = document.getElementById("app");
+  if (app) {
+    app.style.left = Math.round((cssW - cssCanvasW) / 2) + "px";
+    app.style.top = Math.round((cssH - cssCanvasH) / 2) + "px";
+    app.style.width = cssCanvasW + "px";
+    app.style.height = cssCanvasH + "px";
+    app.style.right = "auto";
+    app.style.bottom = "auto";
   }
-  SF.dpr = dpr;
-  SF.viewW = SF._cssW || w;
-  SF.viewH = SF._cssH || h;
+  var bw = Math.round(logicalW * scale);
+  var bh = Math.round(logicalH * scale);
+  if (canvas.width !== bw || canvas.height !== bh) {
+    canvas.width = bw;
+    canvas.height = bh;
+    SF.resizeWrites += 1;
+  }
+  SF._bw = bw;
+  SF._bh = bh;
+  SF._cssW = cssW;
+  SF._cssH = cssH;
+  SF.dpr = scale;
+  SF.pixelScale = scale;
+  SF.viewW = logicalW;
+  SF.viewH = logicalH;
+  SF.zoom = 1;
+  if (SF.touchPrimary) document.body.dataset.touch = SF.touchPrimary() ? "1" : "0";
 
   var map = SF.map;
   if (!map || map.clientWidth < 8 || map.clientHeight < 8) return;

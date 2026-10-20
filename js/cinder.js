@@ -124,6 +124,7 @@ SF.mountIsland = function (id) {
   SF.PATHS = pack.paths;
   SF.HOOKS = pack.hooks || [];
   SF.EXTRAS = pack.extras || [];
+  SF.bounds = pack.bounds || null;
   if (SF.buildWorld) SF.buildWorld();
 };
 
@@ -329,7 +330,12 @@ SF.buyUpgrade = function (id) {
     SF.pushToast("Shardstep has to wake first.", 1.6);
     return;
   }
-  if (s.shardsHeld < def.cost) {
+  var spare = SF.spareShards ? SF.spareShards(s) : s.shardsHeld;
+  if (s.shardsHeld >= def.cost && spare < def.cost) {
+    SF.pushToast("Saved for the lamp.", 1.6);
+    return;
+  }
+  if (spare < def.cost) {
     SF.pushToast("Not enough spare shards.", 1.6);
     return;
   }
@@ -347,9 +353,9 @@ SF.buyUpgrade = function (id) {
 SF.noteZone = function (zone) {
   var s = SF.state;
   if (!s || !zone) return;
-  if (zone.id === "ashnook") s.discovered.ashnook = true;
-  if (zone.id === "vault-heart" || zone.id === "vault-yard") s.discovered.vault = true;
-  if (zone.id === "vault-heart" && s.flags.vaultOpen && s.quest === "trial") s.quest = "seal";
+  if (zone.id === "nook" || zone.id === "ashnook") s.discovered.ashnook = true;
+  if (zone.id === "vault" || zone.id === "vault-heart" || zone.id === "vault-yard") s.discovered.vault = true;
+  if ((zone.id === "vault" || zone.id === "vault-heart") && s.flags.vaultOpen && s.quest === "trial") s.quest = "seal";
 };
 
 SF.cinderQuestText = function (s) {
@@ -428,9 +434,13 @@ SF.cinderObjective = function (s) {
     var ilsa = SF.npcById("ilsa");
     return ilsa ? { x: ilsa.x, y: ilsa.y } : undefined;
   }
-  if (q === "trial") return { x: 1250, y: 20 };
-  if (q === "seal") return { x: 1320, y: 20 };
-  if (q === "maw") return { x: 1380, y: 20 };
+  if (q === "trial" || q === "seal" || q === "maw") {
+    var mouth = null;
+    (SF.TEXTS || []).forEach(function (t) { if (t.id === "maw-mouth") mouth = t; });
+    if (mouth) return { x: mouth.x, y: mouth.y };
+    var spot = SF.spot && SF.spot("maw");
+    return spot || { x: 0, y: 0 };
+  }
   if (q === "relight") return { x: SF.LAMP.x, y: SF.LAMP.y };
   if (q === "cantor") {
     var c = SF.npcById("cantor");
@@ -505,7 +515,7 @@ SF.auditCinder = function () {
   SF.secretVisible = function (pickup) {
     if (!pickup) return false;
     if (pickup.id === "shard-ash-nook" || pickup.id === "bloom-ash-nook") {
-      return !!(SF.state && SF.state.discovered && SF.state.discovered.ashnook);
+      return !!(SF.state && SF.state.flags && SF.state.flags.cogsStarted);
     }
     return baseSecret(pickup);
   };
@@ -587,24 +597,41 @@ SF.CINDER_SHARDS = 3;
     s.flags.metIlsa = true;
     s.flags.vaultOpen = true;
     if (s.quest === "vault" || s.quest === "cogs") s.quest = "trial";
-    if (SF.setCheckpoint) SF.setCheckpoint(1080, 40);
-    else s.checkpoint = { x: 1080, y: 40, island: "cinderveil" };
+    var ledge = SF.spot ? SF.spot("vledge") : null;
+    var lx = ledge ? ledge.x : 98 * 16;
+    var ly = ledge ? ledge.y : 34 * 16;
+    if (SF.setCheckpoint) SF.setCheckpoint(lx, ly);
+    else s.checkpoint = { x: lx, y: ly, island: "cinderveil" };
     SF.pushToast("The gap is yours.", 2.2);
     SF.saveGame({ silent: true });
   });
 
   SF.onDialogueEvent("boss_start", function () {
     var s = SF.state;
-    if (!s || s.flags.mawDead || s.flags.mawFight) return;
+    if (!s || s.flags.mawDead) return;
+    if (s.mode === "battle") return;
     s.flags.mawFight = true;
     s.quest = "maw";
-    if (SF.setCheckpoint) SF.setCheckpoint(1250, 20);
-    else s.checkpoint = { x: 1250, y: 20, island: "cinderveil" };
+    var ledge = SF.spot ? SF.spot("vledge") : null;
+    var lx = ledge ? ledge.x : 98 * 16;
+    var ly = ledge ? ledge.y : 34 * 16;
+    if (SF.setCheckpoint) SF.setCheckpoint(lx, ly);
+    else s.checkpoint = { x: lx, y: ly, island: "cinderveil" };
     if (SF.wakeMaw) SF.wakeMaw();
-    if (window.Music) Music.play("boss");
-    if (window.Sfx) Sfx.play("roar");
     SF.pushBanner("The Cinder Maw", "A bright point of light pulses in the middle of its chest.");
     SF.saveGame({ silent: true });
+    if (s.mode === "dialogue") {
+      s.dialogue = null;
+      s.mode = "play";
+    }
+    if (SF.Battle) SF.Battle.start("boss_cinder_maw", {
+      boss: true,
+      canFlee: false,
+      fixed: true,
+      fieldId: "maw",
+      zoneLevel: 8,
+      bg: "ember_vault"
+    });
   });
 
   SF.onDialogueEvent("quest_cinder_lamp_done", function () {
@@ -718,10 +745,10 @@ SF.beginCantorApproach = function () {
     kind: "cantor",
     t: 0,
     dur: 3.1,
-    fromX: 1264,
-    fromY: 72,
-    toX: 1396,
-    toY: 18
+    fromX: SF.LAMP ? SF.LAMP.x + 48 : 0,
+    fromY: SF.LAMP ? SF.LAMP.y : 0,
+    toX: (SF.npcById("cantor") || SF.LAMP || { x: 0, y: 0 }).x,
+    toY: (SF.npcById("cantor") || SF.LAMP || { x: 0, y: 0 }).y
   };
 };
 

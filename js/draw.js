@@ -9,11 +9,16 @@ SF.dpr = 1;
 SF.viewW = 1;
 SF.viewH = 1;
 
-SF.zoomFor = function (w, h) {
-  var ideal = SF.clamp(Math.min(w, h) / 300, 1, 1.85);
-  var dpr = SF.dpr || 1;
-  var snapped = Math.max(1, Math.round(ideal * dpr));
-  return snapped / dpr;
+SF.zoomFor = function () {
+  return 1;
+};
+
+SF.foot = function (c) {
+  if (!c) return { x: 0, y: 0, rx: 8, ry: 8, rect: false };
+  if (c.k === "r" || (c.w != null && c.rx == null)) {
+    return { x: c.x + c.w / 2, y: c.y + c.h / 2, rx: c.w / 2, ry: c.h / 2, rect: true, sh: c };
+  }
+  return { x: c.x, y: c.y, rx: c.rx || c.r || 8, ry: c.ry || c.r || 8, rect: false, sh: c };
 };
 
 SF.viewRect = function (pad) {
@@ -53,32 +58,35 @@ SF.cacheSprites = function () {
 SF.buildWorld = function () {
   var rand = SF.mulberry32(20261019);
   var specks = [];
-  SF.WALK.circles.forEach(function (c) {
-    var n = Math.floor((c.r * c.r) / 780);
-    var i, a, d;
+  function sprinkle(c) {
+    var f = SF.foot(c);
+    var reach = Math.max(f.rx, f.ry);
+    var n = Math.min(80, Math.floor((reach * reach) / 780));
+    var i, a, dx, dy;
     for (i = 0; i < n; i++) {
       a = rand() * Math.PI * 2;
-      d = Math.sqrt(rand()) * (c.r - 10);
-      specks.push({
-        x: c.x + Math.cos(a) * d,
-        y: c.y + Math.sin(a) * d,
-        k: rand(),
-        group: c.group
-      });
+      dx = Math.cos(a) * Math.sqrt(rand()) * (f.rx - 8);
+      dy = Math.sin(a) * Math.sqrt(rand()) * (f.ry - 8);
+      specks.push({ x: f.x + dx, y: f.y + dy, k: rand(), group: c.group });
     }
-  });
+  }
+  SF.WALK.circles.forEach(sprinkle);
+  (SF.WALK.rects || []).forEach(sprinkle);
   SF.specks = specks;
   var clouds = [];
   var minX = -900;
   var maxX = 1100;
   var minY = -700;
   var maxY = 1000;
-  SF.WALK.circles.forEach(function (c) {
-    minX = Math.min(minX, c.x - c.r - 180);
-    maxX = Math.max(maxX, c.x + c.r + 180);
-    minY = Math.min(minY, c.y - c.r - 180);
-    maxY = Math.max(maxY, c.y + c.r + 180);
-  });
+  function growBounds(c) {
+    var f = SF.foot(c);
+    minX = Math.min(minX, f.x - f.rx - 180);
+    maxX = Math.max(maxX, f.x + f.rx + 180);
+    minY = Math.min(minY, f.y - f.ry - 180);
+    maxY = Math.max(maxY, f.y + f.ry + 180);
+  }
+  SF.WALK.circles.forEach(growBounds);
+  (SF.WALK.rects || []).forEach(growBounds);
   var gx, gy;
   for (gx = minX; gx <= maxX; gx += 170) {
     for (gy = minY; gy <= maxY; gy += 150) {
@@ -92,20 +100,31 @@ SF.buildWorld = function () {
     }
   }
   SF.clouds = clouds;
-  var groups = { ember: [], span: [], cinder: [], perch: [], quay: [], ash: [], vault: [] };
-  SF.WALK.circles.forEach(function (c) {
+  var groups = { ember: [], span: [], cinder: [], perch: [], quay: [], ash: [], vault: [], ridge: [], scar: [] };
+  function pushGroup(c) {
+    if (!c.group) return;
     if (!groups[c.group]) groups[c.group] = [];
     groups[c.group].push(c);
-  });
+  }
+  SF.WALK.circles.forEach(pushGroup);
+  (SF.WALK.rects || []).forEach(pushGroup);
   SF.groups = groups;
 };
 
 SF.traceGroup = function (ctx, circles, grow) {
   ctx.beginPath();
-  circles.forEach(function (c) {
-    var r = c.r + (grow || 0);
-    ctx.moveTo(c.x + r, c.y);
-    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+  (circles || []).forEach(function (c) {
+    var g = grow || 0;
+    var f = SF.foot(c);
+    if (f.rect && c.w != null) {
+      ctx.rect(c.x - g, c.y - g, c.w + g * 2, c.h + g * 2);
+      return;
+    }
+    var rx = Math.max(2, f.rx + g);
+    var ry = Math.max(2, f.ry + g);
+    ctx.moveTo(f.x + rx, f.y);
+    if (ctx.ellipse) ctx.ellipse(f.x, f.y, rx, ry, 0, 0, Math.PI * 2);
+    else ctx.arc(f.x, f.y, Math.min(rx, ry), 0, Math.PI * 2);
   });
 };
 
@@ -266,6 +285,8 @@ SF.landTiles = function (name, lit) {
     quay: ["cobble", "stone_light"],
     ash: ["ash", "ash_light"],
     vault: ["vault", "ash"],
+    scar: ["gold", "gold_light"],
+    ridge: ["stone", "stone_light"],
     salt: ["dock", "pier"],
     shore: ["sand", "gold_light"],
     wreck: ["hold", "vault"],
@@ -352,10 +373,7 @@ SF.drawLands = function (ctx, s) {
 SF.drawGround = function (ctx, s) {
   ctx.save();
   ctx.beginPath();
-  SF.WALK.circles.forEach(function (c) {
-    ctx.moveTo(c.x + c.r, c.y);
-    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
-  });
+  SF.traceGroup(ctx, (SF.WALK.circles || []).concat(SF.WALK.rects || []), 0);
   ctx.clip();
   if (window.Art && Art.pattern) {
     var pathTile = Art.pattern("path");
@@ -436,8 +454,9 @@ SF.terrainBounds = function () {
   circles = SF.WALK.circles;
   for (i = 0; i < circles.length; i++) {
     c = circles[i];
-    add(c.x - c.r * 1.2 - 8, c.y - c.r - 16);
-    add(c.x + c.r * 1.2 + 8, c.y + c.r * 1.3 + 24);
+    var f = SF.foot(c);
+    add(f.x - f.rx * 1.2 - 8, f.y - f.ry - 16);
+    add(f.x + f.rx * 1.2 + 8, f.y + f.ry * 1.3 + 24);
   }
   rects = SF.WALK.rects;
   for (i = 0; i < rects.length; i++) {
@@ -470,7 +489,8 @@ SF.buildTerrainSheet = function (lit) {
   var fake = { flags: { lampLit: !!lit, cinderLit: SF.islandId === "cinderveil" && !!lit } };
   Object.keys(SF.groups || {}).forEach(function (name) {
     (SF.groups[name] || []).forEach(function (c) {
-      bctx.drawImage(SF.blobs.shadow, c.x - c.r * 1.15, c.y - c.r * 0.45 + 18, c.r * 2.3, c.r * 1.25);
+      var f = SF.foot(c);
+      bctx.drawImage(SF.blobs.shadow, f.x - f.rx * 1.15, f.y - f.ry * 0.45 + 18, f.rx * 2.3, f.ry * 1.25);
     });
   });
   SF.drawLands(bctx, fake);
@@ -587,7 +607,7 @@ SF.drawPropArt = function (ctx, prop, lit) {
     id = (c.indexOf("9af") !== -1 || c.indexOf("c8be") !== -1) ? "flower_tide" : (c.indexOf("ffb") !== -1 || c.indexOf("ffe") !== -1 || c.indexOf("e7a") !== -1 ? "flower_gold" : "flower");
   } else if (id === "tree" && (SF.islandId === "cinderveil")) id = "tree_bare";
   if (!Art._makers[id]) return false;
-  var sc = Math.max(2, Math.round(scale * (prop.s || 1)));
+  var sc = Art.fieldScale ? Art.fieldScale(id) : 1;
   Art.sprite(ctx, id, prop.x, prop.y, { scale: sc, frame: 0, facing: "down" });
   return true;
 };
@@ -1190,7 +1210,9 @@ SF.drawLampCrystal = function (ctx, lit) {
       ctx.drawImage(SF.blobs.gold, x - 46, y - 62, 92, 92);
       ctx.restore();
     }
-    Art.sprite(ctx, lit ? "lamp_lit" : "lamp_cold", x, y + 10, { scale: Art.fieldScale(lit ? "lamp_lit" : "lamp_cold") });
+    var lampId = lit ? "great_lamp_lit" : "great_lamp";
+    if (!Art._makers[lampId]) lampId = lit ? "lamp_lit" : "lamp_cold";
+    Art.sprite(ctx, lampId, x, y + 10, { scale: Art.fieldScale(lampId) });
     if (!lit && SF.state && SF.state.shardsHeld >= SF.QUEST_SHARDS && SF.state.quest === "gather") {
       var calmReady = SF.calm && SF.calm();
       ctx.save();
@@ -1269,7 +1291,7 @@ SF.entityList = function (s) {
     if (!sid || !window.Art) return;
     list.push({
       y: mark.y,
-      draw: function (ctx) { Art.sprite(ctx, sid, mark.x, mark.y, { scale: 2 }); }
+      draw: function (ctx) { Art.sprite(ctx, sid, mark.x, mark.y, { scale: 1 }); }
     });
   });
   (SF.EXTRAS || []).forEach(function (extra) {
@@ -1282,14 +1304,14 @@ SF.entityList = function (s) {
           return;
         }
         if (extra.kind === "bench" && window.Art && Art.sprite) {
-          Art.sprite(ctx, "bench", extra.x, extra.y, { scale: 2 });
+          Art.sprite(ctx, "bench", extra.x, extra.y, { scale: 1 });
         } else if (extra.kind === "bench") {
           ctx.fillStyle = "#6a5348";
           ctx.fillRect(extra.x - 14, extra.y - 4, 28, 6);
           ctx.fillRect(extra.x - 12, extra.y - 10, 4, 8);
           ctx.fillRect(extra.x + 8, extra.y - 10, 4, 8);
         } else if (window.Art && Art.sprite) {
-          Art.sprite(ctx, "stones", extra.x, extra.y, { scale: 2 });
+          Art.sprite(ctx, "stones", extra.x, extra.y, { scale: 1 });
         } else {
           ctx.fillStyle = "#8a6860";
           ctx.beginPath();
@@ -1303,7 +1325,7 @@ SF.entityList = function (s) {
     });
   });
   SF.activePickups().forEach(function (item) {
-    if ((item.id === "shard-ash-nook" || item.id === "bloom-ash-nook") && SF.secretVisible && !SF.secretVisible(item)) return;
+    if (item.kind === "shard" && SF.state && SF.state.player && SF.dist(SF.state.player.x, SF.state.player.y, item.x, item.y) > 96) return;
     list.push({ y: item.y, draw: function (ctx) { SF.drawPickup(ctx, item, false); } });
   });
   list.push({ y: SF.LAMP.y, draw: function (ctx) { SF.drawLampCrystal(ctx, lit); } });
@@ -1353,7 +1375,8 @@ SF.entityList = function (s) {
         SF.drawShadow(ctx, e.x, e.y, e.r);
         var foeSprite = SF.foeSprite ? SF.foeSprite(e) : null;
         var bigFoe = e.boss || e.kind === "maw" || e.kind === "tidewyrm";
-        var drewFoe = foeSprite && SF.tryArtSprite && SF.tryArtSprite(ctx, foeSprite, e.x, e.y, { scale: bigFoe ? 3 : 2 });
+        var foeScale = (window.Art && Art.fieldScale) ? Art.fieldScale(foeSprite || "wayfarer") : 1;
+        var drewFoe = foeSprite && SF.tryArtSprite && SF.tryArtSprite(ctx, foeSprite, e.x, e.y, { scale: foeScale });
         if (!drewFoe) {
           if (e.kind === "wisp") SF.drawWisp(ctx, e);
           else if (e.kind === "brumekin") SF.drawBrume(ctx, e);
@@ -1614,12 +1637,15 @@ SF.drawMap = function () {
   var minY = Infinity;
   var maxX = -Infinity;
   var maxY = -Infinity;
-  SF.WALK.circles.forEach(function (c) {
-    minX = Math.min(minX, c.x - c.r);
-    minY = Math.min(minY, c.y - c.r);
-    maxX = Math.max(maxX, c.x + c.r);
-    maxY = Math.max(maxY, c.y + c.r);
-  });
+  function mapBound(c) {
+    var f = SF.foot(c);
+    minX = Math.min(minX, f.x - f.rx);
+    minY = Math.min(minY, f.y - f.ry);
+    maxX = Math.max(maxX, f.x + f.rx);
+    maxY = Math.max(maxY, f.y + f.ry);
+  }
+  SF.WALK.circles.forEach(mapBound);
+  (SF.WALK.rects || []).forEach(mapBound);
   var pad = 16;
   var scale = Math.min((w - pad * 2) / (maxX - minX), (h - pad * 2) / (maxY - minY));
   function mx(x) { return pad + (x - minX) * scale; }
@@ -1634,6 +1660,8 @@ SF.drawMap = function () {
     quay: "#8d8680",
     ash: "#a89890",
     vault: "#6e4038",
+    scar: "#c45a48",
+    ridge: "#7eb8c8",
     salt: "#5ec4b0",
     shore: "#e0c07a",
     wreck: "#5c6560",
@@ -1648,26 +1676,26 @@ SF.drawMap = function () {
     if (!group || !group.length) return;
     ctx.beginPath();
     group.forEach(function (c) {
-      ctx.moveTo(mx(c.x + c.r), my(c.y));
-      ctx.arc(mx(c.x), my(c.y), c.r * scale, 0, Math.PI * 2);
+      var f = SF.foot(c);
+      if (f.rect && c.w != null) {
+        ctx.rect(mx(c.x), my(c.y), c.w * scale, c.h * scale);
+        return;
+      }
+      ctx.moveTo(mx(f.x + f.rx), my(f.y));
+      if (ctx.ellipse) ctx.ellipse(mx(f.x), my(f.y), Math.max(1, f.rx * scale), Math.max(1, f.ry * scale), 0, 0, Math.PI * 2);
+      else ctx.arc(mx(f.x), my(f.y), Math.max(1, Math.min(f.rx, f.ry) * scale), 0, Math.PI * 2);
     });
     ctx.fillStyle = mapColors[name];
     ctx.fill();
   });
-  var bridge = SF.WALK.rects[0];
-  if (bridge) {
-    ctx.fillStyle = "#8a5436";
-    ctx.fillRect(mx(bridge.x), my(bridge.y), bridge.w * scale, bridge.h * scale);
-  }
-
   SF.activePickups().forEach(function (item) {
-    if (item.kind !== "shard" && item.kind !== "cog") return;
-    if (item.secret && !SF.secretVisible(item)) return;
-    ctx.fillStyle = item.kind === "cog" ? "#ffb15a" : "#9af6ff";
+    if (item.kind !== "cog") return;
+    ctx.fillStyle = "#ffb15a";
     ctx.fillRect(mx(item.x) - 1.5, my(item.y) - 1.5, 3, 3);
   });
   s.enemies.forEach(function (e) {
     if (!e.alive) return;
+    if (e.kind !== "maw" && e.kind !== "tidewyrm") return;
     ctx.fillStyle = "rgba(255,120,140,0.9)";
     ctx.beginPath();
     ctx.arc(mx(e.x), my(e.y), 2, 0, Math.PI * 2);

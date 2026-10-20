@@ -1,13 +1,13 @@
 # Shardfall — living design doc
 
-**Current build:** v0.3, The Wider Hush, drawn in 16-bit pixel art. Fights are turn-based. Act 1 is solo. After it, the sail chart reaches Saltmere, Gullrock, the Drift Market, and Lowgate under Highspire. Act 2's spoken lines are not in the game yet. The shared build notes are in `docs/v0.3-spec.md`. Act 1's names and dialogue ids stay in `docs/v0.2-spec.md`.
+**Current build:** v0.4, Act 1 rebuilt. PC first, landscape, 640×360 scaled in whole steps. Fights are turn-based random encounters. No enemies walk the field except set pieces (the Cinder Maw, and later the Tidewyrm). Act 1 is solo. After it, the sail chart reaches Saltmere, Gullrock, the Drift Market, and Lowgate under Highspire. Act 2's spoken lines are not in the game yet. The shared build notes are in `docs/v0.3-spec.md`. Act 1's gameplay is `docs/gameplay-act1.md`. The island shapes are `docs/island-plan-v2.md`. Act 1's names and dialogue ids stay in `docs/v0.2-spec.md`.
 **Play:** https://awsumbtech.github.io/shardfall/ once the Pages workflow has run on `main`.
 
 This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new" panel. This file can spoil secrets.
 
 ## Pillars
 
-- **A phone game first.** One thumb on a stick, the other on Fight, Dash, and Talk. In a fight the commands sit in the bottom thumb zone. It has to feel good in portrait and in landscape, at 60fps, with no page scroll and no pinch zoom.
+- **A PC game first, a phone game second.** Landscape on both. The picture is 640×360 and scales by whole integers. Keyboard and mouse are the primary controls. A touch overlay appears only on a touch device. A phone held upright asks you to turn it sideways. There is no portrait mode. 60fps, no page scroll, no pinch zoom.
 - **A place, not a level.** Emberhold is small, but it has a hill, a scar, a dock, a broken span, and a ledge you can miss.
 - **Light that pushes the cloud back.** Relighting a lamp is the verb of the game. Combat and errands exist so the lamp can catch.
 - **Polite strange.** The Hushborn are dangerous. The people are specific. The Cantor is frightening because the manners are perfect.
@@ -33,7 +33,9 @@ Relighting a lamp does not destroy the Hush. It pushes it back. Grass remembers 
 
 Sky-shards are pieces of the broken sky. They power lamps, sails, and — in the Wayfarer's case — a hand. A shard fused to the hand at the moment of waking. It dashes. After Tamsin fits the hook, it grapples.
 
-Shards are also the offering a lamp eats. Emberhold's great lamp wants five. Spare shards after that, and shards found on Cinderveil, buy a few changes to the hand: a longer dash, a quicker hook, a brighter strike, a deeper heart, and a harder singe once Shardstep is awake.
+Shards stay hidden until Maren points at the lamp and the shard in the hand answers (`shard_sense`). Before that beat they are not on the ground, not in a fight's reward, and not on the minimap. After it, the hand pulses within ten tiles and a shard glints within six. The minimap never marks shards. Secret shards (the alcove, the Cold Nook) stay dark until their hint.
+
+Shards you carry charge the hand. Lighting a lamp spends the charge. Emberhold's great lamp wants five. Cinderveil's wants three. Spare shards after the next unlit lamp is paid for buy a few changes to the hand: a longer dash, a quicker hook, a brighter strike, a deeper heart, and a harder singe once Shardstep is awake. The upgrade menu will not spend shards the next lamp still needs.
 
 ### Regions
 
@@ -65,7 +67,7 @@ Emberhold is the starter drift. Cinderveil is the ash island west of it, reached
 
 **Whisper Hollow** is west of Maren's grove, along a narrower ledge. It is on the map as land, and easy to walk past. The air there is blue. The Cantor stands in it and does not fight. A heartblossom grows off to the side.
 
-**Cinderveil** is the second island: ash-grey grass, ember cracks, a teal rim on Lowmoor Quay. Tamsin Reed works a hook in her workshop. Brother Hesk mutters about the Choir. The Ashfields hold three cogs and a Cold Nook. Two hooked gaps — wider than a dash — lead to Warden Ilsa and the Ember Vault. The Cinder Maw feeds on the core. The hurt lamp takes three shards. The Cantor is there after, with Spare, Listen, or Refuse. The words are in `docs/script/act1.md`. Lowmoor has a shop, and the quay has a bunk where you can rest.
+**Cinderveil** is the second island: ash-grey grass, ember cracks, a teal rim on Lowmoor Quay. Tamsin Reed works a hook in her workshop. Brother Hesk mutters about the Choir. The Ashfields hold three cogs and a Cold Nook. Warden Ilsa stands on Ilsa's Cliff, reached on foot from the Ashfields. Two hooked gaps — wider than Shardstep — lead from her cliff to the Vault Ledge and then the Ember Vault, and only after she says the gap is yours. The Cinder Maw is the one foe you can see on the map. It feeds on the core. The hurt lamp on the ridge takes three shards. The ridge path opens after the Maw. The Cantor is there after, with Spare, Listen, or Refuse. The words are in `docs/script/act1.md`. Lowmoor has a shop, and the quay has a bunk where you can rest.
 
 **The sail chart** is the world map. Emberhold and Cinderveil open once the skiff is ready. Saltmere, Gullrock, the Drift Market, and Lowgate open after Act 1. A crossing is a short scene. Every third one can be boarded (`sea_hush_raiders`, on the deck). Act 1 is fought alone. When the act ends, Kestrel and Tamsin join. Each join is a banner, once.
 
@@ -117,13 +119,13 @@ People added for Act 2, each with one placeholder line until the script is appro
 
 ### Exploration
 
-The camera is top-down and follows the Wayfarer, a little ahead of their facing. Zoom is based on the short side of the screen so a phone in either orientation shows the same amount of island and the same size of person.
+The camera is top-down and follows the Wayfarer, a little ahead of their facing, and it stops at the island edge. The picture is 640×360. Wider screens show more to the sides. The height stays 360. The hero is 24×38 pixels, about a tenth of that height, drawn 1:1 with the 16-pixel tiles.
 
 Land is a union of circles, plus one rectangle for the rope bridge. Walking slides along an edge and cannot leave. Dashing can. Off the land, the Hush holds you for a moment. If the dash ends in cloud, the hand hauls you back to the last safe ground and the fall costs a little heart. If that would drop you, you wake at the stones instead, with a bit more than half a heart, and you do not lose shards.
 
-The minimap shows the whole drift, the Wayfarer, living Hushborn, unspent shards, and the lamp. The alcove shard stays off the map until Kestrel's hint or a landing on the span's far side. The Cantor stays off it until Whisper Hollow has been entered. A gold pulse marks the current errand: Maren, the lamp once five shards are in hand, then Kestrel.
+The minimap shows the whole drift, the Wayfarer, the lamp, and the current errand. It does not show shards. It does not show field Hushborn, because they are not on the map. The Cantor stays off it until Whisper Hollow has been entered. A gold pulse marks the current errand: Maren, the lamp once the hand is fully charged, then Kestrel.
 
-Shards on the ground are picked up by walking over them. A banner says which shard that was, out of five. People, inscriptions, and the lamp want the upper-right button (or E). Within reach it renames itself: Talk, Place shards, or Inspect, and a gold line names the target ("Talk — Old Maren"). A little farther out, the press says to walk closer. The button holds a steady gold ring while Reduce flashing is on, and a slow pulse only if that option is off.
+Shards on the ground can be picked up only after `shard_sense`, and only once they are glinting (within six tiles). A banner says which shard that was, out of five, while Emberhold's lamp is still dark. People, inscriptions, and the lamp want E, Enter, Space, or a click. Within reach the prompt renames itself: Talk, Place shards, or Inspect, and a gold line names the target ("Talk — Old Maren"). A little farther out, the press says to walk closer.
 
 Points of interest in v0.1:
 
@@ -138,7 +140,7 @@ Points of interest in v0.1:
 
 ### Combat
 
-Fights are turn-based, on their own screen. The field is still real time: walk, dash, and the hook. There is no swing. Touch a foe, or press Fight when one is close, and `Battle.start(encounterId, opts)` opens the battle. Winning removes that field foe and saves it. Losing returns the party to the last lamp or the waking stones at half HP. Marks, items, and XP stay. Boss fights cannot be fled.
+Fights are turn-based, on their own screen. The field is still real time: walk, dash, and the hook. There is no swing and no Fight button. Nothing hunts you on the grass. A step counter rolls a fight from the region's table (`Battle.start(formation, { bg })`). Safe ground never rolls. The first ten steps after a fight, a load, or entering a region are free. A lit lamp cuts that island's random fights to about a third, and Lamp Hill becomes safe. The Scar stays at its own rate. Bosses and the Cinderstep choirling are fixed fights. You cannot flee those. A random fight can be fled. Losing returns the party to the last checkpoint at half HP. Marks, items, and XP stay.
 
 The turn order is a strip at the top. Speed fills a gauge. The actor who fills it acts, then waits again. Defend comes back sooner. The commands are Attack, Skill, Item, Defend, and Flee, in large buttons along the bottom. Tap a foe or a party portrait to aim. The log is plain: "Kestrel attacks!", "Wisp is defeated.", "Level up!".
 
@@ -146,23 +148,13 @@ The party holds up to three. Through Act 1 the Wayfarer fights alone, including 
 
 Stats are HP, SP, Attack, Defense, Magic, and Speed. Elements are Ember, Tide, Gale, and Shard. One hit, or Scan, shows a foe's weakness. A weakness deals more. A resist deals less. The Cinder Maw is one target: its core. At about 60% HP the log says "The core flares." At about 30% it says "The core is open." The core is weak to Shard and resists Ember. Winning still runs the old Maw events: the cracked core, then the vault lamp, then the Cantor.
 
-Field foes and the encounter they start:
-
-| Field | Encounter |
-| --- | --- |
-| Emberhold wisps | `em_wisps` |
-| Brumekin | `em_brumekin` |
-| Choirling | `em_choirling` |
-| Ashlings | `cv_ashlings` |
-| Sootwing | `cv_mixed` |
-| Cinderbrute | `cv_cinderhound` |
-| Cinder Maw | `boss_cinder_maw` |
+Random formations and the encounter they start are in `js/data/encounters.js`. The Cinder Maw is `boss_cinder_maw`. It is the Act 1 foe you can see, and the fight starts from `boss_start` after you inspect it. A loss there returns you to the Vault Ledge.
 
 Saltmere, Highspire, and the skiff use `sm_saltwisps`, `sm_drowned`, `sm_gulls`, `sm_mixed`, `boss_tidewyrm`, `hs_choir_patrol`, `hs_sentinel`, and `sea_hush_raiders`. WORLD can set `spawn.encounter` to any of these ids. Background ids are `emberhold_meadow`, `emberhold_scar`, `cinderveil_ash`, `ember_vault`, `saltmere_shore`, `saltmere_wreck`, `highspire_road`, and `hush_deck`.
 
 `Music.play("battle")` plays for a normal fight and `Music.play("boss")` for a boss. A win plays the `fanfare` effect. Hits pulse haptics. Reduce flashing keeps the core glow steady and skips shake.
 
-A fall off the island still hauls the Wayfarer back. It is not a battle loss. Maren, on a conversation, fills the party's HP and SP. Brumekin and Choirlings still drop the sky-shards the lamp quest counts.
+A fall off the island still hauls the Wayfarer back. It is not a battle loss. Maren, on a conversation, fills the party's HP and SP. Sky-shards from fights come from a carrier formation, the first win in that region, and only after `shard_sense`. The reward line says "Sky-shard". You cannot farm them.
 
 ### Progression
 
@@ -170,7 +162,7 @@ Levels run from 1 to 30. The XP to reach the next level is `18 + 4.2×L + 0.55×
 
 Marks are the coins (`state.gold`). Shops call `SF.shopBuy(id)` and `SF.shopSell(id)` with ids from `js/data/items.js`. The pack starts with 4 Tonics and 2 Ethers. Gear has three slots: Weapon, Armor, Charm. The menu shows the numbers, such as "Attack +6". The pause button opens that menu: Party, Skills, Items, Equip, Save, Settings.
 
-A v0.2 save (and a v0.1 save) loads as v0.3. Old XP is kept and scaled by 1.25, then read on the new curve. A journey still inside Act 1 stays a party of one. A save already past `act1_end` gains Kestrel and Tamsin, with the join banners, if those flags were missing. The pack starts with a few tonics so the road is not empty. v0.3 saves store `party`, `inventory`, `gold`, and `known`.
+A v0.2 save (and a v0.1 save) loads on the v0.4 curve. Old XP is kept and scaled by 1.25, then read on the new curve. A v0.3 save keeps its party, pack, and marks. A journey still inside Act 1 stays a party of one. A save already past `act1_end` gains Kestrel and Tamsin, with the join banners, if those flags were missing. The pack starts with a few tonics so the road is not empty. Saves store `party`, `inventory`, `gold`, and `known`. A save from before the new islands is set down on the nearest safe spot for that point in the story. A journey past Maren's introduction gains `shard_sense`.
 
 Shardstep is still the lamp's reward, and spare shards still buy hand changes at Tamsin's bench. Bright Edge adds 3 Attack. Deep Heart adds 14 HP. Those numbers are part of the Wayfarer's battle stats.
 
@@ -178,12 +170,12 @@ Shardstep is still the lamp's reward, and spare shards still buy hand changes at
 
 One quest: **relight Emberhold's lamp.**
 
-1. **Awaken.** The tracker says "Talk to Old Maren, up the hill." A gold arrow at your feet, a marker on her, and an edge arrow when she is offscreen all point the same way. Talking to her moves the quest to Gather. You can ignore her, collect five, and light the lamp anyway. She has a different thank-you if you do.
-2. **Gather.** The tracker counts, "Find 5 sky-shards (2/5)". The marker prefers the nearest ground shard it is willing to spoil, then a Hushborn that drops one. The alcove shard stays hidden until you have seen Cinderstep or heard Kestrel. At five it changes to "Bring them to the lamp — Place shards."
-3. **Light.** With five or more, Place shards on the lamp plays a short lighting. You can skip it. The lamp catches, five shards are spent, wisps come apart, heavier Hushborn crack, and Shardstep awakens. The tracker points at Kestrel: "Talk to Kestrel on Vane's Perch."
+1. **Awaken.** The tracker says "Talk to Old Maren, up the hill." A gold arrow at your feet, a marker on her, and an edge arrow when she is offscreen all point the same way. Talking to her is required. When she points at the lamp, the hand learns `shard_sense`, the quest moves to Gather, and the hand meter reads 0/5. There is no path that skips her and still lights the lamp.
+2. **Gather.** The tracker counts, "Find 5 sky-shards (2/5)". The hand pulses within ten tiles of a shard, and the shard glints within six. Shards are never drawn on the minimap. The alcove shard stays dark until Kestrel's tip. At five it changes to "Bring them to the lamp — Place shards."
+3. **Light.** With five or more, Place shards on the lamp plays a short lighting. You can skip it. The lamp catches, five shards are spent, Lamp Hill goes quiet, and Shardstep awakens. The tracker points at Kestrel: "Talk to Kestrel on Vane's Perch."
 4. **The hook.** Kestrel, after the lamp, names Cinderveil and offers the Quickmercy. The offer ends by dispatching `open_sail_menu`, which opens the sail menu. The first crossing is the sail scene. The tracker reads "Sail to Cinderveil."
 
-The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Fight when a foe is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
+The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
 
 The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without her.
 
@@ -191,11 +183,11 @@ Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or tw
 
 ### Save
 
-`localStorage` key `shardfall.v1`. One slot. The save stores place, facing, the party, the pack, marks, shards in hand, which pickups are gone, where dropped shards fell, which Hushborn are dead, quest stage, story flags, discoveries, and time on the Hush. Enemy positions reset to their homes on load so a reload cannot leave one inside a wall. A v0.2 save migrates. A save from a future version number is ignored.
+`localStorage` key `shardfall.v1`. One slot. The save stores place, facing, the party, the pack, marks, shards in hand, which pickups are gone, where dropped shards fell, which set-piece foes are down, quest stage, story flags, discoveries, and time on the Hush. Foe positions reset to their homes on load so a reload cannot leave one inside a wall. A save from before v0.4 migrates onto the new islands. A save from a future version number is ignored.
 
 The game autosaves about every eight seconds, on a pickup, a kill, the end of a conversation, the lamp, a level, and when the page hides or you pause. The pause menu can Save, Load, or Reset. Reset deletes only `shardfall.v1` and returns to the title. New Game asks before it replaces a save. Continue is hidden when there is nothing to continue. Mute (`shardfall.mute`) and Reduce flashing (`shardfall.reduceFlash`) are separate keys so they survive Reset. Reduce flashing defaults to on. Unset means on.
 
-A save from a future version number is ignored rather than half-applied. v0.3 writes `v: 3` and still reads `v: 1` and `v: 2`. A v0.1 journey that already lit the lamp, or that had reached `hooked`, unlocks the skiff. Quest names stay as they were. A gather save stays a gather save. Mute, Reduce flashing, music volume, effects volume, and haptics stay on their own keys.
+A save from a future version number is ignored rather than half-applied. v0.4 writes `v: 4` and still reads `v: 1`, `v: 2`, and `v: 3`. A v0.1 journey that already lit the lamp, or that had reached `hooked`, unlocks the skiff. Quest names stay as they were. A gather save stays a gather save. Mute, Reduce flashing, music volume, effects volume, haptics, and the Fewer/Normal/More encounter setting stay on their own keys.
 
 `node tools/smoke.mjs` rebuilds the island rules, a battle, Maren's first talk, the lighting, a dash from the lip, the Maw, and a save round-trip. It does not open a browser.
 
@@ -320,19 +312,31 @@ The feel loop calls `Music.play("title")` while the title is up. Leaving the tit
 
 `Haptics.pulse(pattern)` calls `navigator.vibrate` when the toggle is on and the phone supports it. Patterns are short. `Sfx.play` already pulses on `impact` (12ms), `hurt` (18ms), `pickup` (10ms), and `lamp` (12ms, a gap, 16ms). `Haptics.setEnabled(false)` is the settings toggle and is remembered.
 
-## Controls and the phone
+## Controls
 
-Tested against a 412×915 CSS viewport, portrait and landscape, which is the class of size Brian's Samsung S25 Ultra uses in Chrome.
+PC first. The picture is 640×360, scaled by an integer so 1280×720 is ×2 and 1920×1080 is ×3. Keyboard and mouse are primary. A gamepad works if one is connected. The touch overlay is drawn only on a touch device, and it hides once a key or a gamepad is used. A phone held upright shows "Turn your phone sideways" and pauses.
+
+| Action | Keyboard | Mouse | Gamepad | Touch |
+| --- | --- | --- | --- | --- |
+| Move | WASD / arrows | — | Left stick / D-pad | Left stick |
+| Talk / confirm | E, Enter, Space | Click | A | Talk / tap |
+| Back | Esc, Backspace | Right-click | B | Back |
+| Dash | Shift or K | — | X | Dash |
+| Grapple | G, hold and release | Hold right-click | RB | Hook |
+| Menu | Esc or Tab | Menu icon | Start | Menu |
+| Mute | M | Speaker icon | — | Speaker |
+
+Tested at 1280×720, 1920×1080, and a phone-sized landscape viewport. Upright phones get the rotate prompt.
 
 - The page is `position: fixed`, `touch-action: none`, and it cancels touchmove so the browser does not scroll, pull-to-refresh, or bounce.
 - The viewport meta locks scale and requests the safe area. The stick, buttons, and panels pad with `env(safe-area-inset-*)`.
 - The stick's grab area is the whole lower-left. The knob travels inside a fixed base. Analog tilt scales speed.
-- Fight, Dash, and Talk are separate pointers, so a thumb can hold the stick and tap Fight in the same moment. Fight starts a battle with a nearby foe. Dash and Talk fire once per press. In battle, the command buttons are at least 56px tall and sit in the bottom third of a 412×915 portrait screen.
+- Dash and Talk are separate pointers on a touch device, so a thumb can hold the stick and tap Dash. There is no Fight button. In battle, the commands sit in the landscape frame: foes and the party on the left, the log and the commands on the right.
 - Canvas backing-store pixel ratio is capped at 2. Glows are pre-drawn images, not per-frame blurs. The context is not desynchronized. Resize ignores one-pixel jitter so the bitmap is not cleared in a loop. Islands, their shadows, the bridge, and the ground specks are painted once into a world sheet and the camera copies the visible slice, including a margin for shake. The sheet is rebuilt when the lamp is lit or the walk map changes, so a later island is included. Clouds are painted once into a softer sheet, then the view drifts across it. Sky and vignette gradients are cached. At 412×915 CSS pixels with a device pixel ratio of 3.5, play holds a frame.
 - Reduce flashing sits on the title screen, in the pause menu, and in Settings. All three are the same switch (`shardfall.reduceFlash`). It is on by default. It turns off shake, the hurt vignette, hit sparks, the invulnerability fade, and the pulsing ready-light, and a line of dialogue arrives whole. The objective marker stays, held still.
 - Switching apps or unfocusing the tab pauses and saves, so a pocket does not eat the run.
 
-Keyboard exists for a desk. The on-screen buttons stay visible there too.
+Keyboard and mouse are the desk controls. The on-screen buttons stay hidden there.
 
 ## v0.1 content lock
 

@@ -12,7 +12,7 @@
       var s = maker();
       Art.outline(s);
       return s;
-    }, scale == null ? 2 : scale, field == null ? (scale == null ? 2 : scale) : field);
+    }, scale == null ? 2 : scale, field == null ? 1 : field);
   }
 
   function tile(name, maker) {
@@ -119,17 +119,17 @@
   }, 2, 2);
 
   prop("tree", function () {
-    var s = Art.spr(24, 36);
-    fill(s, 11, 18, 3, 14, C.wood);
-    fill(s, 10, 30, 5, 2, C.woodD);
-    disc(s, 12, 14, 7, C.leaf);
-    disc(s, 7, 16, 5, C.leafD);
-    disc(s, 16, 15, 5, C.green);
-    disc(s, 10, 10, 3, C.leafL);
-    s.ax = 12;
-    s.ay = 34;
+    var s = Art.spr(40, 76);
+    fill(s, 18, 36, 5, 34, C.wood);
+    fill(s, 16, 66, 9, 4, C.woodD);
+    disc(s, 20, 28, 14, C.leaf);
+    disc(s, 12, 32, 10, C.leafD);
+    disc(s, 28, 30, 10, C.green);
+    disc(s, 18, 18, 6, C.leafL);
+    s.ax = 20;
+    s.ay = 72;
     return s;
-  }, 2, 2);
+  }, 2, 1);
 
   prop("tree_bare", function () {
     var s = Art.spr(24, 36);
@@ -157,23 +157,41 @@
   }, 2, 2);
 
   function house(wall, wallD, roof, door, win) {
-    var s = Art.spr(40, 32);
-    fill(s, 6, 14, 28, 14, wall);
-    fill(s, 6, 14, 4, 14, wallD);
-    fill(s, 4, 10, 32, 6, roof);
-    fill(s, 8, 6, 24, 5, roof);
-    fill(s, 14, 4, 12, 3, C.woodD);
-    fill(s, 17, 20, 6, 8, door);
-    fill(s, 9, 18, 5, 4, win);
-    fill(s, 26, 18, 5, 4, win);
-    plot(s, 10, 19, C.lite);
-    plot(s, 27, 19, C.lite);
-    fill(s, 30, 8, 3, 8, C.stoneD);
-    plot(s, 31, 6, C.ash);
-    s.ax = 20;
-    s.ay = 30;
+    var s = Art.spr(64, 108);
+    fill(s, 10, 40, 44, 60, wall);
+    fill(s, 10, 40, 8, 60, wallD);
+    fill(s, 6, 32, 52, 12, roof);
+    fill(s, 14, 22, 36, 12, roof);
+    fill(s, 22, 12, 20, 12, C.woodD);
+    fill(s, 26, 68, 12, 32, door);
+    fill(s, 14, 52, 10, 12, win);
+    fill(s, 40, 52, 10, 12, win);
+    plot(s, 16, 54, C.lite);
+    plot(s, 42, 54, C.lite);
+    fill(s, 48, 18, 4, 16, C.stoneD);
+    plot(s, 49, 14, C.ash);
+    s.ax = 32;
+    s.ay = 100;
     return s;
   }
+  function greatLamp(lit) {
+    var s = Art.spr(32, 160);
+    fill(s, 14, 28, 4, 120, C.woodD);
+    fill(s, 8, 140, 16, 8, C.stone);
+    fill(s, 10, 24, 12, 10, C.wood);
+    var gem = lit ? C.gold : C.violet;
+    var hot = lit ? C.lite : C.core;
+    fill(s, 8, 8, 16, 16, gem);
+    fill(s, 12, 12, 8, 8, hot);
+    plot(s, 16, 6, hot);
+    plot(s, 6, 16, gem);
+    plot(s, 26, 16, gem);
+    s.ax = 16;
+    s.ay = 152;
+    return s;
+  }
+  prop("great_lamp", function () { return greatLamp(false); }, 2, 1);
+  prop("great_lamp_lit", function () { return greatLamp(true); }, 2, 1);
   prop("cottage", function () { return house(C.cream, C.sand, C.shawl, C.wood, C.shard); }, 2, 2);
   prop("workshop", function () { return house(C.ashL, C.ash, C.vestD, C.woodD, C.warm); }, 2, 2);
 

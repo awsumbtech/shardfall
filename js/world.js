@@ -63,18 +63,7 @@ SF.healParty = function (fraction) {
   }
 };
 
-SF.respawnFieldEnemies = function () {
-  var s = SF.state;
-  if (!s) return;
-  if (SF.snapshotEnemies) SF.snapshotEnemies();
-  var save = s.enemySave || {};
-  Object.keys(save).forEach(function (isle) {
-    save[isle] = (save[isle] || []).filter(function (row) {
-      return row.boss && row.alive === false;
-    });
-  });
-  if (SF.loadEnemies) SF.loadEnemies();
-};
+SF.respawnFieldEnemies = function () {};
 
 SF.restAtInn = function (spot) {
   var s = SF.state;
@@ -86,7 +75,7 @@ SF.restAtInn = function (spot) {
   s.lastRest = { island: SF.islandId, x: x, y: y };
   s.checkpoint = { x: x, y: y, island: SF.islandId };
   s.mode = "play";
-  SF.pushToast("Rested. Field enemies are back on the roads.", 2.2);
+  SF.pushToast("Rested. Heart is full. The journey is saved.", 2.2);
   if (SF.saveGame) SF.saveGame();
 };
 
@@ -207,6 +196,8 @@ SF.maybeSeaFight = function (s) {
   var ok = SF.Battle.start("sea_hush_raiders", {
     boss: false,
     canFlee: true,
+    fixed: true,
+    zoneLevel: 6,
     bg: "hush_deck",
     onWin: function () {
       if (!s.voyage) return;

@@ -231,12 +231,24 @@ SF.levelMemberToXp = function (s, id) {
   return gained;
 };
 
-SF.grantPartyXp = function (s, amount) {
+SF.xpForFight = function (base, memberLevel, zoneLevel, fixed) {
+  if (fixed) return Math.max(1, Math.round(base));
+  var gap = (memberLevel || 1) - (zoneLevel || 1);
+  if (gap >= 4) return 1;
+  var f = gap <= -2 ? 1.25 : gap <= 0 ? 1 : [0.5, 0.25, 0.1][gap - 1];
+  return Math.max(1, Math.round(base * f));
+};
+
+SF.grantPartyXp = function (s, amount, opts) {
   var levels = [];
-  if (!amount) return levels;
+  opts = opts || {};
+  if (!amount && !opts.base) return levels;
   SF.activeParty(s).forEach(function (id) {
     var m = s.party.members[id];
-    m.xp += amount;
+    var gain = amount || 0;
+    if (opts.zoneLevel != null) gain = SF.xpForFight(opts.base != null ? opts.base : amount, m.level, opts.zoneLevel, !!opts.fixed);
+    if (!gain) return;
+    m.xp += gain;
     levels = levels.concat(SF.levelMemberToXp(s, id));
   });
   SF.syncFieldVitals(s);

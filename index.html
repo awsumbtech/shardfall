@@ -42,6 +42,7 @@
       </button>
     </div>
 
+    <div id="rotate" role="dialog" aria-label="Rotate your phone">Turn your phone sideways.</div>
     <div id="toast" hidden></div>
     <div id="banner" hidden>
       <div id="banner-title"></div>
@@ -135,7 +136,7 @@
 
     <div id="title">
       <div class="title-card">
-        <p class="eyebrow">v0.3 · The Wider Hush</p>
+        <p class="eyebrow">v0.4 · Act 1</p>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
         </div>
@@ -145,7 +146,7 @@
           <button id="continue" type="button" hidden>Continue</button>
           <button id="newgame" type="button">New Game</button>
           <button id="title-settings" type="button" class="ghost">Settings</button>
-          <button id="title-news" type="button" class="ghost">What's new in v0.3</button>
+          <button id="title-news" type="button" class="ghost">What's new in v0.4</button>
           <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
         </div>
@@ -161,7 +162,7 @@
         <p id="pause-note"></p>
         <button id="resume" type="button">Resume</button>
         <button id="pause-settings" type="button" class="ghost">Settings</button>
-        <button id="pause-news" type="button" class="ghost">What's new in v0.3</button>
+        <button id="pause-news" type="button" class="ghost">What's new in v0.4</button>
         <button id="pause-hand" type="button" class="ghost">The hand</button>
         <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
         <button id="pause-save" type="button" class="ghost">Save</button>
@@ -180,6 +181,12 @@
         <input id="sfx-vol" type="range" min="0" max="100" value="80" aria-label="Effects volume">
         <button id="set-haptics" type="button" class="ghost" aria-pressed="true">Haptics: On</button>
         <button id="set-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
+        <p class="fine" id="enc-label">Encounters</p>
+        <div class="actions" id="enc-rate">
+          <button id="enc-fewer" type="button" class="ghost">Fewer</button>
+          <button id="enc-normal" type="button" class="ghost">Normal</button>
+          <button id="enc-more" type="button" class="ghost">More</button>
+        </div>
         <p class="fine">Haptics are a short buzz on a hit, a shard, and the lamp, when the phone allows it.</p>
         <button id="set-close" type="button">Close</button>
       </div>
@@ -187,7 +194,7 @@
 
     <div id="modal" hidden>
       <div class="card scroll">
-        <h2 id="modal-title">What's new in v0.3</h2>
+        <h2 id="modal-title">What's new in v0.4</h2>
         <div id="news-body"></div>
         <p id="modal-copy"></p>
         <div class="actions">
@@ -226,6 +233,7 @@
   <script src="js/content/maps/highspire.js"></script>
   <script src="js/content/maps/gullrock.js"></script>
   <script src="js/content/maps/drift.js"></script>
+  <script src="js/content/maps/v2layout.js"></script>
   <script src="js/grapple.js"></script>
   <script src="js/art/core.js"></script>
   <script src="js/art/actors.js"></script>

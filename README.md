@@ -6,6 +6,12 @@ A personal, ad-free, non-commercial pseudo open-world RPG for the browser. A cen
 
 The live site updates when the Pages workflow runs on `main`. It does not deploy from a pull request.
 
+## v0.4 — Act 1, rebuilt
+
+Play on a computer, in a wide window. The picture is 640×360 and scales by whole numbers. A phone in portrait asks you to turn it sideways. Touch buttons appear on a touch screen.
+
+Fights are random encounters. There is no Fight button. Shards stay hidden until Maren shows you the lamp.
+
 ## v0.2 — Act 1: The Cinder Road
 
 The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.
@@ -28,19 +34,19 @@ Your reward is Shardstep — a farther, faster dash — and a rumor of the next 
 
 ## Controls
 
-The game is built for a phone in Chrome, in portrait or landscape. The page does not scroll or zoom.
+Keyboard and mouse come first. On a touch screen the stick, Dash, Hook, and Talk sit on the glass. The page does not scroll or zoom.
 
-| | Phone | Keyboard |
-| --- | --- | --- |
-| Move | Virtual stick, lower left | WASD or arrow keys |
-| Strike | Blade button, lower right | J or Z |
-| Dash | Dash button | K or Space |
-| Hook | Ember button, hold to aim, let go to pull | G, hold and release |
-| Talk, inspect, place shards | The button on the upper right. It renames itself | E or Enter |
-| Pause | Pause button | Esc |
-| Mute | Speaker button | M |
+| | Keyboard and mouse | Touch | Gamepad |
+| --- | --- | --- | --- |
+| Move | WASD or arrow keys | Virtual stick | Stick or d-pad |
+| Dash | Shift or K | Dash | X |
+| Hook | G, or hold right-click | Hook, hold and release | RB |
+| Talk, confirm | Space, Enter, E, or click | Talk | A |
+| Cancel | Esc or right-click | — | B |
+| Menu | Tab or Esc | Pause | Start |
+| Mute | M | Speaker button | — |
 
-On screen, Strike, Dash, and Talk sit under your right thumb. Dash across the broken span; walking it drops you into the Hush, and the shard hauls you back. Hold Strike to keep swinging.
+Dash across the broken span. Walking it drops you into the Hush, and the shard hauls you back.
 
 ## Run it locally
 

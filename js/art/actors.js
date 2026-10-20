@@ -863,7 +863,7 @@
       }
       var face = facing === "left" ? "left" : "right";
       return Art.clone(bakeBattle(pose, face, frame % 2));
-    }, scale, fieldScale);
+    }, scale, 1);
     Art.addPortrait(d.id, function () { return portrait(d); });
   }
 

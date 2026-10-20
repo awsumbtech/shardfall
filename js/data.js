@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.3";
+SF.VERSION = "0.4";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -11,8 +11,8 @@ SF.reduceFlash = true;
 SF.QUEST_SHARDS = 5;
 SF.WALK_MARGIN = 6;
 SF.DASH_TIME = 0.16;
-SF.DASH_SPEED = 760;
-SF.DASH_SPEED_PLUS = 980;
+SF.DASH_SPEED = 500;
+SF.DASH_SPEED_PLUS = 780;
 SF.DASH_CD = 1.15;
 SF.DASH_CD_PLUS = 0.78;
 SF.STRIKE_REACH = 58;
@@ -20,13 +20,13 @@ SF.STRIKE_ARC = 0.28;
 SF.XP_NEED = [0, 24, 70, 110];
 
 SF.WHATS_NEW = [
-  "Fights are turn-based. Walk into a foe, or press Fight when one is close.",
-  "Act 1 is fought alone. Kestrel and Tamsin join after the act ends.",
-  "The sail chart opens after Act 1. Saltmere, Gullrock, the Drift Market, and Lowgate are on it.",
-  "The Holdfast is under Saltmere's west pier. Highspire's gate stays shut until that lamp is lit.",
-  "Chests stay open. Shops buy and sell. A night at an inn brings field enemies back.",
-  "The pause button opens the menu: party, skills, items, gear, and save.",
-  "The islands, people, and battles are drawn in a 16-bit pixel style."
+  "The road is quiet until a fight finds you. There is no Fight button and nothing hunts the grass.",
+  "Shards stay hidden until Maren shows you the lamp. After that, your hand pulses when one is near.",
+  "Emberhold and Cinderveil are larger. Dash the broken span. Shardstep crosses a wider gap. The hook is wider still.",
+  "Ilsa stands on the Ashfields. You can walk to her. The vault gaps open after she says so.",
+  "A lit lamp makes that island much quieter. Lamp Hill goes still. The Scar does not.",
+  "The screen is a landscape, 640 by 360, drawn in whole pixels. A phone asks you to turn it sideways.",
+  "Act 1 is fought alone. Kestrel and Tamsin join after the act ends."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

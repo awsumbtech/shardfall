@@ -1144,3 +1144,39 @@ body.gallery-on #app { display: none; }
   image-rendering: crisp-edges;
   display: block;
 }
+
+body:not([data-touch="1"]) #controls { display: none !important; }
+#btn-attack { display: none !important; }
+
+#rotate {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: #140c28;
+  color: #f6f2ea;
+  font-family: var(--serif);
+  font-size: 28px;
+}
+body[data-portrait="1"] #rotate { display: flex; }
+
+#vitals.hand-pulse #shards {
+  color: #9af6ff;
+  text-shadow: 0 0 8px rgba(154, 246, 255, 0.85);
+}
+
+@media (max-height: 430px) {
+  #hud { max-width: 280px; }
+  .panel { padding: 3px 6px 4px; }
+  #questline, #vitals-text, #coach { font-size: 12px; }
+  #dialogue { padding: 6px 8px; max-height: 46%; }
+  #dlg-portrait { width: 36px; height: 36px; }
+  #who, #line { font-size: 14px; }
+  #line { max-height: 18vh; }
+  #dlg-choices button { min-height: 32px; padding: 4px 8px; font-size: 13px; }
+  #mapwrap { width: 64px; height: 64px; }
+}

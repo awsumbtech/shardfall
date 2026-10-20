@@ -310,13 +310,14 @@ function listRowCount(b) {
 
 function layoutBattle(w, h, phase, nParty, listRows) {
   var land = w > h;
-  var margin = 8;
-  var gap = 6;
-  var stripH = 50;
-  var btnH = 48;
-  var promptH = phase === "target" ? 28 : 0;
-  var cardH = nParty > 1 ? 78 : 84;
-  var logH = 52;
+  var short = h <= 400;
+  var margin = short ? 6 : 8;
+  var gap = short ? 4 : 6;
+  var stripH = short ? 36 : 50;
+  var btnH = short ? 36 : 48;
+  var promptH = phase === "target" ? (short ? 22 : 28) : 0;
+  var cardH = short ? (nParty > 1 ? 56 : 64) : (nParty > 1 ? 78 : 84);
+  var logH = short ? 40 : 52;
   var cmdH = btnH * 3 + gap * 2;
   listRows = listRows || 0;
   var strip = { x: margin, y: margin, w: w - margin * 2, h: stripH };

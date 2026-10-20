@@ -97,7 +97,7 @@ SF.ISLANDS.saltmere = {
       title: "the Stilthouse",
       x: 128,
       y: 48,
-      blurb: "Rest at the Stilthouse? Heart returns to full, the journey is saved, and field enemies come back."
+      blurb: "Rest at the Stilthouse? Heart returns to full, and the journey is saved."
     },
     {
       id: "sm-sign-shore",

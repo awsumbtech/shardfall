@@ -165,6 +165,7 @@ function showNode(id) {
   var node = lookup(id);
   var lines = visibleLines(node, (s.flags || {}));
   var full = fillLine(lines[0], s);
+  if (SF.armReveal) SF.armReveal(full);
   var instant = linesInstant();
   var walkingUp = !!(s.approach && s.approach.kind === "cantor" && (node.id === "cinderveil.cantor.confront"));
   var lock = 0.2;
@@ -260,6 +261,7 @@ SF.advanceDialogue = function () {
   if (d.i < d.lines.length - 1) {
     d.i += 1;
     d.full = fillLine(d.lines[d.i], s);
+    if (SF.armReveal) SF.armReveal(d.full);
     var instant = linesInstant();
     d.shown = instant ? d.full.length : 0;
     d.done = instant || !d.full.length;

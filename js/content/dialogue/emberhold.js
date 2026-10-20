@@ -34,6 +34,8 @@
       "Do you know your name? No? That's all right. I'll call you Wayfarer till it comes back to you.",
       "Let me see that hand. I've handled sky-shards all my life, and I've never seen one grow into a person.",
       "Now, the lamp up the hill keeps the Hush off this island, and it's nearly out. The Hushborn are already coming up past the Scar at night.",
+      narr("Maren points up the hill. The camera pans to the lamp on the ridge. The shard in your palm flares bright, and the lamp flickers brighter for a moment in answer. The camera pans back. Your palm keeps tingling, and you can tell which way other shards are.", "lamp"),
+      "Did you see that? The lamp brightened when your hand did.",
       "It needs five sky-shards. My knees won't get me out to where they fall anymore. Will you find them and set them in the lamp?"
     ],
     choices: [

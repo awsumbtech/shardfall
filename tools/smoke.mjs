@@ -36,6 +36,7 @@ for (const file of [
   "js/content/maps/highspire.js",
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
+  "js/content/maps/v2layout.js",
   "js/grapple.js",
   "js/battle/battle.js",
   "js/menu/field.js",
@@ -82,8 +83,10 @@ s.player.safeY = 24;
 s.flags.kestrelHint = true;
 s.flags.cantor_choice = "refuse";
 s.flags.asked_maren = "hand";
-s.enemies[0].alive = false;
-s.enemies[0].hp = 0;
+if (s.enemies[0]) {
+  s.enemies[0].alive = false;
+  s.enemies[0].hp = 0;
+}
 const encoded = JSON.parse(JSON.stringify(SF.exportState(s)));
 const restored = SF.fresh();
 if (!SF.applySave(restored, encoded)) {
@@ -98,8 +101,12 @@ if (restored.flags.cantor_choice !== "refuse" || restored.flags.asked_maren !== 
   console.error("dialogue flags did not round-trip", restored.flags.cantor_choice, restored.flags.asked_maren);
   process.exit(1);
 }
-if (Math.abs(restored.player.x - 12) > 0.01 || restored.enemies[0].alive !== false) {
-  console.error("position or enemy alive did not round-trip");
+if (!SF.walkable(restored.player.x, restored.player.y)) {
+  console.error("restored position is not walkable", restored.player.x, restored.player.y);
+  process.exit(1);
+}
+if (restored.enemies[0] && restored.enemies[0].alive !== false) {
+  console.error("enemy alive did not round-trip");
   process.exit(1);
 }
 if (SF.applySave(SF.fresh(), { v: 99 })) {
@@ -115,36 +122,22 @@ if (!fromDisk || fromDisk.shardsHeld !== 4) {
 }
 
 const fight = freshPlay();
-const wisp = fight.enemies[0];
-const before = wisp.hp;
-fight.player.x = wisp.x - 48;
-fight.player.y = wisp.y;
-fight.player.fx = 1;
-fight.player.fy = 0;
-SF.startSwing(fight.player);
+if (SF.startSwing(fight.player)) {
+  console.error("the field strike still starts");
+  process.exit(1);
+}
 for (let i = 0; i < 12; i++) SF.update(0.016);
-if (wisp.hp !== before) {
-  console.error("the real-time strike still damaged the wisp", wisp.hp);
-  process.exit(1);
-}
 if (fight.mode === "battle") {
-  console.error("standing beside a foe started a fight without a touch");
+  console.error("standing still started a fight");
   process.exit(1);
 }
-SF.touchFoe(wisp);
+SF.Battle.start("em_wisps", { zoneLevel: 3, bg: "emberhold_meadow" });
 if (fight.mode !== "battle" || !fight.battle || fight.battle.id !== "em_wisps") {
-  console.error("touching a wisp did not start em_wisps", fight.mode, fight.battle && fight.battle.id);
+  console.error("a meadow fight did not start", fight.mode, fight.battle && fight.battle.id);
   process.exit(1);
 }
 fight.battle = null;
 fight.mode = "play";
-
-const brume = fight.enemies.find((e) => e.kind === "brumekin");
-SF.damageEnemy(brume, brume.hp, 1, 0, 1);
-if (brume.alive || !fight.drops["drop-" + brume.id]) {
-  console.error("brumekin death did not leave a shard");
-  process.exit(1);
-}
 
 const talk = freshPlay();
 talk.player.x = SF.NPCS[0].x;
@@ -167,7 +160,7 @@ while (talk.mode === "dialogue" && guard < 24) {
   } else SF.advanceDialogue();
   guard += 1;
 }
-if (talk.quest !== "gather" || !talk.flags.metMaren || talk.flags.asked_maren !== "hand") {
+if (talk.quest !== "gather" || !talk.flags.metMaren || !talk.flags.shard_sense || talk.flags.asked_maren !== "hand") {
   console.error("quest did not start", talk.quest, talk.flags);
   process.exit(1);
 }
@@ -189,15 +182,11 @@ if (!lamp.flags.lampLit || !lamp.player.shardstep || lamp.quest !== "stirring" |
 const calm = freshPlay();
 for (let i = 0; i < 180; i++) SF.update(0.016);
 if (calm.player.hp < calm.player.maxHp) {
-  console.error("wisps reached the waking stones", calm.player.hp);
+  console.error("the waking stones did not stay safe", calm.player.hp);
   process.exit(1);
 }
-const nearest = calm.enemies.reduce((best, e) => {
-  const d = Math.hypot(e.x - calm.player.x, e.y - calm.player.y);
-  return d < best ? d : best;
-}, Infinity);
-if (nearest < 70) {
-  console.error("an enemy closed on the player at the stones", nearest);
+if (calm.mode === "battle") {
+  console.error("the waking stones rolled a fight");
   process.exit(1);
 }
 
@@ -257,12 +246,14 @@ if (SF.actionFor(guide, SF.nearestInteract()).label !== "Inspect") {
 }
 
 const fall = freshPlay();
-fall.player.x = 350;
-fall.player.y = -85;
-fall.player.px = 350;
-fall.player.py = -85;
-fall.player.safeX = 268;
-fall.player.safeY = -100;
+const spanC = SF.circle("span");
+const gapC = SF.circle("gap");
+fall.player.x = (spanC.x + gapC.x) / 2;
+fall.player.y = (spanC.y + gapC.y) / 2;
+fall.player.px = fall.player.x;
+fall.player.py = fall.player.y;
+fall.player.safeX = spanC.x;
+fall.player.safeY = spanC.y;
 fall.player.fall = 0.3;
 SF.update(0.02);
 SF.update(0.02);
@@ -527,62 +518,72 @@ finishTalk(road);
 if (!road.player.grapple || road.quest !== "vault") fail("grapple was not granted");
 needMarker("vault");
 
-road.player.x = 600;
-road.player.y = 40;
-road.player.fx = 1;
-road.player.fy = 0;
+const ilsaFirst = SF.npcById("ilsa");
+road.player.x = ilsaFirst.x;
+road.player.y = ilsaFirst.y;
+SF.tryInteract();
+finishTalk(road);
+if (!road.flags.vaultOpen || road.quest !== "trial") fail("Ilsa did not open the vault");
+needMarker("trial");
+
+const cliffHook = SF.HOOKS.find((h) => h.id === "hook1-cliff");
+const ledgeHook = SF.HOOKS.find((h) => h.id === "hook1-ledge");
+road.player.x = cliffHook.x;
+road.player.y = cliffHook.y;
+road.player.fx = 0;
+road.player.fy = -1;
 road.player.grappleCd = 0;
-road.player.safeX = 600;
-road.player.safeY = 40;
+road.player.safeX = cliffHook.x;
+road.player.safeY = cliffHook.y;
 const heardSfx = [];
 const origSfx = context.Sfx.play.bind(context.Sfx);
 context.Sfx.play = (name, opts) => {
   heardSfx.push(name);
   return origSfx(name, opts);
 };
-if (!SF.fireGrapple(road.player, { x: 1, y: 0 })) fail("first hook did not fire");
+if (!SF.fireGrapple(road.player, { x: 0, y: -1 })) fail("first hook did not fire");
 if (heardSfx.indexOf("grapple") < 0 || heardSfx.indexOf("pull") < 0) fail("the hook was silent");
 let hops = 0;
 while (road.player.grappleT > 0 && hops < 40) {
   SF.update(0.02);
   hops += 1;
 }
-if (!SF.walkable(road.player.x, road.player.y) || road.player.x < 760) {
+if (!SF.walkable(road.player.x, road.player.y) || SF.dist(road.player.x, road.player.y, ledgeHook.x, ledgeHook.y) > 36) {
   fail("first hook missed the vault lip " + road.player.x + "," + road.player.y);
 }
 if (heardSfx.indexOf("latch") < 0) fail("the hook did not latch");
 
-const ilsa = SF.npcById("ilsa");
-road.player.x = ilsa.x;
-road.player.y = ilsa.y;
-SF.tryInteract();
-finishTalk(road);
-if (!road.flags.vaultOpen || road.quest !== "trial") fail("Ilsa did not open the vault");
-needMarker("trial");
-
-road.player.x = 1060;
-road.player.y = 20;
-road.player.fx = 1;
-road.player.fy = 0;
+const upHook = SF.HOOKS.find((h) => h.id === "hook2-ledge");
+const vaultHook = SF.HOOKS.find((h) => h.id === "hook2-vault");
+road.player.x = upHook.x;
+road.player.y = upHook.y;
+road.player.fx = 0;
+road.player.fy = -1;
 road.player.grappleCd = 0;
-road.player.safeX = 1060;
-road.player.safeY = 20;
+road.player.safeX = upHook.x;
+road.player.safeY = upHook.y;
 road.player.hp = road.player.maxHp;
-if (!SF.fireGrapple(road.player, { x: 1, y: 0 })) fail("vault hook did not fire");
+if (!SF.fireGrapple(road.player, { x: 0, y: -1 })) fail("vault hook did not fire");
 hops = 0;
 while (road.player.grappleT > 0 && hops < 40) {
   SF.update(0.02);
   hops += 1;
 }
-if (!SF.walkable(road.player.x, road.player.y) || road.player.x < 1200) {
+if (!SF.walkable(road.player.x, road.player.y) || SF.dist(road.player.x, road.player.y, vaultHook.x, vaultHook.y) > 36) {
   fail("vault hook missed the heart " + road.player.x + "," + road.player.y);
 }
 SF.update(0.02);
 if (road.quest !== "seal") fail("the heart did not become the seal step");
 needMarker("seal");
 
-road.player.x = 1320;
-road.player.y = 20;
+const mouth = SF.TEXTS.find((t) => t.id === "maw-mouth");
+road.party.members.wayfarer.xp = SF.xpForLevel(8);
+SF.levelMemberToXp(road, "wayfarer");
+SF.syncFieldVitals(road);
+road.player.hp = road.player.maxHp;
+road.inventory.tonic = (road.inventory.tonic || 0) + 4;
+road.player.x = mouth.x;
+road.player.y = mouth.y;
 SF.tryInteract();
 if (!road.dialogue || road.dialogue.id !== "cinderveil.maw.prefight") fail("the Maw did not speak");
 finishTalk(road);
@@ -590,8 +591,12 @@ const maw = road.enemies.find((e) => e.kind === "maw");
 if (!road.flags.mawFight || !maw || maw.dormant || road.quest !== "maw") fail("the Maw did not wake");
 if (context.Music.current() !== "boss") fail("the Maw did not take the boss theme");
 needMarker("maw");
-SF.damageEnemy(maw, maw.maxHp, 1, 0, 1);
-if (!road.flags.mawDead || road.quest !== "relight" || !road.dialogue || road.dialogue.id !== "cinderveil.maw.defeated") {
+if (!road.battle || road.battle.id !== "boss_cinder_maw" || road.battle.canFlee) fail("the Maw talk did not start a locked fight");
+SF.Battle.instant = true;
+const storyMaw = SF.Battle.autoResolve(120);
+if (storyMaw !== "win") fail("the Maw did not fall (" + storyMaw + ")");
+if (!road.flags.mawDead || road.quest !== "relight") fail("the Maw win did not continue");
+if (!road.dialogue || road.dialogue.id !== "cinderveil.maw.defeated") {
   fail("the Maw did not fall");
 }
 finishTalk(road);
@@ -616,17 +621,16 @@ if (SF.objectivePoint(road)) fail("Act 1 should rest without a marker");
 if (SF.islandId !== "cinderveil") fail("the epilogue left Cinderveil");
 
 const yanked = freshPlay();
-SF.mountIsland("cinderveil");
-yanked.island = "cinderveil";
-yanked.enemies = SF.makeEnemies();
+SF.mountIsland("emberhold");
+yanked.island = "emberhold";
+yanked.enemies = [{
+  id: "yank-wisp", kind: "wisp", x: yanked.player.x + 80, y: yanked.player.y,
+  alive: true, dying: 0, dormant: false, hp: 10, maxHp: 10, r: 13, homeX: 0, homeY: 0
+}];
 yanked.player.grapple = true;
-yanked.player.x = 300;
-yanked.player.y = 80;
 yanked.player.fx = 1;
 yanked.player.fy = 0;
-const mite = yanked.enemies.find((e) => e.id === "ashmite-west");
-mite.x = 360;
-mite.y = 80;
+yanked.player.grappleCd = 0;
 if (!SF.fireGrapple(yanked.player, { x: 1, y: 0 })) fail("could not hook a small foe");
 if (yanked.player.grapplePull !== "yank") fail("small foe was not pulled");
 SF.mountIsland("emberhold");
@@ -782,11 +786,8 @@ if (SF.ENCOUNTERS.boss_cinder_maw.canFlee !== false || SF.ENCOUNTERS.boss_tidewy
 
 const battle = freshPlay();
 SF.Battle.instant = true;
-const meadow = battle.enemies.find((e) => e.id === "wisp-meadow");
-battle.player.x = meadow.x;
-battle.player.y = meadow.y;
-SF.touchFoe(meadow);
-if (!battle.battle || battle.battle.id !== "em_wisps") fail("meadow touch was not em_wisps");
+SF.Battle.start("em_wisps", { zoneLevel: 3, bg: "emberhold_meadow" });
+if (!battle.battle || battle.battle.id !== "em_wisps") fail("meadow fight was not em_wisps");
 const soloParty = battle.battle.actors.filter((a) => a.side === "party");
 if (soloParty.length !== 1 || soloParty[0].key !== "wayfarer") fail("Act 1 battle was not solo");
 if (context.Music.current() !== "battle") fail("battle music did not start");
@@ -819,8 +820,7 @@ if (!battle.battle.log.some((line) => line.indexOf("defends") >= 0)) fail("defen
 const goldBefore = battle.gold;
 const outcome = SF.Battle.autoResolve(40);
 if (outcome !== "win") fail("wisps were not defeated " + outcome);
-if (meadow.alive) fail("winning did not remove the field wisp");
-if (battle.player.xp < SF.ENCOUNTERS.em_wisps.xp) fail("xp was not shared");
+if (battle.player.xp < 1) fail("xp was not shared");
 if (battle.gold < goldBefore) fail("marks were not awarded");
 if (battle.mode === "battle") fail("battle did not return to the field");
 
@@ -855,8 +855,7 @@ SF.Battle.playerAct({ type: "item", itemId: "smoke_bomb" });
 if (!flee.battle || flee.battle.phase !== "result" || !flee.battle.result.fled) fail("smoke bomb did not flee");
 SF.Battle.confirmResult();
 if (flee.mode !== "play") fail("flee did not return to the field");
-const still = flee.enemies.filter((e) => e.kind === "wisp" && e.alive).length;
-if (still < 3) fail("flee removed a foe");
+if ((flee.encounterGrace || 0) < 10) fail("flee did not grant grace steps");
 
 const levels = freshPlay();
 SF.Battle.instant = true;
@@ -929,7 +928,7 @@ round.party.members.wayfarer.xp = 40;
 SF.levelMemberToXp(round, "wayfarer");
 SF.syncFieldVitals(round);
 const dumped = JSON.parse(JSON.stringify(SF.exportState(round)));
-if (dumped.v !== 3 || dumped.gold !== 15) fail("v3 export dropped marks");
+if (dumped.v !== 4 || dumped.gold !== 15) fail("v4 export dropped marks");
 const loaded = SF.fresh();
 if (!SF.applySave(loaded, dumped)) fail("v3 save was rejected");
 if (loaded.gold !== 15 || (loaded.inventory.ether || 0) !== 2) fail("v3 inventory did not round-trip");
@@ -939,15 +938,12 @@ const roadFight = freshPlay();
 SF.Battle.instant = true;
 SF.mountIsland("emberhold");
 roadFight.island = "emberhold";
-roadFight.enemies = SF.makeEnemies();
-roadFight.enemies.forEach((e) => {
-  if (!e.alive) return;
-  roadFight.touchCd = 0;
-  roadFight.player.x = e.x;
-  roadFight.player.y = e.y;
-  if (!SF.touchFoe(e)) fail("could not touch " + e.id);
+roadFight.flags.metMaren = true;
+roadFight.flags.shard_sense = true;
+["em_wisps", "em_wisps", "em_wisp1", "em_brumekin", "em_wisps", "em_brume_wisp", "em_choirling", "em_wisps"].forEach((id) => {
+  SF.Battle.start(id, { zoneLevel: id === "em_choirling" || id === "em_brume_wisp" ? 5 : 3, fixed: id === "em_choirling", carrier: id === "em_brume_wisp", carrierRegion: id === "em_brume_wisp" ? "scar" : null });
   const end = SF.Battle.autoResolve(50);
-  if (end !== "win") fail("could not win " + e.encounter + " at this level (" + end + ")");
+  if (end !== "win") fail("could not win " + id + " (" + end + ")");
 });
 const emberLevel = roadFight.party.members.wayfarer.level;
 if (emberLevel < 4 || emberLevel > 6) fail("Emberhold fights landed at level " + emberLevel);
@@ -961,19 +957,18 @@ roadFight.mode = "play";
 roadFight.dialogue = null;
 SF.mountIsland("cinderveil");
 roadFight.island = "cinderveil";
-roadFight.enemies = SF.makeEnemies();
-roadFight.enemies.forEach((e) => {
-  if (!e.alive || e.kind === "maw") return;
-  roadFight.touchCd = 0;
-  if (!SF.touchFoe(e)) fail("could not touch " + e.id);
+["cv_ashlings", "cv_ash1", "cv_mixed", "cv_cinderhound", "cv_ashlings", "cv_mixed", "cv_ashlings", "cv_ash1", "cv_mixed", "cv_cinderhound", "cv_ashlings", "cv_mixed", "cv_hounds", "cv_cinderhound"].forEach((id) => {
+  SF.Battle.start(id, { zoneLevel: id === "cv_hounds" || id === "cv_cinderhound" ? 8 : 7 });
   const partyNow = roadFight.battle.actors.filter((a) => a.side === "party");
   if (partyNow.length !== 1) fail("a Cinderveil fight was not solo");
   const end = SF.Battle.autoResolve(60);
-  if (end !== "win") fail("could not win " + (e.encounter || e.kind) + " (" + end + ") lv " + roadFight.party.members.wayfarer.level);
+  if (end !== "win") fail("could not win " + id + " (" + end + ") lv " + roadFight.party.members.wayfarer.level);
 });
 const preMaw = roadFight.party.members.wayfarer.level;
 if (preMaw < 7 || preMaw > 9) fail("Act 1 was not about level 8 before the Maw (" + preMaw + ")");
+roadFight.enemies = SF.makeEnemies();
 const mawFoe = roadFight.enemies.find((e) => e.kind === "maw");
+if (!mawFoe) fail("the Maw is not on the map");
 mawFoe.dormant = false;
 roadFight.flags.mawFight = true;
 roadFight.touchCd = 0;
@@ -1068,7 +1063,7 @@ SF.tryInteract();
 if (SF.itemCount("tonic") !== 1) fail("chest paid twice");
 const chestSave = JSON.parse(JSON.stringify(SF.exportState(trip)));
 const chestBack = SF.fresh();
-if (!SF.applySave(chestBack, chestSave) || chestSave.v !== 3) fail("chest save was rejected");
+if (!SF.applySave(chestBack, chestSave) || chestSave.v !== 4) fail("chest save was rejected");
 if (!chestBack.picked[chest.id] || (chestBack.inventory.tonic || 0) !== 1) fail("chest did not stay open in the save");
 SF.state = trip;
 
@@ -1090,10 +1085,9 @@ if (trip.gold !== 15 || SF.itemCount("tonic") !== 1) fail("sell price was wrong 
 SF.closeWorldPanel();
 
 const inn = SF.EXTRAS.find((ex) => ex.id === "sm-inn");
-const shore = trip.enemies.find((e) => e.encounter === "sm_saltwisps");
 const wyrm = trip.enemies.find((e) => e.kind === "tidewyrm");
-shore.alive = false;
-shore.hp = 0;
+if (!wyrm) fail("the Tidewyrm is missing");
+if (trip.enemies.some((e) => e.encounter === "sm_saltwisps")) fail("Saltmere still has field trash");
 wyrm.alive = false;
 wyrm.hp = 0;
 trip.flags.tidewyrmDead = true;
@@ -1105,12 +1099,10 @@ if (trip.mode !== "inn") fail("inn prompt did not open");
 SF.restAtInn(inn);
 if (trip.player.hp !== trip.player.maxHp) fail("rest did not fill heart");
 if (trip.mode !== "play") fail("rest left the inn open");
-const shoreBack = trip.enemies.find((e) => e.id === shore.id);
 const wyrmBack = trip.enemies.find((e) => e.kind === "tidewyrm");
-if (!shoreBack.alive) fail("field enemy did not respawn at the inn");
 if (wyrmBack.alive || !trip.flags.tidewyrmDead) fail("the Tidewyrm respawned");
 const innSave = SF.readSave();
-if (!innSave || innSave.v !== 3 || innSave.player.hp !== trip.player.maxHp) fail("inn did not save");
+if (!innSave || innSave.v !== 4 || innSave.player.hp !== trip.player.maxHp) fail("inn did not save");
 
 const hooked = freshPlay();
 hooked.flags.act1 = true;
@@ -1179,9 +1171,9 @@ touch.island = "saltmere";
 touch.mode = "play";
 touch.enemies = SF.makeEnemies();
 touch.touchCd = 0;
-const saltWisp = touch.enemies.find((e) => e.id === "sm-wisp-shore");
-if (!SF.touchFoe(saltWisp)) fail("saltwisp touch did not start a fight");
-if (!touch.battle || touch.battle.id !== "sm_saltwisps" || touch.battle.fieldId !== saltWisp.id || touch.battle.bg !== "saltmere_shore" || touch.battle.canFlee !== true) {
+if (touch.enemies.some((e) => e.id === "sm-wisp-shore")) fail("Saltmere still places a field wisp");
+if (!SF.Battle.start("sm_saltwisps", { bg: "saltmere_shore", zoneLevel: 10, canFlee: true })) fail("saltwisp encounter did not start");
+if (!touch.battle || touch.battle.id !== "sm_saltwisps" || touch.battle.bg !== "saltmere_shore" || touch.battle.canFlee !== true) {
   fail("saltwisp fight was not sm_saltwisps");
 }
 touch.battle = null;
@@ -1202,5 +1194,21 @@ SF.tryInteract();
 if (touch.flags.saltmere_lamp !== "lit") fail("the Saltmere lamp did not light after the Tidewyrm");
 SF.seaFightChance = null;
 SF.mountIsland("emberhold");
+
+if (SF.xpForFight(11, 3, 3, false) !== 11) fail("even-level XP " + SF.xpForFight(11, 3, 3, false));
+if (SF.xpForFight(11, 1, 3, false) !== Math.round(11 * 1.25)) fail("under-level XP");
+if (SF.xpForFight(11, 4, 3, false) !== Math.round(11 * 0.5)) fail("gap 1 XP");
+if (SF.xpForFight(11, 5, 3, false) !== Math.round(11 * 0.25)) fail("gap 2 XP");
+if (SF.xpForFight(11, 6, 3, false) !== Math.max(1, Math.round(11 * 0.1))) fail("gap 3 XP");
+if (SF.xpForFight(11, 7, 3, false) !== 1) fail("gap 4 XP");
+if (SF.xpForFight(20, 9, 3, true) !== 20) fail("fixed XP was scaled");
+const meadowN = SF.simulateEncounterRate("meadow", 800, 1, { metMaren: true });
+const litN = SF.simulateEncounterRate("meadow", 800, 1, { metMaren: true, lampLit: true });
+if (meadowN < 8 || meadowN > 28) fail("meadow rate felt wrong " + meadowN);
+if (litN >= meadowN || litN > 12) fail("a lit lamp did not slow the meadow " + litN + " vs " + meadowN);
+if (SF.simulateEncounterRate("cottage", 400, 1, { metMaren: true }) !== 0) fail("the cottage rolled a fight");
+if (SF.simulateEncounterRate("meadow", 400, 2, {}) !== 0) fail("the meadow fought before Maren");
+const scarEarly = SF.simulateEncounterRate("scar", 500, 3, {});
+if (scarEarly < 6 || scarEarly > 28) fail("the Scar was quiet before Maren " + scarEarly);
 
 console.log("smoke ok");
