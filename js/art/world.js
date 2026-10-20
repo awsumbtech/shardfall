@@ -368,37 +368,21 @@
 
   function organicTile(name, spec) {
     tile(name, function () {
-      var S = 64;
+      var S = 16;
       var s = Art.spr(S, S);
       var colors = spec.colors;
-      var x, y, h, pick, i, tx, ty, k, len;
+      var x, y, h;
       for (y = 0; y < S; y++) {
-        for (x = 0; x < S; x++) {
-          h = tileHash(x, y, spec.salt);
-          pick = h % 100;
-          if (pick < 58) plot(s, x, y, colors[0]);
-          else if (pick < 82) plot(s, x, y, colors[1]);
-          else if (pick < 94) plot(s, x, y, colors[2]);
-          else plot(s, x, y, colors[3] || colors[1]);
-        }
+        for (x = 0; x < S; x++) plot(s, x, y, colors[0]);
       }
-      for (i = 0; i < (spec.tufts || 0); i++) {
-        tx = tileHash(i, 3, spec.salt) % S;
-        ty = tileHash(i, 7, spec.salt) % S;
-        len = 2 + (tileHash(i, 11, spec.salt) % 3);
-        for (k = 0; k < len; k++) plot(s, tx, (ty + k) % S, k === 0 ? (spec.hi || spec.tuft) : spec.tuft);
-        if (tileHash(i, 13, spec.salt) % 2 === 0) plot(s, (tx + 1) % S, ty, spec.hi || spec.tuft);
+      h = tileHash(spec.salt, 3, spec.salt);
+      if (spec.tufts) {
+        plot(s, 3 + (h % 2), 10, spec.tuft || colors[1]);
+        plot(s, 4 + (h % 2), 9, spec.hi || spec.tuft || colors[2]);
+        plot(s, 4 + (h % 2), 10, spec.tuft || colors[1]);
       }
-      for (i = 0; i < (spec.specks || 0); i++) {
-        tx = tileHash(i, 17, spec.salt) % S;
-        ty = tileHash(i, 19, spec.salt) % S;
-        plot(s, tx, ty, spec.speck);
-        if (spec.rock && tileHash(i, 23, spec.salt) % 3 !== 0) {
-          plot(s, (tx + 1) % S, ty, spec.rock);
-          plot(s, tx, (ty + 1) % S, spec.rock);
-          if (tileHash(i, 29, spec.salt) % 2 === 0) plot(s, (tx + 1) % S, (ty + 1) % S, spec.rock);
-        }
-      }
+      if (spec.specks && (h % 3) !== 0) plot(s, 11, 4, spec.speck || colors[2]);
+      if (spec.rock && (h % 4) === 0) plot(s, 12, 12, spec.rock);
       s.ax = 0;
       s.ay = 0;
       return s;

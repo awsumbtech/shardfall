@@ -183,18 +183,25 @@ SF.cloudStamp = function () {
 };
 
 SF.buildCloudSheet = function () {
-  var clouds = SF.clouds;
+  var clouds = SF.clouds || [];
   var minX = Infinity;
   var minY = Infinity;
   var maxX = -Infinity;
   var maxY = -Infinity;
-  var i, c;
+  var i, c, reach;
   for (i = 0; i < clouds.length; i++) {
     c = clouds[i];
-    if (c.x - c.s < minX) minX = c.x - c.s;
-    if (c.x + c.s > maxX) maxX = c.x + c.s;
-    if (c.y - c.s < minY) minY = c.y - c.s;
-    if (c.y + c.s > maxY) maxY = c.y + c.s;
+    reach = c.s * 1.7;
+    if (c.x - reach < minX) minX = c.x - reach;
+    if (c.x + reach > maxX) maxX = c.x + reach;
+    if (c.y - reach < minY) minY = c.y - reach;
+    if (c.y + reach > maxY) maxY = c.y + reach;
+  }
+  if (!isFinite(minX)) {
+    minX = -400;
+    minY = -400;
+    maxX = 400;
+    maxY = 400;
   }
   var worldW = Math.max(1, maxX - minX);
   var worldH = Math.max(1, maxY - minY);
@@ -208,10 +215,37 @@ SF.buildCloudSheet = function () {
   var g = sheet.getContext("2d");
   g.setTransform(ppm, 0, 0, ppm, -minX * ppm, -minY * ppm);
   g.imageSmoothingEnabled = true;
+  if ("imageSmoothingQuality" in g) g.imageSmoothingQuality = "high";
+  function softDisc(inner, mid, edge) {
+    var cnv = document.createElement("canvas");
+    cnv.width = 256;
+    cnv.height = 256;
+    var gg = cnv.getContext("2d");
+    var rg = gg.createRadialGradient(128, 128, 0, 128, 128, 128);
+    rg.addColorStop(0, inner);
+    rg.addColorStop(0.28, inner);
+    rg.addColorStop(0.55, mid);
+    rg.addColorStop(0.82, edge);
+    rg.addColorStop(1, "rgba(255,255,255,0)");
+    gg.fillStyle = rg;
+    gg.fillRect(0, 0, 256, 256);
+    return cnv;
+  }
+  var sea = softDisc("rgba(255,236,244,0.90)", "rgba(236,214,226,0.40)", "rgba(220,198,214,0.08)");
+  var mist = softDisc("rgba(214,226,255,0.75)", "rgba(196,214,244,0.32)", "rgba(186,204,236,0.06)");
+  var dusk = softDisc("rgba(255,214,196,0.70)", "rgba(244,186,170,0.28)", "rgba(232,170,160,0.05)");
+  function layer(blob, x, y, rx, ry, alpha) {
+    g.save();
+    g.globalAlpha = alpha;
+    g.drawImage(blob, x - rx, y - ry, rx * 2, ry * 2);
+    g.restore();
+  }
   for (i = 0; i < clouds.length; i++) {
     c = clouds[i];
-    g.globalAlpha = 0.78;
-    g.drawImage(SF.blobs[c.kind] || SF.blobs.cloud, c.x - c.s, c.y - c.s * 0.42, c.s * 2, c.s * 0.9);
+    var top = c.kind === "dusk" ? dusk : (c.kind === "mist" ? mist : sea);
+    layer(mist, c.x, c.y + c.s * 0.05, c.s * 1.85, c.s * 0.78, 0.55);
+    layer(sea, c.x - c.s * 0.18, c.y - c.s * 0.06, c.s * 1.2, c.s * 0.52, 0.7);
+    layer(top, c.x + c.s * 0.16, c.y + c.s * 0.04, c.s * 0.72, c.s * 0.34, 0.8);
   }
   g.globalAlpha = 1;
   SF._cloudSheet = sheet;
@@ -220,287 +254,735 @@ SF.buildCloudSheet = function () {
   SF._cloudStamp = SF.cloudStamp();
 };
 
+SF.blitCloudSheet = function (ctx, sheet, ppm, srcLeft, srcTop, destLeft, destTop, vw, vh, originX, originY) {
+  var srcX = (srcLeft - originX) * ppm;
+  var srcY = (srcTop - originY) * ppm;
+  var srcW = vw * ppm;
+  var srcH = vh * ppm;
+  var destX = destLeft;
+  var destY = destTop;
+  var destW = vw;
+  var destH = vh;
+  var cut;
+  if (srcX < 0) {
+    cut = -srcX;
+    srcX = 0;
+    srcW -= cut;
+    destX += cut / ppm;
+    destW -= cut / ppm;
+  }
+  if (srcY < 0) {
+    cut = -srcY;
+    srcY = 0;
+    srcH -= cut;
+    destY += cut / ppm;
+    destH -= cut / ppm;
+  }
+  if (srcX + srcW > sheet.width) {
+    cut = srcX + srcW - sheet.width;
+    srcW -= cut;
+    destW -= cut / ppm;
+  }
+  if (srcY + srcH > sheet.height) {
+    cut = srcY + srcH - sheet.height;
+    srcH -= cut;
+    destH -= cut / ppm;
+  }
+  if (srcW < 1 || srcH < 1 || destW <= 0 || destH <= 0) return;
+  var smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = true;
+  if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(sheet, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
+  ctx.imageSmoothingEnabled = smooth;
+};
+
 SF.drawClouds = function (ctx, s) {
   if (!SF.clouds || !SF.clouds.length || !SF.blobs) return;
   if (!SF._cloudSheet || SF._cloudStamp !== SF.cloudStamp()) SF.buildCloudSheet();
   var z = SF.zoom || 1;
-  var pad = 6;
+  var pad = 48;
   var left = s.camX - SF.viewW / (2 * z) - pad;
   var top = s.camY - SF.viewH / (2 * z) - pad;
   var vw = SF.viewW / z + pad * 2;
   var vh = SF.viewH / z + pad * 2;
-  var drift = Math.sin(SF.anim * 0.07) * 36;
+  var drift = Math.sin(SF.anim * 0.07) * 18;
   var b = SF._cloudBox;
-  SF.blitSheet(ctx, SF._cloudSheet, SF._cloudPpm, left - s.camX * 0.18 - drift, top - s.camY * 0.18, left, top, vw, vh, b.minX, b.minY);
+  SF.blitCloudSheet(ctx, SF._cloudSheet, SF._cloudPpm, left - s.camX * 0.12 - drift, top - s.camY * 0.12, left, top, vw, vh, b.minX, b.minY);
 };
 
-SF.SKY = {
-  emberhold: { dusk: ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae"], lit: ["#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"] },
-  cinderveil: { dusk: ["#241812", "#5c4038", "#c46a55", "#d9a090"], lit: ["#3a2418", "#8a5040", "#e07a48", "#f0b090"] },
-  saltmere: { dusk: ["#102438", "#1e5870", "#e0a898", "#f3d2bc"] },
-  highspire: { dusk: ["#2a160c", "#6a4030", "#e0a060", "#f0d0a0"] },
-  gullrock: { dusk: ["#1a1830", "#4a4868", "#c8b8a8", "#e4d4c4"] },
-  drift: { dusk: ["#241430", "#5a4068", "#d0a0b8", "#f0d0c8"] }
+SF.buildHushLip = function () {
+  var b = SF.terrainBounds();
+  var minX = Math.floor(b.minX);
+  var minY = Math.floor(b.minY);
+  var w = Math.max(1, Math.ceil(b.maxX) - minX);
+  var h = Math.max(1, Math.ceil(b.maxY) - minY);
+  if (w > 4096) w = 4096;
+  if (h > 4096) h = 4096;
+  var sheet = document.createElement("canvas");
+  sheet.width = w;
+  sheet.height = h;
+  var g = sheet.getContext("2d");
+  g.imageSmoothingEnabled = true;
+  if ("imageSmoothingQuality" in g) g.imageSmoothingQuality = "high";
+  g.setTransform(1, 0, 0, 1, -minX, -minY);
+  var cinder = SF.islandId === "cinderveil";
+  var mist = cinder ? "rgba(255, 220, 204, 0.92)" : "rgba(255, 236, 246, 0.92)";
+  var shapes = [];
+  var names = Object.keys(SF.groups || {});
+  var ni, list, i, sh;
+  for (ni = 0; ni < names.length; ni++) {
+    list = SF.groups[names[ni]] || [];
+    for (i = 0; i < list.length; i++) {
+      if (!SF._isTrail(list[i])) shapes.push(list[i]);
+    }
+  }
+  function eachShape(inset, draw) {
+    for (i = 0; i < shapes.length; i++) {
+      sh = shapes[i];
+      g.beginPath();
+      if (sh.k === "r" || (sh.w != null && sh.rx == null)) {
+        g.rect(sh.x + inset, sh.y + inset, Math.max(2, sh.w - inset * 2), Math.max(2, sh.h - inset * 2));
+      } else {
+        var rx = Math.max(4, (sh.rx || sh.r || 8) - inset);
+        var ry = Math.max(4, (sh.ry || sh.r || rx) - inset);
+        g.ellipse(sh.x, sh.y, rx, ry, 0, 0, Math.PI * 2);
+      }
+      draw();
+    }
+  }
+  g.save();
+  g.shadowColor = mist;
+  g.shadowBlur = 26;
+  g.lineWidth = 16;
+  g.strokeStyle = mist;
+  g.globalAlpha = 0.85;
+  eachShape(-2, function () { g.stroke(); });
+  g.restore();
+  g.globalCompositeOperation = "destination-out";
+  g.shadowBlur = 0;
+  g.globalAlpha = 1;
+  g.fillStyle = "#000";
+  eachShape(7, function () { g.fill(); });
+  g.globalCompositeOperation = "source-over";
+  SF._hushLip = sheet;
+  SF._hushLipBox = { minX: minX, minY: minY };
+  SF._hushLipKey = SF.islandId || "";
 };
 
-SF.LANDS = {
-  ember: { cliff: "#a15a42", rim: "#d5f0b0", hi: "#d4f0aa", mid: "#5cba78", lo: "#2a704c", lit: { rim: "#e7ffc4", hi: "#e4f8b8", mid: "#6ed184", lo: "#2f8a58" } },
-  perch: { cliff: "#7a5344", rim: "#d8fff4", hi: "#d4fff2", mid: "#73cbb4", lo: "#2f7d78" },
-  cinder: { cliff: "#a15a42", rim: "#fff0c8", hi: "#fff1c4", mid: "#e0b15a", lo: "#8a7a3e" },
-  span: { cliff: "#6e5348", rim: "#f0d2bf", hi: "#ecd3c2", mid: "#b88870", lo: "#7a5a4e" },
-  quay: { cliff: "#4e5c5a", rim: "#9fd4d0", hi: "#c8c2ba", mid: "#8d8680", lo: "#5c5854" },
-  ash: { cliff: "#5a5048", rim: "#f0a070", hi: "#d8cfc6", mid: "#a89890", lo: "#6e625c" },
-  vault: { cliff: "#3a2824", rim: "#ffb15a", hi: "#8a6860", mid: "#6e4038", lo: "#3a2824" },
-  salt: { cliff: "#3e6e78", rim: "#d7fff8", hi: "#c9f6ea", mid: "#5ec4b0", lo: "#2a6e78" },
-  shore: { cliff: "#c4a574", rim: "#fff0c8", hi: "#f3e2b0", mid: "#e0c07a", lo: "#a68448" },
-  wreck: { cliff: "#3a403c", rim: "#b7c0b8", hi: "#8a948c", mid: "#5c6560", lo: "#2e3834" },
-  wyrm: { cliff: "#1a3038", rim: "#7ec8c4", hi: "#3e6e78", mid: "#1e4e58", lo: "#102830" },
-  hs: { cliff: "#6a5348", rim: "#f0e2c8", hi: "#e6d2b0", mid: "#c4a070", lo: "#7a5a40" },
-  road: { cliff: "#6e5348", rim: "#ecd8c0", hi: "#e0c8a8", mid: "#b89070", lo: "#6e5040" },
-  gull: { cliff: "#5a5854", rim: "#e4e0d8", hi: "#d4d0c8", mid: "#a8a49c", lo: "#6a6660" },
-  drift: { cliff: "#4a3a68", rim: "#e6d8ff", hi: "#d4c4f0", mid: "#8a74b0", lo: "#4a3868" }
-};
-
-SF.cliffTile = function (group) {
-  if (group === "quay" || group === "gull" || group === "hs") return "stone";
-  if (group === "salt" || group === "drift") return "pier";
-  if (group === "wreck") return "hold";
-  if (group === "shore" || group === "wyrm") return "sand";
-  return "cliff";
-};
-
-SF.landTiles = function (name, lit) {
-  var map = {
-    ember: lit ? ["grass_light", "grass_light"] : ["grass", "grass_light"],
-    perch: ["shore", "shore_light"],
-    cinder: ["ash", "ash_rock"],
-    span: ["stone", "stone_light"],
-    quay: ["stone", "ash"],
-    ash: ["ash", "ash_rock"],
-    vault: ["vault", "ash_ember"],
-    scar: ["gold", "stone"],
-    ridge: ["ash_ember", "ash_rock"],
-    salt: ["dock", "pier"],
-    shore: ["sand", "gold_light"],
-    wreck: ["hold", "vault"],
-    wyrm: ["shore", "shore_light"],
-    hs: ["cobble", "stone_light"],
-    road: ["path", "stone_light"],
-    gull: ["stone", "stone_light"],
-    drift: ["plank", "wood"]
-  };
-  return map[name] || ["grass", "grass_light"];
+SF.drawHushLip = function (ctx) {
+  if (!SF.groups || !SF.WALK) return;
+  var key = SF.islandId || "";
+  if (!SF._hushLip || SF._hushLipKey !== key) SF.buildHushLip();
+  var b = SF._hushLipBox;
+  var s = SF.state;
+  if (!s) return;
+  var z = SF.zoom || 1;
+  var pad = 40;
+  var left = s.camX - SF.viewW / (2 * z) - pad;
+  var top = s.camY - SF.viewH / (2 * z) - pad;
+  var vw = SF.viewW / z + pad * 2;
+  var vh = SF.viewH / z + pad * 2;
+  SF.blitCloudSheet(ctx, SF._hushLip, 1, left, top, left, top, vw, vh, b.minX, b.minY);
 };
 
 SF.drawLands = function (ctx, s) {
-  var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!s.flags.lampLit;
-  var pixel = window.Art && Art.fillPattern;
-  function solids(group) {
-    return (SF.groups[group] || []).filter(function (c) {
-      return !(c.id && String(c.id).indexOf("trail-") === 0);
-    });
-  }
-  function cliff(group) {
-    var shapes = solids(group);
-    if (!shapes.length) return;
-    ctx.save();
-    ctx.translate(0, 16);
-    SF.traceGroup(ctx, shapes, 3);
-    if (pixel) {
-      ctx.clip();
-      Art.fillPattern(ctx, SF.cliffTile ? SF.cliffTile(group) : (group === "quay" ? "stone" : "cliff"));
-    } else {
-      var look = (SF.LANDS && SF.LANDS[group]) || { cliff: "#a15a42" };
-      ctx.fillStyle = look.cliff || "#a15a42";
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-  function paintShapes(shapes, tileName, fallback) {
-    if (!shapes || !shapes.length) return;
-    ctx.save();
-    SF.traceGroup(ctx, shapes, 0);
-    ctx.clip();
-    if (pixel) Art.fillPattern(ctx, tileName);
-    else {
-      ctx.fillStyle = fallback || "#5cba78";
-      ctx.fillRect(-4000, -4000, 8000, 8000);
-    }
-    ctx.restore();
-  }
-  function highlight(group, light) {
-    var shapes = solids(group);
-    if (!shapes.length) return;
-    ctx.save();
-    ctx.translate(-3, -5);
-    SF.traceGroup(ctx, shapes, 2);
-    if (pixel) {
-      ctx.clip();
-      Art.fillPattern(ctx, light);
-    } else {
-      ctx.fillStyle = "#e7ffc4";
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-  var names = Object.keys(SF.groups || {});
-  names.forEach(cliff);
-  names.forEach(function (name) {
-    var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
-    highlight(name, tiles[1] || tiles[0]);
-  });
-  names.forEach(function (name) {
-    var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
-    paintShapes(SF.groups[name], tiles[0]);
-  });
-  ctx.save();
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-  ctx.lineWidth = 3;
-  names.forEach(function (name) {
-    var shapes = solids(name);
-    if (!shapes.length) return;
-    SF.traceGroup(ctx, shapes, 0);
-    ctx.strokeStyle = (SF.LANDS[name] && SF.LANDS[name].lo) || "#2a4030";
-    ctx.stroke();
-  });
-  ctx.restore();
-  names.forEach(function (name) {
-    var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
-    paintShapes(SF.groups[name], tiles[0]);
-  });
+  SF.paintActGround(ctx, s);
+};
 
-  var hollow = SF.circle("hollow");
-  if (hollow) {
-    ctx.save();
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = "#7f8cff";
-    ctx.beginPath();
-    ctx.arc(hollow.x, hollow.y, hollow.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-  if (lit) {
-    ctx.save();
-    ctx.globalAlpha = 0.18;
-    var glow = ctx.createRadialGradient(SF.LAMP.x, SF.LAMP.y, 20, SF.LAMP.x, SF.LAMP.y, 340);
-    glow.addColorStop(0, "rgba(255, 220, 140, 0.9)");
-    glow.addColorStop(1, "rgba(255, 220, 140, 0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(SF.LAMP.x, SF.LAMP.y, 340, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+SF.drawGround = function () {};
+
+SF.paintActGround = function (ctx, s) {
+  if (!SF.WALK || !SF.groups) return;
+  var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!(s && s.flags && s.flags.lampLit);
+  var b = SF.terrainBounds();
+  var minX = Math.floor(b.minX);
+  var minY = Math.floor(b.minY);
+  var w = Math.max(1, Math.ceil(b.maxX) - minX);
+  var h = Math.max(1, Math.ceil(b.maxY) - minY);
+  if (w > 4096) w = 4096;
+  if (h > 4096) h = 4096;
+  var sheet = document.createElement("canvas");
+  sheet.width = w;
+  sheet.height = h;
+  var g = sheet.getContext("2d", { willReadFrequently: true });
+  var img = g.createImageData(w, h);
+  var data = img.data;
+  var mask = new Uint8Array(w * h);
+  SF._paintField(data, mask, minX, minY, w, h, lit);
+  SF._paintDetails(data, mask, minX, minY, w, h);
+  SF._paintPaths(data, mask, minX, minY, w, h);
+  g.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sheet, minX, minY);
+  ctx.restore();
+};
+
+SF._terrainLooks = {
+  meadow: {
+    base: [72, 158, 78], alt: [62, 146, 70],
+    tuft: [34, 112, 48], tip: [118, 190, 98],
+    pebble: [142, 126, 102],
+    soil: [46, 96, 50],
+    cliffHi: [214, 170, 132], cliff: [176, 122, 90], cliffLo: [118, 76, 56], cliffOut: [72, 44, 34],
+    path: [168, 124, 78], pathMid: [150, 112, 72], pathEdge: [134, 108, 74]
+  },
+  grove: {
+    base: [48, 128, 82], alt: [40, 116, 74],
+    tuft: [22, 86, 52], tip: [86, 158, 100],
+    pebble: [86, 104, 82],
+    soil: [28, 78, 50],
+    cliffHi: [150, 120, 96], cliff: [114, 86, 70], cliffLo: [74, 54, 46], cliffOut: [44, 32, 28],
+    path: [118, 88, 60], pathMid: [104, 80, 56], pathEdge: [90, 78, 58]
+  },
+  lamp: {
+    base: [138, 176, 74], alt: [126, 164, 66],
+    tuft: [90, 132, 44], tip: [186, 210, 112],
+    pebble: [176, 154, 112],
+    soil: [98, 122, 46],
+    cliffHi: [226, 186, 136], cliff: [188, 144, 100], cliffLo: [126, 90, 62], cliffOut: [80, 54, 38],
+    path: [186, 150, 98], pathMid: [168, 136, 90], pathEdge: [150, 128, 88]
+  },
+  quay: {
+    base: [154, 162, 160], alt: [142, 152, 150],
+    tuft: [118, 126, 124], tip: [186, 192, 188],
+    pebble: [108, 118, 120],
+    soil: [96, 104, 102],
+    cliffHi: [168, 172, 168], cliff: [124, 130, 128], cliffLo: [82, 88, 86], cliffOut: [46, 50, 50],
+    path: [120, 124, 120], pathMid: [132, 136, 132], pathEdge: [144, 150, 148],
+    foam: [236, 244, 238]
+  },
+  ash: {
+    base: [156, 134, 114], alt: [144, 122, 104],
+    tuft: [96, 82, 70], tip: [184, 170, 152],
+    pebble: [90, 74, 62],
+    soil: [78, 64, 54],
+    cliffHi: [164, 142, 122], cliff: [120, 100, 86], cliffLo: [76, 62, 52], cliffOut: [44, 36, 30],
+    path: [104, 74, 50], pathMid: [122, 92, 66], pathEdge: [142, 118, 96]
+  },
+  grey: {
+    base: [122, 118, 114], alt: [112, 108, 104],
+    tuft: [84, 80, 78], tip: [158, 154, 148],
+    pebble: [78, 74, 70],
+    soil: [70, 66, 64],
+    cliffHi: [146, 140, 132], cliff: [104, 98, 92], cliffLo: [66, 62, 58], cliffOut: [36, 34, 32],
+    path: [92, 86, 78], pathMid: [74, 70, 64], pathEdge: [56, 52, 48]
+  },
+  charcoal: {
+    base: [70, 60, 54], alt: [60, 52, 48],
+    tuft: [42, 36, 32], tip: [108, 96, 86],
+    pebble: [48, 40, 36],
+    soil: [36, 30, 28],
+    cliffHi: [102, 86, 74], cliff: [68, 56, 48], cliffLo: [42, 34, 30], cliffOut: [22, 18, 16],
+    path: [78, 62, 50], pathMid: [58, 46, 38], pathEdge: [40, 32, 28]
+  },
+  cinder: {
+    base: [196, 162, 84], alt: [184, 148, 72],
+    tuft: [140, 108, 48], tip: [224, 196, 124],
+    pebble: [150, 116, 72],
+    soil: [120, 88, 44],
+    cliffHi: [212, 162, 112], cliff: [168, 114, 74], cliffLo: [110, 70, 46], cliffOut: [68, 42, 30],
+    path: [164, 120, 68], pathMid: [136, 98, 54], pathEdge: [106, 76, 44]
+  },
+  span: {
+    base: [176, 150, 130], alt: [164, 138, 120],
+    tuft: [128, 104, 90], tip: [206, 184, 164],
+    pebble: [116, 96, 84],
+    soil: [100, 78, 66],
+    cliffHi: [186, 158, 138], cliff: [140, 110, 94], cliffLo: [90, 68, 58], cliffOut: [52, 38, 34],
+    path: [148, 116, 90], pathMid: [122, 94, 74], pathEdge: [94, 72, 58]
+  },
+  perch: {
+    base: [92, 176, 154], alt: [80, 164, 142],
+    tuft: [48, 128, 114], tip: [156, 214, 196],
+    pebble: [186, 168, 126],
+    soil: [42, 104, 98],
+    cliffHi: [198, 176, 140], cliff: [150, 122, 94], cliffLo: [96, 76, 60], cliffOut: [52, 40, 34],
+    path: [190, 168, 122], pathMid: [160, 138, 98], pathEdge: [124, 104, 76],
+    foam: [236, 246, 240]
+  },
+  scar: {
+    base: [168, 132, 78], alt: [156, 120, 68],
+    tuft: [120, 92, 52], tip: [206, 176, 118],
+    pebble: [110, 86, 58],
+    soil: [96, 70, 42],
+    cliffHi: [196, 150, 104], cliff: [150, 104, 68], cliffLo: [96, 64, 42], cliffOut: [58, 38, 28],
+    path: [150, 108, 64], pathMid: [126, 88, 52], pathEdge: [98, 70, 42]
+  },
+  ridge: {
+    base: [132, 108, 92], alt: [120, 96, 82],
+    tuft: [86, 70, 58], tip: [168, 146, 124],
+    pebble: [78, 62, 50],
+    soil: [64, 50, 42],
+    cliffHi: [150, 124, 102], cliff: [108, 86, 70], cliffLo: [70, 54, 44], cliffOut: [40, 30, 26],
+    path: [96, 70, 50], pathMid: [78, 58, 42], pathEdge: [58, 44, 34]
   }
 };
 
-SF.drawGround = function (ctx, s) {
-  ctx.save();
-  ctx.beginPath();
-  SF.traceGroup(ctx, (SF.WALK.circles || []).concat(SF.WALK.rects || []), 0);
-  ctx.clip();
-  if (SF.PATHS && SF.PATHS.length) {
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    SF.PATHS.forEach(function (path) {
-      var i, t, steps, x0, y0, x1, y1, len, x, y, px, py, wobble, wide;
-      for (i = 0; i < path.length - 2; i += 2) {
-        x0 = path[i];
-        y0 = path[i + 1];
-        x1 = path[i + 2];
-        y1 = path[i + 3];
-        len = Math.hypot(x1 - x0, y1 - y0) || 1;
-        steps = Math.max(1, Math.ceil(len / 6));
-        px = x0;
-        py = y0;
-        for (t = 1; t <= steps; t++) {
-          x = x0 + (x1 - x0) * (t / steps);
-          y = y0 + (y1 - y0) * (t / steps);
-          wobble = ((Math.imul(((x0 + y0 + i * 13) | 0) ^ (t * 17), 747796405) >>> 0) % 9);
-          wide = 5 + wobble;
-          if ((wobble + t) % 11 === 0) {
-            px = x;
-            py = y;
-            continue;
-          }
-          ctx.strokeStyle = "rgba(96, 122, 58, 0.18)";
-          ctx.lineWidth = wide + 14;
-          ctx.beginPath();
-          ctx.moveTo(px, py);
-          ctx.lineTo(x, y);
-          ctx.stroke();
-          ctx.strokeStyle = "rgba(146, 112, 66, 0.42)";
-          ctx.lineWidth = wide + 6;
-          ctx.beginPath();
-          ctx.moveTo(px, py);
-          ctx.lineTo(x, y);
-          ctx.stroke();
-          ctx.strokeStyle = "rgba(164, 124, 72, 0.58)";
-          ctx.lineWidth = wide;
-          ctx.beginPath();
-          ctx.moveTo(px, py);
-          ctx.lineTo(x, y);
-          ctx.stroke();
-          if ((wobble + t) % 4 === 0) {
-            ctx.fillStyle = "rgba(92, 64, 38, 0.65)";
-            ctx.fillRect(x - 1, y + (wobble % 3) - 1, 2, 1);
-          } else if ((wobble + t) % 5 === 0) {
-            ctx.fillStyle = "rgba(214, 186, 130, 0.45)";
-            ctx.fillRect(x, y - 1, 1, 1);
-          }
-          px = x;
-          py = y;
-        }
-      }
-    });
-  } else {
-    ctx.strokeStyle = "rgba(126, 78, 48, 0.45)";
-    ctx.lineWidth = 12;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    SF.PATHS.forEach(function (path) {
-      ctx.beginPath();
-      ctx.moveTo(path[0], path[1]);
-      var i;
-      for (i = 2; i < path.length; i += 2) ctx.lineTo(path[i], path[i + 1]);
-      ctx.stroke();
-    });
-  }
-  ctx.restore();
+SF._regionById = {
+  meadow: "meadow", wake: "meadow", "wake-path": "meadow", cottage: "meadow", dock: "meadow", west: "meadow",
+  grove: "grove", hollow: "grove",
+  hill: "lamp",
+  scar: "scar",
+  cinder: "cinder", ledge: "cinder", hookledge: "span",
+  perch: "perch", rope: "perch",
+  span: "span", gap: "span", lip: "span",
+  ash: "ash", nook: "ash", nw: "ash", cliff: "ash", "ash-link": "ash",
+  quay: "quay", pier: "quay",
+  vault: "grey", vledge: "grey",
+  maw: "charcoal",
+  ridge: "ridge", rubble: "ridge", down: "ridge"
+};
 
-  var view = SF._baking ? null : SF.viewRect(24);
-  var specks = SF.specks;
-  var i, sp, cull;
-  ctx.save();
-  for (i = 0; i < specks.length; i++) {
-    sp = specks[i];
-    cull = view && (sp.x < view.l || sp.x > view.r || sp.y < view.t || sp.y > view.b);
-    if (cull) continue;
-    var ash = sp.group === "ash" || sp.group === "vault" || sp.group === "ridge" || sp.group === "cinder";
-    var quay = sp.group === "quay" || sp.group === "perch";
-    if (ash) {
-      if (sp.k > 0.992) {
-        ctx.fillStyle = "#ffb15a";
-        ctx.fillRect(sp.x, sp.y, 1, 1);
-        ctx.fillStyle = "#a04418";
-        ctx.fillRect(sp.x + 1, sp.y, 2, 1);
-      } else if (sp.k > 0.78) {
-        ctx.fillStyle = "#3a342e";
-        ctx.fillRect(sp.x, sp.y, 2, 1);
-        ctx.fillStyle = "#6a625c";
-        ctx.fillRect(sp.x, sp.y, 1, 1);
-      }
-    } else if (sp.k > 0.94) {
-      ctx.fillStyle = quay ? "#8ad4d4" : (sp.k > 0.98 ? "#f0d078" : "#ffd0e4");
-      ctx.fillRect(sp.x, sp.y, 2, 1);
-    } else if (sp.k > 0.55) {
-      ctx.fillStyle = quay ? "#1a5868" : "#1e5828";
-      ctx.fillRect(sp.x, sp.y, 1, 2);
-      ctx.fillStyle = quay ? "#8ad4d4" : "#8ed45c";
-      ctx.fillRect(sp.x, sp.y, 1, 1);
+SF._regionByGroup = {
+  ember: "meadow", perch: "perch", cinder: "cinder", span: "span",
+  quay: "quay", ash: "ash", vault: "grey", ridge: "ridge", scar: "scar"
+};
+
+SF._regionOf = function (sh) {
+  if (sh.id && SF._regionById[sh.id]) return SF._regionById[sh.id];
+  return SF._regionByGroup[sh.group] || "meadow";
+};
+
+SF._lookOf = function (sh) {
+  return SF._terrainLooks[SF._regionOf(sh)] || SF._terrainLooks.meadow;
+};
+
+SF._thash = function (x, y) {
+  var n = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263)) | 0;
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  return (n ^ (n >>> 16)) >>> 0;
+};
+
+SF._writePx = function (data, pix, color) {
+  data[pix] = color[0] + 0.5 | 0;
+  data[pix + 1] = color[1] + 0.5 | 0;
+  data[pix + 2] = color[2] + 0.5 | 0;
+  data[pix + 3] = 255;
+};
+
+SF._lerpRgb = function (a, b, t) {
+  if (t <= 0) return a;
+  if (t >= 1) return b;
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t
+  ];
+};
+
+SF._shapeMetrics = function (sh, wx, wy) {
+  var dx, dy, dist, rx, ry, rDir, gap, deep, half, qx, qy, cx, cy;
+  if (sh.k === "r" || (sh.w != null && sh.rx == null)) {
+    cx = sh.x + sh.w / 2;
+    cy = sh.y + sh.h / 2;
+    if (wx >= sh.x && wx <= sh.x + sh.w && wy >= sh.y && wy <= sh.y + sh.h) {
+      deep = Math.min(wx - sh.x, sh.x + sh.w - wx, wy - sh.y, sh.y + sh.h - wy);
+      half = Math.max(8, Math.min(sh.w, sh.h) / 2);
+      dist = Math.hypot(wx - cx, wy - cy) || 1;
+      return { gap: -deep, deep: deep, depth: deep / half, ny: (wy - cy) / dist };
+    }
+    qx = Math.max(sh.x, Math.min(wx, sh.x + sh.w));
+    qy = Math.max(sh.y, Math.min(wy, sh.y + sh.h));
+    dx = wx - qx;
+    dy = wy - qy;
+    gap = Math.hypot(dx, dy) || 0.001;
+    dist = Math.hypot(wx - cx, wy - cy) || 1;
+    return { gap: gap, deep: 0, depth: 0, ny: (wy - cy) / dist };
+  }
+  rx = sh.rx || sh.r || 8;
+  ry = sh.ry || sh.r || rx;
+  dx = wx - sh.x;
+  dy = wy - sh.y;
+  dist = Math.hypot(dx, dy) || 0.001;
+  rDir = (rx * ry) / (Math.hypot(ry * dx / dist, rx * dy / dist) || 0.001);
+  gap = dist - rDir;
+  if (gap <= 0) {
+    deep = -gap;
+    return { gap: gap, deep: deep, depth: deep / rDir, ny: dy / dist };
+  }
+  return { gap: gap, deep: 0, depth: 0, ny: dy / dist };
+};
+
+SF._isTrail = function (sh) {
+  return !!(sh.id && String(sh.id).indexOf("trail-") === 0);
+};
+
+SF._mixAmount = function (best, second) {
+  if (!best || !second) return 0;
+  var diff = best.depth - second.depth;
+  var band = 0.42;
+  if (diff >= band) return 0;
+  var u = (1 - diff / band) * 0.5;
+  if (u < 0.08) return 0;
+  if (u < 0.18) return 0.16;
+  if (u < 0.28) return 0.28;
+  if (u < 0.4) return 0.4;
+  return 0.5;
+};
+
+SF._cliffReach = function (ny) {
+  return 4 + Math.max(0, ny) * 22;
+};
+
+SF._paintField = function (data, mask, minX, minY, w, h, lit) {
+  var shapes = [];
+  var names = Object.keys(SF.groups || {});
+  var ni, list, i;
+  for (ni = 0; ni < names.length; ni++) {
+    list = SF.groups[names[ni]] || [];
+    for (i = 0; i < list.length; i++) shapes.push(list[i]);
+  }
+  var n = shapes.length;
+  var looks = new Array(n);
+  var regions = new Array(n);
+  var trails = new Array(n);
+  var foams = new Array(n);
+  var boxes = new Array(n);
+  for (i = 0; i < n; i++) {
+    regions[i] = SF._regionOf(shapes[i]);
+    looks[i] = SF._terrainLooks[regions[i]] || SF._terrainLooks.meadow;
+    trails[i] = SF._isTrail(shapes[i]);
+    foams[i] = looks[i].foam || null;
+    if (shapes[i].k === "r" || (shapes[i].w != null && shapes[i].rx == null)) {
+      boxes[i] = {
+        x0: shapes[i].x - 4,
+        y0: shapes[i].y - 4,
+        x1: shapes[i].x + shapes[i].w + 4,
+        y1: shapes[i].y + shapes[i].h + 24
+      };
+    } else {
+      var rx = shapes[i].rx || shapes[i].r || 8;
+      var ry = shapes[i].ry || shapes[i].r || rx;
+      boxes[i] = {
+        x0: shapes[i].x - rx - 4,
+        y0: shapes[i].y - ry - 4,
+        x1: shapes[i].x + rx + 4,
+        y1: shapes[i].y + ry + 24
+      };
     }
   }
-  ctx.restore();
+  var CELL = 64;
+  var cells = new Map();
+  var ci, box, cx0, cy0, cx1, cy1, cx, cy, key, bucket;
+  for (ci = 0; ci < n; ci++) {
+    box = boxes[ci];
+    cx0 = Math.floor((box.x0 - 24) / CELL);
+    cy0 = Math.floor((box.y0 - 8) / CELL);
+    cx1 = Math.floor((box.x1 + 24) / CELL);
+    cy1 = Math.floor((box.y1 + 8) / CELL);
+    for (cy = cy0; cy <= cy1; cy++) {
+      for (cx = cx0; cx <= cx1; cx++) {
+        key = cx + "," + cy;
+        bucket = cells.get(key);
+        if (!bucket) {
+          bucket = [];
+          cells.set(key, bucket);
+        }
+        bucket.push(ci);
+      }
+    }
+  }
+  var y, x, wx, wy, m, gap, reach, score, pix, best, second, trailBest, cliff, hit;
+  var color, mix, cell;
+  for (y = 0; y < h; y++) {
+    wy = minY + y;
+    cy = Math.floor(wy / CELL);
+    for (x = 0; x < w; x++) {
+      wx = minX + x;
+      bucket = cells.get(Math.floor(wx / CELL) + "," + cy);
+      if (!bucket) continue;
+      best = null;
+      second = null;
+      trailBest = null;
+      cliff = null;
+      for (i = 0; i < bucket.length; i++) {
+        ci = bucket[i];
+        box = boxes[ci];
+        if (wx < box.x0 || wx > box.x1 || wy < box.y0 || wy > box.y1 + 2) continue;
+        m = SF._shapeMetrics(shapes[ci], wx, wy);
+        if (m.gap <= 0) {
+          hit = { i: ci, depth: m.depth, deep: m.deep, ny: m.ny, gap: m.gap };
+          if (trails[ci]) {
+            if (!trailBest || hit.depth > trailBest.depth) trailBest = hit;
+          } else if (!best || hit.depth > best.depth) {
+            second = best;
+            best = hit;
+          } else if (!second || hit.depth > second.depth) second = hit;
+        } else if (!trails[ci]) {
+          reach = SF._cliffReach(m.ny);
+          if (m.gap < reach) {
+            score = reach - m.gap;
+            if (!cliff || score > cliff.score) cliff = { score: score, i: ci, ny: m.ny, gap: m.gap, reach: reach };
+          }
+        }
+      }
+      pix = (y * w + x) * 4;
+      if (best) {
+        color = looks[best.i].base;
+        mix = 0;
+        if (second && regions[second.i] !== regions[best.i]) {
+          mix = SF._mixAmount(best, second);
+          if (mix > 0) color = SF._lerpRgb(color, looks[second.i].base, mix);
+        }
+        if (mix === 0) {
+          cell = SF._thash(wx >> 4, wy >> 4);
+          if (cell % 8 === 0) color = looks[best.i].alt;
+        }
+        if (shapes[best.i].id === "hollow") color = SF._lerpRgb(color, [104, 90, 146], 0.16);
+        if (lit && SF.LAMP) {
+          var ld = Math.hypot(wx - SF.LAMP.x, wy - SF.LAMP.y);
+          if (ld < 220) color = SF._lerpRgb(color, [228, 204, 146], (1 - ld / 220) * (1 - ld / 220) * 0.14);
+        }
+        if (best.deep < 2.6 && (!second || second.deep < 2)) {
+          color = best.deep < 1.15 ? looks[best.i].soil : SF._lerpRgb(color, looks[best.i].soil, best.ny > 0.1 ? 0.45 : 0.2);
+        }
+        SF._writePx(data, pix, color);
+        mask[y * w + x] = 1;
+      } else if (trailBest) {
+        color = looks[trailBest.i].base;
+        if (trailBest.deep < 2.2) color = SF._lerpRgb(color, looks[trailBest.i].soil, 0.55);
+        SF._writePx(data, pix, color);
+        mask[y * w + x] = 1;
+      } else if (cliff) {
+        var look = looks[cliff.i];
+        var t = cliff.gap / cliff.reach;
+        var col;
+        if (t > 0.82) col = look.cliffOut;
+        else if (cliff.ny <= 0.2) col = cliff.gap < 1.2 ? look.soil : look.cliffOut;
+        else if (foams[cliff.i] && cliff.ny > 0.45 && t > 0.55 && t < 0.86 && (((wx >> 1) + (wy >> 2)) % 3 === 0)) col = foams[cliff.i];
+        else if (t < 0.22) col = look.cliffHi;
+        else if (t > 0.62) col = look.cliffLo;
+        else if ((Math.floor(cliff.gap) % 5) === 4) col = look.cliffLo;
+        else col = look.cliff;
+        SF._writePx(data, pix, col);
+        mask[y * w + x] = 2;
+      }
+    }
+  }
+};
+
+SF._paintDetails = function (data, mask, minX, minY, w, h) {
+  var shapes = [];
+  var names = Object.keys(SF.groups || {});
+  var ni, list, i;
+  for (ni = 0; ni < names.length; ni++) {
+    list = SF.groups[names[ni]] || [];
+    for (i = 0; i < list.length; i++) if (!SF._isTrail(list[i])) shapes.push(list[i]);
+  }
+  var x0 = minX >> 4;
+  var y0 = minY >> 4;
+  var x1 = (minX + w) >> 4;
+  var y1 = (minY + h) >> 4;
+  var cx, cy, hsh, wx, wy, idx, look, k, pix;
+  for (cy = y0; cy <= y1; cy++) {
+    for (cx = x0; cx <= x1; cx++) {
+      hsh = SF._thash(cx, cy);
+      if (hsh % 7 !== 0) continue;
+      wx = (cx << 4) + 4 + (hsh % 5);
+      wy = (cy << 4) + 6 + ((hsh >> 3) % 6);
+      if (wx < minX || wy < minY || wx >= minX + w || wy >= minY + h) continue;
+      idx = (wy - minY) * w + (wx - minX);
+      if (mask[idx] !== 1) continue;
+      look = null;
+      for (i = 0; i < shapes.length; i++) {
+        if (SF._shapeMetrics(shapes[i], wx, wy).gap <= 0) {
+          look = SF._lookOf(shapes[i]);
+          break;
+        }
+      }
+      if (!look) continue;
+      pix = idx * 4;
+      if ((hsh >> 8) % 3 === 0) {
+        SF._writePx(data, pix, look.pebble);
+        if (wx + 1 < minX + w && mask[idx + 1] === 1) SF._writePx(data, pix + 4, look.pebble);
+      } else {
+        SF._writePx(data, pix, look.tip);
+        k = idx + w;
+        if (wy + 1 < minY + h && mask[k] === 1) SF._writePx(data, k * 4, look.tuft);
+        if (wy + 2 < minY + h && mask[k + w] === 1) SF._writePx(data, (k + w) * 4, look.tuft);
+      }
+    }
+  }
+};
+
+SF._pathColors = function (wx, wy) {
+  var shapes = (SF.WALK.circles || []).concat(SF.WALK.rects || []);
+  var best = null;
+  var second = null;
+  var i, m, hit, sh;
+  for (i = 0; i < shapes.length; i++) {
+    sh = shapes[i];
+    if (SF._isTrail(sh)) continue;
+    m = SF._shapeMetrics(sh, wx, wy);
+    if (m.gap > 0) continue;
+    hit = { i: i, depth: m.depth };
+    if (!best || hit.depth > best.depth) {
+      second = best;
+      best = hit;
+    } else if (!second || hit.depth > second.depth) second = hit;
+  }
+  if (!best) {
+    for (i = 0; i < shapes.length; i++) {
+      if (!SF._isTrail(shapes[i])) continue;
+      m = SF._shapeMetrics(shapes[i], wx, wy);
+      if (m.gap <= 0) return SF._lookOf(shapes[i]);
+    }
+    return null;
+  }
+  var a = SF._lookOf(shapes[best.i]);
+  if (!second || SF._regionOf(shapes[second.i]) === SF._regionOf(shapes[best.i])) return a;
+  var mix = SF._mixAmount(best, second);
+  if (mix <= 0) return a;
+  var b = SF._lookOf(shapes[second.i]);
+  return {
+    path: SF._lerpRgb(a.path, b.path, mix),
+    pathMid: SF._lerpRgb(a.pathMid, b.pathMid, mix),
+    pathEdge: SF._lerpRgb(a.pathEdge, b.pathEdge, mix),
+    pebble: SF._lerpRgb(a.pebble, b.pebble, mix)
+  };
+};
+
+SF._stampPath = function (wx, wy, radius, colors, mask, data, minX, minY, w, h) {
+  var x0 = Math.floor(wx - radius - 2);
+  var y0 = Math.floor(wy - radius - 2);
+  var x1 = Math.ceil(wx + radius + 2);
+  var y1 = Math.ceil(wy + radius + 2);
+  var x, y, dx, dy, d, lim, idx, bite, col;
+  for (y = y0; y <= y1; y++) {
+    for (x = x0; x <= x1; x++) {
+      if (x < minX || y < minY || x >= minX + w || y >= minY + h) continue;
+      idx = (y - minY) * w + (x - minX);
+      if (mask[idx] !== 1 && mask[idx] !== 3) continue;
+      dx = x - wx;
+      dy = y - wy;
+      d = Math.hypot(dx, dy);
+      bite = SF._thash(x >> 1, y >> 1);
+      lim = radius + ((bite % 3) - 1) * 0.45;
+      if (d > lim + 1.6) continue;
+      if (d > lim) {
+        if (bite % 4 === 0) continue;
+        col = colors.pathEdge;
+      } else if (d > lim * 0.72) col = colors.pathMid;
+      else col = colors.path;
+      SF._writePx(data, idx * 4, col);
+      mask[idx] = 3;
+    }
+  }
+};
+
+SF._pullWalkable = function (sx, sy, px, py) {
+  if (!SF.walkable || SF.walkable(px, py)) return { x: px, y: py };
+  var lo = 0;
+  var hi = 1;
+  var t, ax, ay, i;
+  for (i = 0; i < 8; i++) {
+    t = (lo + hi) * 0.5;
+    ax = sx + (px - sx) * t;
+    ay = sy + (py - sy) * t;
+    if (SF.walkable(ax, ay)) lo = t;
+    else hi = t;
+  }
+  return { x: sx + (px - sx) * lo, y: sy + (py - sy) * lo };
+};
+
+SF._meander = function (path) {
+  var pts = [];
+  var i, x0, y0, x1, y1, len, steps, s, along, nx, ny, amp, weave, phase, px, py, waves, pulled;
+  for (i = 0; i < path.length - 2; i += 2) {
+    x0 = path[i];
+    y0 = path[i + 1];
+    x1 = path[i + 2];
+    y1 = path[i + 3];
+    len = Math.hypot(x1 - x0, y1 - y0) || 1;
+    steps = Math.max(2, Math.round(len / 5));
+    nx = -(y1 - y0) / len;
+    ny = (x1 - x0) / len;
+    phase = (SF._thash(x0 | 0, y0 | 0) & 1) ? 1 : -1;
+    waves = len > 96 ? 2 : 1;
+    amp = Math.min(28, Math.max(8, len * 0.16));
+    if (len < 72) amp = Math.min(amp, Math.max(4, len * 0.1));
+    for (s = 0; s <= steps; s++) {
+      if (i > 0 && s === 0) continue;
+      along = s / steps;
+      weave = phase * Math.sin(along * Math.PI * waves);
+      px = x0 + (x1 - x0) * along + nx * weave * amp;
+      py = y0 + (y1 - y0) * along + ny * weave * amp;
+      pulled = SF._pullWalkable(x0 + (x1 - x0) * along, y0 + (y1 - y0) * along, px, py);
+      pts.push(pulled.x, pulled.y);
+    }
+  }
+  return pts;
+};
+
+SF._paintPaths = function (data, mask, minX, minY, w, h) {
+  var paths = SF.PATHS || [];
+  if (!paths.length) return;
+  var joints = [];
+  var pi, path, i, raw, used, a, b, cluster, count, weight;
+  for (pi = 0; pi < paths.length; pi++) {
+    path = paths[pi];
+    for (i = 0; i < path.length; i += 2) {
+      weight = (i > 0 && i < path.length - 2) ? 2 : 1;
+      joints.push({ x: path[i], y: path[i + 1], n: weight });
+    }
+  }
+  used = [];
+  for (a = 0; a < joints.length; a++) {
+    if (used[a]) continue;
+    cluster = { x: joints[a].x, y: joints[a].y, n: joints[a].n };
+    count = 1;
+    used[a] = 1;
+    for (b = a + 1; b < joints.length; b++) {
+      if (used[b]) continue;
+      if (Math.hypot(joints[b].x - joints[a].x, joints[b].y - joints[a].y) < 36) {
+        used[b] = 1;
+        cluster.x += joints[b].x;
+        cluster.y += joints[b].y;
+        cluster.n += joints[b].n;
+        count++;
+      }
+    }
+    cluster.x /= count;
+    cluster.y /= count;
+    if (cluster.n < 2 && count < 2) continue;
+    var look = SF._pathColors(cluster.x, cluster.y);
+    if (!look) continue;
+    var blob = 11 + Math.min(5, cluster.n);
+    var phase = (SF._thash(cluster.x | 0, cluster.y | 0) % 628) / 100;
+    var steps = 8;
+    var s, ang, rad, px, py;
+    for (s = 0; s < steps; s++) {
+      ang = (s / steps) * Math.PI * 2;
+      rad = blob * (0.8 + 0.2 * Math.sin(ang * 3 + phase));
+      px = cluster.x + Math.cos(ang) * rad * 0.4;
+      py = cluster.y + Math.sin(ang) * rad * 0.4;
+      SF._stampPath(px, py, rad * 0.7, look, mask, data, minX, minY, w, h);
+    }
+  }
+  for (pi = 0; pi < paths.length; pi++) {
+    raw = SF._meander(paths[pi]);
+    if (raw.length < 4) continue;
+    var dist = 0;
+    var phase2 = (SF._thash(raw[0] | 0, raw[1] | 0) % 500) / 80;
+    var x0, y0, x1, y1, len, steps2, t, px2, py2, width, cols;
+    for (i = 0; i < raw.length - 2; i += 2) {
+      x0 = raw[i];
+      y0 = raw[i + 1];
+      x1 = raw[i + 2];
+      y1 = raw[i + 3];
+      len = Math.hypot(x1 - x0, y1 - y0) || 1;
+      steps2 = Math.max(1, Math.ceil(len / 2));
+      for (t = 0; t <= steps2; t++) {
+        px2 = x0 + (x1 - x0) * (t / steps2);
+        py2 = y0 + (y1 - y0) * (t / steps2);
+        width = 8.4 + Math.sin(dist * 0.06 + phase2) * 1.4;
+        cols = SF._pathColors(px2, py2);
+        if (cols) SF._stampPath(px2, py2, width, cols, mask, data, minX, minY, w, h);
+        dist += len / steps2;
+      }
+    }
+  }
 };
 
 SF.terrainKey = function (lit) {
@@ -631,7 +1113,12 @@ SF.blitSheet = function (ctx, sheet, ppm, srcLeft, srcTop, destLeft, destTop, vw
 };
 
 SF.drawBridge = function (ctx) {
-  var r = SF.WALK.rects[0];
+  var rects = SF.WALK.rects || [];
+  var r = null;
+  var i;
+  for (i = 0; i < rects.length; i++) {
+    if (rects[i].id === "rope") r = rects[i];
+  }
   if (!r) return;
   ctx.save();
   ctx.imageSmoothingEnabled = false;
@@ -1748,6 +2235,7 @@ SF.draw = function () {
   ctx.imageSmoothingEnabled = false;
   SF.drawClouds(ctx, s);
   SF.drawTerrain(ctx, s);
+  if (SF.drawHushLip) SF.drawHushLip(ctx);
   if (SF.drawCinderCracks) SF.drawCinderCracks(ctx);
   SF.entityList(s).forEach(function (ent) { ent.draw(ctx); });
   SF.drawFx(ctx, s);
