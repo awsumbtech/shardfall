@@ -67,13 +67,23 @@ v0.2 is two islands. Emberhold is the starter drift. Cinderveil is the ash islan
 
 **Cinderveil** is the second island: ash-grey grass, ember cracks, a teal rim on Lowmoor Quay. Tamsin Reed works a hook in her workshop. Brother Hesk mutters about the Choir. The Ashfields hold three cogs and a Cold Nook. Two hooked gaps — wider than a dash — lead to Warden Ilsa and the Ember Vault. The Cinder Maw feeds on the core. The hurt lamp takes three shards. The Cantor is there after, with Spare, Listen, or Refuse. The words are in `docs/script/act1.md`.
 
+Act 2 is scripted in `docs/script/act2.md` and is not in the v0.2 build. The sail from Cinderveil is meant to reach these:
+
+**Saltmere** is a fishing town on stilts over the Hush. The lamp skips because the copper feed from the island's core has been pulled loose, and because the core itself is cracked and wearing down. Harbormaster Brenna Holt runs the moorings and keeps three boats half loaded in case the town has to run. Osric Pell keeps the Stilthouse inn. Nessa Quinn sells gear at Quinn's Hooks. Sera Dunne keeps the lamp, and she is sick from the mist in the wreck, not from a curse. Pip and Lark are dock kids. Jory Hale is a fisher.
+
+**The Sunken Wreck** is the old Lanternwright barge *Holdfast*, sunk against the core housing and used as a roof. The stairs are gone. A red-painted hook and the grapple are the way down. A dry cabin in the hull holds the Choir's next move, which depends on the answer the Wayfarer gave the Cantor. The Tidewyrm, a long Hushborn, is wrapped around the core. The bright line under its jaw is the place to hit.
+
+**Lowgate** is the town under Highspire's gate. Dorrie Fen sells kit at Fen's Supply. Maud Keel keeps the Switchback inn. Ellis Ward mends nets and is not in the Choir. His brother Tom kept the lamp on Pebblewick, a small island to the east that has already fallen. Warden Brant holds the gate. The gate does not open in this act.
+
+**Gullrock** is a bare optional rock with no lamp, stormgull nests, and a chest. **The Drift Market** is Sile Voss's barge: no lamp, rare gear, and a red crate of fireworks that is not a seat. **Pebblewick** is gone. It exists only in what Ellis says about it.
+
 ### Factions
 
 **Lanternwrights** keep the shard-lamps. They are few, practical, and tired in the way of people who have been right for a long time. Maren is the only one on Emberhold. Their creed, as she lives it: the lamp eats, the grass stays, you do the work with your own hand.
 
-**Driftborn** are nomad sky-sailors. They know routes the charts still call cloud. They name ships the way other people name cousins. Kestrel is one sailor and one skiff, not an ambassador. Reputation with the Driftborn is a later system; in v0.1 he is a person with a hammer.
+**Driftborn** are nomad sky-sailors. They know routes the charts still call cloud. They name ships the way other people name cousins. Kestrel is one sailor and one skiff, not an ambassador. Reputation with the Driftborn is a later system. In the current build she is a person with a hammer.
 
-**The Hollow Choir** wants the sky fully broken. They are not, in this build, a horde. They are a voice. The Cantor is masked, oddly polite, and in no hurry. Choirlings — the ranged Hushborn — wear a cracked echo of that same mask. The Choir's door is not open in v0.1. The Cantor says so, and means it.
+**The Hollow Choir** wants the sky fully broken. They are not, in this build, a horde. They are a voice. The Cantor is masked, oddly polite, and in no hurry. Choirlings — the ranged Hushborn — wear a cracked echo of that same mask. The Choir's door is not open in v0.1. The Cantor says so, and means it. In Act 2 they are still not a horde. What they do at Saltmere depends on the Wayfarer's answer: watch a failing core, lure a Tidewyrm, or try to open the housing. Then they go to Highspire ahead of the skiff. The words are in `docs/script/act2.md`.
 
 ### Characters
 
@@ -81,9 +91,35 @@ v0.2 is two islands. Emberhold is the starter drift. Cinderveil is the ash islan
 
 **Old Maren** keeps Emberhold's great lamp. Lanternwright. Short sentences, warm hands, no patience for being handed the shards. She wants the Wayfarer to set them on the plinth. Talk to her and she mends you to full heart. She is the quest, the heal, and the thank-you.
 
-**Kestrel Vane** is a Driftborn sky-sailor. Teal coat, yellow scarf, goggles he does not take off for conversation. He talks about the Quickmercy as if she argues back. He will not sail while the lamp is holding its breath. He is the one who tells you to dash the span, and to look behind the stones. After the lamp, he names Cinderveil and offers the crossing. What you answer is remembered the next time you talk to him on the dock.
+**Kestrel Vane** is a Driftborn sky-sailor (she/her). Teal coat, yellow scarf, goggles she does not take off for conversation. She talks about the Quickmercy as if the skiff argues back. She will not sail while Emberhold's lamp is that low. She is the one who tells you to dash the span, and to look behind the stones. After the lamp, she names Cinderveil and offers the crossing. What you answer is remembered the next time you talk to her on the dock. In Act 2 she stops waiting on the boat and fights with the Wayfarer.
 
-**The Cantor** is the masked voice of the Hollow Choir. Tall, gold hem, no feet worth mentioning. They admire the patches on the Quickmercy and will not wait on the dock. Finding them is optional. They do not join the quest and they do not attack. They are a promise that the Choir is a faction, not a monster type.
+**Tamsin Reed** is a young tinkerer from Cinderveil. She talks fast, explains machines, and then explains the explanation. She built the grapple. In Act 2 she leaves Lowmoor on the Quickmercy with her tools, and she is the one who reconnects Saltmere's lamp feed.
+
+**Brother Hesk** and **Warden Ilsa** stay on Cinderveil. Hesk's mood, if you let him talk, is remembered when the wreck shows the Choir's method. Ilsa's letter reaches the gate before the skiff does.
+
+**The Cantor** is the masked voice of the Hollow Choir. Tall, gold hem, no feet worth mentioning. They admire the patches on the Quickmercy and will not wait on the dock. Finding them is optional. They do not join the quest and they do not attack. They are a promise that the Choir is a faction, not a monster type. They are not on screen in Act 2. Their orders are, written in a dry cabin on the *Holdfast*, in that same plain voice.
+
+**Brenna Holt** is Saltmere's harbormaster. Loud, busy, and an old friend of Kestrel's. She counts boats and people, and she will unpack the evacuation boats only after the lamp is actually steady.
+
+**Osric Pell** keeps the Stilthouse. He feeds people before he asks questions, and the stew is eel. He took Sera's ladder so she cannot go back down into the mist.
+
+**Nessa Quinn** keeps Quinn's Hooks. Prices are on the board. She does not run a tab while the supply skiff is late.
+
+**Sera Dunne** keeps Saltmere's lamp. She is sick because she breathed wreck-mist, she is precise about the feed and the core, and she does not want to be fussed over. She is the one who says a steady white lamp is not the same thing as a healed core.
+
+**Pip** and **Lark** are dock kids. Pip talks big. Lark corrects the size and the number of lights, and she is right.
+
+**Jory Hale** fishes out of Saltmere. He talks about the net, the cut on his hand, and the *Little Hale*. He does not guess past what he saw.
+
+**Warden Brant** holds Highspire's gate. He states the rule, and then the reason if you ask. He will not open the door on his own key. He sends you to Saltmere first if that lamp is still failing.
+
+**Dorrie Fen** sells Lanternwright kit in Lowgate and will tell you to buy the tonic before the charm.
+
+**Maud Keel** keeps the Switchback inn. She uses very few words, and the bed costs more than Osric's because she says the hill costs more.
+
+**Ellis Ward** is not in the Choir. He mends nets on a bench in a town with no fishing fleet, because his hands need the work. His brother Tom died when Pebblewick fell with its lamp still lit. He will tell you that without turning it into a speech.
+
+**Sile Voss** runs the Drift Market barge. He starts a sales line and then says the plain version. The red crate is fireworks. Don't lean on it.
 
 **The Quickmercy** is a patched sky-skiff. Not a character with lines. She is parked on Vane's Perch so the next voyage has a hull to point at.
 
@@ -149,7 +185,7 @@ One quest: **relight Emberhold's lamp.**
 
 The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Strike when a core is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
 
-The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without him.
+The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without her.
 
 Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or two sentences. Tap, E, Enter, or Space finishes a line that is still arriving, then advances. Each new line blips in that speaker's pitch. While letters are still arriving, the same voice ticks every few characters. With Reduce flashing on, or when the system asks for less motion, the line arrives whole, the caret does not blink, and that line is a single blip. Choices are large buttons. A choice can set `state.flags`, and a later choice can require those flags. Flags are saved with the journey. When a conversation closes, each node's `onEnd` is dispatched in order (`SF.onDialogueEvent`, or the window event `sf:dialogue`) so gameplay can hook it. `startDialogue(id)` starts a node. An unknown id plays one placeholder line and does not throw. The Act 1 script is `docs/script/act1.md`; the nodes are `js/content/dialogue/`. Nothing hunts you while you are reading, paused, or watching the lamp catch.
 
