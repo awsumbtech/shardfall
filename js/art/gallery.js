@@ -92,7 +92,7 @@
       for (d = 0; d < dirs.length; d++) {
         for (f = 0; f < 4; f++) row.appendChild(cell(scaled(id, "walk", dirs[d], f, 3), dirs[d] + " " + f));
       }
-      ["idle", "attack", "hurt", "cast"].forEach(function (pose) {
+      ["idle", "attack", "hurt", "cast", "victory"].forEach(function (pose) {
         row.appendChild(cell(scaled(id, pose, "right", 0, 3), pose));
       });
       block.appendChild(row);

@@ -92,6 +92,7 @@ function paintBg(ctx, id, w, h, t) {
 }
 
 function battlePose(b, actor) {
+  if (b.phase === "result" && b.result && b.result.win && !b.result.fled && actor.side === "party" && actor.alive) return "victory";
   if (!actor.alive) return "hurt";
   var art = b.art;
   if (art && (b.phase === "readout" || b.phase === "between")) {
@@ -107,11 +108,63 @@ function battleFrame(pose) {
   return Math.floor((SF.anim || 0) * speed) % 2;
 }
 
-function spriteScale(actor, count) {
+function sourceSize(id, facing) {
+  if (window.Art && Art.spriteSize) {
+    var sz = Art.spriteSize(id, "idle", facing || "right");
+    if (sz && sz.w && sz.h) return sz;
+  }
+  if (id === "cinder_maw") return { w: 48, h: 36 };
+  if (id === "tidewyrm") return { w: 56, h: 32 };
+  if (id === "wisp" || id === "saltwisp" || id === "ashling" || id === "sootwing") return { w: 16, h: 16 };
+  return { w: 21, h: 26 };
+}
+
+function battleScale(actor, count, stageW, stageH) {
   var boss = actor.boss || actor.sprite === "cinder_maw" || actor.sprite === "tidewyrm";
-  if (boss) return count > 1 ? 1.6 : 2.2;
-  if (actor.side === "party") return count === 1 ? 3 : 2;
-  return count >= 3 ? 2 : 2.5;
+  var src = sourceSize(actor.sprite, actor.side === "party" ? "left" : "right");
+  var want;
+  if (boss) want = 6;
+  else if (actor.side === "party") want = count === 1 ? 9 : 5.5;
+  else if (src.h < 20) want = count >= 3 ? 8 : 10;
+  else if (src.h >= 30) want = count >= 3 ? 5.5 : 7;
+  else want = count >= 3 ? 6 : 8;
+  var zone = actor.side === "foe"
+    ? (count > 2 ? 0.28 : count > 1 ? 0.38 : 0.5)
+    : (count > 1 ? 0.22 : 0.48);
+  var maxW = stageW * zone / src.w;
+  var maxH = Math.max(80, stageH - 28) / src.h;
+  var scale = Math.min(want, maxW, maxH);
+  if (!(scale > 0)) scale = 2;
+  return Math.round(scale * 2) / 2;
+}
+
+function animP(b) {
+  if (!b.art || (b.phase !== "readout" && b.phase !== "between")) return 0;
+  var dur = b.readoutDur || 0.9;
+  if (!(dur > 0)) return 1;
+  return Math.max(0, Math.min(1, 1 - (b.readoutT || 0) / dur));
+}
+
+function actorNudge(b, actor) {
+  var art = b.art;
+  var p = animP(b);
+  if (!art || !p) return { x: 0, y: 0 };
+  var calm = SF.calm && SF.calm();
+  var swing = calm ? (p > 0.12 && p < 0.88 ? 1 : 0.35) : Math.sin(p * Math.PI);
+  var step = (calm ? 28 : 52) * swing;
+  var knock = (calm ? 14 : 26) * swing;
+  var dx = 0;
+  var dy = 0;
+  if (actor.id === art.id && (art.pose === "attack" || art.pose === "cast")) {
+    var reach = art.pose === "cast" ? step * 0.45 : step;
+    dx = actor.side === "party" ? -reach : reach;
+    if (art.pose === "victory") dy = -4;
+  }
+  if (art.hurt && art.hurt.indexOf(actor.id) >= 0) {
+    dx += actor.side === "party" ? knock : -knock;
+    dy += calm ? 2 : 4 * swing;
+  }
+  return { x: Math.round(dx), y: Math.round(dy) };
 }
 
 function commandBox(w, h) {
@@ -230,12 +283,15 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   var top = 6;
   var stripH = 54;
   drawStrip(ctx, b, 8, top, w - 16, stripH);
-  if (b.phase === "result") {
-    drawResult(ctx, b, w, h);
-    return;
-  }
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
+  if (b.phase === "result") {
+    var stageTopR = top + stripH + 4;
+    var stageBotR = Math.round(h * 0.46);
+    drawStage(ctx, b, foes, party, w, stageTopR, stageBotR);
+    drawResult(ctx, b, w, h, stageBotR + 8);
+    return;
+  }
   var submenu = b.phase === "skills" || b.phase === "items";
   var box = commandBox(w, h);
   var gap = 6;
@@ -288,23 +344,46 @@ function drawStrip(ctx, b, x, y, w, h) {
   }
 }
 
+function foePlace(i, count, w, stageH) {
+  if (count <= 1) return { x: Math.round(w * 0.26), lift: 0 };
+  if (count === 2) {
+    return i === 0
+      ? { x: Math.round(w * 0.16), lift: Math.round(stageH * 0.34) }
+      : { x: Math.round(w * 0.32), lift: 0 };
+  }
+  var table = [
+    { x: 0.15, lift: 0.4 },
+    { x: 0.3, lift: 0.18 },
+    { x: 0.2, lift: 0 }
+  ];
+  var t = table[Math.min(i, table.length - 1)];
+  return { x: Math.round(w * t.x), lift: Math.round(stageH * t.lift) };
+}
+
 function drawStage(ctx, b, foes, party, w, top, bottom) {
   var ground = bottom - 2;
+  var stageH = Math.max(80, bottom - top);
   var nF = Math.max(1, foes.length);
   var nP = Math.max(1, party.length);
-  var left0 = 16;
-  var left1 = Math.round(w * 0.46);
-  var right0 = Math.round(w * 0.56);
-  var right1 = w - 16;
+  var leftLimit = Math.round(w * 0.5);
+  var right0 = Math.round(w * 0.52);
+  var right1 = w - 8;
+  var spots = [];
   foes.forEach(function (f, i) {
-    var span = left1 - left0;
-    var x = nF === 1 ? Math.round(w * 0.26) : Math.round(left0 + span * (i + 0.5) / nF);
-    var scale = spriteScale(f, nF);
+    var scale = battleScale(f, nF, w, stageH);
+    var src = sourceSize(f.sprite, "right");
+    var half = src.w * scale / 2;
+    var place = foePlace(i, nF, w, stageH);
+    var x = Math.max(Math.round(half + 2), Math.min(Math.round(leftLimit - half * 0.35), place.x));
+    var feet = ground - place.lift;
+    var nudge = actorNudge(b, f);
+    var pose = battlePose(b, f);
     ctx.save();
     ctx.globalAlpha = f.alive ? 1 : 0.35;
-    drawSprite(ctx, f.sprite, x, ground, scale, battlePose(b, f), "right");
+    drawSprite(ctx, f.sprite, x + nudge.x, feet + nudge.y, scale, pose, "right");
     ctx.restore();
-    var labelY = Math.max(top + 16, ground - (f.boss ? 108 : 86));
+    var spriteTop = feet - src.h * scale;
+    var labelY = Math.max(top + 14, spriteTop - 30);
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#f6f2ea";
@@ -313,24 +392,106 @@ function drawStage(ctx, b, foes, party, w, top, bottom) {
     bar(ctx, x - 34, labelY + 6, 68, 6, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
     ctx.font = "12px system-ui, sans-serif";
     ctx.fillStyle = "#f6f2ea";
-    ctx.fillText(f.hp + "/" + f.maxHp, x, labelY + 26);
+    ctx.fillText(f.hp + "/" + f.maxHp, x, labelY + 24);
     if (f.revealed && f.weak) {
       ctx.fillStyle = "#ffd37a";
-      ctx.fillText("Weak: " + weakLabel(f.weak), x, labelY + 40);
+      ctx.fillText("Weak: " + weakLabel(f.weak), x, labelY + 38);
     }
     if (f.core) {
       ctx.fillStyle = "#ffd37a";
       ctx.font = "700 12px system-ui, sans-serif";
-      ctx.fillText("Core", x, labelY + (f.revealed && f.weak ? 54 : 40));
+      ctx.fillText("Core", x, labelY + (f.revealed && f.weak ? 52 : 38));
     }
-    if (f.alive) addHit("foe:" + f.id, x - span / nF / 2, top, span / nF, bottom - top);
+    spots.push({
+      actor: f,
+      x: x + nudge.x,
+      y: feet + nudge.y,
+      top: spriteTop + nudge.y
+    });
+    if (f.alive) addHit("foe:" + f.id, x - half, spriteTop - 36, Math.max(48, half * 2), feet - spriteTop + 40);
   });
   party.forEach(function (a, i) {
     var span = right1 - right0;
-    var x = nP === 1 ? Math.round(w * 0.74) : Math.round(right0 + span * (i + 0.5) / nP);
+    var scale = battleScale(a, nP, w, stageH);
+    var src = sourceSize(a.sprite, "left");
+    var half = src.w * scale / 2;
+    var x = nP === 1 ? Math.round(w * 0.78) : Math.round(right0 + span * (i + 0.5) / nP);
+    x = Math.max(Math.round(right0 + half * 0.4), Math.min(Math.round(right1 - half), x));
+    var nudge = actorNudge(b, a);
+    var pose = battlePose(b, a);
+    if (pose === "victory") nudge.y -= 10;
     ctx.save();
     ctx.globalAlpha = a.alive ? 1 : 0.35;
-    drawSprite(ctx, a.sprite, x, ground, spriteScale(a, nP), battlePose(b, a), "left");
+    drawSprite(ctx, a.sprite, x + nudge.x, ground + nudge.y, scale, pose, "left");
+    ctx.restore();
+    spots.push({
+      actor: a,
+      x: x + nudge.x,
+      y: ground + nudge.y,
+      top: ground - src.h * scale + nudge.y
+    });
+  });
+  drawBattleFx(ctx, b, spots);
+}
+
+var FX = {
+  ember: ["#e07a30", "#ffb15a", "#a33a18"],
+  tide: ["#2a9aa8", "#7ee0d8", "#1a5c78"],
+  gale: ["#d7e2b8", "#8ec8a0", "#c8b07a"],
+  shard: ["#3ec8e8", "#7ee7ff", "#2a6ad4"]
+};
+
+function drawElement(ctx, element, x, y, p, calm) {
+  var cols = FX[element];
+  if (!cols) return;
+  var n = calm ? 7 : 10;
+  var i, ang, rad, px, py, col;
+  for (i = 0; i < n; i++) {
+    ang = (i / n) * Math.PI * 2 + (calm ? 0.6 : p * 1.1);
+    rad = 16 + (i % 3) * 10 + (calm ? 12 : p * 28);
+    px = Math.round(x + Math.cos(ang) * rad);
+    py = Math.round(y - Math.sin(Math.abs(ang)) * rad * 0.55 - (calm ? 6 : p * 14));
+    col = cols[i % cols.length];
+    ctx.fillStyle = col;
+    if (element === "gale") ctx.fillRect(px, py, 12, 3);
+    else if (element === "tide") ctx.fillRect(px, py, 4, 9);
+    else if (element === "shard") {
+      ctx.fillRect(px, py, 5, 5);
+      ctx.fillRect(px - 3, py + 2, 11, 2);
+    } else ctx.fillRect(px, py, 6, 6);
+  }
+}
+
+function drawBattleFx(ctx, b, spots) {
+  var art = b.art;
+  if (!art || !spots) return;
+  var p = b.phase === "result" ? 0.62 : animP(b);
+  if (!p) return;
+  var calm = (SF.calm && SF.calm()) || b.phase === "result";
+  var byId = {};
+  spots.forEach(function (spot) { byId[spot.actor.id] = spot; });
+  function bodyY(spot) {
+    var top = spot.top == null ? spot.y - 80 : spot.top;
+    return Math.round(top + (spot.y - top) * 0.42);
+  }
+  if (art.element && art.hurt && art.hurt.length) {
+    art.hurt.forEach(function (id) {
+      var spot = byId[id];
+      if (spot) drawElement(ctx, art.element, spot.x, bodyY(spot), p, calm);
+    });
+  }
+  (art.pops || []).forEach(function (pop) {
+    var spot = byId[pop.id];
+    if (!spot) return;
+    var rise = calm ? 18 : Math.round(42 * p);
+    var alpha = calm ? 1 : (p > 0.78 ? Math.max(0, 1 - (p - 0.78) / 0.22) : 1);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = pop.heal ? "#7dffa8" : "#ffd37a";
+    ctx.font = "700 28px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText((pop.heal ? "+" : "") + pop.text, spot.x, bodyY(spot) - 16 - rise);
     ctx.restore();
   });
 }
@@ -459,12 +620,12 @@ function drawItemList(ctx, b, w, h, y0) {
   addHit("back", x, backY, btnW, 52);
 }
 
-function drawResult(ctx, b, w, h) {
+function drawResult(ctx, b, w, h, y0) {
   var row = b.result || {};
   var panelW = Math.min(380, w - 24);
   var x = Math.round((w - panelW) / 2);
-  var y = 120;
-  var panelH = Math.min(h - 220, 520);
+  var y = y0 || Math.round(h * 0.42);
+  var panelH = Math.max(180, h - y - 12);
   artWindow(ctx, x, y, panelW, panelH);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
@@ -668,18 +829,32 @@ SF.Battle.resolve = function (b, actor, action) {
   prevResolve(b, actor, action);
   var skill = null;
   if (action && action.skillId) skill = SF.skillById(action.skillId);
-  else if (action && action.type === "skill") skill = SF.skillById("attack");
+  else if (action && (action.type === "skill" || action.type === "attack")) skill = SF.skillById("attack");
   var pose = "attack";
   if (action && (action.type === "defend" || action.type === "flee")) pose = "idle";
   else if (skill && (skill.mag || skill.heal || skill.scan || skill.defUp || skill.spdUp)) pose = "cast";
   else if (action && action.type === "item") pose = "cast";
   var hurt = [];
+  var pops = [];
   if (b && b.actors) {
     b.actors.forEach(function (a) {
-      if (before[a.id] != null && a.hp < before[a.id]) hurt.push(a.id);
+      if (before[a.id] == null) return;
+      if (a.hp < before[a.id]) {
+        hurt.push(a.id);
+        pops.push({ id: a.id, text: before[a.id] - a.hp, heal: false });
+      } else if (a.hp > before[a.id]) {
+        pops.push({ id: a.id, text: a.hp - before[a.id], heal: true });
+      }
     });
   }
-  if (b) b.art = { id: actor && actor.id, pose: pose, hurt: hurt };
+  var element = (skill && skill.element) || "";
+  if (!element && action && action.itemId && SF.ITEMS && SF.ITEMS[action.itemId]) element = SF.ITEMS[action.itemId].element || "";
+  if (b && b.phase === "readout" && !SF.Battle.instant) {
+    var dur = (SF.calm && SF.calm()) ? 0.7 : 1.05;
+    b.readoutT = dur;
+    b.readoutDur = dur;
+  }
+  if (b) b.art = { id: actor && actor.id, pose: pose, hurt: hurt, element: element, pops: pops };
 };
 
 bindBattlePointer();

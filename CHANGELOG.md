@@ -16,6 +16,7 @@ Saltmere is a stilt town: Quinn's Hooks, the Stilthouse, and the Holdfast under 
 Lowgate sits under the city. You can shop and sleep there. The gate stays shut until Saltmere's lamp is lit, and the city is still closed after that.
 Chests remember when you open them. Shops buy and sell. A night at an inn fills your heart and brings field enemies back. A boss stays down.
 Reduce flashing stays on until you turn it off.
+In a fight the people and the foes are larger, and the turn strip shows each foe's face. An attack steps in, a hit knocks back, and Ember, Tide, Gale, and Shard leave a small colored mark with a damage number. A win raises a victory pose. None of that flashes white. The objective and the hint share one box, and a hint fades after the first time you see it.
 
 The islands, the people, and the fight are drawn in a 16-bit pixel style.
 The Wayfarer carries a glowing shard. Kestrel wears a coat and goggles. Tamsin has a tool belt. Maren is old. Ilsa wears armor. Hesk wears Choir robes. The Cantor wears a pale mask.
