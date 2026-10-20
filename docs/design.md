@@ -1,9 +1,9 @@
 # Shardfall — living design doc
 
-**Current build:** v0.1.1, Emberhold. v0.1.1 is the same island with a steadier screen and a next step you can read.
+**Current build:** v0.2, Act 1: The Cinder Road. Emberhold, then Cinderveil by skiff. The shared names and dialogue ids live in `docs/v0.2-spec.md`.
 **Play:** https://awsumbtech.github.io/shardfall/ once the Pages workflow has run on `main`.
 
-This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new in v0.1.1" panel. This file can spoil secrets.
+This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new in v0.2" panel. This file can spoil secrets.
 
 ## Pillars
 
@@ -31,13 +31,13 @@ Relighting a lamp does not destroy the Hush. It pushes it back. Grass remembers 
 
 ### Shards
 
-Sky-shards are pieces of the broken sky. They power lamps, sails, and — in the Wayfarer's case — a hand. A shard fused to the hand at the moment of waking. In v0.1 it can dash. The fiction, already promised, is that it will grapple later.
+Sky-shards are pieces of the broken sky. They power lamps, sails, and — in the Wayfarer's case — a hand. A shard fused to the hand at the moment of waking. It dashes. After Tamsin fits the hook, it grapples.
 
-Shards are also the offering a lamp eats. Emberhold's great lamp wants five. Spare shards stay in the hand as a count. They are not a shop yet.
+Shards are also the offering a lamp eats. Emberhold's great lamp wants five. Spare shards after that, and shards found on Cinderveil, buy a few changes to the hand: a longer dash, a quicker hook, a brighter strike, a deeper heart, and a harder singe once Shardstep is awake.
 
 ### Regions
 
-v0.1 is one drift, three bits of land you can walk, and one name you cannot sail to yet.
+v0.2 is two islands. Emberhold is the starter drift. Cinderveil is the ash island west of it, reached on Kestrel's skiff.
 
 ```
         Whisper Hollow (secret ledge)
@@ -65,7 +65,7 @@ v0.1 is one drift, three bits of land you can walk, and one name you cannot sail
 
 **Whisper Hollow** is west of Maren's grove, along a narrower ledge. It is on the map as land, and easy to walk past. The air there is blue. The Cantor stands in it and does not fight. A heartblossom grows off to the side.
 
-**Cinderveil** is not a place you can walk in this build. Kestrel's name for a tear in the west, under the bright fracture: ash-grey and ember-orange, with Lowmoor Quay, the Ashfields, and the Ember Vault. The lamp on Emberhold has to be lit before he will offer the wind. Act 1's words — the crossing, Tamsin, Hesk, Ilsa, the Cinder Maw, and the Cantor's Spare / Listen / Refuse — live in `docs/script/act1.md`. The island's playable geography is a separate change.
+**Cinderveil** is the second island: ash-grey grass, ember cracks, a teal rim on Lowmoor Quay. Tamsin Reed works a hook in her workshop. Brother Hesk mutters about the Choir. The Ashfields hold three cogs and a Cold Nook. Two hooked gaps — wider than a dash — lead to Warden Ilsa and the Ember Vault. The Cinder Maw feeds on the core. The hurt lamp takes three shards. The Cantor is there after, with Spare, Listen, or Refuse. The words are in `docs/script/act1.md`.
 
 ### Factions
 
@@ -136,7 +136,7 @@ Experience comes from Hushborn. Thresholds are 24, 70, and 110.
 
 A full clear of the six Hushborn is exactly level 4 (wisps 10 each, brumekin 24 each, the Choirling 32). The lamp's shockwave grants experience for the wisps it unmakes, so lighting early can level you.
 
-The quest reward is not a level. It is Shardstep, on the hand itself. Spare shards and the two blossoms are the only other permanent gains. There is no shop and no second weapon.
+The quest reward is not a level. It is Shardstep, on the hand itself. Spare shards after the lamp buy changes at Tamsin's bench. There is no second weapon.
 
 ### NPCs and the quest
 
@@ -145,7 +145,7 @@ One quest: **relight Emberhold's lamp.**
 1. **Awaken.** The tracker says "Talk to Old Maren, up the hill." A gold arrow at your feet, a marker on her, and an edge arrow when she is offscreen all point the same way. Talking to her moves the quest to Gather. You can ignore her, collect five, and light the lamp anyway. She has a different thank-you if you do.
 2. **Gather.** The tracker counts, "Find 5 sky-shards (2/5)". The marker prefers the nearest ground shard it is willing to spoil, then a Hushborn that drops one. The alcove shard stays hidden until you have seen Cinderstep or heard Kestrel. At five it changes to "Bring them to the lamp — Place shards."
 3. **Light.** With five or more, Place shards on the lamp plays a short lighting. You can skip it. The lamp catches, five shards are spent, wisps come apart, heavier Hushborn crack, and Shardstep awakens. The tracker points at Kestrel: "Talk to Kestrel on Vane's Perch."
-4. **The hook.** Kestrel, after the lamp, names Cinderveil and offers the Quickmercy. The offer ends by dispatching `open_sail_menu`. Until the crossing itself is playable, the tracker still reads: "Cinderveil waits. Kestrel will sail later." The arrow goes away.
+4. **The hook.** Kestrel, after the lamp, names Cinderveil and offers the Quickmercy. The offer ends by dispatching `open_sail_menu`, which opens the sail menu. The first crossing is the sail scene. The tracker reads "Sail to Cinderveil."
 
 The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Strike when a core is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
 
@@ -159,7 +159,7 @@ Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or tw
 
 The game autosaves about every eight seconds, on a pickup, a kill, the end of a conversation, the lamp, a level, and when the page hides or you pause. The pause menu can Save, Load, or Reset. Reset deletes only `shardfall.v1` and returns to the title. New Game asks before it replaces a save. Continue is hidden when there is nothing to continue. Mute (`shardfall.mute`) and Reduce flashing (`shardfall.reduceFlash`) are separate keys so they survive Reset. Reduce flashing defaults to on. Unset means on.
 
-A save from a future version number is ignored rather than half-applied. v0.1 writes `v: 1`.
+A save from a future version number is ignored rather than half-applied. v0.2 writes `v: 2` and still reads `v: 1`. A v0.1 journey that already lit the lamp, or that had reached `hooked`, unlocks the skiff. Quest names stay as they were. A gather save stays a gather save. Mute, Reduce flashing, music volume, effects volume, and haptics stay on their own keys.
 
 `node tools/smoke.mjs` rebuilds the island rules, a strike, Maren's first talk, the lighting, a dash from the lip, and a save round-trip. It does not open a browser.
 
@@ -205,9 +205,9 @@ The feel loop calls `Music.play("title")` while the title is up. Leaving the tit
 | `whoosh` | the swing starts. `SF.emit("swing")` maps here. |
 | `impact` | a strike connects. `SF.emit("hit")` maps here. |
 | `dash` | dash |
-| `grapple` | grapple fired. No caller until the hand has one. |
+| `grapple` | the hook is thrown |
 | `latch` | the hook catches |
-| `pull` | the reel in |
+| `pull` | the reel starts |
 | `pickup` | a shard or a blossom |
 | `lamp` | a lamp relights. Slow swell. |
 | `blip` | a line of dialogue, in that speaker's pitch. `SF.emit("talk")` maps here. The dialogue engine calls it when a line starts, and again every few letters while the line is arriving. |
@@ -216,7 +216,7 @@ The feel loop calls `Music.play("title")` while the title is up. Leaving the tit
 | `death` | the shard hauls them back to the stones |
 | `enemyHurt` | a Hushborn flinches, when it should sound different from the weapon impact |
 | `enemyDeath` | a Hushborn comes apart. The feel loop plays one of these when any foe dies, including several at once. |
-| `roar` | the boss. No caller until that fight exists. |
+| `roar` | the Cinder Maw, when the fight begins |
 | `level` | a level |
 
 `SF.emit(name)` still accepts the v0.1 names (`swing`, `hit`, `hurt`, `dash`, `pickup`, `lamp`, `talk`, `death`, `level`, `ui`).
@@ -250,13 +250,15 @@ In the build, and not negotiable without a doc edit:
 - Levels 1–4, two blossoms, one save slot, title / continue / new game / reset, Reduce flashing, the v0.1.1 note.
 - No second island, no grapple, no inventory screen, no faction meters.
 
+That lock is the v0.1 build. v0.2 adds Cinderveil, the grapple, the hand menu, and the Cinder Maw. Faction meters are still later.
+
 ## Roadmap
 
 These are intentions, not promises. Each one should stay fun in a short sitting and still be a phone game.
 
-### v0.2 — The western wind
+### v0.2 — Act 1: The Cinder Road
 
-Leave Emberhold. A short voyage on the Quickmercy: wind lanes over the Hush, not a menu. Land at Cinderveil, a larger island with its own unlit lamp. The hand learns to grapple, which is how the new island is shaped (gaps, wrecks, a mast). Driftborn camp. Spare shards start to buy a small choice: a longer singe, a kinder heal, a brighter lamp-sense. Kestrel has more than one conversation.
+This build. Sail the Quickmercy between Emberhold and Cinderveil, with a short voyage you can skip. Lowmoor Quay, the Ashfields, the Ember Vault. The hand hooks: hold, aim, release. Small Hushborn are pulled in. Big ones pull you. Spare shards buy five hand changes. The quest is Tamsin's three cogs, Ilsa's trial, the Cinder Maw, the vault lamp, and the Cantor's choice. Dialogue prose is data (`startDialogue(id)`); the ids and events are in `docs/v0.2-spec.md`.
 
 ### v0.3 — Convoy
 
@@ -275,11 +277,11 @@ Several lamps, and an overworld that is still a cloud sea rather than a menu of 
 These are for Brian. v0.1 picked an answer so the build could exist. None of them are load-bearing if he wants the other one.
 
 1. **The Wayfarer's name.** Silent, and unnamed, for now. A name you type once on the title would be easy. A fixed name he likes would also be easy.
-2. **Cinderveil.** That is the hook's name for the next island. It can change before v0.2 without hurting this build.
+2. **Cinderveil.** The name stayed. Act 1 lands there.
 3. **How hard the Hush bites.** Death and a missed dash currently give you back, minus a little heart. A harsher version could keep a shard, or fray the lamp, or cost time. The gentle version is what is built.
 4. **The Cantor.** Rival, tragic ally, or a third route you can actually walk in v0.4. v0.1 only promises that they are polite and that they are not done.
 5. **Art.** Stay procedural, which keeps the game a single folder with no assets, or move to drawn sprites once the islands multiply.
-6. **The hand.** One gift at a time (dash, then grapple), or a small build you spend shards on. v0.1 is one gift. v0.2's note above leans toward a few choices. Worth deciding before those choices exist.
+6. **The hand.** Dash, then the grapple, then five shard purchases. That is the v0.2 answer.
 7. **How much they talk.** Act 1 is a full script now, still one or two sentences a box. If a scene runs long on the phone, cut a line before adding one.
 8. **Sound.** On after the first tap, with separate music and effects sliders, and easy to mute. Haptics start on, for a hit, a shard, and the lamp. It can still default to muted if the phone speaker is the wrong call.
 
@@ -289,13 +291,15 @@ Code map, if a section above needs a change:
 
 | | |
 | --- | --- |
-| `js/data.js` | Island shape, spawns, colors of the rules |
+| `js/data.js` | Emberhold shape, spawns, hand upgrades |
 | `js/content/dialogue/` | Act 1's lines, as data |
 | `js/dialogue.js` | The conversation panel, portraits, choices, flags |
+| `js/cinder.js` | Cinderveil, travel, the hand menu, quest markers |
+| `js/grapple.js` | The hook, the Maw, ash foes |
 | `js/sim.js` | Movement, combat, quest, the dash gap's actual behavior |
 | `js/draw.js` | How the drift looks |
 | `js/ui.js`, `css/style.css` | Buttons, panels, safe areas |
-| `js/save.js` | The v1 save shape |
+| `js/save.js` | The v2 save, and v1 reads |
 | `js/input.js` | Stick, buttons, keys, the no-scroll guards |
 | `js/audio.js` | Shared context, unlock, mute, volumes, visibility |
 | `js/music.js` | `Music.play` loops and crossfades |
@@ -305,4 +309,4 @@ Code map, if a section above needs a change:
 | `js/feel.js` | Which theme, footsteps, foe-death cue |
 | `.github/workflows/pages.yml` | The Pages deploy |
 
-`SF.audit()` returns a list of layout problems (a pickup off the grass, a dash from the lip that misses, a ledge you cannot walk). The smoke script runs it.
+`SF.audit()` returns a list of layout problems (a pickup off the grass, a dash from the lip that misses, a ledge you cannot walk). `SF.auditCinder()` checks the quay, the two hooked gaps, and that the vault brute cannot see the dock. The smoke script runs both, then the Act 1 chain.

@@ -241,7 +241,34 @@ SF.bindUI = function () {
   });
   document.getElementById("skip").addEventListener("pointerdown", function (e) {
     e.preventDefault();
-    SF.skipCutscene();
+    if (SF.state && SF.state.mode === "voyage" && SF.finishVoyage) SF.finishVoyage();
+    else SF.skipCutscene();
+  });
+  document.getElementById("sail-ember").addEventListener("click", function () {
+    SF.emit("ui");
+    SF.startVoyage("emberhold");
+  });
+  document.getElementById("sail-cinder").addEventListener("click", function () {
+    SF.emit("ui");
+    if (!SF.state.flags.sailUnlocked) {
+      SF.pushToast("The hull is not ready for Cinderveil.", 1.8);
+      return;
+    }
+    SF.startVoyage("cinderveil");
+  });
+  document.getElementById("sail-close").addEventListener("click", function () {
+    if (SF.state && SF.state.mode === "sailmenu") SF.state.mode = "play";
+    SF.syncUI();
+  });
+  document.getElementById("hand-close").addEventListener("click", function () {
+    SF.closeHand();
+    SF.syncUI();
+  });
+  document.getElementById("pause-hand").addEventListener("click", function () {
+    SF.emit("ui");
+    if (SF.state) SF.state.mode = "play";
+    SF.openHand();
+    SF.syncUI();
   });
   document.getElementById("modal-close").addEventListener("click", SF.closeModal);
   document.getElementById("modal-yes").addEventListener("click", function () {
@@ -295,7 +322,7 @@ SF.syncUI = function () {
   if (SF.uiModal) {
     var newsMode = SF.uiModal.kind === "news";
     document.getElementById("news-body").hidden = !newsMode;
-    document.getElementById("modal-title").textContent = newsMode ? "What's new in v0.1.1" : "Shardfall";
+    document.getElementById("modal-title").textContent = newsMode ? "What's new in v0.2" : "Shardfall";
     document.getElementById("modal-copy").hidden = newsMode;
     document.getElementById("modal-copy").textContent = newsMode ? "" : SF.uiModal.text;
     document.getElementById("modal-yes").hidden = newsMode;
@@ -309,7 +336,42 @@ SF.syncUI = function () {
   dialogue.hidden = !showTalk;
   if (showTalk && SF.paintDialogue) SF.paintDialogue();
 
-  document.getElementById("skip").hidden = s.mode !== "cutscene";
+  var sail = document.getElementById("sail");
+  sail.hidden = s.mode !== "sailmenu";
+  if (s.mode === "sailmenu") {
+    document.getElementById("isle-ember").classList.toggle("here", SF.islandId === "emberhold");
+    document.getElementById("isle-cinder").classList.toggle("here", SF.islandId === "cinderveil");
+    document.getElementById("sail-cinder").disabled = !s.flags.sailUnlocked;
+    document.getElementById("sail-ember").disabled = SF.islandId === "emberhold";
+    document.getElementById("sail-cinder").disabled = SF.islandId === "cinderveil" || !s.flags.sailUnlocked;
+  }
+
+  var hand = document.getElementById("hand");
+  hand.hidden = s.mode !== "hand";
+  if (s.mode === "hand" && SF.HAND_UPGRADES) {
+    setText("hand-shards", "Spare shards: " + s.shardsHeld);
+    var list = document.getElementById("hand-list");
+    var owned = Object.keys(s.upgrades || {}).sort().join(",");
+    var handSig = s.shardsHeld + "|" + owned + "|" + (s.player.grapple ? 1 : 0) + "|" + (s.player.shardstep ? 1 : 0);
+    if (list.dataset.sig !== handSig) {
+      list.dataset.sig = handSig;
+      list.innerHTML = "";
+      SF.HAND_UPGRADES.forEach(function (upgrade) {
+        var row = document.createElement("button");
+        row.type = "button";
+        var has = !!(s.upgrades && s.upgrades[upgrade.id]);
+        var locked = (upgrade.needs === "grapple" && !s.player.grapple) || (upgrade.needs === "shardstep" && !s.player.shardstep);
+        row.textContent = upgrade.branch + " · " + upgrade.name + " — " + (has ? "fitted" : (upgrade.cost + " shards")) + ". " + upgrade.blurb;
+        row.disabled = has || locked;
+        row.addEventListener("click", function () { SF.buyUpgrade(upgrade.id); });
+        list.appendChild(row);
+      });
+    }
+  }
+
+  var skip = document.getElementById("skip");
+  skip.hidden = s.mode !== "cutscene" && s.mode !== "voyage";
+  skip.textContent = s.mode === "voyage" ? "Tap to land" : "Tap to skip";
 
   var pstat = s.player;
   var hpPct = SF.clamp(pstat.hp / pstat.maxHp, 0, 1);
@@ -376,6 +438,13 @@ SF.syncUI = function () {
     el.setAttribute("aria-pressed", calmOn ? "true" : "false");
   });
   document.body.dataset.calm = SF.calm() ? "1" : "0";
+  document.body.dataset.grapple = pstat.grapple ? "1" : "0";
+  var hookBtn = document.getElementById("btn-grapple");
+  if (hookBtn && SF.GRAPPLE_CD) {
+    var hookMax = (s.upgrades && s.upgrades.quickhook) ? SF.GRAPPLE_CD_PLUS : SF.GRAPPLE_CD;
+    var hookP = hookMax <= 0 ? 0 : SF.clamp((pstat.grappleCd || 0) / hookMax, 0, 1);
+    hookBtn.style.setProperty("--p", hookP.toFixed(3));
+  }
   var hapticsOn = !(window.Haptics) || Haptics.enabled;
   var hap = document.getElementById("set-haptics");
   if (hap) {

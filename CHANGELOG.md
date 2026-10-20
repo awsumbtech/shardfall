@@ -4,9 +4,9 @@ Notes for someone playing, not a patch log of every file.
 
 ## v0.2 — Act 1: The Cinder Road
 
-People talk like themselves now. Maren, Kestrel, and the Cantor have a real script, and the road west is written down.
-A conversation shows a face and a line. Tap once to finish the line, tap again to go on. Replies are big enough for a thumb.
-What you ask is remembered. Reduce flashing still shows the whole line at once.
+The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.
+Tamsin fits a grapple to your hand. Hook the gaps, pull the small things, and haul yourself at the big ones.
+Three cogs, Ilsa's trial, then the Cinder Maw. The hurt core takes three shards. What you ask is remembered, and the Cantor waits at the end.
 
 The title opens on a cloud sea, islands drifting past a lamp.
 Emberhold has a quiet theme now. A strike, a dash, a shard, and the lamp each have a sound, and each person has a voice when they talk.

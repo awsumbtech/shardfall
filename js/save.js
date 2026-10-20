@@ -16,13 +16,19 @@ SF.storage = function () {
 };
 
 SF.exportState = function (s) {
+  if (SF.snapshotEnemies) SF.snapshotEnemies();
   return {
-    v: 1,
+    v: 2,
     game: SF.VERSION,
     savedAt: Date.now(),
     playTime: s.playTime,
     quest: s.quest,
+    island: s.island || SF.islandId || "emberhold",
     shardsHeld: s.shardsHeld,
+    cogs: s.cogs || 0,
+    upgrades: s.upgrades || {},
+    checkpoint: s.checkpoint || null,
+    enemySave: s.enemySave || {},
     picked: s.picked,
     drops: s.drops,
     flags: s.flags,
@@ -39,10 +45,11 @@ SF.exportState = function (s) {
       xp: s.player.xp,
       level: s.player.level,
       atk: s.player.atk,
-      shardstep: !!s.player.shardstep
+      shardstep: !!s.player.shardstep,
+      grapple: !!s.player.grapple
     },
     enemies: s.enemies.map(function (e) {
-      return { id: e.id, alive: e.alive && e.dying <= 0, hp: e.hp };
+      return { id: e.id, alive: e.alive && e.dying <= 0, hp: e.hp, dormant: !!e.dormant };
     })
   };
 };
@@ -54,7 +61,7 @@ SF.readSave = function () {
   if (!raw) return null;
   try {
     var data = JSON.parse(raw);
-    if (!data || data.v !== 1) return null;
+    if (!data || (data.v !== 1 && data.v !== 2)) return null;
     return data;
   } catch (err) {
     return null;
@@ -66,12 +73,16 @@ SF.hasSave = function () {
 };
 
 SF.applySave = function (s, data) {
-  if (!data || data.v !== 1 || !data.player) return false;
+  if (!data || (data.v !== 1 && data.v !== 2) || !data.player) return false;
   var p = s.player;
   var sp = data.player;
   s.playTime = data.playTime || 0;
   s.quest = data.quest || "awaken";
   s.shardsHeld = data.shardsHeld || 0;
+  s.cogs = data.cogs || 0;
+  s.upgrades = data.upgrades || {};
+  s.checkpoint = data.checkpoint || null;
+  s.enemySave = data.enemySave || {};
   s.picked = data.picked || {};
   s.drops = data.drops || {};
   s.flags = Object.assign(s.flags, data.flags || {});
@@ -80,6 +91,12 @@ SF.applySave = function (s, data) {
   s.hints = Object.assign(s.hints, data.hints || {});
   if (data.hints && data.hints.moved == null && s.playTime > 2) s.hints.moved = true;
   if (data.hints && data.hints.dash == null && s.playTime > 25) s.hints.dash = true;
+  if (data.v === 1 && (s.flags.lampLit || s.quest === "hooked")) s.flags.sailUnlocked = true;
+  p.grapple = !!sp.grapple || !!s.flags.grapple;
+  s.flags.grapple = p.grapple || !!s.flags.grapple;
+  s.island = data.island || "emberhold";
+  if (SF.mountIsland) SF.mountIsland(s.island);
+  if (SF.makeEnemies) s.enemies = SF.makeEnemies();
   p.x = sp.x;
   p.y = sp.y;
   p.fx = sp.fx || 1;
@@ -91,13 +108,17 @@ SF.applySave = function (s, data) {
   p.atk = sp.atk || 12;
   p.shardstep = !!sp.shardstep || !!s.flags.shardstep;
   if (!SF.walkable(p.x, p.y)) {
-    p.x = SF.WAKE.x;
-    p.y = SF.WAKE.y;
+    var dock = SF.DOCKS && SF.DOCKS[s.island];
+    p.x = dock ? dock.x : SF.WAKE.x;
+    p.y = dock ? dock.y : SF.WAKE.y;
   }
   p.safeX = p.x;
   p.safeY = p.y;
+  p.px = p.x;
+  p.py = p.y;
   var byId = {};
-  (data.enemies || []).forEach(function (e) { byId[e.id] = e; });
+  var rows = data.enemies || (s.enemySave && s.enemySave[s.island]) || [];
+  rows.forEach(function (e) { byId[e.id] = e; });
   s.enemies.forEach(function (e) {
     var saved = byId[e.id];
     if (!saved) return;
@@ -106,7 +127,17 @@ SF.applySave = function (s, data) {
     e.dying = 0;
     e.x = e.homeX;
     e.y = e.homeY;
+    if (saved.dormant != null && e.kind === "maw" && !s.flags.mawFight) e.dormant = !!saved.dormant;
   });
+  if (s.flags.mawDead) {
+    s.enemies.forEach(function (e) {
+      if (e.kind === "maw") {
+        e.alive = false;
+        e.hp = 0;
+      }
+    });
+  }
+  if (SF.cuePlaceMusic) SF.cuePlaceMusic(s);
   return true;
 };
 

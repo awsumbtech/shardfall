@@ -8,9 +8,10 @@ The live site updates when the Pages workflow runs on `main`. It does not deploy
 
 ## v0.2 — Act 1: The Cinder Road
 
-People talk like themselves. A conversation shows a face and a line, and Reduce flashing still shows the whole line at once.
-The title opens on a cloud sea, islands drifting past a lamp.
-Emberhold has a quiet theme now. Strikes, dashes, shards, and the lamp have their own sounds, and each speaker has a voice.
+The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.
+Tamsin fits a grapple to your hand. Hook the gaps, pull the small things, and haul yourself at the big ones.
+Three cogs, Ilsa's trial, then the Cinder Maw. Spare shards buy a few changes to the hand. The Cantor waits at the end.
+The title opens on a cloud sea. Emberhold, the crossing, Cinderveil, and the Maw each have a theme.
 Music and effects have their own volume. Haptics can be turned off. The same Reduce flashing switch lives in Settings.
 
 ## v0.1.1 — Steady light
@@ -34,6 +35,7 @@ The game is built for a phone in Chrome, in portrait or landscape. The page does
 | Move | Virtual stick, lower left | WASD or arrow keys |
 | Strike | Blade button, lower right | J or Z |
 | Dash | Dash button | K or Space |
+| Hook | Ember button, hold to aim, let go to pull | G, hold and release |
 | Talk, inspect, place shards | The button on the upper right. It renames itself | E or Enter |
 | Pause | Pause button | Esc |
 | Mute | Speaker button | M |
