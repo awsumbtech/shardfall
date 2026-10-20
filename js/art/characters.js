@@ -1,9 +1,9 @@
 "use strict";
 
-// Field sprites for the Act 1 cast. Chibi 16-bit walk cycles, about 20×28,
-// big head (roughly 1:1.5 head to body), open friendly faces from every
-// side. Battle poses stay in actors.js; this file only replaces walk and
-// the field idle ("stand").
+// Field sprites for the Act 1 cast, plus battle poses for the party
+// (Wayfarer, Kestrel, Tamsin). Field walk is about 20×28. Battle frames
+// are that same side sprite at 2× nearest-neighbor, with a small pose
+// edit on top. Other people and every enemy keep the actors.js art.
 //
 // Faces: no dark brow bars, no scowls, no eye-socket shadows. Eyes are
 // white with one pupil and a highlight. Smile corners sit above the mouth.
@@ -983,7 +983,211 @@
   };
 
   var ORDER = ["wayfarer", "maren", "kestrel", "tamsin", "hesk", "ilsa", "cantor"];
+  var PARTY = { wayfarer: 1, kestrel: 1, tamsin: 1 };
+  var BATTLE = { idle: 1, attack: 1, cast: 1, hurt: 1, victory: 1 };
   var cache = {};
+  var battleCache = {};
+
+  // Battle art is the field side sprite, doubled with nearest-neighbor.
+  // Poses only nudge that picture: the arm, a short lunge, a flash, or a fall.
+  var BATTLE = { idle: 1, attack: 1, cast: 1, hurt: 1, victory: 1, ko: 1 };
+
+  function copySpec(spec) {
+    var o = {};
+    var k;
+    for (k in spec) o[k] = spec[k];
+    return o;
+  }
+
+  function shiftArm(spec, dx, dy) {
+    var o = copySpec(spec);
+    var arm = spec.armSide;
+    var i, ex, e, key;
+    o.armSide = { x: arm.x + dx, y: arm.y + dy, rows: arm.rows, map: arm.map };
+    o.sw = spec.sw + (dx > 0 ? dx + 2 : 2);
+    if (spec.extrasSide) {
+      o.extrasSide = [];
+      for (i = 0; i < spec.extrasSide.length; i++) {
+        ex = spec.extrasSide[i];
+        e = {};
+        for (key in ex) e[key] = ex[key];
+        if (ex.arm) {
+          e.x = ex.x + dx;
+          e.y = ex.y + dy;
+        }
+        o.extrasSide.push(e);
+      }
+    }
+    return o;
+  }
+
+  function scale2(s) {
+    var o = Art.spr(s.w * 2, s.h * 2);
+    var y, x, c, dx, dy;
+    for (y = 0; y < s.h; y++) {
+      for (x = 0; x < s.w; x++) {
+        c = s.d[y * s.w + x];
+        if (!c) continue;
+        for (dy = 0; dy < 2; dy++) {
+          for (dx = 0; dx < 2; dx++) Art.plot(o, x * 2 + dx, y * 2 + dy, c);
+        }
+      }
+    }
+    o.ax = s.ax * 2;
+    o.ay = s.ay * 2 + 1;
+    return o;
+  }
+
+  // Move the picture relative to its feet. Positive dx is forward (right).
+  function slide(s, dx) {
+    if (!dx) return s;
+    var o = Art.spr(s.w + (dx < 0 ? -dx : dx), s.h);
+    var ox = dx < 0 ? -dx : 0;
+    var y, x, c;
+    for (y = 0; y < s.h; y++) {
+      for (x = 0; x < s.w; x++) {
+        c = s.d[y * s.w + x];
+        if (c) Art.plot(o, x + ox + dx, y, c);
+      }
+    }
+    o.ax = s.ax + ox;
+    o.ay = s.ay;
+    return o;
+  }
+
+  function layDown(s) {
+    var o = Art.spr(s.h, s.w);
+    var x, y, c;
+    for (y = 0; y < s.h; y++) {
+      for (x = 0; x < s.w; x++) {
+        c = s.d[y * s.w + x];
+        if (!c) continue;
+        Art.plot(o, y, s.w - 1 - x, c);
+      }
+    }
+    o.ax = (o.w / 2) | 0;
+    o.ay = 0;
+    for (y = 0; y < o.h; y++) {
+      for (x = 0; x < o.w; x++) if (o.d[y * o.w + x]) o.ay = y;
+    }
+    return o;
+  }
+
+  function addGlow(s, spec, dx, dy) {
+    var tipX = spec.armSide.x + dx + spec.armSide.rows[0].length;
+    var tipY = spec.armSide.y + dy + 1;
+    var hi = spec === SPECS.tamsin ? C.emberH : (spec === SPECS.kestrel ? C.white : C.shardH);
+    var mid = spec === SPECS.tamsin ? C.ember : (spec === SPECS.kestrel ? C.lite : C.shard);
+    Art.plot(s, tipX + 1, tipY, hi);
+    Art.plot(s, tipX + 2, tipY, mid);
+    Art.plot(s, tipX + 1, tipY - 1, mid);
+    Art.plot(s, tipX + 1, tipY + 1, mid);
+    Art.plot(s, tipX, tipY - 1, hi);
+  }
+
+  function flashSprite(s) {
+    var keep = {};
+    keep[C.ink] = 1;
+    keep[C.eye] = 1;
+    keep[C.white] = 1;
+    keep[C.lite] = 1;
+    keep[C.lip] = 1;
+    keep[C.skin] = 1;
+    keep[C.skinD] = 1;
+    keep[C.skinDeep] = 1;
+    keep[C.hair] = 1;
+    keep[C.hairD] = 1;
+    keep[C.hairR] = 1;
+    keep[C.hairRD] = 1;
+    keep[C.emberH] = 1;
+    var i;
+    for (i = 0; i < s.d.length; i++) {
+      if (s.d[i] && !keep[s.d[i]]) s.d[i] = C.lite;
+    }
+  }
+
+  function battleRaw(id, pose, frame) {
+    frame = frame ? 1 : 0;
+    var spec = SPECS[id];
+    var dx = 0;
+    var dy = 0;
+    var lunge = 0;
+    var posed = spec;
+    if (pose === "attack") {
+      dx = frame ? 2 : -1;
+      lunge = frame ? 3 : 0;
+      posed = shiftArm(spec, dx, dy);
+    } else if (pose === "cast") {
+      dx = 1;
+      dy = frame ? -4 : -3;
+      posed = shiftArm(spec, dx, dy);
+    } else if (pose === "victory") {
+      dy = frame ? -5 : -4;
+      posed = shiftArm(spec, dx, dy);
+    }
+    var bodyFrame = pose === "idle" ? frame : 0;
+    var painted = paintSide(posed, bodyFrame, true);
+    if (pose === "cast" || pose === "victory") addGlow(painted, spec, dx, dy);
+    var doubled = scale2(painted);
+    if (pose === "hurt") {
+      doubled = slide(doubled, frame ? -4 : -2);
+      if (frame) flashSprite(doubled);
+    } else if (lunge) {
+      doubled = slide(doubled, lunge);
+    }
+    if (pose === "ko") doubled = layDown(doubled);
+    return doubled;
+  }
+
+  function battle(id, pose, facing, frame) {
+    var face = facing === "left" ? "left" : "right";
+    var f = frame ? 1 : 0;
+    var key = id + "|" + pose + "|" + face + "|" + f;
+    if (!battleCache[key]) {
+      var s = battleRaw(id, pose, f);
+      if (face === "left") s = Art.mirror(s);
+      battleCache[key] = s;
+    }
+    return Art.clone(battleCache[key]);
+  }
+
+  function paintPortrait(id) {
+    // Same left-facing head as the battle sprite, so the HUD and turn
+    // icons look toward the enemies on the left.
+    var body = Art.mirror(battleRaw(id, "idle", 0));
+    var spec = SPECS[id];
+    var s = Art.spr(32, 32);
+    var bg = id === "kestrel" ? C.tealD : (id === "tamsin" ? C.vestD : C.coatD);
+    var y1 = (spec.headSide.y + spec.headSide.rows.length + 3) * 2;
+    var x, y, c, minx, maxx, cw, ch, dx, dy;
+    Art.fill(s, 0, 0, 32, 32, bg);
+    if (y1 > body.h) y1 = body.h;
+    minx = body.w;
+    maxx = 0;
+    for (y = 0; y < y1; y++) {
+      for (x = 0; x < body.w; x++) {
+        if (!body.d[y * body.w + x]) continue;
+        if (x < minx) minx = x;
+        if (x > maxx) maxx = x;
+      }
+    }
+    cw = maxx - minx + 1;
+    ch = y1;
+    dx = ((32 - cw) / 2) | 0;
+    dy = ((30 - ch) / 2) | 0;
+    if (dx < 0) dx = 0;
+    if (dy < 0) dy = 0;
+    for (y = 0; y < ch; y++) {
+      for (x = minx; x <= maxx; x++) {
+        c = body.d[y * body.w + x];
+        if (c) Art.plot(s, x - minx + dx, y + dy, c);
+      }
+    }
+    s.ax = 16;
+    s.ay = 31;
+    return s;
+  }
+
 
   function field(id, pose, facing, frame) {
     var dir = facing;
@@ -1006,9 +1210,14 @@
     var prev = Art._makers[id];
     Art.add(id, function (pose, facing, frame) {
       if (pose === "walk" || pose === "stand") return field(id, pose, facing, frame || 0);
+      if (PARTY[id] && BATTLE[pose]) return battle(id, pose, facing, frame || 0);
       if (prev) return prev(pose, facing, frame || 0);
       return field(id, "walk", facing, 0);
     }, Art._scale[id], Art._fieldScale[id]);
+  });
+
+  ["wayfarer", "kestrel", "tamsin"].forEach(function (id) {
+    Art.addPortrait(id, function () { return paintPortrait(id); });
   });
 
   Art.fieldCast = {};

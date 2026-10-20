@@ -330,12 +330,12 @@ function normFacing(facing, fx, fy) {
   return "down";
 }
 
-var POSES = { idle: 1, walk: 1, attack: 1, hurt: 1, cast: 1, victory: 1, stand: 1 };
+var POSES = { idle: 1, walk: 1, attack: 1, hurt: 1, cast: 1, victory: 1, stand: 1, ko: 1 };
 
 // Art.sprite(ctx, id, x, y, { frame, facing, scale, pose })
 // Feet (the baseline) sit on (x, y). pose "walk" is the field cycle.
 // pose "stand" is the field idle bob (four directions). pose "idle" |
-// "attack" | "hurt" | "cast" | "victory" are the side-view battle frames.
+// "attack" | "hurt" | "cast" | "victory" | "ko" are the battle frames.
 // A string frame is treated as the pose name.
 Art.sprite = function (ctx, id, x, y, opts) {
   if (!ctx || !id) return;
