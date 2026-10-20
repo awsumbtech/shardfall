@@ -1250,7 +1250,7 @@ if (!html.includes('rel="manifest" href="manifest.webmanifest"')) fail("manifest
 if (!html.includes('rel="apple-touch-icon" href="icons/apple-touch-icon.png"')) fail("apple touch link");
 if (!html.includes('src="js/pwa.js"')) fail("pwa script");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.3"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.4"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
