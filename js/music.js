@@ -467,6 +467,7 @@ var Music = {
 
   play: function (name) {
     if (!THEMES[name]) return;
+    if (!SF.audio) return;
     if (this._want === name && (this._live === name || !SF.audio.unlocked)) return;
     this._want = name;
     if (!SF.audio.unlocked) return;
