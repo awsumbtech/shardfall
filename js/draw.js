@@ -350,19 +350,27 @@ SF.buildHushLip = function () {
       draw();
     }
   }
+  // Mist only in the void. Punch every ground shape, trails included, a few
+  // pixels past its edge so inner region borders do not keep a ring.
   g.save();
   g.shadowColor = mist;
-  g.shadowBlur = 26;
-  g.lineWidth = 16;
-  g.strokeStyle = mist;
+  g.shadowBlur = 18;
+  g.fillStyle = mist;
   g.globalAlpha = 0.85;
-  eachShape(-2, function () { g.stroke(); });
+  eachShape(-4, function () { g.fill(); });
   g.restore();
   g.globalCompositeOperation = "destination-out";
   g.shadowBlur = 0;
   g.globalAlpha = 1;
   g.fillStyle = "#000";
-  eachShape(7, function () { g.fill(); });
+  var all = shapes;
+  shapes = [];
+  for (ni = 0; ni < names.length; ni++) {
+    list = SF.groups[names[ni]] || [];
+    for (i = 0; i < list.length; i++) shapes.push(list[i]);
+  }
+  eachShape(-8, function () { g.fill(); });
+  shapes = all;
   g.globalCompositeOperation = "source-over";
   SF._hushLip = sheet;
   SF._hushLipBox = { minX: minX, minY: minY };
@@ -394,22 +402,19 @@ SF._ellipseGap = function (t, wx, wy) {
 };
 
 SF._rockPixel = function (tone, t, wx, gap, block) {
-  var colId = Math.floor(wx / 3);
+  var colId = Math.floor(wx / 8);
   var h = SF._thash(colId, ((t.seed || 1) * 4) | 0);
-  var slab = SF._thash(Math.floor(wx / 7), ((t.seed || 1) * 9) | 0);
   var depth = gap / Math.max(8, block);
   if (depth < 0) depth = 0;
   if (depth > 1) depth = 1;
-  var col = SF._lerpRgb(tone.hi, tone.mid, Math.min(1, depth * 1.2));
-  col = SF._lerpRgb(col, tone.lo, depth * depth * 0.9);
-  if (h % 9 === 0) col = SF._lerpRgb(col, tone.out, 0.72);
-  else if (h % 9 === 1) col = SF._lerpRgb(col, tone.hi, 0.48);
-  else if (slab % 5 === 0) col = SF._lerpRgb(col, tone.lo, 0.38);
+  var col = SF._lerpRgb(tone.hi, tone.mid, Math.min(1, depth * 0.8));
+  col = SF._lerpRgb(col, tone.lo, depth * depth * 0.8);
+  if (h % 4 === 0) col = SF._lerpRgb(col, tone.lo, 0.22);
+  else if (h % 4 === 1) col = SF._lerpRgb(col, tone.hi, 0.12);
   var g = gap | 0;
-  if (g % 9 === 7) col = SF._lerpRgb(col, tone.out, 0.24);
-  if (SF._thash(colId, g >> 2) % 17 === 0) col = SF._lerpRgb(col, tone.out, 0.42);
+  if (g % 10 === 8) col = SF._lerpRgb(col, tone.lo, 0.14);
   if (g >= block - 2) col = tone.out;
-  else if (g >= block - 4) col = SF._lerpRgb(col, tone.out, 0.58);
+  else if (g >= block - 5) col = SF._lerpRgb(col, tone.out, 0.4);
   return col;
 };
 
@@ -500,39 +505,15 @@ SF._paintElevation = function (data, mask, minX, minY, w, h) {
         pix = idx * 4;
         cur = [data[pix], data[pix + 1], data[pix + 2]];
         if (m.gap <= 0) {
-          lip = SF.terraceSouthLip(t, wx);
-          above = lip == null ? 99 : lip - wy;
-          if (kind === 3) {
-            if (above >= 0 && above < 3) SF._writePx(data, pix, SF._lerpRgb(cur, [228, 214, 160], 0.35));
-            continue;
-          }
-          col = SF._lerpRgb(cur, top, 0.28 + lv * 0.08);
-          if (above > 3 && above < 14) {
-            u = 1 - (above - 3) / 11;
-            col = SF._lerpRgb(col, [col[0] * 0.62, col[1] * 0.72, col[2] * 0.48], 0.4 * u);
-          } else if (m.deep > 3 && m.deep < 10 && m.ny < 0.15) {
-            col = SF._lerpRgb(col, [col[0] * 0.78, col[1] * 0.84, col[2] * 0.7], 0.22);
-          }
-          if (above >= 0 && above < 3) col = SF._lerpRgb(col, [242, 234, 176], 0.7 + lv * 0.06);
-          else if (m.deep < 2.4 && m.ny < 0.2) col = SF._lerpRgb(col, [236, 228, 170], 0.4);
-          period = 10 + lv * 6;
-          ax = Math.round(wx / period) * period;
-          ay = Math.round(wy / period) * period;
-          if (m.deep > 8 && above > 12 && SF._thash(ax >> 2, ay >> 2) % (6 + lv) === 0) {
-            ddx = wx - ax;
-            ddy = wy - ay;
-            sz = 2 + lv;
-            if (ddx * ddx + ddy * ddy < sz * sz) {
-              col = SF._lerpRgb(col, lv >= 3 ? [236, 228, 150] : [118, 168, 64], 0.72);
-            }
-          }
+          if (kind === 3) continue;
+          col = SF._lerpRgb(cur, top, 0.1 + lv * 0.06);
           SF._writePx(data, pix, col);
           continue;
         }
         lip = SF.terraceSouthLip(t, wx);
         if (lip == null) continue;
         drop = wy - lip;
-        if (drop <= 0 || drop > face + shadow) continue;
+        if (drop <= 0) continue;
         if (block && drop < block && t.kind !== "grass") {
           rd = SF.routeApproach(wx, wy);
           if (rd.cross && rd.d < ramp + 8) {
@@ -554,33 +535,32 @@ SF._paintElevation = function (data, mask, minX, minY, w, h) {
             continue;
           }
           col = SF._rockPixel(tone, t, wx, drop, block);
-          if (drop < 12) {
-            hang = SF._thash((wx / 3) | 0, ((t.seed || 1) * 17) | 0);
-            reachH = 4 + (hang % 8);
-            if (drop < reachH && hang % 5 !== 0) {
+          if (drop > 1 && drop < 8) {
+            hang = SF._thash((wx / 8) | 0, ((t.seed || 1) * 17) | 0);
+            reachH = 2 + (hang % 5);
+            if (drop < reachH && hang % 3 === 0) {
               moss = SF._mossColor(t);
-              col = SF._lerpRgb(moss, [moss[0] * 0.45, moss[1] * 0.5, moss[2] * 0.35], (drop / reachH) * 0.8);
+              col = SF._lerpRgb(col, moss, 0.55);
             }
           }
           SF._writePx(data, pix, col);
           continue;
         }
-        if (drop < face) {
-          if (kind === 3 && !block) continue;
+        if (!block && drop < face) {
+          if (kind === 3) continue;
           u = drop / face;
-          col = SF._lerpRgb(cur, t.kind === "grass" ? [34, 88, 46] : [30, 74, 38], 0.3 + u * 0.48);
-          if (drop < 2.8) col = SF._lerpRgb(col, [206, 220, 136], 0.7);
-          if (t.kind === "grass" && drop < 11) {
-            hang = SF._thash(wx | 0, ((t.seed || 1) * 5) | 0);
-            if (hang % 4 === 0 && drop < 3 + (hang % 7)) col = [92, 150, 66];
-          }
+          col = SF._lerpRgb(cur, [36, 90, 48], 0.18 + u * 0.35);
           SF._writePx(data, pix, col);
           continue;
         }
-        u = (drop - face) / shadow;
-        fall = (1 - u) * (1 - u);
-        col = SF._lerpRgb(cur, [cur[0] * 0.4, cur[1] * 0.46, cur[2] * 0.36], 0.66 * fall);
-        SF._writePx(data, pix, col);
+        var foot = block || face;
+        if (drop < foot + 8) {
+          u = (drop - foot) / 8;
+          if (u < 0) u = 0;
+          fall = (1 - u) * (1 - u);
+          col = SF._lerpRgb(cur, [cur[0] * 0.55, cur[1] * 0.6, cur[2] * 0.5], 0.35 * fall);
+          SF._writePx(data, pix, col);
+        }
       }
     }
   }

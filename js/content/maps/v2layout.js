@@ -618,7 +618,7 @@ window.SF = SF;
       terrace("hill-1", 99, 19.0, 11.6, 7.0, 48, 64, 1, "rock", 1.2, 0.24),
       terrace("hill-2", 100.2, 14.8, 8.2, 4.6, 42, 56, 2, "rock", 2.7, 0.22),
       terrace("hill-3", 101, 10.4, 5.4, 3.2, 36, 50, 3, "rock", 4.4, 0.2),
-      terrace("cottage", 70.4, 16.5, 8.4, 6.3, 32, 46, 1, "rock", 0.7, 0.16),
+      terrace("cottage", 72.2, 17.0, 9.4, 6.6, 32, 46, 1, "rock", 0.7, 0.05),
       terrace("grove", 51, 23.0, 8.4, 5.2, 0, 36, 1, "grass", 3.1, 0.2),
       terrace("scar", 118.2, 42.6, 9.4, 4.2, 32, 46, 1, "rock", 5.5, 0.2)
     ],
@@ -630,26 +630,9 @@ window.SF = SF;
 
   SF.terraceWobble = function (t, ang) {
     var s = t.seed || 1;
-    var amp = t.amp == null ? 0.2 : t.amp;
-    var lobe = Math.sin(ang * 2 + s) * 0.18;
-    var signs = [0.62, -0.78, 0.54, -0.7, 0.66, -0.58];
-    var i, c, d, u, width;
-    for (i = 0; i < 6; i++) {
-      c = s * 0.91 + i * 1.05;
-      width = 0.26 + (i % 3) * 0.07;
-      d = Math.atan2(Math.sin(ang - c), Math.cos(ang - c));
-      u = d / width;
-      if (u < -1 || u > 1) continue;
-      lobe += signs[i] * Math.pow(1 - u * u, 1.35);
-    }
-    var q = Math.round(ang * 16 + s * 5);
-    var h = (Math.imul(q | 0, 374761393) ^ Math.imul((s * 13) | 0, 668265263)) >>> 0;
-    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-    var jag = (((h >>> 16) % 5) - 2) * 8;
-    var scale = 1 + amp * lobe + jag / Math.max(48, Math.min(t.rx, t.ry));
-    if (scale < 0.66) scale = 0.66;
-    if (scale > 1.4) scale = 1.4;
-    return scale;
+    var amp = Math.min(t.amp == null ? 0.05 : t.amp, 0.07);
+    var w = Math.sin(ang * 2 + s) * 0.72 + Math.sin(ang + s * 0.6) * 0.28;
+    return 1 + amp * w;
   };
 
   SF.terraceRadius = function (t, ang) {
@@ -728,8 +711,8 @@ window.SF = SF;
       var a, r, x, y, x0, y0, steps, s, xx, yy, idx, south;
       x0 = null;
       south = -1e9;
-      for (a = 0.05; a <= Math.PI - 0.05; a += 0.01) {
-        if (Math.sin(a) < 0.18) {
+      for (a = 0.15; a <= Math.PI - 0.15; a += 0.008) {
+        if (Math.sin(a) < 0.42) {
           x0 = null;
           continue;
         }
@@ -749,17 +732,35 @@ window.SF = SF;
         x0 = x;
         y0 = y;
       }
+      var smooth = new Float32Array(n);
+      var k, sum, cnt, j;
+      for (i = 0; i < n; i++) {
+        if (arr[i] < -1e8) {
+          smooth[i] = arr[i];
+          continue;
+        }
+        sum = 0;
+        cnt = 0;
+        for (k = -5; k <= 5; k++) {
+          j = i + k;
+          if (j < 0 || j >= n || arr[j] < -1e8) continue;
+          if (Math.abs(arr[j] - arr[i]) > 14) continue;
+          sum += arr[j];
+          cnt++;
+        }
+        smooth[i] = cnt ? sum / cnt : arr[i];
+      }
       var chain = [];
       var run = false;
       for (i = 0; i < n; i++) {
-        if (arr[i] < -1e8) {
+        if (smooth[i] < -1e8) {
           run = false;
           continue;
         }
-        if (!run || (i & 1) === 0) chain.push(minX + i, arr[i]);
+        if (!run || (i % 3) === 0) chain.push(minX + i, smooth[i]);
         run = true;
       }
-      t._lip = { minX: minX, maxX: maxX, y: arr };
+      t._lip = { minX: minX, maxX: maxX, y: smooth };
       t._chain = chain;
       t._southBase = south + (t.block || t.face || 0);
       lip = t._lip;
