@@ -444,23 +444,7 @@ SF.cinderObjective = function (s) {
   if (q === "relight") {
     var needRelight = SF.CINDER_SHARDS || 3;
     if ((s.shardsHeld || 0) >= needRelight) return { x: SF.LAMP.x, y: SF.LAMP.y };
-    var shardBest = null;
-    var shardD = Infinity;
-    SF.activePickups().forEach(function (item) {
-      if (item.kind !== "shard") return;
-      if (SF.shardReachable && !SF.shardReachable(item)) return;
-      var d = SF.dist(s.player.x, s.player.y, item.x, item.y);
-      if (d < shardD) {
-        shardD = d;
-        shardBest = item;
-      }
-    });
-    if (shardBest) return { x: shardBest.x, y: shardBest.y, kind: "shard", precise: shardD <= (SF.SHARD_GLINT || 96) };
-    if (SF.carrierAim) {
-      var carrier = SF.carrierAim(s);
-      if (carrier) return carrier;
-    }
-    return { x: SF.LAMP.x, y: SF.LAMP.y };
+    return SF.shardGoal ? SF.shardGoal(s) : null;
   }
   if (q === "cantor") {
     var c = SF.npcById("cantor");

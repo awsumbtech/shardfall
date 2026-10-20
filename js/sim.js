@@ -547,6 +547,34 @@ SF.actionFor = function (s, near) {
 
 SF.SHARD_GLINT = 96;
 
+SF.shardGoal = function (s) {
+  if (!s || !SF.activePickups) return null;
+  var best = null;
+  var bestD = Infinity;
+  SF.activePickups().forEach(function (item) {
+    if (item.kind !== "shard") return;
+    if (SF.shardReachable && !SF.shardReachable(item)) return;
+    var d = SF.dist(s.player.x, s.player.y, item.x, item.y);
+    if (d < bestD) {
+      bestD = d;
+      best = item;
+    }
+  });
+  if (best) {
+    return {
+      x: best.x,
+      y: best.y,
+      kind: "shard",
+      precise: bestD <= (SF.SHARD_GLINT || 96)
+    };
+  }
+  if (SF.carrierAim) {
+    var zone = SF.carrierAim(s);
+    if (zone) return zone;
+  }
+  return null;
+};
+
 SF.objectivePoint = function (s) {
   if (!s || s.mode === "title") return null;
   if (s.quest === "awaken") {
@@ -554,25 +582,8 @@ SF.objectivePoint = function (s) {
     return { x: maren.x, y: maren.y };
   }
   if (s.quest === "gather") {
-    if (s.shardsHeld >= SF.QUEST_SHARDS) return { x: SF.LAMP.x, y: SF.LAMP.y };
-    var best = null;
-    var bestD = Infinity;
-    SF.activePickups().forEach(function (item) {
-      if (item.kind !== "shard") return;
-      if (SF.shardReachable && !SF.shardReachable(item)) return;
-      if (item.secret && SF.secretVisible && !SF.secretVisible(item)) return;
-      var d = SF.dist(s.player.x, s.player.y, item.x, item.y);
-      if (d < bestD) {
-        bestD = d;
-        best = item;
-      }
-    });
-    if (best) return { x: best.x, y: best.y, kind: "shard", precise: bestD <= (SF.SHARD_GLINT || 96) };
-    if (SF.carrierAim) {
-      var zone = SF.carrierAim(s);
-      if (zone) return zone;
-    }
-    return { x: SF.LAMP.x, y: SF.LAMP.y };
+    if ((s.shardsHeld || 0) >= SF.QUEST_SHARDS) return { x: SF.LAMP.x, y: SF.LAMP.y };
+    return SF.shardGoal(s);
   }
   if (s.quest === "stirring") {
     var kestrel = SF.NPCS[1];
