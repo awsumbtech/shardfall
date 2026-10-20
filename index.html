@@ -24,8 +24,10 @@
 
     <div id="hud">
       <div class="panel" id="vitals">
-        <div id="hp"><span id="hp-fill"></span></div>
-        <div id="vitals-text"><span id="hp-num">40/40</span> · <span id="lv">Lv 1</span> · <span id="shards">✦ 0</span> <span id="saved" hidden>Saved</span></div>
+        <div id="vitals-row">
+          <div id="hp"><span id="hp-fill"></span></div>
+          <div id="vitals-text"><span id="hp-num">40/40</span> · <span id="lv">Lv 1</span> · <span id="shards">✦ 0</span> <span id="saved" hidden>Saved</span></div>
+        </div>
         <div id="xp"><span id="xp-fill"></span></div>
         <div id="questline">Talk to Old Maren, up the hill.</div>
         <div id="coach" hidden>Move: drag the stick.</div>
@@ -169,15 +171,17 @@
         <p id="pause-quest"></p>
         <p id="pause-stats"></p>
         <p id="pause-note"></p>
-        <button id="resume" type="button">Resume</button>
-        <button id="pause-settings" type="button" class="ghost">Settings</button>
-        <button id="pause-news" type="button" class="ghost">What's new in v0.4</button>
-        <button id="pause-hand" type="button" class="ghost">The hand</button>
-        <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
-        <button id="pause-save" type="button" class="ghost">Save</button>
-        <button id="pause-load" type="button" class="ghost">Load</button>
-        <button id="pause-reset" type="button" class="ghost">Reset save</button>
-        <button id="pause-title" type="button" class="ghost">Title</button>
+        <div id="pause-actions" class="scroll">
+          <button id="resume" type="button">Resume</button>
+          <button id="pause-settings" type="button" class="ghost">Settings</button>
+          <button id="pause-news" type="button" class="ghost">What's new in v0.4</button>
+          <button id="pause-hand" type="button" class="ghost">The hand</button>
+          <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
+          <button id="pause-save" type="button" class="ghost">Save</button>
+          <button id="pause-load" type="button" class="ghost">Load</button>
+          <button id="pause-reset" type="button" class="ghost">Reset save</button>
+          <button id="pause-title" type="button" class="ghost">Title</button>
+        </div>
       </div>
     </div>
 

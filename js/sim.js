@@ -545,6 +545,8 @@ SF.actionFor = function (s, near) {
   return { label: "Talk", name: near.ref.name, prompt: "Talk — " + near.ref.name };
 };
 
+SF.SHARD_GLINT = 96;
+
 SF.objectivePoint = function (s) {
   if (!s || s.mode === "title") return null;
   if (s.quest === "awaken") {
@@ -565,7 +567,7 @@ SF.objectivePoint = function (s) {
         best = item;
       }
     });
-    if (best) return { x: best.x, y: best.y };
+    if (best) return { x: best.x, y: best.y, kind: "shard", precise: bestD <= (SF.SHARD_GLINT || 96) };
     if (SF.carrierAim) {
       var zone = SF.carrierAim(s);
       if (zone) return zone;
@@ -1098,9 +1100,14 @@ SF.updateCamera = function (dt) {
   } else if (s.revealPan && SF.LAMP) {
     s.revealPan.t += dt;
     var u = s.revealPan.t / s.revealPan.dur;
-    var lampW = u < 0.35 ? u / 0.35 : (u < 0.65 ? 1 : Math.max(0, 1 - (u - 0.65) / 0.35));
+    var lampW = 0;
+    if (u < 0.28) lampW = 0;
+    else if (u < 0.46) lampW = (u - 0.28) / 0.18;
+    else if (u < 0.68) lampW = 1;
+    else if (u < 0.88) lampW = Math.max(0, 1 - (u - 0.68) / 0.2);
+    var crystalY = SF.LAMP.y - 126;
     targetX = s.player.x + (SF.LAMP.x - s.player.x) * lampW;
-    targetY = s.player.y + (SF.LAMP.y - s.player.y) * lampW;
+    targetY = s.player.y + (crystalY - s.player.y) * lampW;
     if (u >= 1) s.revealPan = null;
   } else if (SF.debugCam) {
     targetX = SF.debugCam.x;

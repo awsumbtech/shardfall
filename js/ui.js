@@ -342,6 +342,7 @@ SF.syncUI = function () {
   if (!s) return;
   document.body.dataset.mode = s.mode;
   document.body.dataset.modal = SF.uiModal ? "1" : "0";
+  document.body.dataset.reveal = s.revealPan ? "1" : "0";
 
   var title = document.getElementById("title");
   title.hidden = s.mode !== "title";

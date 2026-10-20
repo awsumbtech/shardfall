@@ -455,7 +455,7 @@ SF.cinderObjective = function (s) {
         shardBest = item;
       }
     });
-    if (shardBest) return { x: shardBest.x, y: shardBest.y };
+    if (shardBest) return { x: shardBest.x, y: shardBest.y, kind: "shard", precise: shardD <= (SF.SHARD_GLINT || 96) };
     if (SF.carrierAim) {
       var carrier = SF.carrierAim(s);
       if (carrier) return carrier;

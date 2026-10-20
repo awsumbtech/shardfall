@@ -1200,26 +1200,47 @@ SF.drawPickup = function (ctx, item, hiddenIcon) {
   }
 };
 
-SF.revealAmt = function (s) {
-  if (!s || !s.revealPan || !s.revealPan.dur) return 0;
-  var u = s.revealPan.t / s.revealPan.dur;
-  if (u < 0.22 || u > 0.78) return 0;
-  if (u < 0.4) return (u - 0.22) / 0.18;
-  if (u > 0.62) return Math.max(0, (0.78 - u) / 0.16);
+SF.revealU = function (s) {
+  if (!s || !s.revealPan || !s.revealPan.dur) return null;
+  return s.revealPan.t / s.revealPan.dur;
+};
+
+SF.palmAmt = function (s) {
+  var u = SF.revealU(s);
+  if (u == null || u < 0.04 || u > 0.32) return 0;
+  if (u < 0.12) return (u - 0.04) / 0.08;
+  if (u > 0.24) return (0.32 - u) / 0.08;
   return 1;
+};
+
+SF.lampFlareAmt = function (s) {
+  var u = SF.revealU(s);
+  if (u == null || u < 0.4 || u > 0.76) return 0;
+  if (u < 0.5) return (u - 0.4) / 0.1;
+  if (u > 0.66) return (0.76 - u) / 0.1;
+  return 1;
+};
+
+SF.palmPoint = function (p) {
+  var face = SF.artFacing ? SF.artFacing(p.fx || 0, p.fy || 1) : "down";
+  if (face === "left") return { x: p.x - 13, y: p.y - 10 };
+  if (face === "right") return { x: p.x + 13, y: p.y - 10 };
+  if (face === "up") return { x: p.x - 7, y: p.y - 12 };
+  return { x: p.x + 7, y: p.y - 11 };
 };
 
 SF.drawLampCrystal = function (ctx, lit) {
   var x = SF.LAMP.x;
   var y = SF.LAMP.y;
-  var flare = SF.revealAmt(SF.state);
+  var crystalY = y - 126;
+  var flare = SF.lampFlareAmt ? SF.lampFlareAmt(SF.state) : 0;
   var showLit = lit || flare > 0.35;
   if (window.Art && Art.sprite) {
     if ((showLit || flare > 0) && SF.blobs) {
       ctx.save();
-      ctx.globalAlpha = showLit ? 0.85 : 0.35 + flare * 0.5;
-      var bloom = showLit ? 92 : 64 + flare * 40;
-      ctx.drawImage(SF.blobs.gold, x - bloom / 2, y - bloom * 0.67, bloom, bloom);
+      ctx.globalAlpha = showLit ? 0.9 : 0.35 + flare * 0.6;
+      var bloom = showLit ? 72 : 40 + flare * 36;
+      ctx.drawImage(SF.blobs.gold, x - bloom / 2, crystalY - bloom / 2, bloom, bloom);
       ctx.restore();
     }
     var lampId = showLit ? "great_lamp_lit" : "great_lamp";
@@ -1232,7 +1253,7 @@ SF.drawLampCrystal = function (ctx, lit) {
       ctx.strokeStyle = "#ffe7a8";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, y - 8, 20, 0, Math.PI * 2);
+      ctx.arc(x, crystalY, 14, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -1243,23 +1264,20 @@ SF.drawLampCrystal = function (ctx, lit) {
   ctx.fillStyle = "#8d7368";
   ctx.fillRect(x - 10, y + 6, 20, 8);
   ctx.fillRect(x - 3, y - 2, 6, 12);
-  if (lit) {
-    ctx.drawImage(SF.blobs.gold, x - 48 * flick, y - 64 * flick, 96 * flick, 96 * flick);
-    ctx.fillStyle = "rgba(255, 236, 180, 0.2)";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 120);
-    ctx.lineTo(x - 26, y);
-    ctx.lineTo(x + 26, y);
-    ctx.fill();
+  if (lit || flare > 0) {
+    var bloom = (lit ? 72 : 40 + flare * 36) * (lit ? flick : 1);
+    ctx.globalAlpha = lit ? 0.9 : 0.35 + flare * 0.6;
+    ctx.drawImage(SF.blobs.gold, x - bloom / 2, crystalY - bloom / 2, bloom, bloom);
+    ctx.globalAlpha = 1;
   } else {
-    ctx.drawImage(SF.blobs.violet, x - 18, y - 28, 36, 36);
+    ctx.drawImage(SF.blobs.violet, x - 16, crystalY - 16, 32, 32);
   }
-  ctx.fillStyle = lit ? "#fff8e4" : "#c9b6e8";
+  ctx.fillStyle = lit || flare > 0.35 ? "#fff8e4" : "#c9b6e8";
   ctx.beginPath();
-  ctx.moveTo(x, y - 22);
-  ctx.lineTo(x + 7, y - 6);
-  ctx.lineTo(x, y + 4);
-  ctx.lineTo(x - 7, y - 6);
+  ctx.moveTo(x, crystalY - 8);
+  ctx.lineTo(x + 7, crystalY);
+  ctx.lineTo(x, crystalY + 8);
+  ctx.lineTo(x - 7, crystalY);
   ctx.fill();
   ctx.restore();
   if (!lit && SF.state && SF.state.shardsHeld >= SF.QUEST_SHARDS && SF.state.quest === "gather") {
@@ -1270,7 +1288,7 @@ SF.drawLampCrystal = function (ctx, lit) {
     ctx.strokeStyle = "#ffe7a8";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y - 8, calm ? 20 : (19 + Math.sin(SF.anim * 1.4) * 1), 0, Math.PI * 2);
+    ctx.arc(x, crystalY, calm ? 14 : (13 + Math.sin(SF.anim * 1.4) * 1), 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
@@ -1421,12 +1439,13 @@ SF.entityList = function (s) {
       ctx.stroke();
       ctx.restore();
       SF.drawWayfarer(ctx, p.x, p.y + sink, p.fx, p.fy, alpha, p.shardstep);
-      var palm = SF.revealAmt ? SF.revealAmt(s) : 0;
+      var palm = SF.palmAmt ? SF.palmAmt(s) : 0;
       if (palm > 0 && SF.blobs) {
+        var hand = SF.palmPoint(p);
         ctx.save();
-        ctx.globalAlpha = 0.35 + palm * 0.6;
-        ctx.drawImage(SF.blobs.cyan, p.x - 16, p.y - 30, 34, 34);
-        ctx.drawImage(SF.blobs.gold, p.x - 8, p.y - 24, 26, 26);
+        ctx.globalAlpha = 0.4 + palm * 0.6;
+        ctx.drawImage(SF.blobs.cyan, hand.x - 11, hand.y - 11, 22, 22);
+        ctx.drawImage(SF.blobs.gold, hand.x - 6, hand.y - 6, 12, 12);
         ctx.restore();
       }
       if (p.swinging) {
@@ -1446,10 +1465,14 @@ SF.entityList = function (s) {
   return list;
 };
 
+SF.goalPrecise = function (goal) {
+  return !goal || goal.kind !== "shard" || goal.precise !== false;
+};
+
 SF.drawGuide = function (ctx, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
-  if (!goal) return;
+  if (!goal || !SF.goalPrecise(goal)) return;
   var p = s.player;
   var dx = goal.x - p.x;
   var dy = goal.y - p.y;
@@ -1479,14 +1502,15 @@ SF.drawEdgeArrow = function (ctx, w, h, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
   if (!goal) return;
+  var sensed = goal.kind === "shard" && goal.precise === false;
   var zoom = SF.zoom || 1;
   var sx = (goal.x - s.camX) * zoom + w / 2;
   var sy = (goal.y - s.camY) * zoom + h / 2;
   var left = 28;
   var right = w - 28;
-  var top = 120;
-  var bottom = h - 170;
-  if (sx > left && sx < right && sy > top && sy < bottom) return;
+  var top = 46;
+  var bottom = h - 150;
+  if (!sensed && sx > left && sx < right && sy > top && sy < bottom) return;
   var cx = w / 2;
   var cy = h / 2;
   var dx = sx - cx;
@@ -1501,7 +1525,8 @@ SF.drawEdgeArrow = function (ctx, w, h, s) {
   ctx.save();
   ctx.translate(cx + dx * t, cy + dy * t);
   ctx.rotate(Math.atan2(dy, dx));
-  ctx.fillStyle = "#ffd37a";
+  if (sensed) ctx.globalAlpha = 0.55 + Math.sin((SF.anim || 0) * 5) * 0.4;
+  ctx.fillStyle = sensed ? "#9af6ff" : "#ffd37a";
   ctx.strokeStyle = "rgba(20, 10, 30, 0.7)";
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -1724,11 +1749,26 @@ SF.drawMap = function () {
   ctx.fillStyle = (SF.lampIsLit ? SF.lampIsLit(s) : s.flags.lampLit) ? "#ffe7a8" : "#c9b6e8";
   ctx.fillRect(mx(SF.LAMP.x) - 2, my(SF.LAMP.y) - 2, 4, 4);
   var goal = SF.objectivePoint(s);
-  if (goal) {
+  if (goal && SF.goalPrecise(goal)) {
     ctx.globalAlpha = (SF.calm && SF.calm()) ? 0.92 : (0.8 + Math.sin(SF.anim * 1.4) * 0.12);
     ctx.fillStyle = "#ffd37a";
     ctx.beginPath();
     ctx.arc(mx(goal.x), my(goal.y), 4, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (goal && s.player) {
+    var px = mx(s.player.x);
+    var py = my(s.player.y);
+    var gx = mx(goal.x) - px;
+    var gy = my(goal.y) - py;
+    var glen = Math.hypot(gx, gy) || 1;
+    var tick = Math.min(12, glen * 0.35);
+    ctx.globalAlpha = 0.55 + Math.sin((SF.anim || 0) * 5) * 0.35;
+    ctx.fillStyle = "#9af6ff";
+    ctx.beginPath();
+    ctx.moveTo(px + gx / glen * (tick + 4), py + gy / glen * (tick + 4));
+    ctx.lineTo(px + gx / glen * tick - gy / glen * 3, py + gy / glen * tick + gx / glen * 3);
+    ctx.lineTo(px + gx / glen * tick + gy / glen * 3, py + gy / glen * tick - gx / glen * 3);
+    ctx.closePath();
     ctx.fill();
   }
   if (s.discovered && s.discovered.vault && SF.islandId === "cinderveil") {

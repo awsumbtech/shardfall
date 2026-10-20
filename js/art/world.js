@@ -1,7 +1,7 @@
 "use strict";
 
-// Tiles, props, and the Hush cloud stamps. Patterns are 16×16 and repeat
-// 1:1 in world space when the terrain sheet is baked at one texel per unit.
+// Tiles, props, and the Hush cloud stamps. Ground patterns repeat 1:1 in
+// world space. Grass and ash use a larger organic tile with no grout grid.
 (function () {
   var C = Art.C;
   var plot = Art.plot;
@@ -451,6 +451,51 @@
     }
   }
 
+  function tileHash(x, y, n) {
+    var h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(n, 1442695041)) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
+  function organicTile(name, spec) {
+    tile(name, function () {
+      var S = 64;
+      var s = Art.spr(S, S);
+      var colors = spec.colors;
+      var x, y, h, pick, i, tx, ty, k, len;
+      for (y = 0; y < S; y++) {
+        for (x = 0; x < S; x++) {
+          h = tileHash(x, y, spec.salt);
+          pick = h % 100;
+          if (pick < 58) plot(s, x, y, colors[0]);
+          else if (pick < 82) plot(s, x, y, colors[1]);
+          else if (pick < 94) plot(s, x, y, colors[2]);
+          else plot(s, x, y, colors[3] || colors[1]);
+        }
+      }
+      for (i = 0; i < (spec.tufts || 0); i++) {
+        tx = tileHash(i, 3, spec.salt) % S;
+        ty = tileHash(i, 7, spec.salt) % S;
+        len = 2 + (tileHash(i, 11, spec.salt) % 3);
+        for (k = 0; k < len; k++) plot(s, tx, (ty + k) % S, k === 0 ? (spec.hi || spec.tuft) : spec.tuft);
+        if (tileHash(i, 13, spec.salt) % 2 === 0) plot(s, (tx + 1) % S, ty, spec.hi || spec.tuft);
+      }
+      for (i = 0; i < (spec.specks || 0); i++) {
+        tx = tileHash(i, 17, spec.salt) % S;
+        ty = tileHash(i, 19, spec.salt) % S;
+        plot(s, tx, ty, spec.speck);
+        if (spec.rock && tileHash(i, 23, spec.salt) % 3 !== 0) {
+          plot(s, (tx + 1) % S, ty, spec.rock);
+          plot(s, tx, (ty + 1) % S, spec.rock);
+          if (tileHash(i, 29, spec.salt) % 2 === 0) plot(s, (tx + 1) % S, (ty + 1) % S, spec.rock);
+        }
+      }
+      s.ax = 0;
+      s.ay = 0;
+      return s;
+    });
+  }
+
   function cellTile(name, pal) {
     tile(name, function () {
       var s = Art.spr(16, 16);
@@ -489,21 +534,21 @@
     });
   }
 
-  cellTile("grass", { a: C.grass, b: C.grassD, grout: C.grassX, tuft: C.leafL, hi: C.grassL });
-  cellTile("grass_light", { a: C.grassL, b: C.grass, grout: C.grassD, tuft: C.leafL, hi: C.warm });
-  cellTile("grass_dark", { a: C.grassD, b: C.grassX, grout: C.leafD, tuft: C.grass, hi: C.leaf });
+  organicTile("grass", { salt: 11, colors: [C.grass, C.grassD, C.grassL, C.leaf], tufts: 18, tuft: C.leaf, hi: C.leafL });
+  organicTile("grass_light", { salt: 23, colors: [C.grassL, C.grass, C.grassD, C.warm], tufts: 14, tuft: C.leafL, hi: C.grassL });
+  organicTile("grass_dark", { salt: 37, colors: [C.grassD, C.grassX, C.grass, C.leafD], tufts: 16, tuft: C.grass, hi: C.leaf });
   cellTile("cliff", { a: C.cliff, b: C.cliffD, grout: C.cliffX, speck: C.cliffL });
   cellTile("shore", { a: C.tide, b: C.tideD, grout: C.leafD, tuft: C.foam, hi: C.tideL });
   cellTile("shore_light", { a: C.tideL, b: C.foam, grout: C.tide, tuft: C.grassL, hi: C.lite });
   cellTile("gold", { a: C.goldD, b: C.sand, grout: C.wood, speck: C.gold, tuft: C.warm });
   cellTile("gold_light", { a: C.warm, b: C.gold, grout: C.goldD, speck: C.lite });
-  cellTile("ash", { a: C.ash, b: C.ashD, grout: C.rock, speck: C.ember, tuft: C.ashL, hi: C.emberH });
-  cellTile("ash_light", { a: C.ashL, b: C.ash, grout: C.rock, speck: C.emberH, tuft: C.sand });
-  cellTile("ash_rock", { a: C.rock, b: C.stoneD, grout: C.ash, speck: C.ember, tuft: C.stone });
-  cellTile("ash_ember", { a: C.ashD, b: C.cliffX, grout: C.rock, speck: C.emberH, tuft: C.ember, hi: C.warm });
+  organicTile("ash", { salt: 41, colors: [C.ash, C.ashD, C.ashL, C.rock], specks: 10, speck: C.ember, rock: C.stone });
+  organicTile("ash_light", { salt: 53, colors: [C.ashL, C.ash, C.sand, C.rock], specks: 8, speck: C.emberH, rock: C.stone });
+  organicTile("ash_rock", { salt: 67, colors: [C.rock, C.stoneD, C.ash, C.cliffX], specks: 14, speck: C.ember, rock: C.stone });
+  organicTile("ash_ember", { salt: 71, colors: [C.ashD, C.cliffX, C.rock, C.ember], specks: 16, speck: C.emberH, rock: C.stoneD });
   cellTile("stone", { a: C.stone, b: C.stoneD, grout: C.armorD, speck: C.stoneL });
   cellTile("stone_light", { a: C.stoneL, b: C.stone, grout: C.stoneD, speck: C.warm });
-  cellTile("vault", { a: C.rock, b: C.ashD, grout: C.void, speck: C.ember, tuft: C.cliffX });
+  organicTile("vault", { salt: 83, colors: [C.rock, C.ashD, C.void, C.cliffX], specks: 12, speck: C.ember, rock: C.stoneD });
   cellTile("path", { a: C.path, b: C.pathD, grout: C.wood, speck: C.pathL, tuft: C.pathL });
   cellTile("cobble", { a: C.stone, b: C.ash, grout: C.stoneD, speck: C.tideD, tuft: C.stoneL });
   cellTile("plank", { a: C.wood, b: C.woodD, grout: C.woodL, speck: C.woodD });

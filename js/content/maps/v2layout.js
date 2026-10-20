@@ -767,7 +767,7 @@ window.SF = SF;
     var s = SF.state;
     if (!s || !text) return;
     if (String(text).indexOf("Maren points up the hill") === 0) {
-      s.revealPan = { t: 0, dur: 4.2 };
+      s.revealPan = { t: 0, dur: 5.2 };
     }
   };
 

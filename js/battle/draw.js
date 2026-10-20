@@ -313,7 +313,7 @@ function layoutBattle(w, h, phase, nParty, listRows) {
   var short = h <= 400;
   var margin = short ? 6 : 8;
   var gap = short ? 4 : 6;
-  var stripH = short ? 28 : 50;
+  var stripH = short ? 50 : 64;
   var btnH = short ? 44 : 48;
   var promptH = phase === "target" ? (short ? 20 : 28) : 0;
   var cardH = short ? 72 : (nParty > 1 ? 78 : 84);
@@ -462,7 +462,7 @@ var UNIT_SHORT = {
   kestrel: "Kestrel",
   tamsin: "Tamsin",
   wisp: "Wisp",
-  brumekin: "Brume",
+  brumekin: "Brumekin",
   choirling: "Choir",
   ashling: "Ashling",
   cinderhound: "Hound",
@@ -482,7 +482,7 @@ var UNIT_TIGHT = {
   tamsin: "Tam",
   sentinel: "Sentry",
   choir_soldier: "Choir",
-  brumekin: "Brume",
+  brumekin: "Brumekin",
   drowned: "Drowned",
   stormgull: "Gull"
 };
@@ -563,9 +563,10 @@ function drawStrip(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
   var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
   var n = Math.min(8, order.length || 1);
-  var inset = 12;
+  var inset = 8;
   var slot = Math.floor((w - inset * 2) / n);
-  var face = Math.max(18, Math.min(24, slot - 8, h - 26));
+  var nameH = 13;
+  var face = Math.max(16, Math.min(26, slot - 6, h - nameH - 8));
   var i, id, actor, ox, label, gx, box;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
@@ -574,30 +575,26 @@ function drawStrip(ctx, b, x, y, w, h) {
     actor = actorOf(b, id);
     if (!actor) continue;
     ox = x + inset + i * slot + Math.max(0, Math.floor((slot - face) / 2));
-    box = face + 4;
-    gx = ox - 2;
-    if (gx < x + 10) {
-      ox += x + 10 - gx;
-      gx = ox - 2;
+    box = face + 2;
+    gx = ox - 1;
+    if (gx < x + 6) {
+      ox += x + 6 - gx;
+      gx = ox - 1;
     }
-    if (gx + box > x + w - 8) box = Math.max(face, x + w - 8 - gx);
+    if (gx + box > x + w - 6) box = Math.max(face, x + w - 6 - gx);
+    var portraitY = y + 4;
     if (i === 0) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 2;
-      ctx.strokeRect(gx, y + 6, box, box);
+      ctx.strokeRect(gx, portraitY - 1, box, box);
     }
-    drawPortrait(ctx, actor.sprite, ox, y + 8, face);
+    drawPortrait(ctx, actor.sprite, ox, portraitY, face);
     var slotX = x + inset + i * slot;
-    label = pickFitting(ctx, labelChoices(actor, b, false), Math.max(12, slot - 4), 12, 9);
+    label = pickFitting(ctx, labelChoices(actor, b, true), Math.max(12, slot - 2), 11, 8);
     if (!label.text) continue;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(slotX, y + h - 16, slot, 15);
-    ctx.clip();
     ctx.fillStyle = i === 0 ? "#ffd37a" : "#d5def2";
     ctx.font = "700 " + label.size + "px system-ui, sans-serif";
-    ctx.fillText(label.text, slotX + slot / 2, y + h - 6);
-    ctx.restore();
+    ctx.fillText(label.text, slotX + slot / 2, portraitY + face + 14);
   }
 }
 

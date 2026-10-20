@@ -53,6 +53,9 @@ SF.resizeWrites = 0;
 SF.BASE_W = 640;
 SF.BASE_H = 360;
 
+SF.ASPECT_MIN = 4 / 3;
+SF.ASPECT_MAX = 21 / 9;
+
 SF.resize = function () {
   var canvas = SF.view;
   if (!canvas) return;
@@ -63,17 +66,30 @@ SF.resize = function () {
   var upright = cssH > cssW * 1.12 && cssW <= 900;
   document.body.dataset.portrait = upright ? "1" : "0";
   SF.portraitLock = upright;
-  var fitW = Math.floor(cssW / SF.BASE_W);
-  var fitH = Math.floor(cssH / SF.BASE_H);
-  var scale = Math.min(fitW, fitH);
-  if (scale < 1) scale = Math.min(cssW / SF.BASE_W, cssH / SF.BASE_H);
-  if (!(scale > 0)) scale = 1;
-  var logicalW = SF.BASE_W;
-  var logicalH = SF.BASE_H;
-  if (SF.debugOverview) {
+  var scale = 1;
+  var logicalW = cssW;
+  var logicalH = cssH;
+  if (upright) {
+    scale = 1;
+    logicalW = cssW;
+    logicalH = cssH;
+  } else if (SF.debugOverview) {
     scale = 1;
     logicalW = Math.max(SF.BASE_W, cssW);
     logicalH = Math.max(SF.BASE_H, cssH);
+  } else if (cssH < SF.BASE_H) {
+    scale = cssH / SF.BASE_H;
+    if (!(scale > 0)) scale = 1;
+    logicalW = Math.max(1, Math.floor(cssW / scale));
+    logicalH = Math.max(1, Math.floor(cssH / scale));
+  } else {
+    scale = Math.max(1, Math.floor(cssH / SF.BASE_H));
+    logicalW = Math.max(1, Math.floor(cssW / scale));
+    logicalH = Math.max(1, Math.floor(cssH / scale));
+  }
+  if (!upright && !SF.debugOverview) {
+    if (logicalW / logicalH > SF.ASPECT_MAX) logicalW = Math.max(1, Math.floor(logicalH * SF.ASPECT_MAX));
+    else if (logicalW / logicalH < SF.ASPECT_MIN) logicalH = Math.max(1, Math.floor(logicalW / SF.ASPECT_MIN));
   }
   var frameW = logicalW * scale;
   var frameH = logicalH * scale;
@@ -86,6 +102,11 @@ SF.resize = function () {
     app.style.right = "auto";
     app.style.bottom = "auto";
     app.style.setProperty("--sf-scale", String(scale));
+  }
+  var chrome = document.getElementById("chrome");
+  if (chrome) {
+    chrome.style.width = logicalW + "px";
+    chrome.style.height = logicalH + "px";
   }
   var back = scale * dpr;
   var bw = Math.max(1, Math.round(logicalW * back));

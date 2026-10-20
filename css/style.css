@@ -125,10 +125,10 @@ button:focus-visible {
 #hud {
   position: absolute;
   z-index: 3;
-  top: calc(26px + env(safe-area-inset-top));
-  left: calc(8px + env(safe-area-inset-left));
-  right: calc(108px + env(safe-area-inset-right));
-  max-width: 420px;
+  top: calc(1px + env(safe-area-inset-top));
+  left: calc(6px + env(safe-area-inset-left));
+  right: calc(100px + env(safe-area-inset-right));
+  max-width: 280px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -155,17 +155,25 @@ button:focus-visible {
 }
 
 .panel {
-  padding: 5px 8px 6px;
+  padding: 1px 6px 1px;
+}
+
+#vitals-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 #hp, #xp {
-  height: 8px;
+  height: 5px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 
-#xp { height: 3px; margin-top: 3px; }
+#hp { flex: 1 1 48px; min-width: 48px; }
+
+#xp { height: 2px; margin-top: 1px; }
 
 #hp-fill {
   display: block;
@@ -186,40 +194,41 @@ button:focus-visible {
 }
 
 #vitals-text {
-  margin-top: 3px;
-  font-size: 14px;
+  margin: 0;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  line-height: 1.2;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 #saved {
   color: var(--gold);
   margin-left: 6px;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 #questline {
-  margin-top: 2px;
+  margin-top: 0;
   font-family: var(--serif);
-  font-size: 14px;
-  line-height: 1.25;
+  font-size: 11px;
+  line-height: 1;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 #coach {
-  margin-top: 2px;
+  margin-top: 0;
   padding: 0;
   border: 0;
   background: none;
   box-shadow: none;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1;
   color: var(--cyan);
   transition: opacity 0.6s linear;
 }
@@ -231,13 +240,14 @@ body[data-calm="1"] #coach { transition: none; }
 #place-banner {
   position: absolute;
   z-index: 6;
-  left: 0;
-  right: 0;
-  top: 0;
-  transform: none;
-  max-width: none;
-  padding: 4px 8px;
-  font-size: 13px;
+  left: 50%;
+  right: auto;
+  top: 2px;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 42%;
+  padding: 2px 8px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -287,10 +297,10 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
 #corner {
   position: absolute;
   z-index: 5;
-  top: calc(26px + env(safe-area-inset-top));
-  right: calc(8px + env(safe-area-inset-right));
+  top: calc(2px + env(safe-area-inset-top));
+  right: calc(6px + env(safe-area-inset-right));
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 #corner button {
@@ -491,7 +501,7 @@ body[data-calm="1"] #btn-interact.ready {
   bottom: calc(12px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  max-height: min(78dvh, calc(100% - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  max-height: calc(100% - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   padding: 14px 16px 12px;
   overflow: hidden;
 }
@@ -539,7 +549,7 @@ body[data-calm="1"] #btn-interact.ready {
 #line {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 28dvh;
+  max-height: 32%;
   overflow-x: hidden;
   overflow-y: auto;
   overflow-wrap: anywhere;
@@ -627,7 +637,7 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 #sail[hidden], #hand[hidden], #shop[hidden], #inn[hidden], #notice[hidden] { display: none; }
 #sail .card, #hand .card, #shop .card, #inn .card, #notice .card {
   width: min(420px, 100%);
-  max-height: calc(100dvh - 36px - env(safe-area-inset-bottom));
+  max-height: calc(100% - 8px);
 }
 #sail-chart {
   position: relative;
@@ -809,14 +819,30 @@ button.ghost {
 }
 
 #pause .card {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   max-height: 100%;
-  width: min(360px, 100%);
+  width: min(420px, 100%);
+  overflow: hidden;
+  padding: 8px 12px 8px;
 }
 
 #pause .card h2 {
+  flex: none;
   font-size: 22px;
-  margin: 0 0 4px;
+  margin: 0 0 2px;
+}
+
+#pause-quest, #pause-stats, #pause-note { flex: none; margin: 0 0 4px; }
+
+#pause-actions {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 #settings {
@@ -824,7 +850,7 @@ button.ghost {
   background: rgba(8, 6, 20, 0.78);
 }
 
-#settings .card { max-height: calc(100dvh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+#settings .card { max-height: calc(100% - 8px); }
 
 .slider {
   display: flex;
@@ -947,6 +973,16 @@ body[data-mode="battle"] #toast,
 body[data-mode="battle"] #banner,
 body[data-mode="results"] #toast,
 body[data-mode="results"] #banner,
+body[data-mode="dialogue"] #hud,
+body[data-mode="dialogue"] #place-banner,
+body[data-mode="dialogue"] #mapwrap,
+body[data-mode="cutscene"] #hud,
+body[data-mode="cutscene"] #place-banner,
+body[data-mode="cutscene"] #mapwrap,
+body[data-reveal="1"] #hud,
+body[data-reveal="1"] #place-banner,
+body[data-reveal="1"] #corner,
+body[data-reveal="1"] #mapwrap,
 body[data-mode="battle"] #hud,
 body[data-mode="battle"] #corner,
 body[data-mode="battle"] #mapwrap,
@@ -976,8 +1012,7 @@ body[data-modal="1"] #corner {
 
 #field-card {
   width: min(412px, 100%);
-  max-height: calc(100% - 4px);
-  max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: calc(100% - 8px);
   color: #f6f2ea;
   padding: 8px 10px 8px;
   overflow: auto;
@@ -1041,9 +1076,9 @@ body[data-modal="1"] #corner {
   }
   #title .actions { flex-direction: row; flex-wrap: wrap; }
   #title .actions button { width: auto; flex: 1 1 140px; }
-  #hud { right: calc(108px + env(safe-area-inset-right)); }
+  #hud { right: calc(100px + env(safe-area-inset-right)); }
   #questline { -webkit-line-clamp: 1; }
-  #place-banner { top: 0; max-width: none; }
+  #place-banner { top: 2px; max-width: 42%; }
   #mapwrap {
     width: 84px;
     height: 84px;
@@ -1071,7 +1106,7 @@ body[data-modal="1"] #corner {
   #dlg-row { overflow: visible; flex: 0 1 auto; }
   #dlg-portrait { width: 44px; height: 44px; }
   #who { font-size: 16px; }
-  #line { font-size: 16px; max-height: 34dvh; overflow-y: auto; min-height: 0; margin: 2px 0 4px; }
+  #line { font-size: 16px; max-height: 34%; overflow-y: auto; min-height: 0; margin: 2px 0 4px; }
   #dlg-choices { gap: 6px; }
   #dlg-choices button { min-height: 44px; padding: 8px 12px; font-size: 15px; }
   #dialogue:has(#dlg-choices button) {
@@ -1096,7 +1131,7 @@ body[data-modal="1"] #corner {
   #dialogue:has(#dlg-choices button) #dlg-choices {
     flex: 1 1 38%;
     margin: 0;
-    max-height: min(72dvh, 320px);
+    max-height: min(70%, 220px);
     overflow-y: auto;
     align-self: stretch;
   }
@@ -1104,7 +1139,7 @@ body[data-modal="1"] #corner {
   #shop .card {
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100% - 8px);
     overflow: hidden;
   }
   #shop-title, #shop-gold, #shop-close { flex: none; }
@@ -1268,13 +1303,11 @@ body[data-portrait="1"] #rotate { display: flex; }
 }
 
 @media (max-height: 430px) {
-  #hud { max-width: 280px; }
-  .panel { padding: 3px 6px 4px; }
-  #questline, #vitals-text, #coach { font-size: 12px; }
   #dialogue { padding: 6px 8px; max-height: 46%; }
   #dlg-portrait { width: 36px; height: 36px; }
   #who, #line { font-size: 14px; }
-  #line { max-height: 18vh; }
+  #line { max-height: 22%; }
   #dlg-choices button { min-height: 44px; padding: 6px 10px; font-size: 14px; }
   #mapwrap { width: 64px; height: 64px; }
+  #pause .card h2 { font-size: 20px; }
 }

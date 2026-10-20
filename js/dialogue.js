@@ -731,7 +731,9 @@ SF.paintDialogue = function () {
     drawPortrait(portrait, portraitKey);
   }
   var endcard = document.getElementById("endcard");
-  if (endcard) endcard.hidden = d.id !== "cinderveil.act1.finale";
+  var finale = d.id === "cinderveil.act1.finale";
+  if (finale) root.hidden = true;
+  if (endcard) endcard.hidden = !finale;
 };
 
 if (SF._dialogueUi) {
