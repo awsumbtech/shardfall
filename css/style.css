@@ -109,7 +109,8 @@ button:focus-visible {
 #chrome #controls,
 #chrome #mapwrap,
 #chrome #corner,
-#chrome #endcard {
+#chrome #endcard,
+#chrome #chest {
   pointer-events: auto;
 }
 
@@ -690,7 +691,7 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 }
 .chart-isle.here { border-color: #f0d878; box-shadow: inset 0 0 0 2px #f0d878; }
 .chart-isle.locked, .chart-isle:disabled { opacity: 0.55; }
-#sail-list button, #shop-list button, #inn .card > button, #notice .card > button, #shop .card > button {
+#sail-list button, #shop-list button, #inn .card > button, #notice .card > button, #shop .card > button, #chest .card > button {
   width: 100%;
   min-height: 48px;
   margin: 6px 0;
@@ -974,6 +975,12 @@ body[data-mode="inn"] #prompt,
 body[data-mode="notice"] #controls,
 body[data-mode="notice"] #corner,
 body[data-mode="notice"] #prompt,
+body[data-mode="chest"] #controls,
+body[data-mode="chest"] #corner,
+body[data-mode="chest"] #prompt,
+body[data-mode="chest"] #banner,
+body[data-mode="chest"] #toast,
+body[data-mode="chest"] #rotate,
 body[data-mode="battle"] #controls,
 body[data-mode="battle"] #toast,
 body[data-mode="battle"] #banner,
@@ -1272,6 +1279,59 @@ body:not([data-touch="1"]) #controls { display: none !important; }
   font-size: 28px;
 }
 body[data-portrait="1"] #rotate { display: flex; }
+body[data-mode="chest"] #rotate { display: none; }
+
+#chest {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: rgba(10, 6, 24, 0.72);
+}
+#chest[hidden] { display: none; }
+#chest .card {
+  width: min(460px, 100%);
+  max-height: calc(100% - 8px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
+}
+#chest-title { flex: none; }
+#chest-list {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.loot-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.loot-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #10245c;
+  border: 2px solid #f0d878;
+}
+.loot-line {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+}
+#chest-ok { flex: none; text-align: center; }
+#chest-hint { flex: none; margin: 0; }
 
 #vitals.hand-pulse #shards {
   color: #9af6ff;
@@ -1315,6 +1375,12 @@ body[data-portrait="1"] #rotate { display: flex; }
 }
 
 @media (max-height: 430px) {
+  #chest { padding: 8px; }
+  #chest .card { padding: 10px 12px; }
+  #chest .card h2 { font-size: 22px; margin-bottom: 4px; }
+  .loot-line { font-size: 15px; }
+  .loot-icon { width: 32px; height: 32px; flex-basis: 32px; }
+  #chest-ok { min-height: 44px; margin: 4px 0; }
   #dialogue { padding: 6px 8px; max-height: 46%; }
   #dlg-portrait { width: 36px; height: 36px; }
   #who, #line { font-size: 14px; }
