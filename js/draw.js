@@ -1348,12 +1348,20 @@ SF.artFrame = function (moving, phase) {
 
 SF.drawActor = function (ctx, id, x, y, fx, fy, moving, alpha, phase) {
   if (!window.Art || !Art.sprite) return false;
+  var calm = SF.calm && SF.calm();
+  var cast = Art.fieldCast && Art.fieldCast[id];
+  var pose = "walk";
+  var frame = SF.artFrame(moving, phase);
+  if (cast && !moving) {
+    pose = "stand";
+    frame = calm ? 0 : Math.floor((SF.anim + (phase || 0)) * 2) % 2;
+  }
   ctx.save();
   ctx.globalAlpha = alpha == null ? 1 : alpha;
   Art.sprite(ctx, id, x, y, {
     facing: SF.artFacing(fx, fy),
-    frame: SF.artFrame(moving, phase),
-    pose: "walk",
+    frame: frame,
+    pose: pose,
     scale: Art.fieldScale(id)
   });
   ctx.restore();

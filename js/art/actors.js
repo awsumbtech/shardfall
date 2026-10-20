@@ -1,10 +1,10 @@
 "use strict";
 
-// Field actors are 24×38 from the front and 36×38 from the side. Feet sit on
-// the baseline (ay). Battle poses reuse the side view at that same native
-// height, except the Cinder Maw and the Tidewyrm, whose battle frames are
-// taller. Read the size with Art.nativeSize(id, pose, facing). Field scale
-// is 1, so a person is the same height as the hero.
+// Battle poses, portraits, and everyone outside the Act 1 field cast.
+// Map walk and idle for that cast live in js/art/characters.js, which
+// replaces pose "walk" and pose "stand" after this file registers battle.
+// Feet sit on the baseline (ay). Battle poses reuse the side view. The
+// Cinder Maw and the Tidewyrm are taller in battle. Field scale is 1.
 (function () {
   var C = Art.C;
   var plot = Art.plot;
