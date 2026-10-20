@@ -95,8 +95,8 @@
     sc.bands(0, Math.floor(sc.h * 0.58), ASH);
     sc.crack(Math.floor(sc.h * 0.14));
     ground(sc, "ash", Math.floor(sc.h * 0.55));
-    sc.stamp("tree_bare", 2, propTop(sc, 36), 1);
-    sc.stamp("tree_bare", Math.max(2, sc.w - 26), Math.max(2, propTop(sc, 36) - 4), 1);
+    sc.stamp("tree_dead", 2, propTop(sc, 36), 1);
+    sc.stamp("tree_dead_snap", Math.max(2, sc.w - 26), Math.max(2, propTop(sc, 36) - 4), 1);
     sc.stamp("rock", sc.w / 2, Math.floor(sc.h * 0.7), 1);
     sc.rect(16, Math.floor(sc.h * 0.8), 28, 2, Art.hex(C.ember));
     sc.rect(sc.w - 50, Math.floor(sc.h * 0.74), 20, 2, Art.hex(C.emberH));

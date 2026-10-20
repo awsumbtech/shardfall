@@ -1161,7 +1161,10 @@ SF.drawPropArt = function (ctx, prop, lit) {
   else if (id === "flower") {
     var c = prop.c || "";
     id = (c.indexOf("9af") !== -1 || c.indexOf("c8be") !== -1) ? "flower_tide" : (c.indexOf("ffb") !== -1 || c.indexOf("ffe") !== -1 || c.indexOf("e7a") !== -1 ? "flower_gold" : "flower");
-  }   else if (id === "tree" && (SF.islandId === "cinderveil")) id = "tree_dead";
+  } else if (Art.fieldProp) {
+    id = Art.fieldProp(prop, SF.islandId);
+    if (!id) return true;
+  } else if (id === "tree" && (SF.islandId === "cinderveil")) id = "tree_dead";
   else if (id === "bush" && (SF.islandId === "cinderveil")) id = "bush_dead";
   else if (id === "rock" && (SF.islandId === "cinderveil")) id = "basalt";
   else if (id === "tuft" && (SF.islandId === "cinderveil")) id = "tuft_dead";
