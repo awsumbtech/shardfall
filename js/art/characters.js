@@ -2,8 +2,8 @@
 
 // Field sprites for the Act 1 cast, plus battle poses for the party
 // (Wayfarer, Kestrel, Tamsin). Field walk is about 20×28. Battle frames
-// are the same chibi, doubled, so they stay larger than the map sprites.
-// Other people and every enemy keep the battle art in actors.js.
+// are a larger 3/4 view, about two and a half heads tall, facing the
+// foes. Other people and every enemy keep the battle art in actors.js.
 //
 // Faces: no dark brow bars, no scowls, no eye-socket shadows. Eyes are
 // white with one pupil and a highlight. Smile corners sit above the mouth.
@@ -988,137 +988,455 @@
   var cache = {};
   var battleCache = {};
 
-  function blit2(s, x, y, rows, map) {
-    var r, c, ch, col, dx, dy;
-    for (r = 0; r < rows.length; r++) {
-      for (c = 0; c < rows[r].length; c++) {
-        ch = rows[r].charAt(c);
-        if (ch === "." || ch === " ") continue;
-        col = map[ch];
-        if (!col) continue;
-        dx = x + c * 2;
-        dy = y + r * 2;
-        Art.plot(s, dx, dy, col);
-        Art.plot(s, dx + 1, dy, col);
-        Art.plot(s, dx, dy + 1, col);
-        Art.plot(s, dx + 1, dy + 1, col);
+  // Battle figures face left (toward the foes) in a 3/4 view.
+  // About two heads tall: a big face, a short body, a weapon in the near hand.
+  // The rim is a darker shade of the color it touches, not a black stroke.
+  var BW = 36;
+  var BH = 44;
+
+  function box(text) {
+    var rows = text.split("\n");
+    if (rows.length && rows[0] === "") rows.shift();
+    if (rows.length && rows[rows.length - 1] === "") rows.pop();
+    var w = 0;
+    var i, line;
+    for (i = 0; i < rows.length; i++) if (rows[i].length > w) w = rows[i].length;
+    for (i = 0; i < rows.length; i++) {
+      line = rows[i];
+      while (line.length < w) line += ".";
+      rows[i] = line;
+    }
+    return rows;
+  }
+
+  function toneRim(s) {
+    var dark = {};
+    function pair(mid, shade) { dark[mid] = shade; }
+    pair(C.skin, C.skinD);
+    pair(C.skinD, C.skinDeep);
+    pair(C.skinDeep, C.hairD);
+    pair(C.white, C.skinD);
+    pair(C.lite, C.eye);
+    pair(C.eye, C.hairD);
+    pair(C.lip, C.skinDeep);
+    pair(C.hair, C.hairD);
+    pair(C.hairD, C.hairK);
+    pair(C.hairK, C.hairK);
+    pair(C.hairR, C.hairRD);
+    pair(C.hairRD, C.hairK);
+    pair(C.emberH, C.ember);
+    pair(C.ember, C.hairRD);
+    pair(C.scarf, C.scarfD);
+    pair(C.scarfD, C.goldD);
+    pair(C.gold, C.goldD);
+    pair(C.woodD, C.belt);
+    pair(C.cream, C.paleD);
+    pair(C.pale, C.paleD);
+    pair(C.paleD, C.skinDeep);
+    pair(C.coat, C.coatD);
+    pair(C.coatD, C.winD);
+    pair(C.coatL, C.coat);
+    pair(C.wood, C.woodD);
+    pair(C.woodL, C.wood);
+    pair(C.belt, C.hairD);
+    pair(C.shard, C.shardD);
+    pair(C.shardH, C.shard);
+    pair(C.shardD, C.winD);
+    pair(C.teal, C.tealD);
+    pair(C.tealD, C.night);
+    pair(C.tealL, C.teal);
+    pair(C.vest, C.vestD);
+    pair(C.vestD, C.hairRD);
+    pair(C.vestL, C.vest);
+    pair(C.metal, C.metalD);
+    pair(C.metalD, C.stoneD);
+    pair(C.frame, C.hairD);
+    pair(C.lens, C.tealD);
+    pair(C.winD, C.night);
+    pair(C.night, C.night);
+    var w = s.w;
+    var h = s.h;
+    var src = s.d;
+    var copy = new Uint8Array(src);
+    var outside = new Uint8Array(w * h);
+    var stack = [];
+    var dirs = [1, 0, -1, 0, 0, 1, 0, -1];
+    function push(x, y) {
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      var i = y * w + x;
+      if (copy[i] || outside[i]) return;
+      outside[i] = 1;
+      stack.push(x, y);
+    }
+    var x, y, k, nx, ny, nb;
+    for (x = 0; x < w; x++) {
+      push(x, 0);
+      push(x, h - 1);
+    }
+    for (y = 0; y < h; y++) {
+      push(0, y);
+      push(w - 1, y);
+    }
+    while (stack.length) {
+      y = stack.pop();
+      x = stack.pop();
+      for (k = 0; k < 8; k += 2) push(x + dirs[k], y + dirs[k + 1]);
+    }
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        if (!outside[y * w + x]) continue;
+        nb = 0;
+        for (k = 0; k < 8; k += 2) {
+          nx = x + dirs[k];
+          ny = y + dirs[k + 1];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (copy[ny * w + nx]) {
+            nb = copy[ny * w + nx];
+            break;
+          }
+        }
+        if (nb && dark[nb]) src[y * w + x] = dark[nb];
       }
     }
+    return s;
   }
 
-  function put2(s, rows, x, y, map) {
-    if (!rows) return;
-    blit2(s, x, y, rows, map);
+  // Big 3/4 head. Two tufts, a jagged bang, both eyes, smile corners up.
+  var BATTLE_HEAD = box([
+    "......h....h..",
+    "....hhHHHHHhH.",
+    "...DHHHHHHHHHh",
+    "..DHHHHHHHHHHH",
+    ".DHHHhhhhhHHHHH",
+    ".HHSSSSSSSSSHHHH",
+    "HSWWWiESSWWiESHH",
+    "HSWWWWESSWWWWEaH",
+    ".SSSSSSSSSSSSSaa",
+    ".SPaSSSSSSSSSSSS",
+    "..SSPPPPPSSSSSS.",
+    "..SSSSSSSSSSSSS.",
+    "...HHHHHHHHHHHH.",
+    "....DHHHHHHHH...",
+    ".....DHHHHHH...."
+  ].join("\n"));
+
+  var BATTLE_HURT = box([
+    "......h....h..",
+    "....hhHHHHHhH.",
+    "...DHHHHHHHHHh",
+    "..DHHHHHHHHHHH",
+    ".DHHHhhhhhHHHHH",
+    ".HHSSSSSSSSSHHHH",
+    "HSSaSSSSSaSSSSHH",
+    "HSSSSSSSSSSSSSSa",
+    ".SSSSSSSSSSSSSaa",
+    ".SSPaSSSSSSSSSSS",
+    "..SSS.PP.SSSSS..",
+    "..SSSSSSSSSSSSS.",
+    "...HHHHHHHHHHHH.",
+    "....DHHHHHHHH...",
+    ".....DHHHHHH...."
+  ].join("\n"));
+
+  var BATTLE_CAPE = box([
+    "..KKKKKKKKKK..",
+    ".jKKKKKKKKKKKj",
+    "Kkkkkkkkkkkkkkk",
+    ".kKKKKKKKKKKKk.",
+    "..k........k.."
+  ].join("\n"));
+
+  var BATTLE_BODY = box([
+    ".oYYYYYYYYYo.",
+    "yyyyyyyyyyyyy",
+    "cQQQQQQQQQQQb",
+    "BBQQQQQQQQQQb",
+    "BcBBBBBBBBBBb",
+    ".bBBBBBBBBBb."
+  ].join("\n"));
+
+  var BATTLE_VEST = box([
+    ".SSSSSSSSS.",
+    "cQQQQQQQQQc",
+    "OQQQQQQQQQO",
+    "OqOOOOOOOqO",
+    ".qOOOOOOOq."
+  ].join("\n"));
+
+  var NEAR_LEG = box([
+    "TTT",
+    "TTv",
+    "vvv",
+    "vuu",
+    "uuw",
+    "www",
+    ".w."
+  ].join("\n"));
+
+  var FAR_LEG = box([
+    ".TT",
+    ".Tv",
+    ".vv",
+    ".uu",
+    ".uw",
+    ".ww",
+    ".w."
+  ].join("\n"));
+
+  // Far arm hangs clear of the coat. The hand has a thumb and two fingers.
+  var FAR_ARM = box([
+    "cB",
+    "Bb",
+    "Bb",
+    "Bb",
+    "Sa",
+    "S.S",
+    "a.a"
+  ].join("\n"));
+
+  var NEAR_ARM = box([
+    "..c",
+    ".Bb",
+    "cBb",
+    "SSa",
+    "S.S",
+    "a.a"
+  ].join("\n"));
+
+  // Shard Focus, the Wayfarer's weapon. Cyan crystal, gold mount, a real hand.
+  var SHARD_FOCUS = box([
+    "...gGg.",
+    "..gGGGd",
+    ".gGGGGdd",
+    "aGGGGddS",
+    ".SRRddSa",
+    "..SRaaS.",
+    "...a.a.."
+  ].join("\n"));
+
+  // Kestrel's knife. Long bright blade, dark edge, wrapped grip.
+  var KNIFE = box([
+    "mmmmmmm",
+    "mMMMMMm",
+    ".mmmmm.",
+    "..rrSS.",
+    "..rS.S.",
+    "...a.a."
+  ].join("\n"));
+
+  // Tamsin's coil tool. A copper spiral on a short grip.
+  var COIL = box([
+    "..oho..",
+    ".ohhho.",
+    "ohemmeho",
+    ".ohhho.",
+    "..oSSo.",
+    "...rS..",
+    "....a.."
+  ].join("\n"));
+
+  var PONY_BATTLE = box([
+    "DDD.",
+    "hDDD",
+    ".DDD",
+    "..DD",
+    "..hD",
+    "...D"
+  ].join("\n"));
+
+  function battleMap(kind) {
+    var map = {
+      S: C.skin, a: C.skinD, n: C.skinDeep,
+      W: C.white, i: C.lite, E: C.eye, P: C.lip,
+      Y: C.scarf, y: C.scarfD, o: C.gold,
+      Q: C.cream, q: C.paleD,
+      T: C.belt, v: C.wood, u: C.woodL, w: C.woodD,
+      R: C.gold, r: C.goldD,
+      G: C.shard, g: C.shardH, d: C.shardD,
+      M: C.metal, m: C.metalD,
+      L: C.lens, f: C.frame,
+      O: C.vest, e: C.ember
+    };
+    if (kind === "kestrel") {
+      map.H = C.hair;
+      map.D = C.hairD;
+      map.h = C.woodL;
+      map.B = C.teal;
+      map.b = C.tealD;
+      map.c = C.tealL;
+      map.K = C.teal;
+      map.k = C.tealD;
+      map.j = C.tealL;
+    } else if (kind === "tamsin") {
+      map.H = C.hairR;
+      map.D = C.hairRD;
+      map.h = C.emberH;
+      map.B = C.vest;
+      map.b = C.vestD;
+      map.c = C.vestL;
+      map.O = C.vest;
+      map.q = C.vestD;
+      map.e = C.ember;
+    } else {
+      map.H = C.hair;
+      map.D = C.hairD;
+      map.h = C.woodL;
+      map.B = C.coat;
+      map.b = C.coatD;
+      map.c = C.coatL;
+      map.K = C.wood;
+      map.k = C.woodD;
+      map.j = C.woodL;
+    }
+    return map;
   }
 
-  // Hurt closes the eyes with a soft lid. The smile stays small, not a scowl.
-  function hurtFace(rows) {
-    var out = rows.slice();
-    var i, seen;
-    seen = 0;
-    for (i = 0; i < out.length; i++) {
-      if (out[i].indexOf("W") === -1) continue;
-      if (seen === 0) out[i] = fitRow(out[i], "DSSSSSSSSS..");
-      else out[i] = fitRow(out[i], "DSnnnnSSSS..");
-      seen += 1;
-    }
-    return out;
+  function kestrelHead(rows) {
+    var o = rows.slice();
+    o[4] = sub([o[4]], 3, 0, ["fLiLhf"])[0];
+    return o;
   }
 
-  function fitRow(sample, text) {
-    var w = sample.length;
-    if (text.length > w) return text.slice(0, w);
-    while (text.length < w) text += ".";
-    return text;
+  function tamsinHead(rows) {
+    return sub(rows, 3, 8, ["n.n"]);
   }
 
-  function armRows(id, pose, frame) {
-    if (id === "kestrel") {
-      if (pose === "attack" && frame) return cut("ccBBBBmm\nBBBBmmTT");
-      if (pose === "attack") return cut(".c\nBB\nBB\nSS\nm.");
-      if (pose === "cast" || pose === "victory") return cut("mm\nmm\nSS\nBB\nBB\ncB");
-      if (pose === "hurt") return cut("BB\ncB\nSS\nSS");
-      return cut("cB\nBB\nBB\nSS\nS.");
-    }
-    if (id === "tamsin") {
-      if (pose === "attack" && frame) return cut("OOOOmmMM\nOqmmmmM.");
-      if (pose === "attack") return cut("Oq\nOO\nMM\nmm");
-      if (pose === "cast" || pose === "victory") return cut("mm\nMM\nOO\nOO\nOq");
-      if (pose === "hurt") return cut("OO\nOq\nSS\nSS");
-      return cut("Oq\nOO\nMM\nmm");
-    }
-    if (pose === "attack" && frame) return cut("ccBBBBGG\nBBBBgggg");
-    if (pose === "attack") return cut(".c\nBB\nSG\ngg");
-    if (pose === "cast" || pose === "victory") return cut("gg\nGG\nSS\nBB\nBB\ncB");
-    if (pose === "hurt") return cut("BB\ncB\nSS\ngg");
-    return cut("cB\nBB\nSG\ngg");
-  }
-
-  function paintBattle(id, spec, pose, frame) {
-    frame = frame ? 1 : 0;
-    var s = blank(spec.sw * 2 + 18, spec.sh * 2, spec.sax * 2, spec.say * 2);
-    var map = spec.map;
-    var bob = 0;
-    var lean = 0;
-    if (pose === "idle") bob = frame ? -2 : 0;
-    else if (pose === "attack") {
-      lean = frame ? 4 : 0;
-      bob = frame ? -2 : 0;
-    }     else if (pose === "cast") bob = frame ? -2 : 0;
-    else if (pose === "victory") bob = frame ? -2 : 0;
-    else if (pose === "hurt") {
-      lean = frame ? -6 : -3;
-      bob = frame ? 2 : 0;
-    }
-    var cape = cut("KKKK\nkkkk\nKkk.\n.kk.");
-    if (spec.torsoSide) {
-      put2(s, cape, spec.torsoSide.x * 2 - 8 + lean, spec.torsoSide.y * 2 + bob, map);
-    }
-    put2(s, spec.legBack && spec.legBack.rows, spec.legBack.x * 2, spec.legBack.y * 2, map);
-    put2(s, spec.legFront && spec.legFront.rows, spec.legFront.x * 2 + (pose === "attack" && frame ? 2 : 0), spec.legFront.y * 2, map);
-    put2(s, spec.torsoSide && spec.torsoSide.rows, spec.torsoSide.x * 2 + lean, spec.torsoSide.y * 2 + bob, map);
-    var extras = spec.extrasSide || [];
-    var i, ex;
-    for (i = 0; i < extras.length; i++) {
-      ex = extras[i];
-      if (ex.arm) continue;
-      put2(s, ex.rows, ex.x * 2 + (ex.sway ? lean : 0), ex.y * 2 + bob, ex.map || map);
-    }
-    var face = pose === "hurt" ? hurtFace(spec.headSide.rows) : spec.headSide.rows;
-    put2(s, face, spec.headSide.x * 2 + lean, spec.headSide.y * 2 + bob, map);
-    var arm = armRows(id, pose, frame);
-    var ax = spec.armSide.x * 2 + lean;
-    var ay = spec.armSide.y * 2 + bob;
-    var headRight = (spec.headSide.x + spec.headSide.rows[0].length) * 2 + lean;
-    if (pose === "attack" && frame) {
-      ax = headRight - 4;
-      ay = spec.headSide.y * 2 + bob + 16;
-    } else if (pose === "cast") {
-      ax = headRight + 2;
-      ay = spec.headSide.y * 2 + bob + 6;
-    } else if (pose === "victory") {
-      ax = headRight + 2;
-      ay = spec.headSide.y * 2 + bob;
-    } else if (pose === "hurt") {
-      ax = spec.torsoSide.x * 2 + lean - 10;
-      ay = spec.torsoSide.y * 2 + bob + 4;
+  function poseLay(pose, frame) {
+    var lay = { bob: 0, lean: 0, hx: 0, hy: 22, hurt: 0, spark: 0, reach: 0 };
+    if (pose === "idle") {
+      lay.bob = frame ? -1 : 0;
+    } else if (pose === "attack" && !frame) {
+      lay.lean = 1;
+      lay.hx = 26;
+      lay.hy = 14;
+      lay.reach = 1;
     } else if (pose === "attack") {
-      ax = spec.torsoSide.x * 2 + lean - 6;
-      ay = spec.armSide.y * 2 + bob - 4;
+      lay.lean = -1;
+      lay.bob = -1;
+      lay.hx = 0;
+      lay.hy = 16;
+      lay.reach = 1;
+    } else if (pose === "cast" && !frame) {
+      lay.bob = -1;
+      lay.hx = 0;
+      lay.hy = 8;
+      lay.spark = 1;
+      lay.reach = 1;
+    } else if (pose === "cast") {
+      lay.bob = -1;
+      lay.hx = 0;
+      lay.hy = 5;
+      lay.spark = 2;
+      lay.reach = 1;
+    } else if (pose === "hurt" && !frame) {
+      lay.lean = 2;
+      lay.hx = 1;
+      lay.hy = 26;
+      lay.hurt = 1;
+    } else if (pose === "hurt") {
+      lay.lean = 3;
+      lay.bob = 1;
+      lay.hx = 2;
+      lay.hy = 27;
+      lay.hurt = 1;
+    } else if (pose === "victory" && !frame) {
+      lay.bob = -1;
+      lay.hx = 1;
+      lay.hy = 2;
+      lay.spark = 1;
+      lay.reach = 1;
+    } else if (pose === "victory") {
+      lay.hx = 0;
+      lay.hy = 1;
+      lay.spark = 2;
+      lay.reach = 1;
     }
-    put2(s, arm, ax, ay, map);
-    if (pose === "cast" || pose === "victory") {
-      var spark = frame ? cut("i.i\n.Y.\ni.i") : cut(".i.\niYi\n.Y.");
-      put2(s, spark, ax + 4, Math.max(0, ay - 6), map);
+    return lay;
+  }
+
+  // The raised arm stays in the gutter beside the head, then turns in at the shoulder.
+  function sleeve(s, sx, sy, hx, hy, map) {
+    var x, y, ax, y0, y1;
+    y0 = hy + 3;
+    y1 = sy;
+    if (y0 > y1) {
+      y = y0;
+      y0 = y1;
+      y1 = y;
     }
-    if (pose === "idle" || pose === "hurt") {
-      for (i = 0; i < extras.length; i++) {
-        ex = extras[i];
-        if (!ex.arm) continue;
-        put2(s, ex.rows, ex.x * 2 + lean, ex.y * 2 + bob, ex.map || map);
+    if (hx < sx) {
+      ax = hx + 2;
+      if (ax > 6) ax = 6;
+      for (y = y0; y <= y1; y++) {
+        Art.plot(s, ax, y, map.c);
+        Art.plot(s, ax + 1, y, map.B);
+      }
+      for (x = ax; x <= sx; x++) {
+        Art.plot(s, x, sy, map.B);
+        Art.plot(s, x, sy + 1, map.b);
+      }
+    } else {
+      ax = hx;
+      if (ax < 26) ax = 26;
+      for (y = y0; y <= y1; y++) {
+        Art.plot(s, ax, y, map.b);
+        Art.plot(s, ax + 1, y, map.B);
+      }
+      for (x = sx; x <= ax; x++) {
+        if (x > 22 && y1 < 16) continue;
+        Art.plot(s, x, sy, map.B);
+        Art.plot(s, x, sy + 1, map.b);
       }
     }
-    return finish(s);
+    Art.plot(s, hx + 3, hy + 4, map.S);
+    Art.plot(s, hx + 4, hy + 5, map.a);
+  }
+
+  function paintBattle(id, pose, frame) {
+    frame = frame ? 1 : 0;
+    var kind = id === "kestrel" || id === "tamsin" ? id : "wayfarer";
+    var map = battleMap(kind);
+    var lay = poseLay(pose, frame);
+    var s = blank(BW, BH, 16, 41);
+    var drop = kind === "tamsin" ? 2 : 0;
+    var bob = lay.bob;
+    var lean = lay.lean;
+    var head = lay.hurt ? BATTLE_HURT : BATTLE_HEAD;
+    if (kind === "kestrel") head = kestrelHead(head);
+    if (kind === "tamsin") head = tamsinHead(head);
+    var weapon = kind === "kestrel" ? KNIFE : (kind === "tamsin" ? COIL : SHARD_FOCUS);
+    if (kind !== "tamsin") blit(s, 9 + lean, 15 + drop + bob, BATTLE_CAPE, map);
+    blit(s, 20 + lean, 30 + drop, FAR_LEG, map);
+    blit(s, 14 + lean + (pose === "attack" && frame ? -1 : 0), 29 + drop, NEAR_LEG, map);
+    if (kind === "tamsin") blit(s, 12 + lean, 18 + drop + bob, BATTLE_VEST, map);
+    else blit(s, 11 + lean, 16 + drop + bob, BATTLE_BODY, map);
+    blit(s, 25 + lean, 20 + drop + bob, FAR_ARM, map);
+    blit(s, 9 + lean, 1 + drop + bob, head, map);
+    if (kind === "kestrel") blit(s, 24 + lean, 7 + drop + bob, PONY_BATTLE, map);
+    if (kind === "tamsin") blit(s, 24 + lean, 8 + drop + bob, recolor(PONY_BATTLE, "D", "H"), map);
+    var wx = lay.hx + lean;
+    var wy = lay.hy + drop + bob;
+    if (lay.reach) sleeve(s, 13 + lean, 20 + drop + bob, wx + 4, wy + 3, map);
+    else blit(s, 6 + lean, 21 + drop + bob, NEAR_ARM, map);
+    blit(s, wx, wy, weapon, map);
+    if (lay.spark) {
+      var spark = kind === "tamsin" ? cut(".h.\nheh\n.h.") : (kind === "kestrel" ? cut(".i.\niWi\n.i.") : cut(".g.\ngig\n.g."));
+      if (lay.spark > 1) spark = kind === "tamsin" ? cut("h.h\n.o.\nh.h") : (kind === "kestrel" ? cut("i.i\n.W.\ni.i") : cut("g.g\n.i.\ng.g"));
+      blit(s, wx + 2, Math.max(1, wy - 3), spark, map);
+    }
+    var padded = Art.spr(s.w + 2, s.h + 2);
+    var y, x, low;
+    for (y = 0; y < s.h; y++) {
+      for (x = 0; x < s.w; x++) padded.d[(y + 1) * padded.w + (x + 1)] = s.d[y * s.w + x];
+    }
+    padded.ax = s.ax + 1;
+    toneRim(padded);
+    low = 0;
+    for (y = 0; y < padded.h; y++) {
+      for (x = 0; x < padded.w; x++) if (padded.d[y * padded.w + x]) low = y;
+    }
+    padded.ay = low;
+    return padded;
   }
 
   function battle(id, pose, facing, frame) {
@@ -1126,13 +1444,39 @@
     var f = frame ? 1 : 0;
     var key = id + "|" + pose + "|" + face + "|" + f;
     if (!battleCache[key]) {
-      var s = paintBattle(id, SPECS[id], pose, f);
-      if (face === "left") s = Art.mirror(s);
+      var s = paintBattle(id, pose, f);
+      if (face === "right") s = Art.mirror(s);
       battleCache[key] = s;
     }
     return Art.clone(battleCache[key]);
   }
 
+  function paintPortrait(kind) {
+    var s = Art.spr(32, 32);
+    var map = battleMap(kind);
+    var bg = kind === "kestrel" ? C.tealD : (kind === "tamsin" ? C.vestD : C.coatD);
+    Art.fill(s, 0, 0, 32, 32, bg);
+    var head = BATTLE_HEAD;
+    if (kind === "kestrel") head = kestrelHead(head);
+    if (kind === "tamsin") head = tamsinHead(head);
+    blit(s, 6, 1, head, map);
+    if (kind === "kestrel") blit(s, 22, 8, PONY_BATTLE, map);
+    if (kind === "tamsin") blit(s, 22, 9, recolor(PONY_BATTLE, "D", "H"), map);
+    if (kind === "tamsin") {
+      blit(s, 4, 16, box("cQQQQQQQQQQQQQQQc\nOQQQQQQQQQQQQQQQO\nOOOOOOOOOOOOOOOOO\nOqOOOOOOOOOOOOqO\n.qOOOOOOOOOOOOq."), map);
+      Art.fill(s, 6, 22, 20, 9, C.vest);
+      Art.fill(s, 8, 22, 16, 2, C.cream);
+      Art.fill(s, 6, 28, 20, 3, C.vestD);
+    } else {
+      blit(s, 4, 15, box("oYYYYYYYYYYYYYYYYYo\nyyyyyyyyyyyyyyyyyyy\ncQQQQQQQQQQQQQQQQQb\nBBQQQQQQQQQQQQQQQQb"), map);
+      Art.fill(s, 5, 20, 22, 8, kind === "kestrel" ? C.teal : C.coat);
+      Art.fill(s, 7, 20, 18, 3, kind === "kestrel" ? C.tealL : C.coatL);
+      Art.fill(s, 5, 26, 22, 5, kind === "kestrel" ? C.tealD : C.coatD);
+    }
+    s.ax = 16;
+    s.ay = 31;
+    return s;
+  }
 
   function field(id, pose, facing, frame) {
     var dir = facing;
@@ -1159,6 +1503,10 @@
       if (prev) return prev(pose, facing, frame || 0);
       return field(id, "walk", facing, 0);
     }, Art._scale[id], Art._fieldScale[id]);
+  });
+
+  ["wayfarer", "kestrel", "tamsin"].forEach(function (id) {
+    Art.addPortrait(id, function () { return paintPortrait(id); });
   });
 
   Art.fieldCast = {};

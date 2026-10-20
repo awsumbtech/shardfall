@@ -16,7 +16,8 @@ const Art = context.Art;
 const RGB = Art.RGB;
 const ids = ["wayfarer", "kestrel", "tamsin"];
 const cells = [
-  { pose: "stand", frame: 0, label: "FIELD" },
+  { pose: "stand", frame: 0, facing: "down", label: "FIELD FRONT" },
+  { pose: "stand", frame: 0, facing: "right", label: "FIELD SIDE" },
   { pose: "idle", frame: 0, label: "IDLE 0" },
   { pose: "idle", frame: 1, label: "IDLE 1" },
   { pose: "attack", frame: 0, label: "ATTACK 0" },
@@ -32,7 +33,7 @@ const names = { wayfarer: "WAYFARER", kestrel: "KESTREL", tamsin: "TAMSIN" };
 
 const baked = ids.map((id) => {
   const row = cells.map((cell) => {
-    const spr = Art._makers[id](cell.pose, "right", cell.frame);
+    const spr = Art._makers[id](cell.pose, cell.facing || "left", cell.frame);
     if (!spr || !spr.w) throw new Error("missing " + id + " " + cell.label);
     return spr;
   });
@@ -40,7 +41,7 @@ const baked = ids.map((id) => {
   if (!foe || foe.h !== 38) throw new Error("enemy battle art changed");
   const field = row[0];
   if (field.h > 38) throw new Error(id + " field sprite grew");
-  console.log(id, "field", field.w + "x" + field.h, "battle", row[1].w + "x" + row[1].h);
+  console.log(id, "field", field.w + "x" + field.h, "battle", row[2].w + "x" + row[2].h);
   return { id, row };
 });
 
