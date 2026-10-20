@@ -1166,7 +1166,7 @@ SF.update = function (dt) {
   var s = SF.state;
   if (!s) return;
   SF.anim = (SF.anim || 0) + dt;
-  if (s.mode !== "pause") SF.pumpMessages(dt);
+  if (s.mode !== "pause" && s.mode !== "chest") SF.pumpMessages(dt);
   if (s.mode === "title") {
     SF.updateCamera(dt);
     return;
@@ -1178,7 +1178,7 @@ SF.update = function (dt) {
     SF.updateFx(dt);
     return;
   }
-  if (s.mode === "sailmenu" || s.mode === "hand" || s.mode === "shop" || s.mode === "inn" || s.mode === "notice" || s.mode === "battle") return;
+  if (s.mode === "sailmenu" || s.mode === "hand" || s.mode === "shop" || s.mode === "inn" || s.mode === "notice" || s.mode === "chest" || s.mode === "battle") return;
   if (s.mode === "dialogue") {
     if (s.voyageTalk && s.voyage) s.voyage.t += dt;
     if (s.approach && s.approach.kind === "cantor") {
