@@ -385,6 +385,183 @@ SF.drawHushLip = function (ctx) {
   SF.blitCloudSheet(ctx, SF._hushLip, 1, left, top, left, top, vw, vh, b.minX, b.minY);
 };
 
+SF._terraceList = function () {
+  return (SF.TERRACES && SF.TERRACES[SF.islandId]) || [];
+};
+
+SF._ellipseGap = function (t, wx, wy) {
+  var dx = wx - t.x;
+  var dy = wy - t.y;
+  var dist = Math.hypot(dx, dy) || 0.001;
+  var rDir = (t.rx * t.ry) / (Math.hypot((t.ry * dx) / dist, (t.rx * dy) / dist) || 0.001);
+  return { gap: dist - rDir, ny: dy / dist, deep: dist < rDir ? rDir - dist : 0 };
+};
+
+SF._rockTones = function (t) {
+  if (t.kind === "grass") {
+    return {
+      hi: [168, 206, 112],
+      mid: [86, 150, 72],
+      lo: [42, 96, 48],
+      out: [28, 64, 34],
+      step: [128, 108, 72],
+      stepHi: [186, 164, 112]
+    };
+  }
+  if (SF.islandId === "cinderveil") {
+    return {
+      hi: [168, 142, 118],
+      mid: [118, 96, 78],
+      lo: [74, 58, 46],
+      out: [42, 32, 26],
+      step: [132, 108, 82],
+      stepHi: [176, 152, 122]
+    };
+  }
+  if (t.id === "scar") {
+    return {
+      hi: [186, 140, 96],
+      mid: [140, 96, 64],
+      lo: [88, 58, 40],
+      out: [48, 32, 24],
+      step: [150, 112, 74],
+      stepHi: [198, 160, 112]
+    };
+  }
+  return {
+    hi: [214, 176, 136],
+    mid: [168, 120, 84],
+    lo: [108, 72, 50],
+    out: [62, 40, 30],
+    step: [146, 112, 76],
+    stepHi: [196, 164, 120]
+  };
+};
+
+SF._paintElevation = function (data, mask, minX, minY, w, h) {
+  var list = SF._terraceList();
+  var ti, t, tone, x0, y0, x1, y1, x, y, idx, pix, m, cur, col, face, u, near;
+  for (ti = 0; ti < list.length; ti++) {
+    t = list[ti];
+    tone = SF._rockTones(t);
+    face = t.face || t.block || 0;
+    x0 = Math.max(0, Math.floor(t.x - t.rx - 8 - minX));
+    y0 = Math.max(0, Math.floor(t.y - t.ry - 8 - minY));
+    x1 = Math.min(w - 1, Math.ceil(t.x + t.rx + 8 - minX));
+    y1 = Math.min(h - 1, Math.ceil(t.y + t.ry + face + 12 - minY));
+    for (y = y0; y <= y1; y++) {
+      for (x = x0; x <= x1; x++) {
+        idx = y * w + x;
+        if (mask[idx] !== 1 && mask[idx] !== 3) continue;
+        m = SF._ellipseGap(t, minX + x, minY + y);
+        pix = idx * 4;
+        cur = [data[pix], data[pix + 1], data[pix + 2]];
+        if (m.gap <= 0) {
+          col = SF._lerpRgb(cur, [cur[0] + 52, cur[1] + 40, cur[2] + 14], 0.14 + t.level * 0.11);
+          if (m.deep > 5 && m.ny > 0.35) col = SF._lerpRgb(col, [cur[0] * 0.7, cur[1] * 0.78, cur[2] * 0.62], 0.35);
+          if (m.deep < 4.4 && m.ny > 0.02) col = SF._lerpRgb(col, [244, 236, 176], 0.84);
+          SF._writePx(data, pix, col);
+          continue;
+        }
+        if (m.ny < 0.22 || m.gap > face + 12) continue;
+        near = SF.nearRoute && t.block && SF.nearRoute(minX + x, minY + y, 16);
+        if (t.block && m.gap < t.block && near) {
+          u = Math.floor((minY + y) / 6);
+          col = (u % 2 === 0) ? tone.stepHi : tone.lo;
+          if (u % 2 === 0 && ((minY + y) % 6) === 0) col = tone.hi;
+          SF._writePx(data, pix, col);
+          continue;
+        }
+        if (t.block && m.gap < t.block && t.kind !== "grass") {
+          u = Math.floor(m.gap);
+          if (u >= t.block - 2) col = tone.out;
+          else if (u < 3) col = tone.hi;
+          else if (u % 6 === 5) col = tone.lo;
+          else if (u > t.block * 0.62) col = tone.lo;
+          else col = tone.mid;
+          SF._writePx(data, pix, col);
+          continue;
+        }
+        if (m.gap < face) {
+          u = m.gap / face;
+          col = SF._lerpRgb(cur, [28, 70, 36], 0.22 + u * 0.5);
+          if (m.gap < 2.4) col = SF._lerpRgb(col, [214, 228, 150], 0.7);
+          SF._writePx(data, pix, col);
+          continue;
+        }
+        col = SF._lerpRgb(cur, [20, 48, 26], 0.42);
+        SF._writePx(data, pix, col);
+      }
+    }
+  }
+};
+
+SF.drawTerraceFront = function (ctx, t) {
+  if (!t.block || !SF._terrain || !SF._terrainBox) return;
+  var steps = 16;
+  var span = Math.PI - 0.55;
+  var a0 = 0.275;
+  var i, a, x, y, gates, g;
+  ctx.save();
+  ctx.beginPath();
+  for (i = 0; i <= steps; i++) {
+    a = a0 + span * (i / steps);
+    x = t.x + Math.cos(a) * (t.rx + 1);
+    y = t.y + Math.sin(a) * (t.ry + t.block);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  for (i = steps; i >= 0; i--) {
+    a = a0 + span * (i / steps);
+    x = t.x + Math.cos(a) * Math.max(6, t.rx - 1);
+    y = t.y + Math.sin(a) * (t.ry + 1);
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  gates = SF._terraceGates ? SF._terraceGates(t) : [];
+  for (g = 0; g < gates.length; g++) {
+    ctx.moveTo(gates[g].x + (t.ramp || 28), gates[g].y);
+    ctx.arc(gates[g].x, gates[g].y, t.ramp || 28, 0, Math.PI * 2);
+  }
+  ctx.clip("evenodd");
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(SF._terrain, SF._terrainBox.minX, SF._terrainBox.minY);
+  ctx.restore();
+};
+
+SF._terraceGates = function (t) {
+  var paths = SF.PATHS || [];
+  var found = [];
+  var p, i, x0, y0, x1, y1, len, s, n, x, y, m, k, hit;
+  for (p = 0; p < paths.length; p++) {
+    for (i = 0; i < paths[p].length - 2; i += 2) {
+      x0 = paths[p][i];
+      y0 = paths[p][i + 1];
+      x1 = paths[p][i + 2];
+      y1 = paths[p][i + 3];
+      len = Math.hypot(x1 - x0, y1 - y0) || 1;
+      n = Math.max(1, Math.ceil(len / 8));
+      for (s = 0; s <= n; s++) {
+        x = x0 + (x1 - x0) * (s / n);
+        y = y0 + (y1 - y0) * (s / n);
+        m = SF._ellipseGap(t, x, y);
+        if (m.gap <= 2 || m.gap >= t.block - 1 || m.ny < 0.2) continue;
+        hit = false;
+        for (k = 0; k < found.length; k++) {
+          if (Math.hypot(found[k].x - x, found[k].y - y) < 36) {
+            found[k].x = (found[k].x + x) / 2;
+            found[k].y = (found[k].y + y) / 2;
+            hit = true;
+            break;
+          }
+        }
+        if (!hit) found.push({ x: x, y: y });
+      }
+    }
+  }
+  return found;
+};
+
 SF.drawLands = function (ctx, s) {
   SF.paintActGround(ctx, s);
 };
@@ -411,6 +588,7 @@ SF.paintActGround = function (ctx, s) {
   SF._paintField(data, mask, minX, minY, w, h, lit);
   SF._paintDetails(data, mask, minX, minY, w, h);
   SF._paintPaths(data, mask, minX, minY, w, h);
+  SF._paintElevation(data, mask, minX, minY, w, h);
   g.putImageData(img, 0, 0);
   ctx.save();
   ctx.imageSmoothingEnabled = false;
@@ -2027,6 +2205,15 @@ SF.entityList = function (s) {
       }
     }
   });
+  if (SF.TERRACES && SF._terrain) {
+    SF._terraceList().forEach(function (t) {
+      if (!t.block) return;
+      list.push({
+        y: t.y + t.ry + t.block + 0.5,
+        draw: function (ctx) { SF.drawTerraceFront(ctx, t); }
+      });
+    });
+  }
   list.sort(function (a, b) { return a.y - b.y; });
   return list;
 };

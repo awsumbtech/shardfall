@@ -593,20 +593,109 @@ window.SF = SF;
     { id: "shard-rise", kind: "shard", x: 54 * T, y: 40 * T }
   );
 
+  // Visual terraces. x/y/rx/ry are the upper surface. `block` is the
+  // south cliff that stops walking; `face` is the painted rise, which can
+  // run past the wall as a grass slope. Ramps follow SF.PATHS.
+  function terrace(id, tx, ty, rx, ry, block, face, level, kind) {
+    return {
+      id: id,
+      x: tx * T,
+      y: ty * T,
+      rx: rx * T,
+      ry: ry * T,
+      block: block,
+      face: face,
+      level: level,
+      kind: kind || "rock",
+      ramp: 28
+    };
+  }
+
+  SF.TERRACES = {
+    emberhold: [
+      terrace("hill-1", 99, 20.6, 12.2, 8.4, 28, 42, 1, "rock"),
+      terrace("hill-2", 100, 16.2, 8.4, 5.4, 28, 40, 2, "rock"),
+      terrace("hill-3", 101, 11.2, 5.6, 3.8, 26, 36, 3, "rock"),
+      terrace("cottage", 70, 14.6, 8.2, 5.4, 22, 36, 1, "rock"),
+      terrace("grove", 51, 23.2, 8.2, 5.0, 0, 24, 1, "grass"),
+      terrace("scar", 118.5, 43.2, 9.2, 4.0, 22, 34, 1, "rock")
+    ],
+    cinderveil: [
+      terrace("ridge-1", 44, 13.4, 11.5, 4.0, 22, 34, 1, "rock"),
+      terrace("ridge-2", 41, 8.2, 6.2, 2.8, 22, 32, 2, "rock")
+    ]
+  };
+
+  function ellipseGap(t, wx, wy) {
+    var dx = wx - t.x;
+    var dy = wy - t.y;
+    var dist = Math.hypot(dx, dy) || 0.001;
+    var rDir = (t.rx * t.ry) / (Math.hypot((t.ry * dx) / dist, (t.rx * dy) / dist) || 0.001);
+    return { gap: dist - rDir, ny: dy / dist };
+  }
+
+  function distToSeg(px, py, x0, y0, x1, y1) {
+    var dx = x1 - x0;
+    var dy = y1 - y0;
+    var len2 = dx * dx + dy * dy || 1;
+    var u = ((px - x0) * dx + (py - y0) * dy) / len2;
+    if (u < 0) u = 0;
+    else if (u > 1) u = 1;
+    return Math.hypot(px - (x0 + dx * u), py - (y0 + dy * u));
+  }
+
+  SF.nearRoute = function (x, y, pad) {
+    var paths = SF.PATHS || [];
+    var limit = pad || 28;
+    var best = limit;
+    var p, i, x0, y0, x1, y1, d;
+    for (p = 0; p < paths.length; p++) {
+      for (i = 0; i < paths[p].length - 2; i += 2) {
+        x0 = paths[p][i];
+        y0 = paths[p][i + 1];
+        x1 = paths[p][i + 2];
+        y1 = paths[p][i + 3];
+        if (x < Math.min(x0, x1) - limit || x > Math.max(x0, x1) + limit) continue;
+        if (y < Math.min(y0, y1) - limit || y > Math.max(y0, y1) + limit) continue;
+        d = distToSeg(x, y, x0, y0, x1, y1);
+        if (d < best) best = d;
+      }
+    }
+    return best < limit;
+  };
+
+  SF.cliffBlocks = function (x, y) {
+    var list = (SF.TERRACES && SF.TERRACES[SF.islandId]) || [];
+    var i, t, m;
+    for (i = 0; i < list.length; i++) {
+      t = list[i];
+      if (!t.block) continue;
+      if (x < t.x - t.rx - 4 || x > t.x + t.rx + 4) continue;
+      if (y < t.y - 4 || y > t.y + t.ry + t.block + 4) continue;
+      m = ellipseGap(t, x, y);
+      if (m.gap <= 0 || m.gap >= t.block || m.ny < 0.28) continue;
+      if (SF.nearRoute(x, y, t.ramp)) continue;
+      return true;
+    }
+    return false;
+  };
+
   var landWalkable = SF.walkable;
   SF.walkable = function (x, y) {
     if (!landWalkable(x, y)) return false;
     var props = SF.PROPS;
-    if (!props) return true;
     var i, p, r, dx, dy;
-    for (i = 0; i < props.length; i++) {
-      p = props[i];
-      r = p.block;
-      if (!r) continue;
-      dx = x - p.x;
-      dy = y - p.y;
-      if (dx * dx + dy * dy < r * r) return false;
+    if (props) {
+      for (i = 0; i < props.length; i++) {
+        p = props[i];
+        r = p.block;
+        if (!r) continue;
+        dx = x - p.x;
+        dy = y - p.y;
+        if (dx * dx + dy * dy < r * r) return false;
+      }
     }
+    if (SF.cliffBlocks(x, y)) return false;
     return true;
   };
   cinder.spots = {
