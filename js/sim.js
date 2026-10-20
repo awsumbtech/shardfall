@@ -573,9 +573,9 @@ SF.coachLine = function (s) {
   if (near && !h.talk) return "Press " + SF.actionFor(s, near).label + ", or E.";
   if (!near && !h.strike) {
     var foe = s.enemies.some(function (e) {
-      return e.alive && SF.dist(e.x, e.y, p.x, p.y) < 150;
+      return e.alive && e.dying <= 0 && !e.dormant && SF.dist(e.x, e.y, p.x, p.y) < 150;
     });
-    if (foe) return "Strike the core — blade button, or J.";
+    if (foe) return "Walk into a foe to fight. The Fight button starts a nearby fight.";
   }
   var nearSpan = SF.islandId !== "cinderveil" && SF.dist(p.x, p.y, 300, -88) < 155;
   if (!near && nearSpan && !h.span) {

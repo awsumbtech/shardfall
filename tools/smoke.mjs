@@ -13,6 +13,11 @@ context.localStorage = {
 vm.createContext(context);
 for (const file of [
   "js/data.js",
+  "js/data/skills.js",
+  "js/data/items.js",
+  "js/data/party.js",
+  "js/data/enemies.js",
+  "js/data/encounters.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
   "js/dialogue.js",
@@ -22,7 +27,9 @@ for (const file of [
   "js/save.js",
   "js/sim.js",
   "js/cinder.js",
-  "js/grapple.js"
+  "js/grapple.js",
+  "js/battle/battle.js",
+  "js/menu/field.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
@@ -100,25 +107,32 @@ if (!fromDisk || fromDisk.shardsHeld !== 4) {
 const fight = freshPlay();
 const wisp = fight.enemies[0];
 const before = wisp.hp;
-fight.player.x = wisp.x - 28;
+fight.player.x = wisp.x - 48;
 fight.player.y = wisp.y;
 fight.player.fx = 1;
 fight.player.fy = 0;
 SF.startSwing(fight.player);
 for (let i = 0; i < 12; i++) SF.update(0.016);
-if (wisp.hp >= before) {
-  console.error("strike did not damage the wisp", wisp.hp);
+if (wisp.hp !== before) {
+  console.error("the real-time strike still damaged the wisp", wisp.hp);
   process.exit(1);
 }
+if (fight.mode === "battle") {
+  console.error("standing beside a foe started a fight without a touch");
+  process.exit(1);
+}
+SF.touchFoe(wisp);
+if (fight.mode !== "battle" || !fight.battle || fight.battle.id !== "em_wisps") {
+  console.error("touching a wisp did not start em_wisps", fight.mode, fight.battle && fight.battle.id);
+  process.exit(1);
+}
+fight.battle = null;
+fight.mode = "play";
 
 const brume = fight.enemies.find((e) => e.kind === "brumekin");
 SF.damageEnemy(brume, brume.hp, 1, 0, 1);
 if (brume.alive || !fight.drops["drop-" + brume.id]) {
   console.error("brumekin death did not leave a shard");
-  process.exit(1);
-}
-if (fight.player.xp < SF.KINDS.brumekin.xp) {
-  console.error("xp was not granted");
   process.exit(1);
 }
 
@@ -722,7 +736,249 @@ if (done.dialogue || done.mode !== "play") fail("a finished act started the Cant
   if (!sawEpilogue || !sawFinale || branch.mode !== "play" || branch.flags.cantor_choice !== choice || !branch.flags.epilogueHeard) {
     fail(choice + " did not reach its epilogue and the end of the act");
   }
+  if (!branch.flags.party_kestrel || !branch.flags.party_tamsin) {
+    fail(choice + " did not add the party at the end of Act 1");
+  }
+  const joined = []
+    .concat(branch.banner ? [branch.banner] : [])
+    .concat(branch.banners || [])
+    .map((row) => row.title);
+  if (joined.indexOf("Kestrel joined the party.") < 0 || joined.indexOf("Tamsin joined the party.") < 0) {
+    fail(choice + " did not announce both companions " + joined.join(" | "));
+  }
 });
 SF.mountIsland("emberhold");
 
+const ids = [
+  "em_wisps", "em_brumekin", "em_choirling",
+  "cv_ashlings", "cv_cinderhound", "cv_mixed", "boss_cinder_maw",
+  "sm_saltwisps", "sm_drowned", "sm_gulls", "sm_mixed", "boss_tidewyrm",
+  "hs_choir_patrol", "hs_sentinel", "sea_hush_raiders"
+];
+ids.forEach((id) => {
+  const enc = SF.ENCOUNTERS[id];
+  if (!enc || !enc.foes || !enc.foes.length || !enc.bg) fail("missing encounter " + id);
+  enc.foes.forEach((kind) => {
+    if (!SF.FOES[kind]) fail("encounter " + id + " uses unknown foe " + kind);
+  });
+});
+if (SF.ENCOUNTERS.boss_cinder_maw.canFlee !== false || SF.ENCOUNTERS.boss_tidewyrm.canFlee !== false) {
+  fail("boss encounters can be fled");
+}
+["tonic", "hi_tonic", "ether", "phoenix_shard", "smoke_bomb", "ember_salt", "tide_vial", "gale_powder", "shard_dust"].forEach((id) => {
+  if (!SF.ITEMS[id]) fail("missing item " + id);
+});
+
+const battle = freshPlay();
+SF.Battle.instant = true;
+const meadow = battle.enemies.find((e) => e.id === "wisp-meadow");
+battle.player.x = meadow.x;
+battle.player.y = meadow.y;
+SF.touchFoe(meadow);
+if (!battle.battle || battle.battle.id !== "em_wisps") fail("meadow touch was not em_wisps");
+const soloParty = battle.battle.actors.filter((a) => a.side === "party");
+if (soloParty.length !== 1 || soloParty[0].key !== "wayfarer") fail("Act 1 battle was not solo");
+if (context.Music.current() !== "battle") fail("battle music did not start");
+const order = battle.battle.order || [];
+if (order.length < 4) fail("turn strip is short " + order.length);
+const actor = battle.battle.actors.find((a) => a.id === battle.battle.actorId);
+if (!actor || actor.side !== "party") fail("the first ready actor was not the party");
+const foe = battle.battle.actors.find((a) => a.side === "foe" && a.alive);
+const hp0 = foe.hp;
+SF.Battle.playerAct({ type: "skill", skillId: "attack", targetId: foe.id });
+const struck = battle.battle && battle.battle.actors.find((a) => a.id === foe.id);
+if (!struck || struck.hp >= hp0) fail("attack did not damage");
+if (!struck.revealed || struck.weak !== "shard") fail("a hit did not show the Shard weakness");
+if (!battle.battle.log.some((line) => line.indexOf("attacks") >= 0)) fail("attack log missing");
+SF.Battle.playerAct({ type: "menu", menu: "skills" });
+if (battle.battle.phase !== "skills") fail("skill menu did not open");
+const beforeSp = battle.battle.actors.find((a) => a.key === "wayfarer").sp;
+SF.Battle.playerAct({ type: "skill", skillId: "shard_bolt", targetId: foe.id });
+const afterSp = battle.battle.actors.find((a) => a.key === "wayfarer");
+if (!afterSp || afterSp.sp >= beforeSp) fail("Shard Bolt did not spend SP");
+if (!SF.giveItem("tonic", 1)) fail("could not give a tonic");
+const hurt = battle.battle.actors.find((a) => a.key === "wayfarer");
+hurt.hp = Math.max(1, hurt.hp - 20);
+const hpBefore = hurt.hp;
+SF.Battle.playerAct({ type: "item", itemId: "tonic", targetId: hurt.id });
+const healed = battle.battle.actors.find((a) => a.key === "wayfarer");
+if (!healed || healed.hp <= hpBefore) fail("tonic did not heal");
+SF.Battle.playerAct({ type: "defend" });
+if (!battle.battle.log.some((line) => line.indexOf("defends") >= 0)) fail("defend log missing");
+const goldBefore = battle.gold;
+const outcome = SF.Battle.autoResolve(40);
+if (outcome !== "win") fail("wisps were not defeated " + outcome);
+if (meadow.alive) fail("winning did not remove the field wisp");
+if (battle.player.xp < SF.ENCOUNTERS.em_wisps.xp) fail("xp was not shared");
+if (battle.gold < goldBefore) fail("marks were not awarded");
+if (battle.mode === "battle") fail("battle did not return to the field");
+
+const loss = freshPlay();
+loss.gold = 40;
+SF.giveItem("ether", 1);
+const heldItems = Object.assign({}, loss.inventory);
+SF.Battle.instant = true;
+SF.Battle.start("em_brumekin");
+loss.battle.actors.forEach((a) => { if (a.side === "party") a.hp = 1; });
+const brute = loss.battle.actors.find((a) => a.side === "foe");
+SF.Battle.playerAct({ type: "skill", skillId: "attack", targetId: brute.id });
+while (loss.battle && loss.battle.phase !== "result" && loss.mode === "battle") {
+  loss.battle.actors.forEach((a) => { if (a.side === "party") { a.hp = 0; a.alive = false; } });
+  if (loss.battle.phase === "menu") SF.Battle.playerAct({ type: "defend" });
+  else SF.Battle.skipReadout();
+}
+if (!loss.battle || loss.battle.phase !== "result" || loss.battle.result.win) fail("a wiped party did not lose");
+SF.Battle.confirmResult();
+if (loss.mode !== "play") fail("defeat did not return to the field");
+if (Math.hypot(loss.player.x - SF.WAKE.x, loss.player.y - SF.WAKE.y) > 2) fail("defeat did not return to the waking stones");
+const half = SF.memberStats(loss, "wayfarer").maxHp / 2;
+if (loss.player.hp < half - 1 || loss.player.hp > half + 1) fail("defeat HP was not half " + loss.player.hp);
+if (loss.gold !== 40) fail("defeat lost marks");
+if ((loss.inventory.ether || 0) < (heldItems.ether || 0)) fail("defeat lost an item");
+
+const flee = freshPlay();
+SF.Battle.instant = true;
+SF.giveItem("smoke_bomb", 1);
+SF.Battle.start("em_wisps", { canFlee: true });
+SF.Battle.playerAct({ type: "item", itemId: "smoke_bomb" });
+if (!flee.battle || flee.battle.phase !== "result" || !flee.battle.result.fled) fail("smoke bomb did not flee");
+SF.Battle.confirmResult();
+if (flee.mode !== "play") fail("flee did not return to the field");
+const still = flee.enemies.filter((e) => e.kind === "wisp" && e.alive).length;
+if (still < 3) fail("flee removed a foe");
+
+const levels = freshPlay();
+SF.Battle.instant = true;
+levels.party.members.wayfarer.xp = SF.XP_NEED[1] - 1;
+SF.syncFieldVitals(levels);
+SF.Battle.start("em_wisps");
+const winLv = SF.Battle.autoResolve(40);
+if (winLv !== "win") fail("level-up fight did not win");
+if (levels.party.members.wayfarer.level < 2) fail("did not level up");
+if (!SF._lastResult.levels.length || SF._lastResult.levels[0].name !== "Wayfarer") fail("level-up result missing");
+if (!SF.skillsAt("wayfarer", levels.party.members.wayfarer.level).includes("scan") && levels.party.members.wayfarer.level < 2) {
+  fail("scan learn check broke");
+}
+
+const shop = freshPlay();
+shop.gold = 100;
+if (!SF.shopBuy("tonic") || shop.gold !== 70 || (shop.inventory.tonic || 0) < 1) fail("shop buy failed");
+const beforeSell = shop.inventory.tonic;
+if (!SF.shopSell("tonic") || shop.inventory.tonic === beforeSell) fail("shop sell failed");
+if (!SF.giveItem("cloth_wrap", 1)) fail("no cloth wrap");
+const def0 = SF.memberStats(shop, "wayfarer").def;
+if (!SF.equipItem("wayfarer", "armor", "cloth_wrap")) fail("could not equip");
+if (SF.memberStats(shop, "wayfarer").def !== def0 + 3) fail("armor did not add defense");
+if (SF.equipItem("wayfarer", "weapon", "gale_pistol")) fail("Kestrel's pistol equipped on the Wayfarer");
+
+const old = SF.fresh();
+const oldBody = { x: 12, y: 24, fx: 1, fy: 0, hp: 20, maxHp: 40, xp: 110, level: 4, atk: 16, shardstep: true };
+if (!SF.applySave(old, {
+  v: 2,
+  quest: "quay",
+  island: "cinderveil",
+  flags: { lampLit: true, metCinderKestrel: true, grapple: true },
+  player: Object.assign({}, oldBody, { grapple: true }),
+  enemies: []
+})) fail("v0.2 save was rejected");
+if (old.flags.party_kestrel || old.flags.party_tamsin) fail("a mid-Act 1 save joined the party");
+const finishedAct = SF.fresh();
+if (!SF.applySave(finishedAct, {
+  v: 2,
+  quest: "act1",
+  island: "cinderveil",
+  flags: { lampLit: true, mawDead: true, act1: true, epilogueHeard: true, cantor_choice: "spare" },
+  player: Object.assign({}, oldBody, { x: 20, y: 90 }),
+  enemies: []
+})) fail("finished Act 1 save was rejected");
+if (!finishedAct.flags.party_kestrel || !finishedAct.flags.party_tamsin) fail("a finished Act 1 did not add the party");
+const finishedTitles = (finishedAct.banners || []).map((row) => row.title);
+if (finishedTitles.indexOf("Kestrel joined the party.") < 0 || finishedTitles.indexOf("Tamsin joined the party.") < 0) {
+  fail("a finished Act 1 did not announce the party " + finishedTitles.join(" | "));
+}
+if (finishedAct.party.members.kestrel.level !== finishedAct.party.members.wayfarer.level) {
+  fail("Kestrel did not match the Wayfarer's level");
+}
+const again = SF.fresh();
+finishedAct.mode = "play";
+const dumpedAct = JSON.parse(JSON.stringify(SF.exportState(finishedAct)));
+if (!SF.applySave(again, dumpedAct)) fail("a finished Act 1 did not save");
+const againTitles = (again.banners || []).map((row) => row.title);
+if (againTitles.indexOf("Kestrel joined the party.") >= 0) fail("the join banner repeated on the next load");
+if (old.party.members.wayfarer.level < 4 || old.party.members.wayfarer.level > 6) {
+  fail("v0.2 xp did not become a sensible level " + old.party.members.wayfarer.level);
+}
+if (!old.inventory.tonic || old.gold == null) fail("migrated save has no pack");
+const round = SF.fresh();
+round.mode = "play";
+SF.state = round;
+round.gold = 15;
+round.inventory = { ether: 2 };
+round.party.members.wayfarer.xp = 40;
+SF.levelMemberToXp(round, "wayfarer");
+SF.syncFieldVitals(round);
+const dumped = JSON.parse(JSON.stringify(SF.exportState(round)));
+if (dumped.v !== 3 || dumped.gold !== 15) fail("v3 export dropped marks");
+const loaded = SF.fresh();
+if (!SF.applySave(loaded, dumped)) fail("v3 save was rejected");
+if (loaded.gold !== 15 || (loaded.inventory.ether || 0) !== 2) fail("v3 inventory did not round-trip");
+if (loaded.party.members.wayfarer.level !== round.party.members.wayfarer.level) fail("v3 level did not round-trip");
+
+const roadFight = freshPlay();
+SF.Battle.instant = true;
+SF.mountIsland("emberhold");
+roadFight.island = "emberhold";
+roadFight.enemies = SF.makeEnemies();
+roadFight.enemies.forEach((e) => {
+  if (!e.alive) return;
+  roadFight.touchCd = 0;
+  roadFight.player.x = e.x;
+  roadFight.player.y = e.y;
+  if (!SF.touchFoe(e)) fail("could not touch " + e.id);
+  const end = SF.Battle.autoResolve(50);
+  if (end !== "win") fail("could not win " + e.encounter + " at this level (" + end + ")");
+});
+const emberLevel = roadFight.party.members.wayfarer.level;
+if (emberLevel < 4 || emberLevel > 6) fail("Emberhold fights landed at level " + emberLevel);
+if (roadFight.flags.party_kestrel || roadFight.flags.party_tamsin) fail("Emberhold joined a companion");
+roadFight.flags.sailUnlocked = true;
+SF.startVoyage("cinderveil");
+if (roadFight.flags.party_kestrel || roadFight.flags.party_tamsin) fail("the first sail joined the party");
+(SF._dlgListeners.grant_grapple || []).forEach((fn) => fn("grant_grapple"));
+if (roadFight.flags.party_tamsin || roadFight.flags.party_kestrel) fail("the grapple gift joined the party");
+roadFight.mode = "play";
+roadFight.dialogue = null;
+SF.mountIsland("cinderveil");
+roadFight.island = "cinderveil";
+roadFight.enemies = SF.makeEnemies();
+roadFight.enemies.forEach((e) => {
+  if (!e.alive || e.kind === "maw") return;
+  roadFight.touchCd = 0;
+  if (!SF.touchFoe(e)) fail("could not touch " + e.id);
+  const partyNow = roadFight.battle.actors.filter((a) => a.side === "party");
+  if (partyNow.length !== 1) fail("a Cinderveil fight was not solo");
+  const end = SF.Battle.autoResolve(60);
+  if (end !== "win") fail("could not win " + (e.encounter || e.kind) + " (" + end + ") lv " + roadFight.party.members.wayfarer.level);
+});
+const preMaw = roadFight.party.members.wayfarer.level;
+if (preMaw < 7 || preMaw > 9) fail("Act 1 was not about level 8 before the Maw (" + preMaw + ")");
+const mawFoe = roadFight.enemies.find((e) => e.kind === "maw");
+mawFoe.dormant = false;
+roadFight.flags.mawFight = true;
+roadFight.touchCd = 0;
+if (!SF.touchFoe(mawFoe)) fail("could not touch the Maw");
+const mawParty = roadFight.battle && roadFight.battle.actors.filter((a) => a.side === "party");
+if (!mawParty || mawParty.length !== 1 || mawParty[0].key !== "wayfarer") fail("the Maw was not a solo fight");
+if (!roadFight.battle.order || roadFight.battle.order.length < 4) fail("the solo Maw hid the turn strip");
+if (!roadFight.battle || roadFight.battle.id !== "boss_cinder_maw" || roadFight.battle.canFlee) {
+  fail("the Maw fight was not a locked boss");
+}
+if (context.Music.current() !== "boss") fail("the Maw did not use the boss theme");
+const mawEnd = SF.Battle.autoResolve(80);
+if (mawEnd !== "win") fail("the party could not beat the Maw at level " + preMaw);
+if (!roadFight.flags.mawDead || roadFight.quest !== "relight") fail("the Maw win did not continue Act 1");
+const seenPhase = SF._lastResult && roadFight.flags.mawDead;
+if (!seenPhase) fail("maw result missing");
+
+SF.mountIsland("emberhold");
 console.log("smoke ok");

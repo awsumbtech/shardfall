@@ -137,7 +137,8 @@ SF.bindInput = function () {
     e.preventDefault();
     SF.sfx.ensure();
     SF.emit("ui");
-    if (SF.state && SF.state.mode === "pause") SF.resumeGame();
+    if (SF.state && SF.state.mode === "fieldmenu" && SF.closeFieldMenu) SF.closeFieldMenu();
+    else if (SF.state && SF.state.mode === "pause") SF.resumeGame();
     else SF.pauseGame();
   });
   document.getElementById("btn-mute").addEventListener("pointerdown", function (e) {
@@ -166,6 +167,11 @@ SF.bindInput = function () {
       return;
     }
     if (s.mode === "title") return;
+    if (s.mode === "battle" || s.mode === "results") return;
+    if (s.mode === "fieldmenu") {
+      if (e.code === "Escape" && SF.closeFieldMenu) SF.closeFieldMenu();
+      return;
+    }
     if (s.mode === "sailmenu") {
       if (e.code === "Escape") s.mode = "play";
       return;
@@ -188,7 +194,8 @@ SF.bindInput = function () {
     if (e.code === "KeyG") SF.inputState.grappleHold = true;
     if (e.code === "KeyE" || e.code === "Enter") SF.inputState.interactEdge = true;
     if (e.code === "Escape") {
-      if (s.mode === "pause") SF.resumeGame();
+      if (s.mode === "fieldmenu" && SF.closeFieldMenu) SF.closeFieldMenu();
+      else if (s.mode === "pause") SF.resumeGame();
       else SF.pauseGame();
     }
     if (e.code === "KeyM") SF.toggleMute();

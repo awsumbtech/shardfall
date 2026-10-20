@@ -2,6 +2,17 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.3 — The Wider Hush
+
+Fights are turn-based. Walk into a foe, or press Fight when one is close.
+Attack, Skill, Item, Defend, and Flee sit along the bottom of the screen. The turn order is the strip at the top.
+Act 1 is fought alone, through Emberhold, Cinderveil, and the Cinder Maw.
+Kestrel and Tamsin join after the act ends. The banners say "Kestrel joined the party." and "Tamsin joined the party."
+Levels go to 30. Marks are the coins. The pause button opens Party, Skills, Items, Equip, Save, and Settings.
+The Cinder Maw is fought in turns. Aim at the core.
+A saved game from v0.2 keeps going, with a level from the old journey. A finished Act 1 adds both companions. A journey still on the road stays solo.
+Reduce flashing stays on until you turn it off.
+
 ## v0.2.1 — The Cantor walks up
 
 Act 1 is told again, in the words of the people on the road.

@@ -18,7 +18,7 @@ SF.storage = function () {
 SF.exportState = function (s) {
   if (SF.snapshotEnemies) SF.snapshotEnemies();
   return {
-    v: 2,
+    v: 3,
     game: SF.VERSION,
     savedAt: Date.now(),
     playTime: s.playTime,
@@ -50,7 +50,11 @@ SF.exportState = function (s) {
     },
     enemies: s.enemies.map(function (e) {
       return { id: e.id, alive: e.alive && e.dying <= 0, hp: e.hp, dormant: !!e.dormant };
-    })
+    }),
+    party: s.party || null,
+    inventory: s.inventory || {},
+    gold: s.gold || 0,
+    known: s.known || {}
   };
 };
 
@@ -61,7 +65,7 @@ SF.readSave = function () {
   if (!raw) return null;
   try {
     var data = JSON.parse(raw);
-    if (!data || (data.v !== 1 && data.v !== 2)) return null;
+    if (!data || (data.v !== 1 && data.v !== 2 && data.v !== 3)) return null;
     return data;
   } catch (err) {
     return null;
@@ -73,7 +77,7 @@ SF.hasSave = function () {
 };
 
 SF.applySave = function (s, data) {
-  if (!data || (data.v !== 1 && data.v !== 2) || !data.player) return false;
+  if (!data || (data.v !== 1 && data.v !== 2 && data.v !== 3) || !data.player) return false;
   var p = s.player;
   var sp = data.player;
   s.playTime = data.playTime || 0;
@@ -144,6 +148,7 @@ SF.applySave = function (s, data) {
       }
     });
   }
+  if (SF.migrateBattleSave) SF.migrateBattleSave(s, data);
   if (SF.cuePlaceMusic) SF.cuePlaceMusic(s);
   return true;
 };
