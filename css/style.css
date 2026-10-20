@@ -344,7 +344,7 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
   right: calc(12px + env(safe-area-inset-right));
   bottom: calc(14px + env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: 72px 96px;
+  grid-template-columns: 72px 112px;
   grid-template-rows: auto auto;
   gap: 8px;
   justify-items: end;
@@ -371,22 +371,20 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
 }
 
 .btn svg { width: 24px; height: 24px; fill: none; stroke: white; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
-.btn span { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.btn span { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 
-#btn-interact { grid-column: 2; grid-row: 1; width: 92px; height: 72px; border-radius: 6px; }
+#btn-interact { grid-column: 2; grid-row: 1; width: 112px; min-height: 48px; height: 56px; border-radius: 6px; }
 #btn-interact span {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.01em;
-  line-height: 1.08;
-  max-width: 84px;
+  letter-spacing: 0;
+  line-height: 1.1;
+  max-width: none;
   text-align: center;
   text-transform: none;
-  white-space: pre-line;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  white-space: nowrap;
+  overflow: visible;
+  display: block;
 }
 #btn-grapple {
   grid-column: 1;
@@ -693,9 +691,9 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 
 .eyebrow {
   margin: 0 0 8px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--gold);
 }
 
@@ -993,10 +991,11 @@ body[data-modal="1"] #corner {
   #mapwrap.big { width: 140px; height: 140px; }
   #stick-zone { width: 38%; height: 68%; }
   #stick { width: 108px; height: 108px; }
-  #buttons { gap: 8px; grid-template-columns: 64px 88px; }
+  #buttons { gap: 8px; grid-template-columns: 64px 120px; }
   .btn, #btn-dash, #btn-grapple { width: 56px; height: 56px; }
-  #btn-interact { width: 84px; height: 56px; }
-  #btn-attack { width: 64px; height: 64px; }
+  #btn-dash span, #btn-attack span { font-size: 14px; }
+  #btn-interact { width: 120px; height: 48px; min-height: 44px; }
+  #btn-attack { width: 72px; height: 64px; }
   #toast { bottom: calc(150px + env(safe-area-inset-bottom)); }
   #dialogue {
     left: calc(12px + env(safe-area-inset-left));
@@ -1004,14 +1003,55 @@ body[data-modal="1"] #corner {
     width: auto;
     transform: none;
     padding: 8px 12px 6px;
-    max-height: 45%;
-    overflow-y: auto;
+    max-height: 62%;
+    overflow: hidden;
   }
+  #dlg-row { overflow: visible; flex: 0 1 auto; }
   #dlg-portrait { width: 44px; height: 44px; }
   #who { font-size: 16px; }
-  #line { font-size: 16px; max-height: 16dvh; min-height: 0; margin: 2px 0 4px; }
+  #line { font-size: 16px; max-height: 34dvh; overflow-y: auto; min-height: 0; margin: 2px 0 4px; }
   #dlg-choices { gap: 6px; }
   #dlg-choices button { min-height: 44px; padding: 8px 12px; font-size: 15px; }
+  #dialogue:has(#dlg-choices button) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 10px;
+    max-height: none;
+    overflow: visible;
+  }
+  #dialogue:has(#dlg-choices button) #dlg-row {
+    flex: 1 1 54%;
+    min-width: 0;
+    overflow: visible;
+  }
+  #dialogue:has(#dlg-choices button) #dlg-copy { overflow: visible; }
+  #dialogue:has(#dlg-choices button) #line {
+    flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
+  }
+  #dialogue:has(#dlg-choices button) #dlg-choices {
+    flex: 1 1 38%;
+    margin: 0;
+    max-height: min(72dvh, 320px);
+    overflow-y: auto;
+    align-self: stretch;
+  }
+  #dialogue:has(#dlg-choices button) #dlg-hint { flex: 1 0 100%; }
+  #shop .card {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+  #shop-title, #shop-gold, #shop-close { flex: none; }
+  #shop-list {
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  #shop-close { margin-top: 8px; }
   #banner-title { font-size: 24px; }
   #field-card { padding: 6px 10px 4px; }
   #field-card h2 { margin-bottom: 0; }

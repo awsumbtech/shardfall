@@ -305,7 +305,6 @@ SF.presentCoach = function (line) {
 SF.interactLabel = function (s) {
   if (!s || s.mode !== "play" || !SF.actionFor) return "Talk";
   var act = SF.actionFor(s, SF.nearestInteract());
-  if (act && act.name) return act.label + "\n" + act.name;
   return (act && act.label) || "Talk";
 };
 

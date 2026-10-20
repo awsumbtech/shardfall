@@ -277,7 +277,38 @@ function button(ctx, x, y, w, h, label, on, dim) {
   ctx.restore();
 }
 
-function layoutBattle(w, h, phase, nParty) {
+function contentDockH(rows, maxH) {
+  var btnH = 48;
+  var gap = 6;
+  var backH = 48;
+  var body = rows > 0 ? rows * (btnH + gap) - gap : 36;
+  var h = body + gap + backH;
+  if (maxH > 0 && h > maxH) h = maxH;
+  return Math.max(backH, h);
+}
+
+function listRowCount(b) {
+  if (!b) return 0;
+  if (b.phase === "skills") {
+    var actor = actorOf(b, b.actorId);
+    var skills = actor && actor.skills ? actor.skills : [];
+    var n = 0;
+    skills.forEach(function (id) { if (SF.SKILLS && SF.SKILLS[id]) n += 1; });
+    return n;
+  }
+  if (b.phase === "items") {
+    var count = 0;
+    var inv = (SF.state && SF.state.inventory) || {};
+    Object.keys(inv).forEach(function (id) {
+      var it = SF.ITEMS && SF.ITEMS[id];
+      if (it && it.kind === "item" && inv[id] > 0) count += 1;
+    });
+    return count;
+  }
+  return 0;
+}
+
+function layoutBattle(w, h, phase, nParty, listRows) {
   var land = w > h;
   var margin = 8;
   var gap = 6;
@@ -287,6 +318,7 @@ function layoutBattle(w, h, phase, nParty) {
   var cardH = nParty > 1 ? 78 : 84;
   var logH = 52;
   var cmdH = btnH * 3 + gap * 2;
+  listRows = listRows || 0;
   var strip = { x: margin, y: margin, w: w - margin * 2, h: stripH };
   var y0 = strip.y + stripH + gap;
 
@@ -334,7 +366,9 @@ function layoutBattle(w, h, phase, nParty) {
     var bottom = h - margin;
     var card = { x: rx, y: y0, w: rw, h: cardH };
     if (submenu) {
-      var dock = { x: rx, y: card.y + cardH + gap, w: rw, h: bottom - (card.y + cardH + gap) };
+      var maxDock = bottom - (card.y + cardH + gap);
+      var dockH = contentDockH(listRows, maxDock);
+      var dock = { x: rx, y: card.y + cardH + gap, w: rw, h: dockH };
       return { land: true, strip: strip, stage: stage, card: card, dock: dock, log: null, prompt: null, commands: null };
     }
     var log = { x: rx, y: card.y + cardH + gap, w: rw, h: logH };
@@ -362,20 +396,13 @@ function layoutBattle(w, h, phase, nParty) {
 
   var commandsP = { x: margin, y: h - margin - cmdH, w: w - margin * 2, h: cmdH, btnH: btnH, gap: gap };
   if (submenu) {
-    var dockH = Math.min(Math.round(h * 0.46), Math.max(cmdH + 8, 200));
+    var room = h - margin - y0 - cardH - gap * 2;
+    var stageMin = 120;
+    var maxDock = Math.max(96, room - stageMin);
+    var dockH = contentDockH(listRows, maxDock);
     var dockP = { x: margin, y: h - margin - dockH, w: w - margin * 2, h: dockH };
     var cardP = { x: margin, y: dockP.y - gap - cardH, w: w - margin * 2, h: cardH };
-    var stageP = { x: 0, y: y0, w: w, h: cardP.y - gap - y0 };
-    if (stageP.h < 130) {
-      var need = 130 - stageP.h;
-      var shrink = Math.min(need, dockP.h - 150);
-      if (shrink > 0) {
-        dockP.h -= shrink;
-        dockP.y += shrink;
-        cardP.y += shrink;
-        stageP.h += shrink;
-      }
-    }
+    var stageP = { x: 0, y: y0, w: w, h: Math.max(80, cardP.y - gap - y0) };
     return { land: false, strip: strip, stage: stageP, card: cardP, dock: dockP, log: null, prompt: null, commands: null };
   }
   var promptP = { x: margin, y: commandsP.y - (promptH ? promptH + gap : 0), w: w - margin * 2, h: promptH };
@@ -413,9 +440,9 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   paintBg(ctx, b.bg, w, h, b.t || 0);
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
-  var lay = layoutBattle(w, h, b.phase, party.length);
+  var lay = layoutBattle(w, h, b.phase, party.length, listRowCount(b));
   drawStrip(ctx, b, lay.strip.x, lay.strip.y, lay.strip.w, lay.strip.h);
-  drawStage(ctx, b, foes, party, lay.stage);
+  drawStage(ctx, b, foes, party, lay.stage, h);
   if (b.phase === "result") {
     drawResult(ctx, b, lay.result);
     return;
@@ -429,45 +456,54 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   if (b.phase === "readout") addHit("skip", 0, 0, w, h);
 };
 
-function stripLabel(ctx, name, maxW) {
-  var full = name || "";
+function stripLabel(ctx, actor, maxW) {
+  var full = (actor && actor.name) || "";
   ctx.font = "700 12px system-ui, sans-serif";
   if (full && ctx.measureText(full).width <= maxW) return full;
-  var first = full.split(" ")[0];
+  var first = full.split(" ")[0] || "";
+  if (first && first !== full && ctx.measureText(first).width <= maxW) return first;
+  var short = "";
+  if (actor && (actor.key === "wayfarer" || actor.sprite === "wayfarer" || actor.id === "p-wayfarer")) short = "You";
+  else if (actor && actor.side === "party") short = first.slice(0, 4);
+  else if (first.length > 4) short = first.slice(0, 4);
+  if (short && ctx.measureText(short).width <= maxW) return short;
   if (first && ctx.measureText(first).width <= maxW) return first;
-  var bits = full.split(" ").filter(Boolean);
-  if (bits.length > 1) {
-    var initials = bits.map(function (word) { return word.charAt(0); }).join("");
-    if (initials.length > 1 && ctx.measureText(initials).width <= maxW) return initials;
-  }
-  return "";
+  return short || first;
 }
 
 function drawStrip(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
   var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
   var n = Math.min(8, order.length || 1);
-  var slot = Math.floor((w - 16) / n);
-  var face = Math.max(22, Math.min(28, slot - 8, h - 22));
-  var i, id, actor, ox, label;
+  var inset = 12;
+  var slot = Math.floor((w - inset * 2) / n);
+  var face = Math.max(18, Math.min(24, slot - 8, h - 26));
+  var i, id, actor, ox, label, gx, box;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   for (i = 0; i < n; i++) {
     id = order[i];
     actor = actorOf(b, id);
     if (!actor) continue;
-    ox = x + 8 + i * slot + Math.max(0, (slot - face) / 2);
+    ox = x + inset + i * slot + Math.max(0, Math.floor((slot - face) / 2));
+    box = face + 4;
+    gx = ox - 2;
+    if (gx < x + 10) {
+      ox += x + 10 - gx;
+      gx = ox - 2;
+    }
+    if (gx + box > x + w - 8) box = Math.max(face, x + w - 8 - gx);
     if (i === 0) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 2;
-      ctx.strokeRect(ox - 2, y + 4, face + 4, face + 4);
+      ctx.strokeRect(gx, y + 6, box, box);
     }
-    drawPortrait(ctx, actor.sprite, ox, y + 6, face);
-    label = stripLabel(ctx, actor.name, slot - 4);
+    drawPortrait(ctx, actor.sprite, ox, y + 8, face);
+    label = stripLabel(ctx, actor, Math.max(12, slot - 2));
     if (!label) continue;
     ctx.fillStyle = i === 0 ? "#ffd37a" : "#d5def2";
     ctx.font = "700 12px system-ui, sans-serif";
-    ctx.fillText(label, ox + face / 2, y + h - 4);
+    ctx.fillText(label, ox + face / 2, y + h - 6);
   }
 }
 
@@ -500,31 +536,53 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.w - 0.5 && a.x + a.w > b.x + 0.5 && a.y < b.y + b.h - 0.5 && a.y + a.h > b.y + 0.5;
 }
 
-function placeActors(actors, zone, side) {
+function labelBox(cell, cx, top, labelH) {
+  if (!labelH) return { x: cell.x, y: top, w: cell.w, h: 0 };
+  var labelW = Math.max(36, cell.w - 4);
+  var labelX = cell.x + 2;
+  return { x: labelX, y: top - labelH, w: labelW, h: labelH };
+}
+
+function placeActors(actors, zone, side, groundY) {
   var n = actors.length;
   if (!n || !zone || zone.w < 8 || zone.h < 8) return [];
-  var labelH = side === "foe" ? 28 : 0;
+  var labelH = side === "foe" ? 30 : 0;
   var cells = formationCells(n, zone);
   var placed = [];
   var i, actor, cell, scale, src, sw, sh, ax, ay, cx, feet, top, hit;
+  var tallest = 0;
+  var specs = [];
   for (i = 0; i < n; i++) {
     actor = actors[i];
     cell = cells[i];
-    scale = battleScale(actor, n, zone.h, cell.w, cell.h, labelH);
+    scale = battleScale(actor, n, zone.h, cell.w, Math.min(cell.h, zone.h), labelH);
     src = sourceSize(actor.sprite, side === "party" ? "left" : "right");
-    sw = src.w * scale;
     sh = src.h * scale;
+    if (sh > tallest) tallest = sh;
+    specs.push({ actor: actor, cell: cell, scale: scale, src: src, sh: sh });
+  }
+  var minFeet = zone.y + labelH + tallest + 4;
+  var maxFeet = zone.y + zone.h - 6;
+  var feetLine = maxFeet;
+  if (groundY) feetLine = Math.min(maxFeet, Math.max(minFeet, groundY));
+  for (i = 0; i < n; i++) {
+    actor = specs[i].actor;
+    cell = specs[i].cell;
+    scale = specs[i].scale;
+    src = specs[i].src;
+    sw = src.w * scale;
+    sh = specs[i].sh;
     ax = src.ax * scale;
     ay = src.ay * scale;
     cx = cell.x + cell.w / 2;
     if (cx - ax < cell.x + 2) cx = cell.x + 2 + ax;
     if (cx - ax + sw > cell.x + cell.w - 2) cx = cell.x + cell.w - 2 - (sw - ax);
-    feet = cell.y + cell.h - Math.max(0, sh - ay) - 2;
+    feet = feetLine;
     top = feet - ay;
-    var minTop = cell.y + labelH;
-    if (top < minTop) {
-      feet += minTop - top;
-      top = minTop;
+    if (labelH && top - labelH < zone.y + 2) {
+      var shift = zone.y + 2 - (top - labelH);
+      feet += shift;
+      top += shift;
     }
     hit = { x: cx - ax, y: top, w: sw, h: sh };
     placed.push({
@@ -534,7 +592,7 @@ function placeActors(actors, zone, side) {
       x: cx,
       feet: feet,
       hit: hit,
-      label: { x: cell.x + 2, y: cell.y, w: Math.max(20, cell.w - 4), h: labelH }
+      label: labelBox(cell, cx, top, labelH)
     });
   }
   var guard = 0;
@@ -559,6 +617,7 @@ function placeActors(actors, zone, side) {
       feet = placed[i].feet;
       top = feet - ay;
       placed[i].hit = { x: placed[i].x - ax, y: top, w: sw, h: sh };
+      placed[i].label = labelBox(cells[i], placed[i].x, top, labelH);
     }
   }
   return placed;
@@ -595,7 +654,7 @@ function drawFoeLabel(ctx, spot) {
   bar(ctx, box.x, box.y + 18, box.w, 4, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
 }
 
-function drawStage(ctx, b, foes, party, stage) {
+function drawStage(ctx, b, foes, party, stage, canvasH) {
   if (!stage) return;
   var split = party.length > 1 ? 0.56 : 0.62;
   var foeZone = {
@@ -610,8 +669,19 @@ function drawStage(ctx, b, foes, party, stage) {
     w: Math.max(40, stage.x + stage.w - (foeZone.x + foeZone.w + 12)),
     h: foeZone.h
   };
-  var foeSpots = placeActors(foes, foeZone, "foe");
-  var partySpots = placeActors(party, partyZone, "party");
+  var groundY = Math.round((canvasH || (stage.y + stage.h)) * 0.68);
+  var foeSpots = placeActors(foes, foeZone, "foe", groundY);
+  var partySpots = placeActors(party, partyZone, "party", groundY);
+  if (foeSpots.length && partySpots.length) {
+    var ground = foeSpots[0].feet;
+    var pi;
+    for (pi = 1; pi < foeSpots.length; pi++) if (foeSpots[pi].feet > ground) ground = foeSpots[pi].feet;
+    partySpots.forEach(function (spot) {
+      var delta = ground - spot.feet;
+      spot.feet += delta;
+      spot.hit.y += delta;
+    });
+  }
   var aiming = b.phase === "target";
   var aimFoe = aiming && b.aim !== "ally";
   var aimAlly = aiming && b.aim === "ally";
@@ -649,7 +719,6 @@ function drawStage(ctx, b, foes, party, stage) {
     if (pose === "victory") nudge.y -= 10;
     ctx.save();
     if (!a.alive) ctx.globalAlpha = 0.35;
-    else if (aiming && !aimAlly) ctx.globalAlpha = 0.55;
     drawSprite(ctx, a.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "left");
     ctx.restore();
     if (aimAlly && a.alive) {
@@ -719,15 +788,16 @@ function drawBattleFx(ctx, b, spots) {
   (art.pops || []).forEach(function (pop) {
     var spot = byId[pop.id];
     if (!spot) return;
-    var rise = calm ? 18 : Math.round(42 * p);
+    var rise = calm ? 16 : Math.round(22 + 30 * p);
     var alpha = calm ? 1 : (p > 0.78 ? Math.max(0, 1 - (p - 0.78) / 0.22) : 1);
+    var top = spot.top == null ? spot.y - 96 : spot.top;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = pop.heal ? "#7dffa8" : "#ffd37a";
     ctx.font = "700 28px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillText((pop.heal ? "+" : "") + pop.text, spot.x, bodyY(spot) - 16 - rise);
+    ctx.textBaseline = "bottom";
+    ctx.fillText((pop.heal ? "+" : "") + pop.text, spot.x, top - 18 - rise);
     ctx.restore();
   });
 }
@@ -836,18 +906,20 @@ function drawListPanel(ctx, dock, rows, emptyText, idOf, labelOf) {
   var backH = 48;
   var x = dock.x;
   var btnW = dock.w;
-  var backY = dock.y + dock.h - backH;
   var y = dock.y;
+  var body = rows.length ? rows.length * (btnH + gap) - gap : 36;
+  var backY = y + body + gap;
+  if (backY + backH > dock.y + dock.h) backY = dock.y + dock.h - backH;
   if (!rows.length) {
     ctx.fillStyle = "#f4f7ff";
     ctx.font = "700 16px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(emptyText, x + btnW / 2, y + 28);
+    ctx.fillText(emptyText, x + btnW / 2, y + 18);
   }
   rows.forEach(function (row, i) {
     var cy = y + i * (btnH + gap);
-    if (cy + btnH > backY - 6) return;
+    if (cy + btnH > backY - 4) return;
     button(ctx, x, cy, btnW, btnH, labelOf(row), false, false);
     addHit(idOf(row), x, cy, btnW, btnH);
   });
