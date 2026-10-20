@@ -91,10 +91,56 @@ function paintBg(ctx, id, w, h, t) {
   ctx.drawImage(SF._bgCache[key], 0, 0, w, h);
 }
 
-function drawSprite(ctx, id, x, y, scale, frame) {
+function battlePose(b, actor) {
+  if (!actor.alive) return "hurt";
+  var art = b.art;
+  if (art && (b.phase === "readout" || b.phase === "between")) {
+    if (actor.id === art.id) return art.pose || "attack";
+    if (art.hurt && art.hurt.indexOf(actor.id) >= 0) return "hurt";
+  }
+  return "idle";
+}
+
+function battleFrame(pose) {
+  if (SF.calm && SF.calm()) return 0;
+  var speed = pose === "idle" ? 1.6 : 6;
+  return Math.floor((SF.anim || 0) * speed) % 2;
+}
+
+function spriteScale(actor, count) {
+  var boss = actor.boss || actor.sprite === "cinder_maw" || actor.sprite === "tidewyrm";
+  if (boss) return count > 1 ? 1.6 : 2.2;
+  if (actor.side === "party") return count === 1 ? 3 : 2;
+  return count >= 3 ? 2 : 2.5;
+}
+
+function commandBox(w, h) {
+  var gap = 8;
+  var btnH = h < 700 ? 48 : 56;
+  var btnW = Math.min(380, w - 16);
+  var x = Math.round((w - btnW) / 2);
+  var block = btnH * 3 + gap * 2;
+  return {
+    x: x,
+    y: h - 10 - block,
+    w: btnW,
+    btnH: btnH,
+    gap: gap,
+    colW: Math.floor((btnW - gap) / 2)
+  };
+}
+
+function drawSprite(ctx, id, x, y, scale, pose, facing) {
+  pose = pose || "idle";
+  facing = facing || "right";
   if (window.Art && typeof Art.sprite === "function") {
     try {
-      Art.sprite(ctx, id, x, y, { frame: frame || 0, facing: 1, scale: scale || 1 });
+      Art.sprite(ctx, id, x, y, {
+        pose: pose,
+        frame: battleFrame(pose),
+        facing: facing,
+        scale: scale || 2
+      });
       return;
     } catch (err) { /* fall through */ }
   }
@@ -161,9 +207,8 @@ function button(ctx, x, y, w, h, label, on) {
   if (on) {
     ctx.save();
     ctx.strokeStyle = "#ffd37a";
-    ctx.lineWidth = 3;
-    roundRect(ctx, x + 2, y + 2, w - 4, h - 4, 10);
-    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
     ctx.restore();
   }
   ctx.fillStyle = "#f4f7ff";
@@ -182,8 +227,9 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   ctx.imageSmoothingEnabled = false;
   SF.Battle.hits = [];
   paintBg(ctx, b.bg, w, h, b.t || 0);
-  var top = 28;
-  drawStrip(ctx, b, 12, top, w - 24, 78);
+  var top = 6;
+  var stripH = 54;
+  drawStrip(ctx, b, 8, top, w - 16, stripH);
   if (b.phase === "result") {
     drawResult(ctx, b, w, h);
     return;
@@ -191,18 +237,28 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
   var submenu = b.phase === "skills" || b.phase === "items";
-  drawFoes(ctx, b, foes, w, submenu ? 108 : 118, submenu ? 150 : 250);
-  drawParty(ctx, b, party, w, submenu ? 250 : 360, submenu);
-  if (!submenu) drawLog(ctx, b, 12, h - 24 - 64 * 3 - 16 - 78, w - 24, 70);
+  var box = commandBox(w, h);
+  var gap = 6;
+  var logH = submenu ? 0 : 68;
+  var cardH = submenu ? 0 : (party.length <= 1 ? 92 : 84);
+  var stageTop = top + stripH + 4;
+  var stageBot = submenu ? Math.min(stageTop + 210, box.y - 8) : (box.y - gap - logH - gap - cardH - 4);
+  if (stageBot < stageTop + 120) stageBot = stageTop + 120;
+  drawStage(ctx, b, foes, party, w, stageTop, stageBot);
+  if (!submenu) {
+    drawPartyCards(ctx, b, party, 8, stageBot + 4, w - 16, cardH);
+    drawLog(ctx, b, 8, stageBot + 4 + cardH + gap, w - 16, logH);
+  }
   if (b.phase === "menu" || b.phase === "target") drawCommands(ctx, b, w, h);
-  if (b.phase === "skills") drawSkillList(ctx, b, w, h);
-  if (b.phase === "items") drawItemList(ctx, b, w, h);
+  if (b.phase === "skills") drawSkillList(ctx, b, w, h, stageBot + 8);
+  if (b.phase === "items") drawItemList(ctx, b, w, h, stageBot + 8);
   if (b.phase === "readout") addHit("skip", 0, 0, w, h);
   if (b.phase === "target") {
     ctx.fillStyle = "#ffd37a";
     ctx.font = "700 16px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(b.aim === "ally" ? "Tap an ally." : "Tap a foe.", w / 2, h - 24 - 64 * 3 - 28);
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(b.aim === "ally" ? "Tap an ally." : "Tap a foe.", w / 2, box.y - 8);
   }
 };
 
@@ -210,56 +266,100 @@ function drawStrip(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
   var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
   var n = Math.min(8, order.length || 1);
-  var slot = Math.min(46, Math.floor((w - 16) / 8));
+  var slot = Math.min(44, Math.floor((w - 16) / n));
+  var face = Math.max(22, Math.min(32, slot - 6));
   var i, id, actor, ox;
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.textBaseline = "alphabetic";
   for (i = 0; i < n; i++) {
     id = order[i];
     actor = actorOf(b, id);
     if (!actor) continue;
-    ox = x + 8 + i * slot;
+    ox = x + 10 + i * slot;
     if (i === 0) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 2;
-      ctx.strokeRect(ox, y + 8, slot - 4, slot - 4);
+      ctx.strokeRect(ox - 2, y + 5, face + 4, face + 4);
     }
-    drawPortrait(ctx, actor.sprite, ox + 2, y + 10, slot - 10);
+    drawPortrait(ctx, actor.sprite, ox, y + 7, face);
     ctx.fillStyle = i === 0 ? "#ffd37a" : "#d5def2";
-    ctx.font = "700 12px system-ui, sans-serif";
-    ctx.fillText(actor.name.split(" ")[0].slice(0, 6), ox + (slot - 4) / 2, y + h - 14);
+    ctx.font = "700 10px system-ui, sans-serif";
+    ctx.fillText(actor.name.split(" ")[0].slice(0, 7), ox + face / 2, y + h - 5);
   }
 }
 
-function drawFoes(ctx, b, foes, w, y, height) {
-  var n = foes.length || 1;
-  var gap = w / (n + 1);
-  var boss = foes.some(function (f) { return f.boss; });
+function drawStage(ctx, b, foes, party, w, top, bottom) {
+  var ground = bottom - 2;
+  var nF = Math.max(1, foes.length);
+  var nP = Math.max(1, party.length);
+  var left0 = 16;
+  var left1 = Math.round(w * 0.46);
+  var right0 = Math.round(w * 0.56);
+  var right1 = w - 16;
   foes.forEach(function (f, i) {
-    var x = gap * (i + 1);
-    var scale = boss ? 2.1 : 1.35;
-    var sy = y + (boss ? height * 0.55 : height * 0.45);
+    var span = left1 - left0;
+    var x = nF === 1 ? Math.round(w * 0.26) : Math.round(left0 + span * (i + 0.5) / nF);
+    var scale = spriteScale(f, nF);
+    ctx.save();
     ctx.globalAlpha = f.alive ? 1 : 0.35;
-    drawSprite(ctx, f.sprite, x, sy, scale, 0);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = "#f4f7ff";
-    ctx.font = "700 16px system-ui, sans-serif";
+    drawSprite(ctx, f.sprite, x, ground, scale, battlePose(b, f), "right");
+    ctx.restore();
+    var labelY = Math.max(top + 16, ground - (f.boss ? 108 : 86));
     ctx.textAlign = "center";
-    ctx.fillText(f.name, x, y + 4);
-    bar(ctx, x - 36, y + 16, 72, 8, f.hp / f.maxHp, f.alive ? "#e15b6a" : "#665");
-    ctx.font = "14px system-ui, sans-serif";
-    ctx.fillStyle = "#f4f7ff";
-    ctx.fillText(f.hp + "/" + f.maxHp, x, y + 38);
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#f6f2ea";
+    ctx.font = "700 14px Palatino, Georgia, serif";
+    ctx.fillText(f.name, x, labelY);
+    bar(ctx, x - 34, labelY + 6, 68, 6, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillStyle = "#f6f2ea";
+    ctx.fillText(f.hp + "/" + f.maxHp, x, labelY + 26);
     if (f.revealed && f.weak) {
       ctx.fillStyle = "#ffd37a";
-      ctx.fillText("Weak: " + weakLabel(f.weak), x, y + 56);
+      ctx.fillText("Weak: " + weakLabel(f.weak), x, labelY + 40);
     }
     if (f.core) {
       ctx.fillStyle = "#ffd37a";
-      ctx.font = "700 14px system-ui, sans-serif";
-      ctx.fillText("Core", x, sy + 28);
+      ctx.font = "700 12px system-ui, sans-serif";
+      ctx.fillText("Core", x, labelY + (f.revealed && f.weak ? 54 : 40));
     }
-    if (f.alive) addHit("foe:" + f.id, x - 50, y, 100, height);
+    if (f.alive) addHit("foe:" + f.id, x - span / nF / 2, top, span / nF, bottom - top);
+  });
+  party.forEach(function (a, i) {
+    var span = right1 - right0;
+    var x = nP === 1 ? Math.round(w * 0.74) : Math.round(right0 + span * (i + 0.5) / nP);
+    ctx.save();
+    ctx.globalAlpha = a.alive ? 1 : 0.35;
+    drawSprite(ctx, a.sprite, x, ground, spriteScale(a, nP), battlePose(b, a), "left");
+    ctx.restore();
+  });
+}
+
+function drawPartyCards(ctx, b, party, x, y, w, h) {
+  var n = party.length || 1;
+  var gap = 6;
+  var bw = Math.floor((w - gap * (n - 1)) / n);
+  party.forEach(function (a, i) {
+    var cx = x + i * (bw + gap);
+    artWindow(ctx, cx, y, bw, h);
+    var portrait = Math.min(48, h - 16);
+    drawPortrait(ctx, a.sprite, cx + 10, y + Math.round((h - portrait) / 2), portrait);
+    var textX = cx + portrait + 22;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
+    ctx.font = "700 " + (n === 1 ? 18 : 14) + "px Palatino, Georgia, serif";
+    ctx.fillText(a.name, textX, y + 8);
+    var barW = Math.max(36, cx + bw - 12 - textX);
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.fillStyle = "#d7e6ff";
+    ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 30);
+    bar(ctx, textX, y + 46, barW, 7, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
+    if (h >= 78) {
+      ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 56);
+      bar(ctx, textX, y + h - 14, barW, 6, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
+    }
+    addHit("ally:" + a.id, cx, y, bw, h);
   });
 }
 
@@ -271,47 +371,15 @@ function weakLabel(id) {
   return id;
 }
 
-function drawParty(ctx, b, party, w, y, compact) {
-  var n = party.length || 1;
-  var solo = n === 1;
-  var bw = solo ? Math.min(300, w - 32) : Math.min(124, Math.floor((w - 24) / n) - 8);
-  var total = n * bw + (n - 1) * 8;
-  var x0 = Math.round((w - total) / 2);
-  party.forEach(function (a, i) {
-    var x = x0 + i * (bw + 8);
-    var h = compact ? 78 : 120;
-    var portrait = compact ? 28 : (solo ? 48 : 36);
-    artWindow(ctx, x, y, bw, h);
-    drawPortrait(ctx, a.sprite, x + 10, y + 10, portrait);
-    var textX = solo ? x + portrait + 22 : x + (compact ? 40 : 50);
-    ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f4f7ff";
-    ctx.font = "700 " + (solo ? 20 : 14) + "px system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText(a.name, textX, y + 10);
-    ctx.font = (solo ? 16 : 13) + "px system-ui, sans-serif";
-    ctx.fillStyle = "#d5def2";
-    var barX = solo ? textX : x + 8;
-    var barW = Math.max(48, x + bw - 12 - barX);
-    ctx.fillText("HP " + a.hp + "/" + a.maxHp, barX, y + (compact ? 40 : (solo ? 40 : 52)));
-    bar(ctx, barX, y + (compact ? 60 : (solo ? 62 : 70)), barW, solo ? 10 : 8, a.hp / a.maxHp, "#ef6d7a");
-    if (!compact) {
-      ctx.fillText("SP " + a.sp + "/" + a.maxSp, barX, y + (solo ? 78 : 84));
-      bar(ctx, barX, y + (solo ? 100 : 102), barW, solo ? 10 : 8, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
-    }
-    addHit("ally:" + a.id, x, y, bw, h);
-  });
-}
-
 function drawLog(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
-  var lines = b.log.slice(-3);
-  ctx.fillStyle = "#f4f7ff";
-  ctx.font = "16px system-ui, sans-serif";
+  var lines = b.log.slice(-2);
+  ctx.fillStyle = "#f6f2ea";
+  ctx.font = "15px system-ui, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   lines.forEach(function (line, i) {
-    ctx.fillText(line, x + 12, y + 10 + i * 20);
+    ctx.fillText(line, x + 14, y + 14 + i * 22);
   });
 }
 
@@ -323,32 +391,27 @@ function drawCommands(ctx, b, w, h) {
     ["defend", "Defend"],
     ["flee", b.canFlee ? "Flee" : "Cannot flee"]
   ];
-  var gap = 8;
-  var btnH = h < 700 ? 52 : 64;
-  var btnW = Math.min(380, w - 28);
-  var x = Math.round((w - btnW) / 2);
-  var y = h - 20 - (btnH * 3 + gap * 2);
-  var colW = Math.floor((btnW - gap) / 2);
+  var box = commandBox(w, h);
   var i;
   for (i = 0; i < 4; i++) {
-    var cx = x + (i % 2) * (colW + gap);
-    var cy = y + Math.floor(i / 2) * (btnH + gap);
-    button(ctx, cx, cy, colW, btnH, labels[i][1], b.sel === i);
-    addHit("cmd:" + labels[i][0], cx, cy, colW, btnH);
+    var cx = box.x + (i % 2) * (box.colW + box.gap);
+    var cy = box.y + Math.floor(i / 2) * (box.btnH + box.gap);
+    button(ctx, cx, cy, box.colW, box.btnH, labels[i][1], b.sel === i);
+    addHit("cmd:" + labels[i][0], cx, cy, box.colW, box.btnH);
   }
-  button(ctx, x, y + 2 * (btnH + gap), btnW, btnH, labels[4][1], b.sel === 4);
-  addHit("cmd:flee", x, y + 2 * (btnH + gap), btnW, btnH);
+  button(ctx, box.x, box.y + 2 * (box.btnH + box.gap), box.w, box.btnH, labels[4][1], b.sel === 4);
+  addHit("cmd:flee", box.x, box.y + 2 * (box.btnH + box.gap), box.w, box.btnH);
 }
 
-function drawSkillList(ctx, b, w, h) {
+function drawSkillList(ctx, b, w, h, y0) {
   var actor = actorOf(b, b.actorId);
   var skills = actor ? actor.skills : [];
-  var btnH = 56;
-  var gap = 8;
-  var btnW = Math.min(380, w - 28);
+  var btnH = 48;
+  var gap = 6;
+  var btnW = Math.min(380, w - 16);
   var x = Math.round((w - btnW) / 2);
-  var backY = h - 20 - 64;
-  var y = 340;
+  var backY = h - 10 - 52;
+  var y = y0 || 280;
   skills.forEach(function (id, i) {
     var sk = SF.SKILLS[id];
     if (!sk) return;
@@ -363,23 +426,23 @@ function drawSkillList(ctx, b, w, h) {
     ctx.textAlign = "center";
     ctx.fillText("No skills.", w / 2, y + 20);
   }
-  button(ctx, x, backY, btnW, 64, "Back", false);
-  addHit("back", x, backY, btnW, 64);
+  button(ctx, x, backY, btnW, 52, "Back", false);
+  addHit("back", x, backY, btnW, 52);
 }
 
-function drawItemList(ctx, b, w, h) {
+function drawItemList(ctx, b, w, h, y0) {
   var rows = [];
   var inv = (SF.state && SF.state.inventory) || {};
   Object.keys(inv).forEach(function (id) {
     var it = SF.ITEMS[id];
     if (it && it.kind === "item" && inv[id] > 0) rows.push(it);
   });
-  var btnH = 56;
-  var gap = 8;
-  var btnW = Math.min(380, w - 28);
+  var btnH = 48;
+  var gap = 6;
+  var btnW = Math.min(380, w - 16);
   var x = Math.round((w - btnW) / 2);
-  var backY = h - 20 - 64;
-  var y = 340;
+  var backY = h - 10 - 52;
+  var y = y0 || 280;
   if (!rows.length) {
     ctx.fillStyle = "#f4f7ff";
     ctx.font = "16px system-ui, sans-serif";
@@ -392,8 +455,8 @@ function drawItemList(ctx, b, w, h) {
     button(ctx, x, cy, btnW, btnH, it.name + " x" + (SF.state.inventory[it.id] || 0), false);
     addHit("item:" + it.id, x, cy, btnW, btnH);
   });
-  button(ctx, x, backY, btnW, 64, "Back", false);
-  addHit("back", x, backY, btnW, 64);
+  button(ctx, x, backY, btnW, 52, "Back", false);
+  addHit("back", x, backY, btnW, 52);
 }
 
 function drawResult(ctx, b, w, h) {
@@ -596,6 +659,27 @@ SF.draw = function () {
     return;
   }
   if (baseDraw) baseDraw();
+};
+
+var prevResolve = SF.Battle.resolve;
+SF.Battle.resolve = function (b, actor, action) {
+  var before = {};
+  if (b && b.actors) b.actors.forEach(function (a) { before[a.id] = a.hp; });
+  prevResolve(b, actor, action);
+  var skill = null;
+  if (action && action.skillId) skill = SF.skillById(action.skillId);
+  else if (action && action.type === "skill") skill = SF.skillById("attack");
+  var pose = "attack";
+  if (action && (action.type === "defend" || action.type === "flee")) pose = "idle";
+  else if (skill && (skill.mag || skill.heal || skill.scan || skill.defUp || skill.spdUp)) pose = "cast";
+  else if (action && action.type === "item") pose = "cast";
+  var hurt = [];
+  if (b && b.actors) {
+    b.actors.forEach(function (a) {
+      if (before[a.id] != null && a.hp < before[a.id]) hurt.push(a.id);
+    });
+  }
+  if (b) b.art = { id: actor && actor.id, pose: pose, hurt: hurt };
 };
 
 bindBattlePointer();
