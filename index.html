@@ -68,10 +68,16 @@
       </div>
     </div>
 
-    <div id="dialogue" hidden>
-      <div id="who"></div>
-      <p id="line"></p>
-      <div class="hint">Tap to continue</div>
+    <div id="dialogue" class="scroll" hidden role="dialog" aria-labelledby="who">
+      <div id="dlg-row">
+        <canvas id="dlg-portrait" width="64" height="64" aria-hidden="true"></canvas>
+        <div id="dlg-copy">
+          <div id="who"></div>
+          <p id="line"></p>
+        </div>
+      </div>
+      <div id="dlg-choices"></div>
+      <div class="hint" id="dlg-hint">Tap to continue</div>
     </div>
 
     <button id="skip" type="button" hidden>Tap to skip</button>
@@ -126,6 +132,9 @@
   </div>
 
   <script src="js/data.js"></script>
+  <script src="js/content/dialogue/emberhold.js"></script>
+  <script src="js/content/dialogue/cinderveil.js"></script>
+  <script src="js/dialogue.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/save.js"></script>
   <script src="js/sim.js"></script>

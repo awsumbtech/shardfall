@@ -11,7 +11,15 @@ context.localStorage = {
   removeItem: (k) => store.delete(k)
 };
 vm.createContext(context);
-for (const file of ["js/data.js", "js/audio.js", "js/save.js", "js/sim.js"]) {
+for (const file of [
+  "js/data.js",
+  "js/content/dialogue/emberhold.js",
+  "js/content/dialogue/cinderveil.js",
+  "js/dialogue.js",
+  "js/audio.js",
+  "js/save.js",
+  "js/sim.js"
+]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
 
@@ -42,6 +50,8 @@ s.player.y = 24;
 s.player.safeX = 12;
 s.player.safeY = 24;
 s.flags.kestrelHint = true;
+s.flags.cantor_choice = "refuse";
+s.flags.asked_maren = "hand";
 s.enemies[0].alive = false;
 s.enemies[0].hp = 0;
 const encoded = JSON.parse(JSON.stringify(SF.exportState(s)));
@@ -52,6 +62,10 @@ if (!SF.applySave(restored, encoded)) {
 }
 if (restored.quest !== "gather" || restored.shardsHeld !== 4 || restored.flags.kestrelHint !== true) {
   console.error("save fields did not round-trip", restored.quest, restored.shardsHeld);
+  process.exit(1);
+}
+if (restored.flags.cantor_choice !== "refuse" || restored.flags.asked_maren !== "hand") {
+  console.error("dialogue flags did not round-trip", restored.flags.cantor_choice, restored.flags.asked_maren);
   process.exit(1);
 }
 if (Math.abs(restored.player.x - 12) > 0.01 || restored.enemies[0].alive !== false) {
@@ -104,13 +118,20 @@ if (talk.mode !== "dialogue" || talk.dialogue.speaker !== "Old Maren") {
   process.exit(1);
 }
 let guard = 0;
-while (talk.mode === "dialogue" && guard < 12) {
+while (talk.mode === "dialogue" && guard < 24) {
   talk.dialogue.lock = 0;
-  SF.advanceDialogue();
+  if (talk.dialogue.phase === "choice") {
+    const hand = talk.dialogue.choices.findIndex((c) => c.setFlags && c.setFlags.asked_maren === "hand");
+    if (hand < 0) {
+      console.error("Maren did not offer the hand question");
+      process.exit(1);
+    }
+    SF.chooseDialogue(hand);
+  } else SF.advanceDialogue();
   guard += 1;
 }
-if (talk.quest !== "gather" || !talk.flags.metMaren) {
-  console.error("quest did not start", talk.quest);
+if (talk.quest !== "gather" || !talk.flags.metMaren || talk.flags.asked_maren !== "hand") {
+  console.error("quest did not start", talk.quest, talk.flags);
   process.exit(1);
 }
 
@@ -220,6 +241,133 @@ SF.collectPickup({ id: "shard-meadow", kind: "shard", x: 55, y: -40 });
 const banner = shard.banner || shard.banners[0];
 if (!banner || banner.title.indexOf("1 of 5") < 0) {
   console.error("shard pickup was quiet", banner);
+  process.exit(1);
+}
+
+const required = {
+  "emberhold.maren.intro": null,
+  "emberhold.maren.waiting": null,
+  "emberhold.maren.lamp_lit": "quest_lamp_done",
+  "emberhold.kestrel.offer_sail": "open_sail_menu",
+  "cinderveil.kestrel.arrive": null,
+  "cinderveil.tamsin.cogs_start": "quest_cogs_start",
+  "cinderveil.tamsin.cogs_waiting": null,
+  "cinderveil.tamsin.grapple_gift": "grant_grapple",
+  "cinderveil.hesk.rumor": null,
+  "cinderveil.ilsa.trial": "vault_open",
+  "cinderveil.maw.prefight": "boss_start",
+  "cinderveil.maw.defeated": null,
+  "cinderveil.lamp.relit": "quest_cinder_lamp_done",
+  "cinderveil.cantor.confront": "act1_end"
+};
+for (const [id, onEnd] of Object.entries(required)) {
+  const node = SF.dialogueNodes[id];
+  if (!node || !node.speaker || !node.lines || !node.lines.length) {
+    console.error("missing dialogue node", id);
+    process.exit(1);
+  }
+  if (onEnd && node.onEnd !== onEnd) {
+    console.error("onEnd mismatch", id, node.onEnd);
+    process.exit(1);
+  }
+}
+const cantorChoices = SF.dialogueNodes["cinderveil.cantor.confront"].choices.map((c) => c.setFlags.cantor_choice);
+if (cantorChoices.join(",") !== "spare,listen,refuse") {
+  console.error("cantor choices", cantorChoices);
+  process.exit(1);
+}
+const script = fs.readFileSync("docs/script/act1.md", "utf8");
+for (const node of Object.values(SF.dialogueNodes)) {
+  for (const line of node.lines) {
+    if (!script.includes(line)) {
+      console.error("script missing line from", node.id, line);
+      process.exit(1);
+    }
+  }
+  for (const choice of node.choices || []) {
+    if (!script.includes(choice.text)) {
+      console.error("script missing choice from", node.id, choice.text);
+      process.exit(1);
+    }
+  }
+}
+
+const unknown = freshPlay();
+SF.startDialogue("no.such.line");
+if (unknown.mode !== "dialogue" || unknown.dialogue.lines.length !== 1) {
+  console.error("unknown id did not placeholder");
+  process.exit(1);
+}
+unknown.dialogue.lock = 0;
+SF.advanceDialogue();
+if (unknown.mode !== "play") {
+  console.error("placeholder did not close");
+  process.exit(1);
+}
+SF.startDialogue(null);
+if (!SF.state.dialogue) {
+  console.error("null id crashed");
+  process.exit(1);
+}
+
+const ending = freshPlay();
+SF.startDialogue("cinderveil.cantor.confront");
+guard = 0;
+while (ending.mode === "dialogue" && guard < 30) {
+  ending.dialogue.lock = 0;
+  if (ending.dialogue.phase === "choice") {
+    const listen = ending.dialogue.choices.findIndex((c) => c.setFlags && c.setFlags.cantor_choice === "listen");
+    SF.chooseDialogue(listen);
+  } else SF.advanceDialogue();
+  guard += 1;
+}
+if (ending.flags.cantor_choice !== "listen" || ending.mode !== "play") {
+  console.error("cantor choice did not land", ending.flags.cantor_choice, ending.mode);
+  process.exit(1);
+}
+SF.saveGame({ silent: true });
+const kept = SF.readSave();
+if (!kept || kept.flags.cantor_choice !== "listen") {
+  console.error("cantor choice did not save");
+  process.exit(1);
+}
+
+const thanks = freshPlay();
+thanks.flags.lampLit = true;
+thanks.flags.asked_maren = "hush";
+SF.startDialogue("emberhold.maren.lamp_lit");
+guard = 0;
+while (thanks.mode === "dialogue" && thanks.dialogue.phase !== "choice" && guard < 12) {
+  thanks.dialogue.lock = 0;
+  SF.advanceDialogue();
+  guard += 1;
+}
+const thankText = thanks.dialogue.choices.map((c) => c.text).join(" | ");
+if (!thankText.includes("tide") || thankText.includes("longer step")) {
+  console.error("lamp thanks ignored the hush flag", thankText);
+  process.exit(1);
+}
+
+const sail = freshPlay();
+sail.flags.lampLit = true;
+sail.quest = "stirring";
+sail.player.x = SF.NPCS[1].x;
+sail.player.y = SF.NPCS[1].y;
+SF.tryInteract();
+guard = 0;
+while (sail.mode === "dialogue" && guard < 24) {
+  sail.dialogue.lock = 0;
+  if (sail.dialogue.phase === "choice") SF.chooseDialogue(0);
+  else SF.advanceDialogue();
+  guard += 1;
+}
+if (sail.quest !== "hooked" || !sail.flags.kestrelAfter || sail.flags.sail_answer !== "yes") {
+  console.error("sail offer did not hook the quest", sail.quest, sail.flags);
+  process.exit(1);
+}
+
+if (typeof context.startDialogue !== "function") {
+  console.error("startDialogue is not global");
   process.exit(1);
 }
 

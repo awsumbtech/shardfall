@@ -65,7 +65,7 @@ v0.1 is one drift, three bits of land you can walk, and one name you cannot sail
 
 **Whisper Hollow** is west of Maren's grove, along a narrower ledge. It is on the map as land, and easy to walk past. The air there is blue. The Cantor stands in it and does not fight. A heartblossom grows off to the side.
 
-**Cinderveil** is not in this build. Kestrel's name for a tear in the west, under the bright fracture. The lamp on Emberhold has to be lit before he will call the wind real. The hull is not ready. Leaving is a v0.2 problem.
+**Cinderveil** is not a place you can walk in this build. Kestrel's name for a tear in the west, under the bright fracture: ash-grey and ember-orange, with Lowmoor Quay, the Ashfields, and the Ember Vault. The lamp on Emberhold has to be lit before he will offer the wind. Act 1's words — the crossing, Tamsin, Hesk, Ilsa, the Cinder Maw, and the Cantor's Spare / Listen / Refuse — live in `docs/script/act1.md`. The island's playable geography is a separate change.
 
 ### Factions
 
@@ -81,7 +81,7 @@ v0.1 is one drift, three bits of land you can walk, and one name you cannot sail
 
 **Old Maren** keeps Emberhold's great lamp. Lanternwright. Short sentences, warm hands, no patience for being handed the shards. She wants the Wayfarer to set them on the plinth. Talk to her and she mends you to full heart. She is the quest, the heal, and the thank-you.
 
-**Kestrel Vane** is a Driftborn sky-sailor. Teal coat, yellow scarf, goggles he does not take off for conversation. He talks about the Quickmercy as if she argues back. He will not sail while the lamp is holding its breath. He is the one who tells you to dash the span, and to look behind the stones. After the lamp, he names Cinderveil and refuses to cast off today.
+**Kestrel Vane** is a Driftborn sky-sailor. Teal coat, yellow scarf, goggles he does not take off for conversation. He talks about the Quickmercy as if she argues back. He will not sail while the lamp is holding its breath. He is the one who tells you to dash the span, and to look behind the stones. After the lamp, he names Cinderveil and offers the crossing. What you answer is remembered the next time you talk to him on the dock.
 
 **The Cantor** is the masked voice of the Hollow Choir. Tall, gold hem, no feet worth mentioning. They admire the patches on the Quickmercy and will not wait on the dock. Finding them is optional. They do not join the quest and they do not attack. They are a promise that the Choir is a faction, not a monster type.
 
@@ -145,13 +145,13 @@ One quest: **relight Emberhold's lamp.**
 1. **Awaken.** The tracker says "Talk to Old Maren, up the hill." A gold arrow at your feet, a marker on her, and an edge arrow when she is offscreen all point the same way. Talking to her moves the quest to Gather. You can ignore her, collect five, and light the lamp anyway. She has a different thank-you if you do.
 2. **Gather.** The tracker counts, "Find 5 sky-shards (2/5)". The marker prefers the nearest ground shard it is willing to spoil, then a Hushborn that drops one. The alcove shard stays hidden until you have seen Cinderstep or heard Kestrel. At five it changes to "Bring them to the lamp — Place shards."
 3. **Light.** With five or more, Place shards on the lamp plays a short lighting. You can skip it. The lamp catches, five shards are spent, wisps come apart, heavier Hushborn crack, and Shardstep awakens. The tracker points at Kestrel: "Talk to Kestrel on Vane's Perch."
-4. **The hook.** Kestrel, after the lamp, names Cinderveil and will not leave today. The tracker then reads: "Cinderveil waits. Kestrel will sail later." The arrow goes away.
+4. **The hook.** Kestrel, after the lamp, names Cinderveil and offers the Quickmercy. The offer ends by dispatching `open_sail_menu`. Until the crossing itself is playable, the tracker still reads: "Cinderveil waits. Kestrel will sail later." The arrow goes away.
 
 The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Strike when a core is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
 
 The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without him.
 
-Dialogue is a bottom panel. Tap, E, Enter, or Space advances it. Nothing hunts you while you are reading, paused, or watching the lamp catch.
+Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or two sentences. Tap, E, Enter, or Space finishes a line that is still arriving, then advances. With Reduce flashing on, or when the system asks for less motion, the line arrives whole and the caret does not blink. Choices are large buttons. A choice can set `state.flags`, and a later choice can require those flags. Flags are saved with the journey. When a conversation closes, each node's `onEnd` is dispatched in order (`SF.onDialogueEvent`, or the window event `sf:dialogue`) so gameplay can hook it. `startDialogue(id)` starts a node. An unknown id plays one placeholder line and does not throw. The Act 1 script is `docs/script/act1.md`; the nodes are `js/content/dialogue/`. Nothing hunts you while you are reading, paused, or watching the lamp catch.
 
 ### Save
 
@@ -234,7 +234,7 @@ These are for Brian. v0.1 picked an answer so the build could exist. None of the
 4. **The Cantor.** Rival, tragic ally, or a third route you can actually walk in v0.4. v0.1 only promises that they are polite and that they are not done.
 5. **Art.** Stay procedural, which keeps the game a single folder with no assets, or move to drawn sprites once the islands multiply.
 6. **The hand.** One gift at a time (dash, then grapple), or a small build you spend shards on. v0.1 is one gift. v0.2's note above leans toward a few choices. Worth deciding before those choices exist.
-7. **How much they talk.** Maren and Kestrel are short on purpose. If he wants them chattier, the dialogue panel already supports more lines.
+7. **How much they talk.** Act 1 is a full script now, still one or two sentences a box. If a scene runs long on the phone, cut a line before adding one.
 8. **Sound.** On after the first tap, quiet, and easy to mute. It can default to muted if the phone speaker is the wrong call.
 
 ## Tinkering
@@ -243,7 +243,9 @@ Code map, if a section above needs a change:
 
 | | |
 | --- | --- |
-| `js/data.js` | Island shape, spawns, dialogue, colors of the rules |
+| `js/data.js` | Island shape, spawns, colors of the rules |
+| `js/content/dialogue/` | Act 1's lines, as data |
+| `js/dialogue.js` | The conversation panel, portraits, choices, flags |
 | `js/sim.js` | Movement, combat, quest, the dash gap's actual behavior |
 | `js/draw.js` | How the drift looks |
 | `js/ui.js`, `css/style.css` | Buttons, panels, safe areas |
