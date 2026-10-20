@@ -1,0 +1,640 @@
+"use strict";
+
+var SF = window.SF || {};
+window.SF = SF;
+
+// Cinderveil sits in its own coordinates. Emberhold's objects are captured
+// here, before any island swap, so travel can put them back.
+SF.ISLANDS = {
+  emberhold: {
+    wake: SF.WAKE,
+    lamp: SF.LAMP,
+    walk: SF.WALK,
+    npcs: SF.NPCS,
+    texts: SF.TEXTS,
+    pickups: SF.PICKUPS,
+    spawns: SF.SPAWNS,
+    props: SF.PROPS,
+    paths: SF.PATHS,
+    hooks: [],
+    extras: []
+  }
+};
+
+SF.DOCKS = {
+  emberhold: { x: 16, y: 470 },
+  cinderveil: { x: 20, y: 90 }
+};
+
+SF.ISLANDS.cinderveil = {
+  wake: { x: 20, y: 90 },
+  lamp: { x: 1450, y: -20 },
+  walk: {
+    circles: [
+      { id: "quay", name: "Lowmoor Quay", group: "quay", x: 0, y: 0, r: 160 },
+      { id: "workshop", name: "Tamsin's Workshop", group: "quay", x: -120, y: -70, r: 64 },
+      { id: "ash-link", name: "The Ashfields", group: "ash", x: 180, y: 20, r: 70 },
+      { id: "ash", name: "The Ashfields", group: "ash", x: 360, y: 20, r: 160 },
+      { id: "ashnook", name: "The Cold Nook", group: "ash", x: 360, y: -170, r: 52 },
+      { id: "ash-lip", name: "The Ashfields", group: "ash", x: 560, y: 40, r: 72 },
+      { id: "vault-lip", name: "Ember Vault", group: "vault", x: 840, y: 40, r: 64 },
+      { id: "vault-yard", name: "Ember Vault", group: "vault", x: 980, y: 20, r: 120 },
+      { id: "vault-heart", name: "The Ember Vault", group: "vault", x: 1380, y: 20, r: 150 }
+    ],
+    rects: []
+  },
+  npcs: [
+    { id: "kestrel", name: "Kestrel Vane", x: -10, y: 120 },
+    { id: "tamsin", name: "Tamsin Reed", x: -110, y: -50 },
+    { id: "hesk", name: "Brother Hesk", x: 80, y: 50 },
+    { id: "ilsa", name: "Warden Ilsa", x: 900, y: 60 },
+    { id: "cantor", name: "The Cantor", x: 1340, y: 90, when: "cinderLit" }
+  ],
+  texts: [
+    { id: "quay-sign", x: 70, y: -20, speaker: "Lowmoor Sign", node: "inspect.lowmoor_sign" },
+    { id: "quay-bell", x: 40, y: -50, speaker: "Quay Bell", node: "inspect.quay_bell" },
+    { id: "ash-path", x: 300, y: 70, speaker: "Ember Path", node: "inspect.ember_path" },
+    { id: "hesk-crate", x: 110, y: 70, speaker: "Choir Crate", node: "inspect.choir_crate" },
+    { id: "ilsa-order", x: 860, y: 80, speaker: "Ilsa's Order", node: "inspect.ilsa_order" },
+    { id: "vault-seal", x: 1250, y: 20, speaker: "Vault Seal", node: "inspect.vault_seal" },
+    { id: "maw-mouth", x: 1320, y: 20, speaker: "The Cinder Maw", node: "cinderveil.maw.prefight" },
+    { id: "maw-tooth", x: 1280, y: -40, speaker: "Maw Tooth", node: "inspect.maw_tooth" }
+  ],
+  pickups: [
+    { id: "cog-link", kind: "cog", x: 200, y: 40 },
+    { id: "cog-ash", kind: "cog", x: 400, y: -30 },
+    { id: "cog-lip", kind: "cog", x: 500, y: 70 },
+    { id: "shard-workshop", kind: "shard", x: -130, y: -30 },
+    { id: "shard-ash-nook", kind: "shard", x: 360, y: -180, secret: true },
+    { id: "bloom-ash-nook", kind: "bloom", x: 390, y: -160, secret: true }
+  ],
+  spawns: [
+    { id: "ashmite-west", kind: "ashmite", x: 320, y: 80 },
+    { id: "ashmite-north", kind: "ashmite", x: 430, y: -60 },
+    { id: "soot-east", kind: "sootwing", x: 450, y: 90 },
+    { id: "brute-cog", kind: "cinderbrute", x: 470, y: 10 },
+    { id: "brute-yard", kind: "cinderbrute", x: 1020, y: -20 },
+    { id: "maw", kind: "maw", x: 1380, y: 20, dormant: true }
+  ],
+  props: [
+    { kind: "airship", x: -50, y: 155 },
+    { kind: "cottage", x: -140, y: -95 },
+    { kind: "rock", x: 250, y: 50, s: 1 },
+    { kind: "rock", x: 520, y: 20, s: 1.1 },
+    { kind: "rock", x: 800, y: 55, s: 0.8 },
+    { kind: "stones", x: 1080, y: 50, s: 0.9 },
+    { kind: "stake", x: 60, y: 20 },
+    { kind: "stake", x: 860, y: 20 },
+    { kind: "flower", x: -20, y: 40, c: "#e7a070" },
+    { kind: "flower", x: 140, y: -20, c: "#c8beb4" },
+    { kind: "ruin", x: 1100, y: -10 }
+  ],
+  paths: [
+    [20, 90, 180, 20, 360, 20, 540, 40],
+    [20, 40, -80, -20]
+  ],
+  hooks: [
+    { id: "ash-post", x: 620, y: 40 },
+    { id: "vault-post", x: 790, y: 40 },
+    { id: "yard-post", x: 1080, y: 20, needs: "vault" },
+    { id: "heart-post", x: 1250, y: 20, needs: "vault" }
+  ],
+  extras: [
+    { id: "bench", kind: "bench", name: "Tamsin's bench", x: -80, y: -20, node: "inspect.tamsin_bench" },
+    { id: "vault-stone", kind: "checkpoint", name: "the vault stone", x: 1080, y: 40 }
+  ]
+};
+
+SF.islandId = "emberhold";
+SF.HOOKS = [];
+SF.EXTRAS = [];
+
+SF.mountIsland = function (id) {
+  var pack = SF.ISLANDS[id] || SF.ISLANDS.emberhold;
+  SF.islandId = pack === SF.ISLANDS.cinderveil ? "cinderveil" : "emberhold";
+  SF.WAKE = pack.wake;
+  SF.LAMP = pack.lamp;
+  SF.WALK = pack.walk;
+  SF.NPCS = pack.npcs;
+  SF.TEXTS = pack.texts;
+  SF.PICKUPS = pack.pickups;
+  SF.SPAWNS = pack.spawns;
+  SF.PROPS = pack.props;
+  SF.PATHS = pack.paths;
+  SF.HOOKS = pack.hooks || [];
+  SF.EXTRAS = pack.extras || [];
+  if (SF.buildWorld) SF.buildWorld();
+};
+
+SF.npcHidden = function (n) {
+  if (!n || !n.when) return false;
+  return !(SF.state && SF.state.flags && SF.state.flags[n.when]);
+};
+
+SF.npcById = function (id) {
+  var i;
+  for (i = 0; i < SF.NPCS.length; i++) if (SF.NPCS[i].id === id) return SF.NPCS[i];
+  return null;
+};
+
+SF.lampIsLit = function (s) {
+  if (SF.islandId === "cinderveil") return !!(s && s.flags && s.flags.cinderLit);
+  return !!(s && s.flags && s.flags.lampLit);
+};
+
+SF.hookLive = function (hook) {
+  if (!hook) return false;
+  if (hook.needs === "vault") return !!(SF.state && SF.state.flags && SF.state.flags.vaultOpen);
+  return true;
+};
+
+SF.snapshotEnemies = function () {
+  var s = SF.state;
+  if (!s) return;
+  if (!s.enemySave) s.enemySave = {};
+  s.enemySave[SF.islandId] = s.enemies.map(function (e) {
+    return { id: e.id, alive: e.alive && e.dying <= 0, hp: e.hp, dormant: !!e.dormant };
+  });
+};
+
+SF.loadEnemies = function () {
+  var s = SF.state;
+  var made = SF.makeEnemies();
+  var saved = (s.enemySave && s.enemySave[SF.islandId]) || [];
+  var byId = {};
+  saved.forEach(function (e) { byId[e.id] = e; });
+  made.forEach(function (e) {
+    var row = byId[e.id];
+    if (!row) return;
+    e.alive = !!row.alive;
+    e.hp = row.alive ? row.hp : 0;
+    if (row.dormant != null && e.kind === "maw" && !s.flags.mawFight) e.dormant = !!row.dormant;
+  });
+  if (s.flags && s.flags.mawDead) {
+    made.forEach(function (e) {
+      if (e.kind === "maw") {
+        e.alive = false;
+        e.hp = 0;
+        e.dormant = false;
+      }
+    });
+  }
+  s.enemies = made;
+  s.projectiles = [];
+  s.pools = [];
+};
+
+SF.travelTo = function (island) {
+  var s = SF.state;
+  if (!s || !SF.ISLANDS[island]) return;
+  if (SF.islandId === island) {
+    s.mode = "play";
+    return;
+  }
+  SF.snapshotEnemies();
+  s.island = island;
+  SF.mountIsland(island);
+  SF.loadEnemies();
+  var dock = SF.DOCKS[island];
+  s.player.x = dock.x;
+  s.player.y = dock.y;
+  s.player.safeX = dock.x;
+  s.player.safeY = dock.y;
+  s.player.px = dock.x;
+  s.player.py = dock.y;
+  s.player.fall = 0;
+  s.player.dashT = 0;
+  s.player.grappleT = 0;
+  s.camX = dock.x;
+  s.camY = dock.y;
+  s.mode = "play";
+  s.voyage = null;
+  s.voyageTalk = false;
+  s.pendingTalk = null;
+  SF.pushBanner(island === "cinderveil" ? "Cinderveil" : "Emberhold", island === "cinderveil" ? "Lowmoor Quay takes the line." : "Emberhold, under the old lamp.", 2.4);
+  if (SF.cuePlaceMusic) SF.cuePlaceMusic(s);
+  SF.saveGame({ silent: true });
+};
+
+SF.openSailMenu = function () {
+  var s = SF.state;
+  if (!s) return;
+  if (!s.flags.sailUnlocked) {
+    SF.pushToast("The hull is not ready for Cinderveil. Light Emberhold's lamp first.", 2.4);
+    return;
+  }
+  SF.releaseHolds();
+  s.mode = "sailmenu";
+};
+
+SF.startVoyage = function (island) {
+  var s = SF.state;
+  if (!s || !SF.ISLANDS[island]) return;
+  if (SF.islandId === island) {
+    s.mode = "play";
+    SF.pushToast("You are already on this island.", 1.6);
+    return;
+  }
+  if (island === "cinderveil" && !s.flags.sailUnlocked) return;
+  if (window.Music) Music.play("sail");
+  if (window.Sfx) Sfx.play("whoosh");
+  if (island === "cinderveil" && !s.flags.metCinderKestrel && SF.startDialogue) {
+    s.voyage = { t: 0, to: island, from: SF.islandId, talk: true };
+    s.voyageTalk = true;
+    SF.startDialogue("cinderveil.sail.depart");
+    return;
+  }
+  s.voyageTalk = false;
+  s.voyage = { t: 0, to: island, from: SF.islandId };
+  s.mode = "voyage";
+};
+
+SF.cuePlaceMusic = function (s) {
+  if (!window.Music) return;
+  s = s || SF.state;
+  if (s && s.flags && s.flags.mawFight && !s.flags.mawDead) {
+    Music.play("boss");
+    return;
+  }
+  if (s && (s.mode === "voyage" || s.voyageTalk)) {
+    Music.play("sail");
+    return;
+  }
+  Music.play(SF.islandId === "cinderveil" ? "cinderveil" : "emberhold");
+};
+
+SF.updateVoyage = function (dt) {
+  var s = SF.state;
+  if (!s.voyage) return;
+  s.voyage.t += dt;
+  if (s.voyage.t > 3.2) SF.finishVoyage();
+};
+
+SF.finishVoyage = function () {
+  var s = SF.state;
+  if (!s.voyage || s.voyage.talk) return;
+  var to = s.voyage.to;
+  SF.travelTo(to);
+};
+
+SF.setCheckpoint = function (x, y) {
+  var s = SF.state;
+  s.checkpoint = { x: x, y: y, island: SF.islandId };
+  SF.pushToast("Checkpoint. The vault stone has you.", 2.2);
+  SF.saveGame({ silent: true });
+};
+
+SF.openHand = function () {
+  var s = SF.state;
+  if (!s) return;
+  if (!s.flags.lampLit && !s.player.grapple) {
+    SF.pushToast("The hand has nothing spare to spend yet.", 1.8);
+    return;
+  }
+  SF.releaseHolds();
+  s.pausedFrom = "play";
+  s.mode = "hand";
+};
+
+SF.closeHand = function () {
+  var s = SF.state;
+  if (!s || s.mode !== "hand") return;
+  s.mode = "play";
+};
+
+SF.buyUpgrade = function (id) {
+  var s = SF.state;
+  var def = null;
+  SF.HAND_UPGRADES.forEach(function (u) { if (u.id === id) def = u; });
+  if (!def || !s) return;
+  if (s.upgrades[id]) return;
+  if (def.needs === "grapple" && !s.player.grapple) {
+    SF.pushToast("The hook is not fitted yet.", 1.6);
+    return;
+  }
+  if (def.needs === "shardstep" && !s.player.shardstep) {
+    SF.pushToast("Shardstep has to wake first.", 1.6);
+    return;
+  }
+  if (s.shardsHeld < def.cost) {
+    SF.pushToast("Not enough spare shards.", 1.6);
+    return;
+  }
+  s.shardsHeld -= def.cost;
+  s.upgrades[id] = true;
+  if (id === "brightedge") s.player.atk += 3;
+  if (id === "deepheart") {
+    s.player.maxHp += 14;
+    s.player.hp += 14;
+  }
+  SF.pushToast(def.name + " settles into the hand.", 1.8);
+  SF.saveGame({ silent: true });
+};
+
+SF.noteZone = function (zone) {
+  var s = SF.state;
+  if (!s || !zone) return;
+  if (zone.id === "ashnook") s.discovered.ashnook = true;
+  if (zone.id === "vault-heart" && s.flags.vaultOpen && s.quest === "trial") s.quest = "seal";
+};
+
+SF.cinderQuestText = function (s) {
+  var q = s.quest;
+  var here = SF.islandId;
+  if (q === "hooked") q = "sail";
+  if ((q === "road" || q === "sail") && here !== "emberhold" && q === "road") {
+    return "Sail back to Emberhold. Kestrel is at the skiff.";
+  }
+  if (q === "road") return "Talk to Kestrel. The skiff can sail.";
+  if (q === "sail") {
+    if (here === "cinderveil") return "You made the crossing. Talk to Tamsin Reed.";
+    return "Sail to Cinderveil.";
+  }
+  if (q === "quay" || q === "cogs" || q === "vault" || q === "trial" || q === "seal" || q === "maw" || q === "relight" || q === "cantor" || q === "act1") {
+    if (here !== "cinderveil") return "Sail to Cinderveil. Kestrel has the line.";
+  }
+  if (q === "quay") return "Talk to Tamsin Reed at Lowmoor Quay.";
+  if (q === "cogs") {
+    var n = s.cogs || 0;
+    if (n >= 3) return "Bring 3 cogs to Tamsin (3/3).";
+    return "Find 3 cogs in the Ashfields (" + n + "/3).";
+  }
+  if (q === "vault") return "Grapple across to the Ember Vault.";
+  if (q === "trial") return s.flags.vaultOpen ? "Grapple Ilsa's gap, into the vault." : "Talk to Warden Ilsa.";
+  if (q === "seal") return "Speak to the Cinder Maw.";
+  if (q === "maw") return "Face the Cinder Maw.";
+  if (q === "relight") {
+    var need = SF.CINDER_SHARDS || 3;
+    var held = s.shardsHeld || 0;
+    return "Place " + need + " shards on the hurt core (" + held + "/" + need + ").";
+  }
+  if (q === "cantor") return "The Cantor is here. Spare, Listen, or Refuse.";
+  if (q === "act1") {
+    var choice = s.flags.cantor_choice || "your choice";
+    return "Act 1 rests. You chose " + choice + ".";
+  }
+  return null;
+};
+
+SF.cinderObjective = function (s) {
+  if (!s) return undefined;
+  var q = s.quest === "hooked" ? "sail" : s.quest;
+  var emberSteps = { awaken: 1, gather: 1, stirring: 1 };
+  if (emberSteps[q]) return undefined;
+  if (q === "act1") return null;
+  if ((q === "road" || q === "sail" || q === "quay" || q === "cogs" || q === "vault" || q === "trial" || q === "seal" || q === "maw" || q === "relight" || q === "cantor") && SF.questIsland(q) !== SF.islandId) {
+    var boat = SF.npcById("kestrel");
+    return boat ? { x: boat.x, y: boat.y } : { x: SF.DOCKS[SF.islandId].x, y: SF.DOCKS[SF.islandId].y };
+  }
+  if (q === "road" || q === "sail") {
+    var k = SF.npcById("kestrel");
+    return k ? { x: k.x, y: k.y } : undefined;
+  }
+  if (q === "quay") {
+    var t = SF.npcById("tamsin");
+    return t ? { x: t.x, y: t.y } : undefined;
+  }
+  if (q === "cogs") {
+    if ((s.cogs || 0) >= 3) {
+      var back = SF.npcById("tamsin");
+      return back ? { x: back.x, y: back.y } : undefined;
+    }
+    var best = null;
+    var bestD = Infinity;
+    SF.activePickups().forEach(function (item) {
+      if (item.kind !== "cog") return;
+      var d = SF.dist(s.player.x, s.player.y, item.x, item.y);
+      if (d < bestD) {
+        bestD = d;
+        best = item;
+      }
+    });
+    if (best) return { x: best.x, y: best.y };
+    var tamsin = SF.npcById("tamsin");
+    return tamsin ? { x: tamsin.x, y: tamsin.y } : undefined;
+  }
+  if (q === "vault" || (q === "trial" && !s.flags.vaultOpen)) {
+    var ilsa = SF.npcById("ilsa");
+    return ilsa ? { x: ilsa.x, y: ilsa.y } : undefined;
+  }
+  if (q === "trial") return { x: 1250, y: 20 };
+  if (q === "seal") return { x: 1320, y: 20 };
+  if (q === "maw") return { x: 1380, y: 20 };
+  if (q === "relight") return { x: SF.LAMP.x, y: SF.LAMP.y };
+  if (q === "cantor") {
+    var c = SF.npcById("cantor");
+    return c ? { x: c.x, y: c.y } : { x: 1340, y: 90 };
+  }
+  return undefined;
+};
+
+SF.questIsland = function (q) {
+  if (q === "road" || q === "sail") return "emberhold";
+  if (q === "quay" || q === "cogs" || q === "vault" || q === "trial" || q === "seal" || q === "maw" || q === "relight" || q === "cantor") return "cinderveil";
+  return SF.islandId;
+};
+
+SF.auditCinder = function () {
+  var issues = [];
+  var prev = SF.islandId;
+  SF.mountIsland("cinderveil");
+  function check(label, x, y) {
+    if (!SF.walkable(x, y)) issues.push(label + " not walkable (" + x + "," + y + ")");
+  }
+  check("dock", SF.DOCKS.cinderveil.x, SF.DOCKS.cinderveil.y);
+  SF.NPCS.forEach(function (n) { if (!n.when) check(n.id, n.x, n.y); });
+  SF.PICKUPS.forEach(function (p) { check(p.id, p.x, p.y); });
+  SF.HOOKS.forEach(function (h) { check(h.id, h.x, h.y); });
+  check("cantor spot", 1340, 90);
+  check("lamp", SF.LAMP.x, SF.LAMP.y);
+  SF.samplePath("quay to cogs", [
+    SF.DOCKS.cinderveil,
+    { x: 180, y: 20 },
+    { x: 200, y: 40 },
+    { x: 360, y: 20 },
+    { x: 400, y: -30 },
+    { x: 500, y: 70 },
+    { x: 620, y: 40 }
+  ], issues);
+  SF.samplePath("vault yard", [
+    { x: 790, y: 40 },
+    { x: 900, y: 60 },
+    { x: 1080, y: 20 }
+  ], issues);
+  if (SF.walkable(700, 40)) issues.push("the ash gap can be walked");
+  if (SF.walkable(1160, 20)) issues.push("Ilsa's gap can be walked");
+  var dash = SF.DASH_SPEED * SF.DASH_TIME;
+  if (SF.dist(620, 40, 790, 40) > 230) issues.push("first hook is out of grapple range");
+  if (SF.dist(620, 40, 790, 40) < dash) issues.push("first gap is short enough to dash");
+  if (SF.dist(1080, 20, 1250, 20) > 230) issues.push("vault hook is out of grapple range");
+  if (SF.dist(1080, 20, 1250, 20) < dash) issues.push("Ilsa's gap is short enough to dash");
+  var yardBrute = null;
+  SF.SPAWNS.forEach(function (sp) { if (sp.id === "brute-yard") yardBrute = sp; });
+  if (yardBrute && SF.dist(yardBrute.x, yardBrute.y, 20, 90) < SF.KINDS.cinderbrute.aggro + 40) {
+    issues.push("the vault brute can see the quay");
+  }
+  SF.mountIsland(prev);
+  return issues;
+};
+
+(function installCinder() {
+  var baseQuest = SF.questText;
+  SF.questText = function (s) {
+    var line = SF.cinderQuestText(s);
+    if (line) return line;
+    return baseQuest(s);
+  };
+  var baseObjective = SF.objectivePoint;
+  SF.objectivePoint = function (s) {
+    var point = SF.cinderObjective(s);
+    if (point !== undefined) return point;
+    return baseObjective(s);
+  };
+  var baseSecret = SF.secretVisible;
+  SF.secretVisible = function (pickup) {
+    if (!pickup) return false;
+    if (pickup.id === "shard-ash-nook" || pickup.id === "bloom-ash-nook") {
+      return !!(SF.state && SF.state.discovered && SF.state.discovered.ashnook);
+    }
+    return baseSecret(pickup);
+  };
+  var baseCoach = SF.coachLine;
+  SF.coachLine = function (s) {
+    if (s && s.player && s.player.grapple && !s.hints.hook && s.mode === "play") {
+      return "Hook: hold the ember button, aim with the stick, let go.";
+    }
+    if (s && SF.islandId === "cinderveil" && s.mode === "play" && !s.player.grapple && SF.dist(s.player.x, s.player.y, 620, 40) < 80) {
+      return "This gap is too wide. Tamsin's hook will cross it.";
+    }
+    var line = baseCoach(s);
+    if (SF.islandId === "cinderveil" && line && (line.indexOf("span") !== -1 || line.indexOf("Dash from the lip") !== -1)) return "";
+    return line;
+  };
+})();
+
+SF.CINDER_SHARDS = 3;
+
+(function wireCinderTalk() {
+  var arrive = SF.dialogueNodes && SF.dialogueNodes["cinderveil.kestrel.arrive"];
+  if (arrive && !arrive.onEnd) arrive.onEnd = "cinder_land";
+  var hesk = SF.dialogueNodes && SF.dialogueNodes["cinderveil.hesk.rumor"];
+  if (hesk && !hesk.onEnd) hesk.onEnd = "meet_hesk";
+
+  SF.cinderNode = function (who, s) {
+    if (SF.islandId !== "cinderveil" || !who) return "";
+    var f = (s && s.flags) || {};
+    if (who === "kestrel") {
+      if (!f.metCinderKestrel) return "cinderveil.kestrel.arrive";
+      return "bark.kestrel.scarf";
+    }
+    if (who === "tamsin") {
+      if (s && s.player && s.player.grapple) return "bark.tamsin.bench";
+      if (f.cogsStarted && s && (s.cogs || 0) >= 3) return "cinderveil.tamsin.grapple_gift";
+      if (f.cogsStarted) return "cinderveil.tamsin.cogs_waiting";
+      return "cinderveil.tamsin.cogs_start";
+    }
+    if (who === "hesk") return f.metHesk ? "bark.hesk.crate" : "cinderveil.hesk.rumor";
+    if (who === "ilsa") return f.vaultOpen ? "bark.ilsa.post" : "cinderveil.ilsa.trial";
+    if (who === "cantor") {
+      if (f.act1) {
+        if (f.cantor_choice === "listen") return "cinderveil.cantor.listen";
+        if (f.cantor_choice === "refuse") return "cinderveil.cantor.refuse";
+        return "cinderveil.cantor.spare";
+      }
+      return "cinderveil.cantor.confront";
+    }
+    return "";
+  };
+  if (SF.dialogueRouters) SF.dialogueRouters.unshift(SF.cinderNode);
+
+  SF.onDialogueEvent("quest_cogs_start", function () {
+    var s = SF.state;
+    if (!s) return;
+    s.flags.metTamsin = true;
+    if (s.flags.cogsStarted) return;
+    s.flags.cogsStarted = true;
+    if (!s.player.grapple) s.quest = "cogs";
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("grant_grapple", function () {
+    var s = SF.state;
+    if (!s) return;
+    s.flags.metTamsin = true;
+    if (s.player.grapple) return;
+    s.player.grapple = true;
+    s.flags.grapple = true;
+    if (s.quest === "cogs" || s.quest === "quay") s.quest = "vault";
+    SF.pushBanner("The grapple", "The shard throws the line. Do not let go first.");
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("vault_open", function () {
+    var s = SF.state;
+    if (!s || s.flags.vaultOpen) return;
+    s.flags.metIlsa = true;
+    s.flags.vaultOpen = true;
+    if (s.quest === "vault" || s.quest === "cogs") s.quest = "trial";
+    if (SF.setCheckpoint) SF.setCheckpoint(1080, 40);
+    else s.checkpoint = { x: 1080, y: 40, island: "cinderveil" };
+    SF.pushToast("The gap is yours.", 2.2);
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("boss_start", function () {
+    var s = SF.state;
+    if (!s || s.flags.mawDead || s.flags.mawFight) return;
+    s.flags.mawFight = true;
+    s.quest = "maw";
+    if (SF.setCheckpoint) SF.setCheckpoint(1250, 20);
+    else s.checkpoint = { x: 1250, y: 20, island: "cinderveil" };
+    if (SF.wakeMaw) SF.wakeMaw();
+    if (window.Music) Music.play("boss");
+    if (window.Sfx) Sfx.play("roar");
+    SF.pushBanner("The Cinder Maw", "The teeth are weather. Strike the seed.");
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("quest_cinder_lamp_done", function () {
+    var s = SF.state;
+    if (!s || s.flags.cinderLit) return;
+    var need = SF.CINDER_SHARDS || 3;
+    s.shardsHeld = Math.max(0, (s.shardsHeld || 0) - need);
+    s.flags.cinderLit = true;
+    s.quest = "cantor";
+    if (SF.emit) SF.emit("lamp");
+    SF.pushBanner("The core takes the shards", "Orange returns to the ash. The Cantor is here.");
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("act1_end", function () {
+    var s = SF.state;
+    if (!s) return;
+    s.flags.act1 = true;
+    s.flags.metCantor = true;
+    s.quest = "act1";
+    var choice = s.flags.cantor_choice || "your word";
+    SF.pushBanner("Act 1 rests", "You chose " + choice + ". The Cantor will remember.");
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("cinder_land", function () {
+    var s = SF.state;
+    if (!s) return;
+    s.voyageTalk = false;
+    if (s.voyage) s.voyage.talk = false;
+    s.voyage = null;
+    var first = !s.flags.metCinderKestrel;
+    s.flags.metCinderKestrel = true;
+    if (SF.islandId !== "cinderveil" && SF.travelTo) SF.travelTo("cinderveil");
+    if (first && (s.quest === "hooked" || s.quest === "sail" || s.quest === "road" || s.quest === "stirring")) s.quest = "quay";
+    SF.saveGame({ silent: true });
+  });
+
+  SF.onDialogueEvent("meet_hesk", function () {
+    var s = SF.state;
+    if (!s) return;
+    s.flags.metHesk = true;
+    SF.saveGame({ silent: true });
+  });
+})();

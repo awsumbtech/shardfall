@@ -25,7 +25,9 @@ SF.boot = function () {
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     SF.update(dt);
-    if (SF.feel) SF.feel(dt);
+    if (SF.feel) {
+      try { SF.feel(dt); } catch (err) { /* a sound cue must not stop the frame */ }
+    }
     SF._resizeTick = (SF._resizeTick || 0) + 1;
     if (SF._resizeTick % 30 === 0) SF.resize();
     SF.draw();

@@ -3,8 +3,8 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.fresh = function () {
-  var enemies = SF.SPAWNS.map(function (sp) {
+SF.makeEnemies = function () {
+  return SF.SPAWNS.map(function (sp) {
     var kind = SF.KINDS[sp.kind];
     return {
       id: sp.id,
@@ -32,16 +32,35 @@ SF.fresh = function () {
       hy: 0,
       lastSwing: -1,
       dashed: -1,
-      stun: 0
+      stun: 0,
+      dormant: !!sp.dormant,
+      tell: 0,
+      tellKind: "",
+      phaseN: 1,
+      markX: sp.x,
+      markY: sp.y,
+      charging: 0,
+      lockX: 1,
+      lockY: 0
     };
   });
+};
+
+SF.fresh = function () {
+  if (SF.mountIsland) SF.mountIsland("emberhold");
+  var enemies = SF.makeEnemies();
   return {
     mode: "title",
     pausedFrom: "play",
     playTime: 0,
     autosave: 0,
     quest: "awaken",
+    island: "emberhold",
     shardsHeld: 0,
+    cogs: 0,
+    upgrades: {},
+    checkpoint: null,
+    enemySave: {},
     picked: {},
     drops: {},
     flags: {
@@ -52,11 +71,24 @@ SF.fresh = function () {
       kestrelHint: false,
       kestrelAfter: false,
       heardChoir: false,
-      shardstep: false
+      shardstep: false,
+      sailUnlocked: false,
+      cogsStarted: false,
+      vaultOpen: false,
+      mawFight: false,
+      mawDead: false,
+      cinderLit: false,
+      act1: false,
+      metCinderKestrel: false,
+      metTamsin: false,
+      metHesk: false,
+      metIlsa: false,
+      emberTold: false,
+      grapple: false
     },
-    discovered: { cinder: false, hollow: false },
+    discovered: { cinder: false, hollow: false, ashnook: false },
     stats: { foes: 0, shardsEver: 0 },
-    hints: { strike: false, span: false, talk: false, moved: false, dash: false },
+    hints: { strike: false, span: false, talk: false, moved: false, dash: false, hook: false },
     player: {
       x: SF.WAKE.x,
       y: SF.WAKE.y,
@@ -87,10 +119,21 @@ SF.fresh = function () {
       swinging: false,
       swingT: 0,
       swingId: 0,
-      trail: 0
+      trail: 0,
+      grapple: false,
+      grappleCd: 0,
+      grappleT: 0,
+      gtx: 0,
+      gty: 0,
+      grapplePull: "",
+      grappleFoe: null,
+      grappleMax: 0
     },
     enemies: enemies,
     projectiles: [],
+    pools: [],
+    voyage: null,
+    pendingTalk: null,
     particles: [],
     floaters: [],
     ghosts: [],
@@ -208,7 +251,7 @@ SF.secretVisible = function (pickup) {
 };
 
 SF.damageEnemy = function (e, dmg, kx, ky, kb) {
-  if (!e.alive || e.dying > 0) return;
+  if (!e.alive || e.dying > 0 || e.dormant) return;
   var s = SF.state;
   var kind = SF.KINDS[e.kind];
   var resist = e.kind === "brumekin" ? 0.55 : 1;
@@ -249,6 +292,7 @@ SF.killEnemy = function (e) {
   SF.burst(e.x, e.y, "#ffe9a8", 14, 90);
   SF.checkLevel();
   SF.saveGame({ silent: true });
+  if (e.kind === "maw" && SF.onMawDead) SF.onMawDead();
 };
 
 SF.hurtPlayer = function (dmg, nx, ny, softLine) {
@@ -267,16 +311,32 @@ SF.hurtPlayer = function (dmg, nx, ny, softLine) {
   SF.floater(p.x, p.y - 20, String(dmg), "#ffb4c4");
   if (p.hp <= 0) {
     p.hp = Math.max(1, Math.ceil(p.maxHp * 0.55));
-    p.x = SF.WAKE.x;
-    p.y = SF.WAKE.y;
-    p.safeX = p.x;
-    p.safeY = p.y;
     p.iFrames = 1.5;
     p.hx = 0;
     p.hy = 0;
     p.fall = 0;
     p.dashT = 0;
-    SF.pushToast("The shard flares and hauls you back to the stones.");
+    p.grappleT = 0;
+    var stone = s.checkpoint && (s.quest === "maw" || (s.flags && s.flags.mawFight));
+    if (stone) {
+      if (s.checkpoint.island && SF.islandId !== s.checkpoint.island && SF.travelTo) {
+        s.pendingTalk = null;
+        SF.travelTo(s.checkpoint.island);
+        s.pendingTalk = null;
+      }
+      p.x = s.checkpoint.x;
+      p.y = s.checkpoint.y;
+      p.safeX = p.x;
+      p.safeY = p.y;
+      if (SF.resetMaw) SF.resetMaw();
+      SF.pushToast("The vault stone pulls you back.");
+    } else {
+      p.x = SF.WAKE.x;
+      p.y = SF.WAKE.y;
+      p.safeX = p.x;
+      p.safeY = p.y;
+      SF.pushToast("The shard flares and hauls you back to the stones.");
+    }
     SF.emit("death");
     SF.saveGame({ silent: true });
   } else if (softLine) {
@@ -331,6 +391,7 @@ SF.applySwing = function (p) {
 SF.startDash = function (p) {
   if (p.dashCd > 0 || p.dashT > 0) return false;
   var speed = p.shardstep ? SF.DASH_SPEED_PLUS : SF.DASH_SPEED;
+  if (SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= 1.2;
   p.dashT = SF.DASH_TIME;
   p.dvx = p.fx * speed;
   p.dvy = p.fy * speed;
@@ -345,11 +406,12 @@ SF.startDash = function (p) {
 
 SF.dashSing = function (p) {
   if (!p.shardstep) return;
+  var dmg = (SF.state && SF.state.upgrades && SF.state.upgrades.singe) ? 16 : 8;
   SF.state.enemies.forEach(function (e) {
     if (!e.alive || e.dying > 0 || e.dashed === p.dashId) return;
     if (SF.dist(p.x, p.y, e.x, e.y) > e.r + 16) return;
     e.dashed = p.dashId;
-    SF.damageEnemy(e, 8, p.fx, p.fy, 0.65);
+    SF.damageEnemy(e, dmg, p.fx, p.fy, 0.65);
   });
 };
 
@@ -358,6 +420,8 @@ SF.releaseHolds = function () {
   SF.inputState.attack = false;
   SF.inputState.attackKey = false;
   SF.inputState.dashEdge = false;
+  SF.inputState.grappleHold = false;
+  SF.inputState.grappleRelease = false;
 };
 
 SF.onDialogueEvent("meet_maren", function () {
@@ -397,7 +461,9 @@ SF.onDialogueEvent("open_sail_menu", function () {
   s.flags.kestrelAfter = true;
   if (s.quest === "awaken" || s.quest === "gather" || s.quest === "stirring") s.quest = "hooked";
   if (first) SF.pushToast("The route to Cinderveil is real. Hold the rail when the wind takes.");
+  s.flags.sailUnlocked = true;
   SF.saveGame({ silent: true });
+  if (SF.openSailMenu) SF.openSailMenu();
 });
 
 SF.onDialogueEvent("meet_cantor", function () {
@@ -420,8 +486,14 @@ SF.nearestInteract = function (range) {
       best = { kind: kind, ref: ref, d: d };
     }
   }
-  SF.NPCS.forEach(function (n) { consider("npc", n, n.x, n.y); });
+  SF.NPCS.forEach(function (n) {
+    if (SF.npcHidden && SF.npcHidden(n)) return;
+    consider("npc", n, n.x, n.y);
+  });
   SF.TEXTS.forEach(function (t) { consider("text", t, t.x, t.y); });
+  if (SF.EXTRAS) {
+    SF.EXTRAS.forEach(function (extra) { consider(extra.kind, extra, extra.x, extra.y); });
+  }
   consider("lamp", SF.LAMP, SF.LAMP.x, SF.LAMP.y);
   return best;
 };
@@ -429,9 +501,22 @@ SF.nearestInteract = function (range) {
 SF.actionFor = function (s, near) {
   if (!near) return { label: "Talk", name: "", prompt: "" };
   if (near.kind === "lamp") {
+    if (SF.islandId === "cinderveil") {
+      var need = SF.CINDER_SHARDS || 3;
+      var ready = s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld >= need;
+      var coreLabel = ready ? "Place shards" : "Inspect";
+      return { label: coreLabel, name: "the ember core", prompt: coreLabel + " — the ember core" };
+    }
     var place = !s.flags.lampLit && s.shardsHeld >= SF.QUEST_SHARDS;
     var label = place ? "Place shards" : "Inspect";
     return { label: label, name: "the great lamp", prompt: label + " — the great lamp" };
+  }
+  if (near.kind === "bench") {
+    if (s.player && s.player.grapple) return { label: "Hand", name: near.ref.name, prompt: "Hand — " + near.ref.name };
+    return { label: "Inspect", name: near.ref.name, prompt: "Inspect — " + near.ref.name };
+  }
+  if (near.kind === "checkpoint") {
+    return { label: "Rest", name: near.ref.name, prompt: "Rest — " + near.ref.name };
   }
   if (near.kind === "text") {
     return { label: "Inspect", name: near.ref.speaker, prompt: "Inspect — " + near.ref.speaker };
@@ -491,7 +576,7 @@ SF.coachLine = function (s) {
     });
     if (foe) return "Strike the core — blade button, or J.";
   }
-  var nearSpan = SF.dist(p.x, p.y, 300, -88) < 155;
+  var nearSpan = SF.islandId !== "cinderveil" && SF.dist(p.x, p.y, 300, -88) < 155;
   if (!near && nearSpan && !h.span) {
     return h.dash
       ? "This gap is too wide to walk. Dash from the lip."
@@ -503,6 +588,15 @@ SF.coachLine = function (s) {
 
 SF.tryLamp = function () {
   var s = SF.state;
+  if (SF.islandId === "cinderveil") {
+    var need = SF.CINDER_SHARDS || 3;
+    if (s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld >= need) SF.startDialogue("cinderveil.lamp.relit");
+    else SF.startDialogue("inspect.cinder_core");
+    if (s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld < need) {
+      SF.pushToast("The core wants " + need + " shards. You hold " + s.shardsHeld + ".", 2.2);
+    }
+    return;
+  }
   if (!s.flags.lampLit && s.shardsHeld >= SF.QUEST_SHARDS) {
     SF.beginCutscene();
     return;
@@ -532,10 +626,33 @@ SF.tryInteract = function () {
     SF.tryLamp();
     return;
   }
+  if (near.kind === "bench") {
+    if (s.player.grapple && SF.openHand) SF.openHand();
+    else if (SF.startDialogue) SF.startDialogue(near.ref.node || "inspect.tamsin_bench");
+    return;
+  }
+  if (near.kind === "checkpoint" && SF.setCheckpoint) {
+    SF.setCheckpoint(near.ref.x, near.ref.y);
+    return;
+  }
   if (near.kind === "npc") {
+    if (SF.islandId === "cinderveil" && near.ref.id === "kestrel" && s.flags.metCinderKestrel && SF.openSailMenu) {
+      SF.openSailMenu();
+      return;
+    }
     var nodeId = SF.routeDialogue ? SF.routeDialogue(near.ref.id, s) : "";
     SF.startDialogue(nodeId || near.ref.id);
     return;
+  }
+  if (near.ref && near.ref.node === "cinderveil.maw.prefight") {
+    if (!s.flags.vaultOpen) {
+      SF.pushToast("Ilsa has not opened the gap.", 1.8);
+      return;
+    }
+    if (s.flags.mawDead) {
+      SF.startDialogue("cinderveil.maw.defeated");
+      return;
+    }
   }
   SF.startDialogue(near.ref.node || ("inspect." + near.ref.id));
 };
@@ -604,6 +721,12 @@ SF.collectPickup = function (item) {
     if (s.quest === "awaken") sub = "Talk to Old Maren, up the hill.";
     else if (got >= SF.QUEST_SHARDS) sub = "Bring them to the lamp. Press Place shards.";
     SF.pushBanner("Sky-shard " + got + " of " + SF.QUEST_SHARDS, sub, 2.6);
+  } else if (item.kind === "cog") {
+    s.cogs = (s.cogs || 0) + 1;
+    SF.floater(item.x, item.y, "+ cog", "#ffb15a");
+    SF.burst(item.x, item.y, "#ffb15a", 8, 40);
+    SF.emit("pickup");
+    SF.pushBanner("Cog " + s.cogs + " of 3", s.cogs >= 3 ? "Bring them back to Tamsin." : "The Ashfields still hold more.", 2.4);
   } else {
     var before = p.hp;
     if (before >= p.maxHp) {
@@ -655,6 +778,11 @@ SF.updateEnemy = function (e, dt) {
     return;
   }
   if (!e.alive) return;
+  if (e.dormant) return;
+  if (e.kind === "maw") {
+    if (SF.updateMaw) SF.updateMaw(e, dt);
+    return;
+  }
   e.hurt = Math.max(0, e.hurt - dt);
   e.hitCd = Math.max(0, e.hitCd - dt);
   e.stun = Math.max(0, e.stun - dt);
@@ -672,7 +800,9 @@ SF.updateEnemy = function (e, dt) {
   var aggro = d < kind.aggro && s.mode === "play";
   var homeD = SF.dist(e.x, e.y, e.homeX, e.homeY);
 
-  if (e.kind === "brumekin") {
+  var brute = e.kind === "brumekin" || e.kind === "cinderbrute";
+  var ranged = e.kind === "choirling" || e.kind === "sootwing";
+  if (brute) {
     if (e.ai === "wind") {
       e.wind -= dt;
       if (e.wind <= 0) {
@@ -708,7 +838,7 @@ SF.updateEnemy = function (e, dt) {
     } else {
       SF.steer(e, e.homeX, e.homeY, kind.speed * 0.7, dt);
     }
-  } else if (e.kind === "choirling") {
+  } else if (ranged) {
     if (e.ai === "wind") {
       e.wind -= dt;
       if (e.wind <= 0) {
@@ -753,7 +883,7 @@ SF.updateEnemy = function (e, dt) {
 };
 
 SF.separateEnemies = function () {
-  var list = SF.state.enemies.filter(function (e) { return e.alive && e.dying <= 0; });
+  var list = SF.state.enemies.filter(function (e) { return e.alive && e.dying <= 0 && !e.dormant; });
   var i, j, a, b, dx, dy, d, push;
   for (i = 0; i < list.length; i++) {
     for (j = i + 1; j < list.length; j++) {
@@ -804,6 +934,7 @@ SF.updateWorld = function (dt, ai) {
     }
   });
   s.projectiles = s.projectiles.filter(function (shot) { return shot.life > 0; });
+  if (SF.updatePools) SF.updatePools(dt);
   SF.updateFx(dt);
 };
 
@@ -835,6 +966,7 @@ SF.updatePlayer = function (dt) {
   var move = (SF.readMove || function () { return { x: 0, y: 0 }; })();
   p.attackCd = Math.max(0, p.attackCd - dt);
   p.dashCd = Math.max(0, p.dashCd - dt);
+  p.grappleCd = Math.max(0, (p.grappleCd || 0) - dt);
   p.iFrames = Math.max(0, p.iFrames - dt);
   p.hurt = Math.max(0, p.hurt - dt);
   p.px = p.x;
@@ -845,6 +977,7 @@ SF.updatePlayer = function (dt) {
     else if (p.dashCd > 0.08) SF.pushToast("Dash is still cooling.", 1.2);
   }
   if ((SF.consumeAttack || function () { return false; })()) SF.startSwing(p);
+  if ((SF.consumeGrapple || function () { return false; })() && SF.fireGrapple) SF.fireGrapple(p, move);
   if ((SF.consumeInteract || function () { return false; })()) {
     SF.tryInteract();
     if (s.mode !== "play") return;
@@ -856,7 +989,8 @@ SF.updatePlayer = function (dt) {
     if (p.swingT >= 0.2) p.swinging = false;
   }
 
-  if (p.dashT > 0) {
+  var hooked = p.grappleT > 0 && SF.stepGrapple && SF.stepGrapple(p, dt);
+  if (!hooked && p.dashT > 0) {
     var step = Math.min(dt, p.dashT);
     p.dashT -= step;
     p.x += p.dvx * step;
@@ -868,7 +1002,7 @@ SF.updatePlayer = function (dt) {
       if (s.ghosts.length < 7) s.ghosts.push({ x: p.x, y: p.y, fx: p.fx, fy: p.fy, a: 0.45 });
     }
     SF.dashSing(p);
-  } else {
+  } else if (!hooked) {
     var mag = Math.hypot(move.x, move.y);
     if (mag > 0.12) {
       var nx = move.x / mag;
@@ -898,7 +1032,7 @@ SF.updatePlayer = function (dt) {
     p.fall = 0;
     p.safeX = p.x;
     p.safeY = p.y;
-  } else if (p.dashT <= 0) {
+  } else if (p.dashT <= 0 && (p.grappleT || 0) <= 0) {
     p.fall += dt;
     if (p.fall > 0.24) SF.rescue(p);
   }
@@ -909,6 +1043,7 @@ SF.updatePlayer = function (dt) {
     SF.noteHint("span");
   }
   if (zone.id === "hollow") s.discovered.hollow = true;
+  if (SF.noteZone) SF.noteZone(zone);
   if (!s.hints.moved && SF.dist(p.x, p.y, SF.WAKE.x, SF.WAKE.y) > 28) SF.noteHint("moved");
 };
 
@@ -957,7 +1092,15 @@ SF.update = function (dt) {
     return;
   }
   if (s.mode === "pause") return;
+  if (s.mode === "voyage") {
+    if (SF.updateVoyage) SF.updateVoyage(dt);
+    SF.updateCamera(dt);
+    SF.updateFx(dt);
+    return;
+  }
+  if (s.mode === "sailmenu" || s.mode === "hand") return;
   if (s.mode === "dialogue") {
+    if (s.voyageTalk && s.voyage) s.voyage.t += dt;
     if (s.dialogue) s.dialogue.lock = Math.max(0, s.dialogue.lock - dt);
     if (SF.tickDialogue) SF.tickDialogue(dt);
     if ((SF.consumeInteract || function () { return false; })()) SF.advanceDialogue();
@@ -975,6 +1118,13 @@ SF.update = function (dt) {
       s.cut = null;
     }
     SF.updateWorld(dt, false);
+    SF.updateCamera(dt);
+    return;
+  }
+  if (s.pendingTalk && SF.startDialogue) {
+    var pending = s.pendingTalk;
+    s.pendingTalk = null;
+    SF.startDialogue(pending);
     SF.updateCamera(dt);
     return;
   }

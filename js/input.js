@@ -13,7 +13,9 @@ SF.inputState = {
   attack: false,
   attackKey: false,
   dashEdge: false,
-  interactEdge: false
+  interactEdge: false,
+  grappleHold: false,
+  grappleRelease: false
 };
 
 SF.readMove = function () {
@@ -41,6 +43,12 @@ SF.consumeAttack = function () {
 SF.consumeInteract = function () {
   var v = SF.inputState.interactEdge;
   SF.inputState.interactEdge = false;
+  return v;
+};
+
+SF.consumeGrapple = function () {
+  var v = SF.inputState.grappleRelease;
+  SF.inputState.grappleRelease = false;
   return v;
 };
 
@@ -120,6 +128,10 @@ SF.bindInput = function () {
   bindButton("btn-attack", function () { SF.inputState.attack = true; }, function () { SF.inputState.attack = false; });
   bindButton("btn-dash", function () { SF.inputState.dashEdge = true; });
   bindButton("btn-interact", function () { SF.inputState.interactEdge = true; });
+  bindButton("btn-grapple", function () { SF.inputState.grappleHold = true; }, function () {
+    SF.inputState.grappleHold = false;
+    SF.inputState.grappleRelease = true;
+  });
 
   document.getElementById("btn-pause").addEventListener("pointerdown", function (e) {
     e.preventDefault();
@@ -154,6 +166,18 @@ SF.bindInput = function () {
       return;
     }
     if (s.mode === "title") return;
+    if (s.mode === "sailmenu") {
+      if (e.code === "Escape") s.mode = "play";
+      return;
+    }
+    if (s.mode === "hand") {
+      if (e.code === "Escape" && SF.closeHand) SF.closeHand();
+      return;
+    }
+    if (s.mode === "voyage") {
+      if ((e.code === "Escape" || e.code === "Space" || e.code === "Enter" || e.code === "KeyE") && SF.finishVoyage) SF.finishVoyage();
+      return;
+    }
     if (s.mode === "dialogue" || s.mode === "cutscene") {
       if (e.code === "Space" || e.code === "Enter" || e.code === "KeyE") SF.inputState.interactEdge = true;
       if (e.code === "Escape" && s.mode === "dialogue") SF.pauseGame();
@@ -161,6 +185,7 @@ SF.bindInput = function () {
     }
     if (e.code === "KeyJ" || e.code === "KeyZ") SF.inputState.attackKey = true;
     if (e.code === "KeyK" || e.code === "Space") SF.inputState.dashEdge = true;
+    if (e.code === "KeyG") SF.inputState.grappleHold = true;
     if (e.code === "KeyE" || e.code === "Enter") SF.inputState.interactEdge = true;
     if (e.code === "Escape") {
       if (s.mode === "pause") SF.resumeGame();
@@ -176,11 +201,16 @@ SF.bindInput = function () {
       var keys = SF.inputState.keys;
       if (!keys.has("KeyJ") && !keys.has("KeyZ")) SF.inputState.attackKey = false;
     }
+    if (e.code === "KeyG") {
+      SF.inputState.grappleHold = false;
+      SF.inputState.grappleRelease = true;
+    }
   });
 
   window.addEventListener("blur", function () {
     SF.inputState.attack = false;
     SF.inputState.attackKey = false;
+    SF.inputState.grappleHold = false;
     SF.inputState.stickX = 0;
     SF.inputState.stickY = 0;
     SF.inputState.stickId = null;

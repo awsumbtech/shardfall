@@ -17,8 +17,12 @@ for (const file of [
   "js/content/dialogue/cinderveil.js",
   "js/dialogue.js",
   "js/audio.js",
+  "js/music.js",
+  "js/sfx.js",
   "js/save.js",
-  "js/sim.js"
+  "js/sim.js",
+  "js/cinder.js",
+  "js/grapple.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
@@ -27,6 +31,15 @@ const SF = context.SF;
 const issues = SF.audit();
 if (issues.length) {
   console.error(issues.join("\n"));
+  process.exit(1);
+}
+const cinderIssues = SF.auditCinder();
+if (cinderIssues.length) {
+  console.error(cinderIssues.join("\n"));
+  process.exit(1);
+}
+if (SF.islandId !== "emberhold") {
+  console.error("auditCinder did not restore Emberhold");
   process.exit(1);
 }
 
@@ -370,5 +383,194 @@ if (typeof context.startDialogue !== "function") {
   console.error("startDialogue is not global");
   process.exit(1);
 }
+
+function fail(msg) {
+  console.error(msg);
+  process.exit(1);
+}
+
+function finishTalk(state) {
+  let guard = 0;
+  while (state.mode === "dialogue" && guard < 48) {
+    if (!state.dialogue) break;
+    state.dialogue.lock = 0;
+    if (state.dialogue.phase === "choice") SF.chooseDialogue(0);
+    else SF.advanceDialogue();
+    guard += 1;
+  }
+  if (state.mode === "dialogue") fail("talk did not finish " + (state.dialogue && state.dialogue.id));
+}
+
+function needMarker(label) {
+  const goal = SF.objectivePoint(SF.state);
+  if (!goal) fail("missing marker for " + label + " (" + SF.state.quest + ")");
+}
+
+const body = { x: 12, y: 24, fx: 1, fy: 0, hp: 40, maxHp: 40, xp: 0, level: 1, atk: 12, shardstep: false };
+const v1Gather = SF.fresh();
+if (!SF.applySave(v1Gather, { v: 1, quest: "gather", shardsHeld: 3, flags: { kestrelHint: true }, player: body, enemies: [] })) {
+  fail("v1 gather save was rejected");
+}
+if (v1Gather.quest !== "gather" || v1Gather.flags.sailUnlocked) fail("v1 gather was migrated");
+
+const v1Sail = SF.fresh();
+if (!SF.applySave(v1Sail, { v: 1, quest: "hooked", flags: { lampLit: true }, player: Object.assign({}, body, { shardstep: true }), enemies: [] })) {
+  fail("v1 hooked save was rejected");
+}
+if (v1Sail.quest !== "hooked" || !v1Sail.flags.sailUnlocked) fail("v1 hooked did not stay hooked with sailing open");
+
+const v1Road = SF.fresh();
+SF.applySave(v1Road, { v: 1, quest: "stirring", flags: { lampLit: true }, player: body, enemies: [] });
+if (v1Road.quest !== "stirring" || !v1Road.flags.sailUnlocked) fail("v1 stirring did not keep its name");
+
+if (SF.dialogueNodes["cinderveil.kestrel.arrive"].onEnd !== "cinder_land") fail("arrival does not land the skiff");
+if (SF.dialogueNodes["cinderveil.hesk.rumor"].onEnd !== "meet_hesk") fail("Hesk is not remembered");
+
+const road = freshPlay();
+road.flags.lampLit = true;
+road.player.shardstep = true;
+road.quest = "stirring";
+road.player.x = SF.NPCS[1].x;
+road.player.y = SF.NPCS[1].y;
+SF.tryInteract();
+finishTalk(road);
+if (road.quest !== "hooked" || !road.flags.sailUnlocked || road.mode !== "sailmenu") fail("sail menu did not open");
+needMarker("sail");
+SF.startVoyage("cinderveil");
+if (context.Music.current() !== "sail") fail("the crossing did not take the sail theme");
+if (road.mode !== "dialogue" || !road.dialogue || road.dialogue.id !== "cinderveil.sail.depart" || !road.voyageTalk) {
+  fail("the crossing did not start with the sail scene");
+}
+finishTalk(road);
+if (SF.islandId !== "cinderveil" || road.quest !== "quay" || !road.flags.metCinderKestrel || road.pendingTalk) {
+  fail("landing did not reach Lowmoor Quay " + SF.islandId + " " + road.quest + " " + road.pendingTalk);
+}
+if (!context.Music || context.Music.current() !== "cinderveil") fail("Cinderveil did not take the theme");
+needMarker("quay");
+
+const tamsin = SF.npcById("tamsin");
+road.player.x = tamsin.x;
+road.player.y = tamsin.y;
+SF.tryInteract();
+finishTalk(road);
+if (road.quest !== "cogs" || !road.flags.cogsStarted || road.flags.tamsin_mood !== "earnest") fail("cogs did not start");
+needMarker("cogs");
+["cog-link", "cog-ash", "cog-lip"].forEach((id) => {
+  const cog = SF.PICKUPS.find((p) => p.id === id);
+  SF.collectPickup(cog);
+});
+if (road.cogs !== 3) fail("cog count " + road.cogs);
+SF.tryInteract();
+finishTalk(road);
+if (!road.player.grapple || road.quest !== "vault") fail("grapple was not granted");
+needMarker("vault");
+
+road.player.x = 600;
+road.player.y = 40;
+road.player.fx = 1;
+road.player.fy = 0;
+road.player.grappleCd = 0;
+road.player.safeX = 600;
+road.player.safeY = 40;
+const heardSfx = [];
+const origSfx = context.Sfx.play.bind(context.Sfx);
+context.Sfx.play = (name, opts) => {
+  heardSfx.push(name);
+  return origSfx(name, opts);
+};
+if (!SF.fireGrapple(road.player, { x: 1, y: 0 })) fail("first hook did not fire");
+if (heardSfx.indexOf("grapple") < 0 || heardSfx.indexOf("pull") < 0) fail("the hook was silent");
+let hops = 0;
+while (road.player.grappleT > 0 && hops < 40) {
+  SF.update(0.02);
+  hops += 1;
+}
+if (!SF.walkable(road.player.x, road.player.y) || road.player.x < 760) {
+  fail("first hook missed the vault lip " + road.player.x + "," + road.player.y);
+}
+if (heardSfx.indexOf("latch") < 0) fail("the hook did not latch");
+
+const ilsa = SF.npcById("ilsa");
+road.player.x = ilsa.x;
+road.player.y = ilsa.y;
+SF.tryInteract();
+finishTalk(road);
+if (!road.flags.vaultOpen || road.quest !== "trial") fail("Ilsa did not open the vault");
+needMarker("trial");
+
+road.player.x = 1060;
+road.player.y = 20;
+road.player.fx = 1;
+road.player.fy = 0;
+road.player.grappleCd = 0;
+road.player.safeX = 1060;
+road.player.safeY = 20;
+road.player.hp = road.player.maxHp;
+if (!SF.fireGrapple(road.player, { x: 1, y: 0 })) fail("vault hook did not fire");
+hops = 0;
+while (road.player.grappleT > 0 && hops < 40) {
+  SF.update(0.02);
+  hops += 1;
+}
+if (!SF.walkable(road.player.x, road.player.y) || road.player.x < 1200) {
+  fail("vault hook missed the heart " + road.player.x + "," + road.player.y);
+}
+SF.update(0.02);
+if (road.quest !== "seal") fail("the heart did not become the seal step");
+needMarker("seal");
+
+road.player.x = 1320;
+road.player.y = 20;
+SF.tryInteract();
+if (!road.dialogue || road.dialogue.id !== "cinderveil.maw.prefight") fail("the Maw did not speak");
+finishTalk(road);
+const maw = road.enemies.find((e) => e.kind === "maw");
+if (!road.flags.mawFight || !maw || maw.dormant || road.quest !== "maw") fail("the Maw did not wake");
+if (context.Music.current() !== "boss") fail("the Maw did not take the boss theme");
+needMarker("maw");
+SF.damageEnemy(maw, maw.maxHp, 1, 0, 1);
+if (!road.flags.mawDead || road.quest !== "relight" || !road.dialogue || road.dialogue.id !== "cinderveil.maw.defeated") {
+  fail("the Maw did not fall");
+}
+finishTalk(road);
+needMarker("relight");
+
+road.shardsHeld = 2;
+road.player.x = SF.LAMP.x;
+road.player.y = SF.LAMP.y;
+SF.tryInteract();
+if (!road.dialogue || road.dialogue.id !== "inspect.cinder_core") fail("two shards should only inspect the core");
+finishTalk(road);
+if (road.flags.cinderLit) fail("two shards lit the core");
+road.shardsHeld = 3;
+SF.tryInteract();
+if (!road.dialogue || road.dialogue.id !== "cinderveil.lamp.relit") fail("the core did not relight");
+finishTalk(road);
+if (!road.flags.cinderLit || road.quest !== "cantor" || road.shardsHeld !== 0) fail("the Cantor was not called");
+needMarker("cantor");
+
+const cantor = SF.npcById("cantor");
+road.player.x = cantor.x;
+road.player.y = cantor.y;
+SF.tryInteract();
+finishTalk(road);
+if (road.flags.cantor_choice !== "spare" || road.quest !== "act1") fail("Spare did not end Act 1");
+if (SF.objectivePoint(road)) fail("Act 1 should rest without a marker");
+
+const yanked = freshPlay();
+SF.mountIsland("cinderveil");
+yanked.island = "cinderveil";
+yanked.enemies = SF.makeEnemies();
+yanked.player.grapple = true;
+yanked.player.x = 300;
+yanked.player.y = 80;
+yanked.player.fx = 1;
+yanked.player.fy = 0;
+const mite = yanked.enemies.find((e) => e.id === "ashmite-west");
+mite.x = 360;
+mite.y = 80;
+if (!SF.fireGrapple(yanked.player, { x: 1, y: 0 })) fail("could not hook a small foe");
+if (yanked.player.grapplePull !== "yank") fail("small foe was not pulled");
+SF.mountIsland("emberhold");
 
 console.log("smoke ok");

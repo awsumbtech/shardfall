@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#140c28">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="description" content="Shardfall — a personal, ad-free shard-tale. Wake on Emberhold, fight the Hushborn, and relight the great lamp.">
+  <meta name="description" content="Shardfall — a personal, ad-free shard-tale. Wake on Emberhold, sail to Cinderveil, and relight the lamps.">
   <title>Shardfall</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23140c28'/%3E%3Cpath d='M16 4 L23 16 L16 28 L9 16 Z' fill='%238ef6ff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
@@ -26,9 +26,9 @@
       <div class="panel" id="prompt" hidden></div>
       <div id="place-row">
         <div id="place">The Waking Stones</div>
-        <button id="btn-patch" type="button">v0.1.1</button>
+        <button id="btn-patch" type="button">v0.2</button>
       </div>
-      <div id="keys">WASD move · J strike · K dash · E talk · Esc pause</div>
+      <div id="keys">WASD move · J strike · K dash · G hook · E talk · Esc pause</div>
     </div>
 
     <div id="mapwrap"><canvas id="minimap" aria-hidden="true"></canvas></div>
@@ -53,6 +53,10 @@
         <div id="stick" aria-hidden="true"><div id="knob"></div></div>
       </div>
       <div id="buttons">
+        <button class="btn" id="btn-grapple" type="button" aria-label="Hook">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 8h8a6 6 0 0 1 0 12H12"/><path d="M12 16l-4 4 4 4"/></svg>
+          <span>Hook</span>
+        </button>
         <button class="btn" id="btn-interact" type="button" aria-label="Talk">
           <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 8h16v12H14l-6 5v-5H8z"/></svg>
           <span id="interact-label">Talk</span>
@@ -80,11 +84,35 @@
       <div class="hint" id="dlg-hint">Tap to continue</div>
     </div>
 
+    <div id="sail" hidden>
+      <div class="card scroll">
+        <h2>The Quickmercy</h2>
+        <p id="sail-note">Kestrel's skiff. The Hush opens west.</p>
+        <div id="sail-map" aria-hidden="true">
+          <div class="isle" id="isle-ember">Emberhold</div>
+          <div class="lane"></div>
+          <div class="isle" id="isle-cinder">Cinderveil</div>
+        </div>
+        <button id="sail-ember" type="button">Sail to Emberhold</button>
+        <button id="sail-cinder" type="button">Sail to Cinderveil</button>
+        <button id="sail-close" type="button" class="ghost">Stay</button>
+      </div>
+    </div>
+
+    <div id="hand" hidden>
+      <div class="card scroll">
+        <h2>The hand</h2>
+        <p id="hand-shards">Spare shards: 0</p>
+        <div id="hand-list"></div>
+        <button id="hand-close" type="button">Close</button>
+      </div>
+    </div>
+
     <button id="skip" type="button" hidden>Tap to skip</button>
 
     <div id="title">
       <div class="title-card">
-        <p class="eyebrow">v0.1.1 · a personal shard-tale</p>
+        <p class="eyebrow">v0.2 · Act 1, the Cinder Road</p>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
         </div>
@@ -94,11 +122,11 @@
           <button id="continue" type="button" hidden>Continue</button>
           <button id="newgame" type="button">New Game</button>
           <button id="title-settings" type="button" class="ghost">Settings</button>
-          <button id="title-news" type="button" class="ghost">What's new in v0.1.1</button>
+          <button id="title-news" type="button" class="ghost">What's new in v0.2</button>
           <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
         </div>
-        <p class="legend">Stick on the left. Strike, dash, and talk on the right.<br>Keys: WASD · J strike · K dash · E talk · Esc pause · M mute</p>
+        <p class="legend">Stick on the left. Strike, dash, hook, and talk on the right.<br>Keys: WASD · J strike · K dash · G hook · E talk · Esc pause · M mute</p>
       </div>
     </div>
 
@@ -110,7 +138,8 @@
         <p id="pause-note"></p>
         <button id="resume" type="button">Resume</button>
         <button id="pause-settings" type="button" class="ghost">Settings</button>
-        <button id="pause-news" type="button" class="ghost">What's new in v0.1.1</button>
+        <button id="pause-news" type="button" class="ghost">What's new in v0.2</button>
+        <button id="pause-hand" type="button" class="ghost">The hand</button>
         <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
         <button id="pause-save" type="button" class="ghost">Save</button>
         <button id="pause-load" type="button" class="ghost">Load</button>
@@ -135,7 +164,7 @@
 
     <div id="modal" hidden>
       <div class="card scroll">
-        <h2 id="modal-title">What's new in v0.1.1</h2>
+        <h2 id="modal-title">What's new in v0.2</h2>
         <div id="news-body"></div>
         <p id="modal-copy"></p>
         <div class="actions">
@@ -159,6 +188,8 @@
   <script src="js/feel.js"></script>
   <script src="js/save.js"></script>
   <script src="js/sim.js"></script>
+  <script src="js/cinder.js"></script>
+  <script src="js/grapple.js"></script>
   <script src="js/draw.js"></script>
   <script src="js/input.js"></script>
   <script src="js/ui.js"></script>

@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.1.1";
+SF.VERSION = "0.2";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -20,9 +20,9 @@ SF.STRIKE_ARC = 0.28;
 SF.XP_NEED = [0, 24, 70, 110];
 
 SF.WHATS_NEW = [
-  "The screen stays steady. Flashes are softer, and Reduce flashing is on until you turn it off.",
-  "Your next step stays on screen. The button changes to Talk, Place shards, or Inspect when you are close enough.",
-  "A marker points the way. The first minute teaches the buttons once, and a missed gap says to try Dash."
+  "The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.",
+  "Tamsin fits a grapple to your hand. Hook the gaps, pull small Hushborn, or haul yourself toward the big ones.",
+  "People talk like themselves, and what you ask is remembered. The Cinder Maw waits, and the Cantor is not done."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
@@ -81,7 +81,11 @@ SF.SPAWNS = [
 SF.KINDS = {
   wisp: { hp: 18, dmg: 5, speed: 72, aggro: 118, xp: 10, r: 13, drops: false, leash: 150 },
   brumekin: { hp: 50, dmg: 9, speed: 46, aggro: 128, xp: 24, r: 18, drops: true, leash: 170 },
-  choirling: { hp: 32, dmg: 7, speed: 42, aggro: 200, xp: 32, r: 14, drops: true, ranged: true, leash: 200 }
+  choirling: { hp: 32, dmg: 7, speed: 42, aggro: 200, xp: 32, r: 14, drops: true, ranged: true, leash: 200 },
+  ashmite: { hp: 16, dmg: 4, speed: 88, aggro: 108, xp: 8, r: 11, drops: false, leash: 140, small: true },
+  sootwing: { hp: 26, dmg: 6, speed: 48, aggro: 160, xp: 16, r: 13, drops: false, leash: 180, small: true, ranged: true },
+  cinderbrute: { hp: 64, dmg: 11, speed: 36, aggro: 118, xp: 28, r: 24, drops: true, leash: 150, big: true },
+  maw: { hp: 140, dmg: 10, speed: 44, aggro: 420, xp: 80, r: 30, drops: false, leash: 200, big: true, boss: true }
 };
 
 SF.LEVELS = {
@@ -89,6 +93,14 @@ SF.LEVELS = {
   3: { hp: 8, atk: 2, title: "Level 3", sub: "A brighter strike. +2 attack, +8 heart." },
   4: { hp: 12, atk: 2, title: "Level 4", sub: "The shard burns steady. +2 attack, +12 heart." }
 };
+
+SF.HAND_UPGRADES = [
+  { id: "longstep", name: "Long Step", branch: "Dash", cost: 2, blurb: "Dash reaches farther." },
+  { id: "quickhook", name: "Quick Hook", branch: "Grapple", cost: 2, blurb: "The hook flies farther and returns sooner.", needs: "grapple" },
+  { id: "brightedge", name: "Bright Edge", branch: "Strike", cost: 2, blurb: "+3 strike." },
+  { id: "deepheart", name: "Deep Heart", branch: "Health", cost: 2, blurb: "+14 heart." },
+  { id: "singe", name: "Singe Line", branch: "Dash", cost: 3, blurb: "A dash burns harder.", needs: "shardstep" }
+];
 
 SF.PROPS = [
   { kind: "stones", x: -78, y: 86, s: 1 },

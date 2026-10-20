@@ -355,6 +355,23 @@ button:focus-visible {
   text-align: center;
   white-space: normal;
 }
+#btn-grapple {
+  grid-column: 1;
+  grid-row: 1;
+  width: 64px;
+  height: 64px;
+  border-color: rgba(224, 122, 58, 0.9);
+  --p: 0;
+}
+body:not([data-grapple="1"]) #btn-grapple { display: none; }
+#btn-grapple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(rgba(6, 4, 16, 0.66) calc(var(--p) * 360deg), transparent 0);
+  pointer-events: none;
+}
 #btn-dash { grid-column: 1; grid-row: 2; border-color: rgba(142, 246, 255, 0.7); }
 #btn-attack {
   grid-column: 2;
@@ -476,6 +493,51 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 #dlg-choices button:active { transform: scale(0.98); }
 
 .hint { font-size: 12px; color: var(--muted); }
+
+#choices, #hand-list { display: flex; flex-direction: column; gap: 8px; }
+#choices button, #hand-list button, #sail .card > button, #hand .card > button {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 211, 122, 0.4);
+  background: rgba(255, 211, 122, 0.1);
+  color: white;
+  text-align: left;
+  padding: 8px 12px;
+}
+#choices button:disabled, #hand-list button:disabled { opacity: 0.55; }
+
+#sail, #hand {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(10, 6, 24, 0.55);
+}
+#sail[hidden], #hand[hidden] { display: none; }
+#sail .card, #hand .card { width: min(420px, 100%); }
+#sail-map {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+#sail-map .isle {
+  flex: 1;
+  min-height: 64px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+}
+#sail-map .isle.here { border-color: var(--gold); }
+#sail-map .lane { width: 36px; height: 2px; background: rgba(255, 211, 122, 0.75); }
+#isle-ember { background: #2f6a48; }
+#isle-cinder { background: #6e4038; }
 
 #skip {
   position: absolute;
@@ -682,6 +744,15 @@ body[data-mode="pause"] #corner,
 body[data-mode="cutscene"] #controls,
 body[data-mode="dialogue"] #controls,
 body[data-mode="cutscene"] #corner,
+body[data-mode="sailmenu"] #controls,
+body[data-mode="sailmenu"] #corner,
+body[data-mode="sailmenu"] #prompt,
+body[data-mode="hand"] #controls,
+body[data-mode="hand"] #corner,
+body[data-mode="hand"] #prompt,
+body[data-mode="voyage"] #controls,
+body[data-mode="voyage"] #corner,
+body[data-mode="voyage"] #prompt,
 body[data-modal="1"] #controls,
 body[data-modal="1"] #corner {
   display: none;
@@ -711,7 +782,7 @@ body[data-modal="1"] #corner {
   #stick-zone { width: 38%; height: 68%; }
   #stick { width: 108px; height: 108px; }
   #buttons { gap: 8px; grid-template-columns: 66px 76px; }
-  .btn, #btn-dash { width: 64px; height: 64px; }
+  .btn, #btn-dash, #btn-grapple { width: 64px; height: 64px; }
   #btn-interact { width: 74px; height: 58px; }
   #btn-attack { width: 76px; height: 76px; }
   #toast { bottom: calc(176px + env(safe-area-inset-bottom)); }
