@@ -390,11 +390,43 @@ SF._terraceList = function () {
 };
 
 SF._ellipseGap = function (t, wx, wy) {
-  var dx = wx - t.x;
-  var dy = wy - t.y;
-  var dist = Math.hypot(dx, dy) || 0.001;
-  var rDir = (t.rx * t.ry) / (Math.hypot((t.ry * dx) / dist, (t.rx * dy) / dist) || 0.001);
-  return { gap: dist - rDir, ny: dy / dist, deep: dist < rDir ? rDir - dist : 0 };
+  return SF.terraceMetrics(t, wx, wy);
+};
+
+SF._rockPixel = function (tone, t, wx, gap, block) {
+  var colId = Math.floor(wx / 3);
+  var h = SF._thash(colId, ((t.seed || 1) * 4) | 0);
+  var slab = SF._thash(Math.floor(wx / 7), ((t.seed || 1) * 9) | 0);
+  var depth = gap / Math.max(8, block);
+  if (depth < 0) depth = 0;
+  if (depth > 1) depth = 1;
+  var col = SF._lerpRgb(tone.hi, tone.mid, Math.min(1, depth * 1.2));
+  col = SF._lerpRgb(col, tone.lo, depth * depth * 0.9);
+  if (h % 9 === 0) col = SF._lerpRgb(col, tone.out, 0.72);
+  else if (h % 9 === 1) col = SF._lerpRgb(col, tone.hi, 0.48);
+  else if (slab % 5 === 0) col = SF._lerpRgb(col, tone.lo, 0.38);
+  var g = gap | 0;
+  if (g % 9 === 7) col = SF._lerpRgb(col, tone.out, 0.24);
+  if (SF._thash(colId, g >> 2) % 17 === 0) col = SF._lerpRgb(col, tone.out, 0.42);
+  if (g >= block - 2) col = tone.out;
+  else if (g >= block - 4) col = SF._lerpRgb(col, tone.out, 0.58);
+  return col;
+};
+
+SF._topColor = function (t) {
+  var lv = t.level || 1;
+  if (t.kind === "grass") return [72, 152, 98];
+  if (SF.islandId === "cinderveil") return lv >= 2 ? [178, 156, 126] : [156, 134, 110];
+  if (t.id === "scar") return [206, 172, 110];
+  if (lv >= 3) return [222, 226, 140];
+  if (lv >= 2) return [198, 214, 116];
+  return [174, 200, 98];
+};
+
+SF._mossColor = function (t) {
+  if (SF.islandId === "cinderveil") return [114, 130, 72];
+  if (t.id === "scar") return [128, 142, 70];
+  return [90, 152, 62];
 };
 
 SF._rockTones = function (t) {
@@ -440,56 +472,114 @@ SF._rockTones = function (t) {
 
 SF._paintElevation = function (data, mask, minX, minY, w, h) {
   var list = SF._terraceList();
-  var ti, t, tone, x0, y0, x1, y1, x, y, idx, pix, m, cur, col, face, u, near;
+  var ti, t, tone, reach, x0, y0, x1, y1, x, y, idx, pix, m, cur, col;
+  var face, block, lv, top, rd, wx, wy, band, along, stepH, hang, moss, u, shadow, kind, ramp, lip, drop, above;
+  var period, ax, ay, ddx, ddy, sz, reachH, fall;
   for (ti = 0; ti < list.length; ti++) {
     t = list[ti];
     tone = SF._rockTones(t);
     face = t.face || t.block || 0;
-    x0 = Math.max(0, Math.floor(t.x - t.rx - 8 - minX));
-    y0 = Math.max(0, Math.floor(t.y - t.ry - 8 - minY));
-    x1 = Math.min(w - 1, Math.ceil(t.x + t.rx + 8 - minX));
-    y1 = Math.min(h - 1, Math.ceil(t.y + t.ry + face + 12 - minY));
+    block = t.block || 0;
+    lv = t.level || 1;
+    top = SF._topColor(t);
+    reach = 1.48;
+    shadow = 22 + lv * 6;
+    ramp = t.ramp || 20;
+    x0 = Math.max(0, Math.floor(t.x - t.rx * reach - 16 - minX));
+    y0 = Math.max(0, Math.floor(t.y - t.ry * reach - 16 - minY));
+    x1 = Math.min(w - 1, Math.ceil(t.x + t.rx * reach + 16 - minX));
+    y1 = Math.min(h - 1, Math.ceil(t.y + t.ry * reach + face + shadow + 8 - minY));
     for (y = y0; y <= y1; y++) {
       for (x = x0; x <= x1; x++) {
         idx = y * w + x;
-        if (mask[idx] !== 1 && mask[idx] !== 3) continue;
-        m = SF._ellipseGap(t, minX + x, minY + y);
+        kind = mask[idx];
+        if (kind !== 1 && kind !== 3) continue;
+        wx = minX + x;
+        wy = minY + y;
+        m = SF.terraceMetrics(t, wx, wy);
         pix = idx * 4;
         cur = [data[pix], data[pix + 1], data[pix + 2]];
         if (m.gap <= 0) {
-          col = SF._lerpRgb(cur, [cur[0] + 52, cur[1] + 40, cur[2] + 14], 0.14 + t.level * 0.11);
-          if (m.deep > 5 && m.ny > 0.35) col = SF._lerpRgb(col, [cur[0] * 0.7, cur[1] * 0.78, cur[2] * 0.62], 0.35);
-          if (m.deep < 4.4 && m.ny > 0.02) col = SF._lerpRgb(col, [244, 236, 176], 0.84);
+          lip = SF.terraceSouthLip(t, wx);
+          above = lip == null ? 99 : lip - wy;
+          if (kind === 3) {
+            if (above >= 0 && above < 3) SF._writePx(data, pix, SF._lerpRgb(cur, [228, 214, 160], 0.35));
+            continue;
+          }
+          col = SF._lerpRgb(cur, top, 0.28 + lv * 0.08);
+          if (above > 3 && above < 14) {
+            u = 1 - (above - 3) / 11;
+            col = SF._lerpRgb(col, [col[0] * 0.62, col[1] * 0.72, col[2] * 0.48], 0.4 * u);
+          } else if (m.deep > 3 && m.deep < 10 && m.ny < 0.15) {
+            col = SF._lerpRgb(col, [col[0] * 0.78, col[1] * 0.84, col[2] * 0.7], 0.22);
+          }
+          if (above >= 0 && above < 3) col = SF._lerpRgb(col, [242, 234, 176], 0.7 + lv * 0.06);
+          else if (m.deep < 2.4 && m.ny < 0.2) col = SF._lerpRgb(col, [236, 228, 170], 0.4);
+          period = 10 + lv * 6;
+          ax = Math.round(wx / period) * period;
+          ay = Math.round(wy / period) * period;
+          if (m.deep > 8 && above > 12 && SF._thash(ax >> 2, ay >> 2) % (6 + lv) === 0) {
+            ddx = wx - ax;
+            ddy = wy - ay;
+            sz = 2 + lv;
+            if (ddx * ddx + ddy * ddy < sz * sz) {
+              col = SF._lerpRgb(col, lv >= 3 ? [236, 228, 150] : [118, 168, 64], 0.72);
+            }
+          }
           SF._writePx(data, pix, col);
           continue;
         }
-        if (m.ny < 0.22 || m.gap > face + 12) continue;
-        near = SF.nearRoute && t.block && SF.nearRoute(minX + x, minY + y, 16);
-        if (t.block && m.gap < t.block && near) {
-          u = Math.floor((minY + y) / 6);
-          col = (u % 2 === 0) ? tone.stepHi : tone.lo;
-          if (u % 2 === 0 && ((minY + y) % 6) === 0) col = tone.hi;
+        lip = SF.terraceSouthLip(t, wx);
+        if (lip == null) continue;
+        drop = wy - lip;
+        if (drop <= 0 || drop > face + shadow) continue;
+        if (block && drop < block && t.kind !== "grass") {
+          rd = SF.routeApproach(wx, wy);
+          if (rd.cross && rd.d < ramp + 8) {
+            rd = rd.d;
+            if (rd < ramp - 2) {
+              stepH = 7;
+              band = Math.floor(drop / stepH);
+              along = drop - band * stepH;
+              if (along < 1.4) col = tone.stepHi;
+              else if (along > stepH - 1.7) col = tone.out;
+              else col = band % 2 ? tone.step : SF._lerpRgb(tone.stepHi, tone.step, 0.35);
+              if (rd > ramp - 6) col = SF._lerpRgb(col, tone.lo, ((rd - (ramp - 6)) / 4) * 0.55);
+            } else {
+              col = SF._rockPixel(tone, t, wx, drop, block);
+              col = SF._lerpRgb(col, tone.out, 0.45);
+              if (rd < ramp + 1.5) col = SF._lerpRgb(tone.hi, tone.stepHi, 0.55);
+            }
+            SF._writePx(data, pix, col);
+            continue;
+          }
+          col = SF._rockPixel(tone, t, wx, drop, block);
+          if (drop < 12) {
+            hang = SF._thash((wx / 3) | 0, ((t.seed || 1) * 17) | 0);
+            reachH = 4 + (hang % 8);
+            if (drop < reachH && hang % 5 !== 0) {
+              moss = SF._mossColor(t);
+              col = SF._lerpRgb(moss, [moss[0] * 0.45, moss[1] * 0.5, moss[2] * 0.35], (drop / reachH) * 0.8);
+            }
+          }
           SF._writePx(data, pix, col);
           continue;
         }
-        if (t.block && m.gap < t.block && t.kind !== "grass") {
-          u = Math.floor(m.gap);
-          if (u >= t.block - 2) col = tone.out;
-          else if (u < 3) col = tone.hi;
-          else if (u % 6 === 5) col = tone.lo;
-          else if (u > t.block * 0.62) col = tone.lo;
-          else col = tone.mid;
+        if (drop < face) {
+          if (kind === 3 && !block) continue;
+          u = drop / face;
+          col = SF._lerpRgb(cur, t.kind === "grass" ? [34, 88, 46] : [30, 74, 38], 0.3 + u * 0.48);
+          if (drop < 2.8) col = SF._lerpRgb(col, [206, 220, 136], 0.7);
+          if (t.kind === "grass" && drop < 11) {
+            hang = SF._thash(wx | 0, ((t.seed || 1) * 5) | 0);
+            if (hang % 4 === 0 && drop < 3 + (hang % 7)) col = [92, 150, 66];
+          }
           SF._writePx(data, pix, col);
           continue;
         }
-        if (m.gap < face) {
-          u = m.gap / face;
-          col = SF._lerpRgb(cur, [28, 70, 36], 0.22 + u * 0.5);
-          if (m.gap < 2.4) col = SF._lerpRgb(col, [214, 228, 150], 0.7);
-          SF._writePx(data, pix, col);
-          continue;
-        }
-        col = SF._lerpRgb(cur, [20, 48, 26], 0.42);
+        u = (drop - face) / shadow;
+        fall = (1 - u) * (1 - u);
+        col = SF._lerpRgb(cur, [cur[0] * 0.4, cur[1] * 0.46, cur[2] * 0.36], 0.66 * fall);
         SF._writePx(data, pix, col);
       }
     }
@@ -497,69 +587,41 @@ SF._paintElevation = function (data, mask, minX, minY, w, h) {
 };
 
 SF.drawTerraceFront = function (ctx, t) {
-  if (!t.block || !SF._terrain || !SF._terrainBox) return;
-  var steps = 16;
-  var span = Math.PI - 0.55;
-  var a0 = 0.275;
-  var i, a, x, y, gates, g;
+  if (!t.block || !SF._terrain || !SF._terrainBox || !SF.terraceLipChain) return;
+  var chain = SF.terraceLipChain(t);
+  if (!chain || chain.length < 6) return;
+  var strips = [];
+  var cur = null;
+  var ramp = (t.ramp || 20) + 1;
+  var i, x, y, rd, st, n, p;
+  for (i = 0; i < chain.length; i += 2) {
+    x = chain[i];
+    y = chain[i + 1];
+    rd = SF.routeApproach(x, y + t.block * 0.45);
+    if (rd.cross && rd.d < ramp) {
+      if (cur && cur.length > 4) strips.push(cur);
+      cur = null;
+      continue;
+    }
+    if (!cur) cur = [];
+    cur.push(x, y);
+  }
+  if (cur && cur.length > 4) strips.push(cur);
+  if (!strips.length) return;
   ctx.save();
   ctx.beginPath();
-  for (i = 0; i <= steps; i++) {
-    a = a0 + span * (i / steps);
-    x = t.x + Math.cos(a) * (t.rx + 1);
-    y = t.y + Math.sin(a) * (t.ry + t.block);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  for (p = 0; p < strips.length; p++) {
+    st = strips[p];
+    n = st.length;
+    ctx.moveTo(st[0], st[1]);
+    for (i = 2; i < n; i += 2) ctx.lineTo(st[i], st[i + 1]);
+    for (i = n - 2; i >= 0; i -= 2) ctx.lineTo(st[i], st[i + 1] + t.block);
+    ctx.closePath();
   }
-  for (i = steps; i >= 0; i--) {
-    a = a0 + span * (i / steps);
-    x = t.x + Math.cos(a) * Math.max(6, t.rx - 1);
-    y = t.y + Math.sin(a) * (t.ry + 1);
-    ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  gates = SF._terraceGates ? SF._terraceGates(t) : [];
-  for (g = 0; g < gates.length; g++) {
-    ctx.moveTo(gates[g].x + (t.ramp || 28), gates[g].y);
-    ctx.arc(gates[g].x, gates[g].y, t.ramp || 28, 0, Math.PI * 2);
-  }
-  ctx.clip("evenodd");
+  ctx.clip();
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(SF._terrain, SF._terrainBox.minX, SF._terrainBox.minY);
   ctx.restore();
-};
-
-SF._terraceGates = function (t) {
-  var paths = SF.PATHS || [];
-  var found = [];
-  var p, i, x0, y0, x1, y1, len, s, n, x, y, m, k, hit;
-  for (p = 0; p < paths.length; p++) {
-    for (i = 0; i < paths[p].length - 2; i += 2) {
-      x0 = paths[p][i];
-      y0 = paths[p][i + 1];
-      x1 = paths[p][i + 2];
-      y1 = paths[p][i + 3];
-      len = Math.hypot(x1 - x0, y1 - y0) || 1;
-      n = Math.max(1, Math.ceil(len / 8));
-      for (s = 0; s <= n; s++) {
-        x = x0 + (x1 - x0) * (s / n);
-        y = y0 + (y1 - y0) * (s / n);
-        m = SF._ellipseGap(t, x, y);
-        if (m.gap <= 2 || m.gap >= t.block - 1 || m.ny < 0.2) continue;
-        hit = false;
-        for (k = 0; k < found.length; k++) {
-          if (Math.hypot(found[k].x - x, found[k].y - y) < 36) {
-            found[k].x = (found[k].x + x) / 2;
-            found[k].y = (found[k].y + y) / 2;
-            hit = true;
-            break;
-          }
-        }
-        if (!hit) found.push({ x: x, y: y });
-      }
-    }
-  }
-  return found;
 };
 
 SF.drawLands = function (ctx, s) {
@@ -2209,7 +2271,7 @@ SF.entityList = function (s) {
     SF._terraceList().forEach(function (t) {
       if (!t.block) return;
       list.push({
-        y: t.y + t.ry + t.block + 0.5,
+        y: (SF.terraceSouthLip && (SF.terraceSouthLip(t, t.x), t._southBase)) || (t.y + t.ry + t.block),
         draw: function (ctx) { SF.drawTerraceFront(ctx, t); }
       });
     });
