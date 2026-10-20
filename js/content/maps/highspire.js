@@ -23,10 +23,10 @@ SF.ISLANDS.highspire = {
     rects: []
   },
   npcs: [
-    { id: "brant", name: "Warden Brant", x: -16, y: -248, node: "highspire.captain", sprite: "villager_a", role: "warden at the gate" },
-    { id: "dorrie", name: "Dorrie Fen", x: 100, y: 200, node: "highspire.shopkeeper", sprite: "villager_b", role: "shopkeeper" },
-    { id: "maud", name: "Maud Keel", x: -90, y: 240, node: "highspire.innkeeper", sprite: "villager_a", role: "inn keeper at the Switchback" },
-    { id: "ellis", name: "Ellis Ward", x: 40, y: 150, node: "highspire.ellis", sprite: "villager_b", role: "townsman" }
+    { id: "brant", name: "Warden Brant", x: -16, y: -248, node: "highspire.captain", sprite: "brant", role: "warden at the gate" },
+    { id: "dorrie", name: "Dorrie Fen", x: 100, y: 200, node: "highspire.shopkeeper", sprite: "dorrie", role: "shopkeeper" },
+    { id: "maud", name: "Maud Keel", x: -90, y: 240, node: "highspire.innkeeper", sprite: "maud", role: "inn keeper at the Switchback" },
+    { id: "ellis", name: "Ellis Ward", x: 40, y: 150, node: "highspire.ellis", sprite: "ellis", role: "townsman" }
   ],
   texts: [],
   pickups: [],

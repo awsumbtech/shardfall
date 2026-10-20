@@ -1,6 +1,6 @@
 # Shardfall — living design doc
 
-**Current build:** v0.3, The Wider Hush. Fights are turn-based. Act 1 is solo. After it, the sail chart reaches Saltmere, Gullrock, the Drift Market, and Lowgate under Highspire. Act 2's spoken lines are not in the game yet. The shared build notes are in `docs/v0.3-spec.md`. Act 1's names and dialogue ids stay in `docs/v0.2-spec.md`.
+**Current build:** v0.3, The Wider Hush, drawn in 16-bit pixel art. Fights are turn-based. Act 1 is solo. After it, the sail chart reaches Saltmere, Gullrock, the Drift Market, and Lowgate under Highspire. Act 2's spoken lines are not in the game yet. The shared build notes are in `docs/v0.3-spec.md`. Act 1's names and dialogue ids stay in `docs/v0.2-spec.md`.
 **Play:** https://awsumbtech.github.io/shardfall/ once the Pages workflow has run on `main`.
 
 This is the document to update when the world or a system changes. If a rule in code and a sentence here disagree, fix them in the same change. Player-facing notes live in `CHANGELOG.md` and in the in-game "What's new" panel. This file can spoil secrets.
@@ -97,7 +97,7 @@ People added for Act 2, each with one placeholder line until the script is appro
 
 **Lanternwrights** keep the shard-lamps. They are few, practical, and tired in the way of people who have been right for a long time. Maren is the only one on Emberhold. Their creed, as she lives it: the lamp eats, the grass stays, you do the work with your own hand.
 
-**Driftborn** are nomad sky-sailors. They know routes the charts still call cloud. They name ships the way other people name cousins. Kestrel is one sailor and one skiff, not an ambassador. Reputation with the Driftborn is a later system; in v0.1 he is a person with a hammer.
+**Driftborn** are nomad sky-sailors. They know routes the charts still call cloud. They name ships the way other people name cousins. Kestrel is one sailor and one skiff, not an ambassador. Reputation with the Driftborn is a later system; in v0.1 she is a person with a hammer.
 
 **The Hollow Choir** wants the sky fully broken. They are not, in this build, a horde. They are a voice. The Cantor is masked, oddly polite, and in no hurry. Choirlings — the ranged Hushborn — wear a cracked echo of that same mask. The Choir's door is not open in v0.1. The Cantor says so, and means it.
 
@@ -107,7 +107,7 @@ People added for Act 2, each with one placeholder line until the script is appro
 
 **Old Maren** keeps Emberhold's great lamp. Lanternwright. Short sentences, warm hands, no patience for being handed the shards. She wants the Wayfarer to set them on the plinth. Talk to her and she mends you to full heart. She is the quest, the heal, and the thank-you.
 
-**Kestrel Vane** is a Driftborn sky-sailor. Teal coat, yellow scarf, goggles he does not take off for conversation. He talks about the Quickmercy as if she argues back. He will not sail while the lamp is holding its breath. He is the one who tells you to dash the span, and to look behind the stones. After the lamp, he names Cinderveil and offers the crossing. What you answer is remembered the next time you talk to him on the dock.
+**Kestrel Vane** is a Driftborn sky-sailor (she/her). Teal coat, yellow scarf, goggles she does not take off for conversation. She talks about the Quickmercy as if the skiff argues back. She will not sail while the lamp is holding its breath. She is the one who tells you to dash the span, and to look behind the stones. After the lamp, she names Cinderveil and offers the crossing. What you answer is remembered the next time you talk to her on the dock.
 
 **The Cantor** is the masked voice of the Hollow Choir. Tall, gold hem, no feet worth mentioning. They admire the patches on the Quickmercy and will not wait on the dock. Finding them is optional. They do not join the quest and they do not attack. They are a promise that the Choir is a faction, not a monster type.
 
@@ -185,7 +185,7 @@ One quest: **relight Emberhold's lamp.**
 
 The first minute teaches one thing at a time, and only until you have done it: move, then Talk when someone is in reach, Fight when a foe is close, Dash before the lesson expires and again at the broken span. Those lessons are saved with the journey. A Continue from an older save does not restart the move lesson if you have already been walking. Walking off an edge, including a short dash that misses the span, says "The gap is too wide. Try Dash." Dash on cooldown says so.
 
-The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without him.
+The Cantor is not a step. Inscriptions are not steps. Kestrel before the lamp is a hint, not a gate: you can dash the span without her.
 
 Dialogue is a bottom panel: a name, a drawn face or a color badge, and one or two sentences. Tap, E, Enter, or Space finishes a line that is still arriving, then advances. Each new line blips in that speaker's pitch. While letters are still arriving, the same voice ticks every few characters. With Reduce flashing on, or when the system asks for less motion, the line arrives whole, the caret does not blink, and that line is a single blip. Choices are large buttons. A choice can set `state.flags`, and a later choice can require those flags. Flags are saved with the journey. When a conversation closes, each node's `onEnd` is dispatched in order (`SF.onDialogueEvent`, or the window event `sf:dialogue`) so gameplay can hook it. `startDialogue(id)` starts a node. An unknown id plays one placeholder line and does not throw. The Act 1 script is `docs/script/act1.md`; the nodes are `js/content/dialogue/`. Nothing hunts you while you are reading, paused, or watching the lamp catch.
 
@@ -201,15 +201,73 @@ A save from a future version number is ignored rather than half-applied. v0.3 wr
 
 ## Art direction
 
-Stylized and colorful. No textures, no spritesheets, no downloads. Everything is canvas shapes, a handful of cached soft glows, and system fonts (a serif for the story, a round sans for the buttons).
+16-bit, SNES-era, in the neighborhood of Final Fantasy VI and Chrono Trigger. Every sprite, portrait, tile, and battle background is a palette-indexed pixel grid drawn in code, rasterized once to an offscreen canvas, and blitted with nearest-neighbor scaling onto whole device pixels. Nothing is downloaded. The dusk sky stays a smooth gradient: indigo up high, peach at the cloud line, and a thin crack of light that never quite sets. Lamp glow, the island's soft shadow on the Hush, and the vignette stay smooth. Pixel art does not.
 
-The sky is a dusk gradient: indigo up high, peach at the cloud line, with a thin crack of light that never quite sets. Clouds are large, slow, and slightly behind the camera so the sea feels deeper than the islands. The title, before a journey starts, is its own picture on that same canvas: a cloud sea and a few drifting islands under the wordmark. Reduce flashing holds the lamp steady and leaves out the motes. Reduce motion holds the picture still. Islands have a cliff of terracotta under the grass, a pale rim on the sunward edge, and a soft shadow on the Hush. Emberhold is green. Cinderstep is coin-gold. Vane's Perch is teal, like shallow water that forgot it was cloud. Whisper Hollow is the same island with a blue wash.
+`?gallery` (or `#gallery`) opens a review page of every sprite, portrait, and battle background. It does not start the game loop.
 
-Glow is the language. Shards are cyan diamonds. The unlit lamp is a dim violet crystal. The lit lamp is gold, with a beam and a wash over the grass, and the little stakes along the path catch. The hand-shard is the Wayfarer's brightest point. Hushborn are soft bodies with a hard core: wisps violet, brumekin amber and horned, Choirlings tall with a cracked mask.
+### Who is who
 
-UI is dark glass and gold hairlines, large round buttons, a heart bar and a thin experience bar. The title sits at the bottom of the portrait screen so the cloud sea shows above it. In landscape the title is a panel on the left.
+People are drawn large enough to read on a phone (about 17×26 source pixels, drawn at field scale 2). Feet sit on the baseline so they sort with the ground.
 
-Hits no longer blink the Wayfarer on and off. A hit is a small warm spark and, unless Reduce flashing is on, a faint red edge that fades in about a quarter second. The lamp's glow does not strobe. Screen shake is a short, small drift, and it is off entirely when Reduce flashing is on or `prefers-reduced-motion` is set. The canvas is a normal 2D context. Its backing store is reallocated only when the CSS size actually changes by a couple of pixels, so a phone URL bar cannot clear the frame every tick. The game itself still moves; it is a game.
+- **Wayfarer.** Short dark hair, blue coat, a cyan shard glowing in the right hand.
+- **Kestrel Vane** (she/her). Ponytail, teal captain's coat, yellow scarf, goggles, a pistol at the hip.
+- **Tamsin Reed.** Young, freckled, orange vest over a cream shirt, a tool belt, a wrench in hand.
+- **Old Maren.** White bun, shawl, long skirt, a staff.
+- **Warden Ilsa.** Broad, helmeted, armored, spear.
+- **Brother Hesk.** Choir hood and robe, a pale stole.
+- **The Cantor.** Pale mask, void robe, gold hem, no feet.
+- Villagers, Choirlings, and the later party-facing foes (saltwisp, drowned, stormgull, tidewyrm, choir soldier, sentinel, hush raider) each have their own silhouette and palette.
+- **Brenna Holt.** Harbormaster. Teal coat, dark cap, a coil of rope.
+- **Osric Pell.** Inn keeper at the Stilthouse. White hair, apron, a mug.
+- **Nessa Quinn.** Shopkeeper. Sand vest, tool belt, a hook.
+- **Sera Dunne.** Lamp keeper. Pale, a shawl, a small lantern.
+- **Pip.** Dock kid. Green cap.
+- **Lark.** Dock kid. Red scarf and skirt. The shared line uses a portrait of both.
+- **Jory Hale.** Fisher. Oilskin coat and a net.
+- **Warden Brant.** Stone helm, gold plume, a spear. Not Ilsa's red plume.
+- **Dorrie Fen.** Lowgate shopkeeper. Grey bun, brown apron.
+- **Maud Keel.** Inn keeper at the Switchback. Broad, gold apron, a mug.
+- **Ellis Ward.** Young townsman in a blue coat.
+- **Sile Voss.** Drift Market trader. Wide violet hat, gold satchel.
+
+### Calling the art
+
+`window.Art` is the contract. The battle screen calls these. If a script runs before the art files, check `window.Art` and fall back.
+
+```js
+Art.sprite(ctx, id, x, y, { frame, facing, scale, pose, anchor, fx, fy });
+Art.portrait(ctx, id, x, y, size);
+Art.battleBg(ctx, bgId, w, h, t);
+Art.window(ctx, x, y, w, h, opts);
+Art.tile(ctx, name, x, y, scale);
+Art.preload();
+```
+
+`Art.sprite` puts the feet on `(x, y)`. `scale` defaults to `Art.defaultScale(id)` (2 for people and most foes; the Cinder Maw and the Tidewyrm default to 2 and use `Art.fieldScale` 1 on the map so they stay large without covering a quay). `anchor: "center"` or `"top"` overrides the feet.
+
+`facing` is `"down"`, `"up"`, `"left"`, or `"right"`. `"n" "s" "e" "w"`, `0–3`, and `"side"` are accepted. `fx` / `fy` pick a facing when `facing` is omitted.
+
+`pose: "walk"` is the field cycle: four directions, four frames (0 and 2 are the contact poses, 1 and 3 step). A numeric `frame` is that walk index. `pose` `"idle"`, `"attack"`, `"hurt"`, or `"cast"` is the side-view battle frame (two frames, facing left or right). A string `frame` (`"idle"`, `"attack"`, `"hurt"`, `"cast"`, `"walk"`) is treated as the pose, so `Art.sprite(ctx, "kestrel", x, y, { frame: "attack" })` is a battle swing. The Cinder Maw is the exception: every pose uses the same three-quarter painter; idle and hurt close the mouth and dim the core.
+
+Sprite ids: `wayfarer`, `kestrel`, `tamsin`, `maren`, `hesk`, `ilsa`, `cantor`, `villager_a`, `villager_b`, `brenna`, `osric`, `nessa`, `sera`, `pip`, `lark`, `jory`, `brant`, `dorrie`, `maud`, `ellis`, `sile`, `wisp`, `brumekin`, `choirling`, `ashling`, `cinderhound`, `cinder_maw`, `saltwisp`, `drowned`, `stormgull`, `tidewyrm`, `choir_soldier`, `sentinel`, `hush_raider`, `chest`, `chest_open`, `lamp_cold`, `lamp_lit`, `shard`, `skiff`, `cog`, `sign`. The field also uses `sootwing`, `tree`, `tree_bare`, `rock`, `cottage`, `workshop`, `stones`, `ruin`, `plank`, `flower`, `flower_gold`, `flower_tide`, `blossom`, `bench`, `bell`, `hut`, `stilt`, `stall`, `wreckhull`, `gatearch`, `raft`, `signpost`, `inn`, and `tile_*` pattern names. An unknown id draws an 8×8 magenta checker and does not warn.
+
+`Art.portrait(ctx, id, x, y, size)` draws a square face for dialogue and menus. Named people have portraits, including the Wider Hush cast and `pip_lark` for the shared dock-kid line. So do `cinder_maw`, `tidewyrm`, and the inscription badges (`stones`, `lamp`, `ship`, `scar`, `core`, `sign`, `crate`, `ash`, `blossom`, `bridge`, `vault`, `bell`, `hush`). Unknown ids use a generic face. `Art.portraitIds()` lists them. A dialogue node can set `portrait`. If it does not, the speaker name still picks a face for the people above.
+
+`Art.battleBg(ctx, bgId, w, h, t)` fills the rectangle at the current origin, from `(0, 0)` to `(w, h)`, clipped to that box. Ids: `emberhold_meadow`, `emberhold_scar`, `cinderveil_ash`, `ember_vault`, `saltmere_shore`, `saltmere_wreck`, `highspire_road`, `hush_deck`. An unknown id uses the meadow. `t` is seconds. Clouds drift slowly unless `Art.calm()` is true, which it is when Reduce flashing is on (the default) or the system asks for less motion.
+
+The battle screen is a side view on that background. Enemies stand on the left, facing right. The party stands on the right, facing left. Their feet share one ground line just above the party card, so a solo fight does not leave a gap between the two sides. Pass `pose: "idle" | "attack" | "hurt" | "cast"` (or a string `frame` of the same name). A numeric `frame` without a pose is the field walk cycle, which is the wrong picture for a fight. The turn strip, the log, the commands, and the field menu use `Art.window` (and the same blue CSS on the DOM menu). The party card and the turn strip use `Art.portrait`.
+
+`Art.window(ctx, x, y, w, h, opts)` paints a Final Fantasy-style window: deep blue, cream outer border, light-blue inner line. It returns the content rectangle `{ x, y, w, h }`. `opts.title` draws a gold label and pushes the content rect down. DOM menus use the same chrome in CSS (`.panel`, `.card`, `#dialogue`, `#toast`, the corner buttons).
+
+`Art.tile` stamps one terrain cell. `Art.fillPattern(ctx, name)` fills the current path with a repeating tile. Terrain names: `grass`, `grass_light`, `cliff`, `shore`, `gold`, `ash`, `stone`, `vault`, `path`, `cobble`, `plank`, `dock`, `pier`, `sand`, `hold`, `wood`, plus the `_light` variants the islands use for a sunward rim.
+
+`Art.spriteSize(id, pose, facing)` returns `{ w, h, ax, ay }` in source pixels. `Art.ids()` lists sprite ids. Call `Art.preload()` once after boot; the game already does.
+
+### The drift
+
+Islands are still unions of circles. The cliff is terracotta pixel stone, the top is a tileset: Emberhold grass, Cinderstep coin-gold, Vane's Perch a teal shore, the span pale stone, Lowmoor cobble, the Ashfields ash, the vault dark rock. Saltmere is dock planks over a pier, the shore is sand, the Holdfast is dark hold timber, Lowgate is cobble, the switchback is a path, Gullrock is stone, and the Drift Market is plank. Paths are stamped tile, not a stroked line. Trees, rocks, cottages, the workshop, lamps, the skiff, stilts, huts, stalls, the wreck hull, the Lowgate arch, and the market raft are sprites. The sail chart, the shop, and the inn use the same blue window, with a pixel island on each chart pin and the keeper's portrait on the shop and the inn. The Hush under the islands is the same cloud sea, now stamped from pixel clouds that drift behind the camera. Reduce flashing holds the lamp steady, skips decorative bobbing, and leaves the walk cycle running while someone is actually moving. Hits do not blink the Wayfarer. A hit is a small warm spark and, unless Reduce flashing is on, a faint red edge. Shake is off when Reduce flashing is on. The canvas backing store is still reallocated only when the CSS size changes by more than a pixel.
+
+The title is that same sky, with pixel island cards, and the menus sit in the blue window chrome. Zoom snaps so device pixels times zoom is an integer, which is what keeps the sprites crisp at 412×915.
 
 ## Audio
 
@@ -317,7 +375,7 @@ These are for Brian. v0.1 picked an answer so the build could exist. None of the
 2. **Cinderveil.** The name stayed. Act 1 lands there.
 3. **How hard the Hush bites.** Death and a missed dash currently give you back, minus a little heart. A harsher version could keep a shard, or fray the lamp, or cost time. The gentle version is what is built.
 4. **The Cantor.** Rival, tragic ally, or a third route you can actually walk in v0.4. v0.1 only promises that they are polite and that they are not done.
-5. **Art.** Stay procedural, which keeps the game a single folder with no assets, or move to drawn sprites once the islands multiply.
+5. **Art.** v0.3 draws the sprites in code (palette grids, no downloaded images). A later pass can redraw individual characters without changing `Art.sprite`.
 6. **The hand.** Dash, then the grapple, then five shard purchases. That is the v0.2 answer.
 7. **How much they talk.** Act 1 is a full script now, still one or two sentences a box. If a scene runs long on the phone, cut a line before adding one.
 8. **Sound.** On after the first tap, with separate music and effects sliders, and easy to mute. Haptics start on, for a hit, a shard, and the lamp. It can still default to muted if the phone speaker is the wrong call.
@@ -339,6 +397,11 @@ Code map, if a section above needs a change:
 | `js/battle/` | Turn order, commands, the Maw, results |
 | `js/data/party.js`, `enemies.js`, `skills.js`, `items.js`, `encounters.js` | Party, foes, skills, items, encounter ids |
 | `js/menu/field.js` | Field menu: party, skills, items, equip |
+| `js/art/core.js` | Palette, `Art.sprite`, portraits, integer blit |
+| `js/art/actors.js` | People, foes, battle poses |
+| `js/art/world.js` | Tiles, props, the Hush clouds |
+| `js/art/scenes.js` | Battle backgrounds, `Art.window` |
+| `js/art/gallery.js` | `?gallery` review page |
 | `js/draw.js` | How the drift looks |
 | `js/ui.js`, `css/style.css` | Buttons, panels, safe areas |
 | `js/save.js` | The v2 save, and v1 reads |

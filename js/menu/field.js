@@ -70,6 +70,24 @@ SF.closeFieldMenu = function () {
   if (SF.syncUI) SF.syncUI();
 };
 
+function faceRow(parent, id) {
+  var row = document.createElement("div");
+  row.className = "field-face";
+  var canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  if (window.Art && Art.portrait) {
+    var g = canvas.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    Art.portrait(g, id, 0, 0, 64);
+  }
+  row.appendChild(canvas);
+  var name = document.createElement("span");
+  name.textContent = (SF.PARTY[id] && SF.PARTY[id].name) || id;
+  row.appendChild(name);
+  parent.appendChild(row);
+}
+
 function statLine(s, id) {
   var m = s.party.members[id];
   var st = SF.memberStats(s, id);
@@ -129,6 +147,7 @@ function paint(s) {
   }
   if (SF.fieldScreen === "party") {
     joined(s).forEach(function (id) {
+      faceRow(body, id);
       var p = document.createElement("p");
       p.className = "field-stat";
       p.textContent = statLine(s, id);
@@ -138,10 +157,7 @@ function paint(s) {
   }
   if (SF.fieldScreen === "skills") {
     joined(s).forEach(function (id) {
-      var h = document.createElement("p");
-      h.className = "field-stat";
-      h.textContent = SF.PARTY[id].name;
-      body.appendChild(h);
+      faceRow(body, id);
       SF.skillsAt(id, s.party.members[id].level).forEach(function (skillId) {
         var sk = SF.SKILLS[skillId];
         var p = document.createElement("p");
@@ -203,6 +219,7 @@ function paint(s) {
     return;
   }
   if (SF.fieldScreen === "equip") {
+    faceRow(body, SF.fieldMember);
     joined(s).forEach(function (id) {
       addButton(body, SF.PARTY[id].name, SF.fieldMember !== id, function () {
         SF.fieldMember = id;

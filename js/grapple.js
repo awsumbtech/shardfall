@@ -321,6 +321,30 @@ SF.updateMaw = function (e, dt) {
 };
 
 SF.drawFoe = function (ctx, e) {
+  if (SF.drawEnemySprite && SF.drawEnemySprite(ctx, e)) {
+    if (e.kind === "sootwing" && e.ai === "wind") {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 150, 70, 0.8)";
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.x + (e.aimX || 0) * 36, e.y + (e.aimY || 0) * 36);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if ((e.kind === "cinderbrute") && (e.ai === "wind" || e.ai === "charge")) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 140, 60, 0.85)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 10, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (e.kind === "maw") SF.drawMawTell(ctx, e);
+    if (e.hurt > 0 && typeof flash === "function") flash(ctx, e.x, e.y, e.r, e.hurt);
+    return;
+  }
   if (e.kind === "ashmite") SF.drawAshmite(ctx, e);
   else if (e.kind === "sootwing") SF.drawSootwing(ctx, e);
   else if (e.kind === "cinderbrute") SF.drawCinderbrute(ctx, e);
@@ -388,8 +412,31 @@ SF.drawCinderbrute = function (ctx, e) {
   if (e.hurt > 0) flash(ctx, e.x, e.y, e.r, e.hurt);
 };
 
+SF.drawMawTell = function (ctx, e) {
+  if (!e || e.dormant) return;
+  if (e.tellKind !== "slam" && e.tellKind !== "charge") return;
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 150, 70, 0.9)";
+  ctx.lineWidth = 2;
+  if (e.tellKind === "slam") {
+    ctx.beginPath();
+    ctx.arc(e.markX || e.x, e.markY || e.y, 18 + (e.tell > 0 ? (0.85 - e.tell) * 20 : 26), 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(e.x, e.y);
+    ctx.lineTo(e.x + (e.aimX || 1) * 150, e.y + (e.aimY || 0) * 150);
+    ctx.stroke();
+  }
+  ctx.restore();
+};
+
 SF.drawMaw = function (ctx, e) {
   if (!e.alive && e.dying <= 0) return;
+  if (SF.drawEnemySprite && SF.drawEnemySprite(ctx, e)) {
+    SF.drawMawTell(ctx, e);
+    return;
+  }
   var calm = SF.calm && SF.calm();
   ctx.save();
   ctx.fillStyle = e.dormant ? "#3a3330" : "#2a2224";
@@ -518,10 +565,11 @@ SF.drawVoyage = function (ctx, w, h, s) {
     if (SF.blobs) ctx.drawImage(SF.blobs.cloud, x, y, 180, 70);
   }
   ctx.restore();
-  var drewSkiff = SF.tryArtSprite && SF.tryArtSprite(ctx, "skiff", w * 0.5, h * 0.58, { scale: 3 });
-  if (!drewSkiff) {
-    ctx.save();
-    ctx.translate(w * 0.5, h * 0.58);
+  ctx.save();
+  ctx.translate(w * 0.5, h * 0.62);
+  if (window.Art && Art.sprite) {
+    Art.sprite(ctx, "skiff", 0, 0, { scale: 3, anchor: "center" });
+  } else {
     ctx.fillStyle = "#8a5a3a";
     ctx.fillRect(-28, -6, 56, 10);
     ctx.fillStyle = "#e7d2b4";
@@ -530,8 +578,8 @@ SF.drawVoyage = function (ctx, w, h, s) {
     ctx.lineTo(8, -34);
     ctx.lineTo(-8, -34);
     ctx.fill();
-    ctx.restore();
   }
+  ctx.restore();
   ctx.fillStyle = "#ffd37a";
   ctx.font = "600 18px Palatino, Georgia, serif";
   ctx.textAlign = "center";

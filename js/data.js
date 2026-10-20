@@ -24,7 +24,9 @@ SF.WHATS_NEW = [
   "Act 1 is fought alone. Kestrel and Tamsin join after the act ends.",
   "The sail chart opens after Act 1. Saltmere, Gullrock, the Drift Market, and Lowgate are on it.",
   "The Holdfast is under Saltmere's west pier. Highspire's gate stays shut until that lamp is lit.",
-  "Chests stay open. Shops buy and sell. A night at an inn brings field enemies back."
+  "Chests stay open. Shops buy and sell. A night at an inn brings field enemies back.",
+  "The pause button opens the menu: party, skills, items, gear, and save.",
+  "The islands, people, and battles are drawn in a 16-bit pixel style."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
