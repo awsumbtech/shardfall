@@ -456,19 +456,106 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   if (b.phase === "readout") addHit("skip", 0, 0, w, h);
 };
 
-function stripLabel(ctx, actor, maxW) {
-  var full = (actor && actor.name) || "";
-  ctx.font = "700 12px system-ui, sans-serif";
-  if (full && ctx.measureText(full).width <= maxW) return full;
-  var first = full.split(" ")[0] || "";
-  if (first && first !== full && ctx.measureText(first).width <= maxW) return first;
-  var short = "";
-  if (actor && (actor.key === "wayfarer" || actor.sprite === "wayfarer" || actor.id === "p-wayfarer")) short = "You";
-  else if (actor && actor.side === "party") short = first.slice(0, 4);
-  else if (first.length > 4) short = first.slice(0, 4);
-  if (short && ctx.measureText(short).width <= maxW) return short;
-  if (first && ctx.measureText(first).width <= maxW) return first;
-  return short || first;
+var UNIT_SHORT = {
+  wayfarer: "You",
+  kestrel: "Kestrel",
+  tamsin: "Tamsin",
+  wisp: "Wisp",
+  brumekin: "Brume",
+  choirling: "Choir",
+  ashling: "Ashling",
+  cinderhound: "Hound",
+  cinder_maw: "Maw",
+  saltwisp: "Salt",
+  drowned: "Drowned",
+  stormgull: "Gull",
+  tidewyrm: "Wyrm",
+  choir_soldier: "Soldier",
+  sentinel: "Sentinel",
+  hush_raider: "Raider"
+};
+
+var UNIT_TIGHT = {
+  ashling: "Ash",
+  kestrel: "Kes",
+  tamsin: "Tam",
+  sentinel: "Sentry",
+  choir_soldier: "Choir",
+  brumekin: "Brume",
+  drowned: "Drowned",
+  stormgull: "Gull"
+};
+
+function unitKey(actor) {
+  if (!actor) return "";
+  if (actor.key) return actor.key;
+  if (actor.id === "p-wayfarer" || actor.sprite === "wayfarer") return "wayfarer";
+  return actor.sprite || "";
+}
+
+function isHero(actor) {
+  var key = unitKey(actor);
+  return key === "wayfarer" || (actor && actor.id === "p-wayfarer");
+}
+
+function duplicateMark(actor, battle) {
+  if (!actor || !battle || !battle.actors || isHero(actor)) return "";
+  var key = unitKey(actor);
+  var same = 0;
+  var i;
+  for (i = 0; i < battle.actors.length; i++) {
+    var other = battle.actors[i];
+    if (other.side === actor.side && unitKey(other) === key) same += 1;
+  }
+  if (same < 2) return "";
+  if (actor.side === "foe") return String(actor.index || 1);
+  return String((actor.index || 0) + 1);
+}
+
+function shortBase(actor) {
+  if (isHero(actor)) return "You";
+  var key = unitKey(actor);
+  if (UNIT_SHORT[key]) return UNIT_SHORT[key];
+  var name = ((actor && actor.name) || "").replace(/\s+\d+$/, "");
+  var words = name.split(" ").filter(Boolean);
+  return words.length ? words[words.length - 1] : "Foe";
+}
+
+function tightBase(actor) {
+  var key = unitKey(actor);
+  return UNIT_TIGHT[key] || shortBase(actor);
+}
+
+function labelChoices(actor, battle, includeFull) {
+  var opts = [];
+  function add(text) {
+    if (text && opts.indexOf(text) < 0) opts.push(text);
+  }
+  if (isHero(actor)) return ["You"];
+  if (includeFull) add((actor && actor.name) || "");
+  var mark = duplicateMark(actor, battle);
+  var primary = shortBase(actor);
+  var tight = tightBase(actor);
+  if (mark) {
+    add(primary + " " + mark);
+    add(tight + " " + mark);
+  }
+  add(primary);
+  add(tight);
+  return opts;
+}
+
+function pickFitting(ctx, options, maxW, maxSize, minSize) {
+  var i, size;
+  for (i = 0; i < options.length; i++) {
+    for (size = maxSize; size >= minSize; size--) {
+      ctx.font = "700 " + size + "px system-ui, sans-serif";
+      if (ctx.measureText(options[i]).width <= maxW) return { text: options[i], size: size };
+    }
+  }
+  var last = options.length ? options[options.length - 1] : "";
+  ctx.font = "700 " + minSize + "px system-ui, sans-serif";
+  return { text: last, size: minSize };
 }
 
 function drawStrip(ctx, b, x, y, w, h) {
@@ -499,11 +586,17 @@ function drawStrip(ctx, b, x, y, w, h) {
       ctx.strokeRect(gx, y + 6, box, box);
     }
     drawPortrait(ctx, actor.sprite, ox, y + 8, face);
-    label = stripLabel(ctx, actor, Math.max(12, slot - 2));
-    if (!label) continue;
+    var slotX = x + inset + i * slot;
+    label = pickFitting(ctx, labelChoices(actor, b, false), Math.max(12, slot - 4), 12, 9);
+    if (!label.text) continue;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(slotX, y + h - 16, slot, 15);
+    ctx.clip();
     ctx.fillStyle = i === 0 ? "#ffd37a" : "#d5def2";
-    ctx.font = "700 12px system-ui, sans-serif";
-    ctx.fillText(label, ox + face / 2, y + h - 6);
+    ctx.font = "700 " + label.size + "px system-ui, sans-serif";
+    ctx.fillText(label.text, slotX + slot / 2, y + h - 6);
+    ctx.restore();
   }
 }
 
@@ -546,7 +639,7 @@ function labelBox(cell, cx, top, labelH) {
 function placeActors(actors, zone, side, groundY) {
   var n = actors.length;
   if (!n || !zone || zone.w < 8 || zone.h < 8) return [];
-  var labelH = side === "foe" ? 30 : 0;
+  var labelH = side === "foe" ? 40 : 0;
   var cells = formationCells(n, zone);
   var placed = [];
   var i, actor, cell, scale, src, sw, sh, ax, ay, cx, feet, top, hit;
@@ -623,35 +716,33 @@ function placeActors(actors, zone, side, groundY) {
   return placed;
 }
 
-function drawFoeLabel(ctx, spot) {
+function drawFoeLabel(ctx, spot, battle) {
   var f = spot.actor;
   var box = spot.label;
   var hp = f.hp + "/" + f.maxHp;
   var tag = "";
   if (f.core) tag = "Core";
   else if (f.revealed && f.weak) tag = weakLabel(f.weak);
-  ctx.font = "700 14px system-ui, sans-serif";
-  ctx.textBaseline = "middle";
-  var hpW = ctx.measureText(hp).width;
-  var tagW = tag ? ctx.measureText(tag).width + 8 : 0;
-  var name = f.name || "";
-  var maxName = box.w - hpW - tagW - 10;
-  var first = name.split(" ")[0];
-  if (ctx.measureText(name).width > maxName && first && ctx.measureText(first).width <= maxName) name = first;
-  if (ctx.measureText(name).width > maxName) tag = "";
-  var y = box.y + 9;
+  var name = pickFitting(ctx, labelChoices(f, battle, true), Math.max(8, box.w - 2), 14, 11);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(box.x, box.y, box.w, box.h);
+  ctx.clip();
+  ctx.textBaseline = "top";
   ctx.textAlign = "left";
   ctx.fillStyle = "#f6f2ea";
-  ctx.fillText(name, box.x, y);
-  if (tag) {
-    var nameW = ctx.measureText(name).width;
-    ctx.fillStyle = "#ffd37a";
-    ctx.fillText(tag, box.x + nameW + 6, y);
-  }
-  ctx.textAlign = "right";
+  ctx.font = "700 " + name.size + "px system-ui, sans-serif";
+  ctx.fillText(name.text, box.x, box.y + 1);
+  ctx.font = "700 13px system-ui, sans-serif";
   ctx.fillStyle = "#ffd5dc";
-  ctx.fillText(hp, box.x + box.w, y);
-  bar(ctx, box.x, box.y + 18, box.w, 4, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
+  var hpW = ctx.measureText(hp).width;
+  ctx.fillText(hp, box.x, box.y + 18);
+  if (tag && hpW + 8 + ctx.measureText(tag).width <= box.w - 2) {
+    ctx.fillStyle = "#ffd37a";
+    ctx.fillText(tag, box.x + hpW + 8, box.y + 18);
+  }
+  ctx.restore();
+  bar(ctx, box.x, box.y + 33, box.w, 4, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
 }
 
 function drawStage(ctx, b, foes, party, stage, canvasH) {
@@ -696,7 +787,7 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
     drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
     ctx.restore();
-    drawFoeLabel(ctx, spot);
+    drawFoeLabel(ctx, spot, b);
     if (canTap) {
       ctx.save();
       ctx.strokeStyle = "#ffd37a";
