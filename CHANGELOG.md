@@ -2,6 +2,13 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.2.1 — The Cantor walks up
+
+Act 1 is told again, in the words of the people on the road.
+After the Cinder Maw, the Cantor comes up the ridge and waits until you answer. Spare them, hear them out, or refuse.
+Kestrel is at the gangplank when you get back to Lowmoor Quay. Ahead lies Highspire, and the last of the Lanternwrights.
+The scene no longer stops while the Cantor is still walking.
+
 ## v0.2 — Act 1: The Cinder Road
 
 The Quickmercy sails. Cinderveil is open: Lowmoor Quay, the Ashfields, and the Ember Vault.

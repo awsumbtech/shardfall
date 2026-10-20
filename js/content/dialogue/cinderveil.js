@@ -10,14 +10,19 @@
     nodes[node.id] = node;
   }
 
+  function narr(text, portrait) {
+    return { text: text, narration: true, portrait: portrait || "hush" };
+  }
+
   add({
     id: "cinderveil.sail.depart",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
     next: "cinderveil.sail.lane",
     lines: [
-      "Off the perch. Rail in your hand. If you let go, do it on an island, not in a cloud with ambitions.",
-      "She likes you, by the way. She shows it by complaining at a slightly different pitch."
+      "Lines off! Grab the rail and keep a hand on it. One rule on my boat: nobody goes over the side.",
+      "I'm Driftborn. When the sky broke, my great-grandparents' island went into the Hush. They were out fishing, so they lived.",
+      "We've lived on the wind ever since. Cargo, fishing, never settling anywhere."
     ]
   });
 
@@ -27,8 +32,10 @@
     portrait: "kestrel",
     next: "cinderveil.sail.sight",
     lines: [
-      "These are wind lanes. The bright ones are pretty. Pretty, over the Hush, is often a mouth.",
-      "We take the dull lane. She hates the dull lane. That is how I know it is the right one."
+      narr("The skiff slides into a current of moving air. Faint streaks of light run ahead of it.", "ship"),
+      "This is a wind lane. Stay in one and you fly. Drift out and you start sinking toward the Hush.",
+      "See those lights down there, moving? Hushborn. When a lamp goes out, they rise and follow boats. I lost two friends that way last spring.",
+      "So yes, I sat on the dock. I like being brave. I like being alive more."
     ]
   });
 
@@ -38,8 +45,9 @@
     portrait: "kestrel",
     next: "cinderveil.kestrel.arrive",
     lines: [
-      "There. Grey island, orange seam, a crack in the sky like a held match. Cinderveil.",
-      "Looks like a hearth that lost the argument and kept the coals. That's our stop."
+      narr("A grey island rises out of the cloud. Smoke drifts over its ridge. The lamp on top is dark.", "ash"),
+      "That's Cinderveil. You can usually see that lamp from an hour out.",
+      "Hold on. I'm bringing us in to Lowmoor Quay."
     ]
   });
 
@@ -47,10 +55,12 @@
     id: "cinderveil.kestrel.arrive",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
+    onEnd: "cinder_land",
     lines: [
-      "Lowmoor Quay. Smile like we meant to. If you look surprised, the dock charges extra.",
-      "That ridge lamp is dark. Rude. Tamsin will already be mid-sentence. Try to find the beginning of it.",
-      "I'll stay with the hull. If I leave her, she picks up new opinions, and we are at quota."
+      narr("Lowmoor Quay. Ash covers everything. The shutters are nailed closed, and the few people outside hurry past with their heads down.", "ash"),
+      "This is grim. Last time I was here, there was music on this dock.",
+      "Go find Tamsin Reed. She's got a workbench by the warehouse. If anyone knows what's going on, it's her, and she'll tell you all of it.",
+      "I'll stay with the *Quickmercy*. People get desperate when the lamp's out, and she's our only way home."
     ]
   });
 
@@ -60,31 +70,32 @@
     portrait: "tamsin",
     onEnd: "quest_cogs_start",
     lines: [
-      "You're the hand. Kestrel said hand, I heard project, and I cleared the bench.",
-      "I'm Tamsin. I fit clever things into less clever things until both of them work out of spite.",
-      "Three cogs, out in the Ashfields. Kick the right dust. The wrong dust kicks back."
+      "Oh! Is that it? Is that the shard? Kestrel said, but I thought she was joking, she jokes a lot. Sorry. Hi. I'm Tamsin.",
+      "Okay, idea. I built a grapple line, but nothing I have can power it. A raw shard could. *Your* shard could!",
+      "You'd hook onto ledges and pull yourself across gaps. I just need three cogs to finish it. The old mine carts in the Ashfields are full of them, north of the quay."
     ],
     choices: [
-      { text: "I'll bring you three.", next: "cinderveil.tamsin.cogs_earnest", setFlags: { tamsin_mood: "earnest" } },
-      { text: "Define wrong dust.", next: "cinderveil.tamsin.cogs_wary", setFlags: { tamsin_mood: "wary" } }
+      { text: "I'll find them.", next: "cinderveil.tamsin.cogs_yes" },
+      { text: "Why would I need a grapple?", next: "cinderveil.tamsin.cogs_why" }
     ]
   });
 
   add({
-    id: "cinderveil.tamsin.cogs_earnest",
+    id: "cinderveil.tamsin.cogs_yes",
     speaker: "Tamsin Reed",
     portrait: "tamsin",
     lines: [
-      "Yes. Three. Not two and a bold attitude. I tried that. The attitude is still in a sling."
+      "Yes! Watch out for Hushborn out there. They've gotten really bold. Knocking-on-doors bold."
     ]
   });
 
   add({
-    id: "cinderveil.tamsin.cogs_wary",
+    id: "cinderveil.tamsin.cogs_why",
     speaker: "Tamsin Reed",
     portrait: "tamsin",
     lines: [
-      "Wrong dust has teeth and a grudge. Right dust is just embarrassed. The teeth introduce themselves."
+      "Because of the Ember Vault! It's the cave under the ridge where the island's core is. The core keeps Cinderveil in the air, and the lamp runs off it.",
+      "Something got in there, and the lamp died the same night. The bridge burned too, so a grapple's the only way across."
     ]
   });
 
@@ -93,40 +104,8 @@
     speaker: "Tamsin Reed",
     portrait: "tamsin",
     lines: [
-      "No cogs, no grapple. I can offer a pep talk. The pep talk does not hook onto cliffs.",
-      "I counted your pockets with my eyes, which is a skill, and also why people don't invite me to things."
-    ],
-    choices: [
-      { text: "Still looking.", next: "cinderveil.tamsin.wait_earnest", requires: { tamsin_mood: "earnest" } },
-      { text: "The dust has opinions.", next: "cinderveil.tamsin.wait_wary", requires: { tamsin_mood: "wary" } },
-      { text: "Show me the bench again.", next: "cinderveil.tamsin.wait_bench" }
-    ]
-  });
-
-  add({
-    id: "cinderveil.tamsin.wait_earnest",
-    speaker: "Tamsin Reed",
-    portrait: "tamsin",
-    lines: [
-      "You said you'd bring them, and you haven't. I respect the suspense. My bench does not."
-    ]
-  });
-
-  add({
-    id: "cinderveil.tamsin.wait_wary",
-    speaker: "Tamsin Reed",
-    portrait: "tamsin",
-    lines: [
-      "The dust introduce itself? If you still have both boots, you're winning. Go embarrass a cog."
-    ]
-  });
-
-  add({
-    id: "cinderveil.tamsin.wait_bench",
-    speaker: "Tamsin Reed",
-    portrait: "tamsin",
-    lines: [
-      "Bench, hammer, and a cup of tea I won't share — it has a bolt in it. Three cogs is the whole long story."
+      "Any luck? No, I can tell. You're not clinking.",
+      "Try the tipped-over carts in the Ashfields. The cogs roll out and get buried."
     ]
   });
 
@@ -136,40 +115,10 @@
     portrait: "tamsin",
     onEnd: "grant_grapple",
     lines: [
-      "Three. I love you in a strictly mechanical way. Hold still.",
-      "This is a handshake. The shard throws the line, the cliff agrees, and you do not let go first."
-    ],
-    choices: [
-      { text: "It fits.", next: "cinderveil.tamsin.gift_earnest", requires: { tamsin_mood: "earnest" } },
-      { text: "If it bites, I'm blaming you.", next: "cinderveil.tamsin.gift_wary", requires: { tamsin_mood: "wary" } },
-      { text: "Point me at the vault.", next: "cinderveil.tamsin.gift_vault" }
-    ]
-  });
-
-  add({
-    id: "cinderveil.tamsin.gift_earnest",
-    speaker: "Tamsin Reed",
-    portrait: "tamsin",
-    lines: [
-      "It fits because you went and got the ugly parts. I like you. That's a technical assessment."
-    ]
-  });
-
-  add({
-    id: "cinderveil.tamsin.gift_wary",
-    speaker: "Tamsin Reed",
-    portrait: "tamsin",
-    lines: [
-      "If it bites, it learned that from the dust, not from me. Mostly not from me."
-    ]
-  });
-
-  add({
-    id: "cinderveil.tamsin.gift_vault",
-    speaker: "Tamsin Reed",
-    portrait: "tamsin",
-    lines: [
-      "Ilsa has the door, and a face like a closed ledger. She deducts marks for poetry, so cross and don't recite."
+      "Three! You got all three! Okay, hold out your hand. This won't hurt. It might tingle. Probably just tingle.",
+      narr("Tamsin clamps a small brass reel to your wrist and threads its line into the shard. The shard pulses, and the reel hums.", "tamsin"),
+      "Done! Aim at a hook point and the shard does the rest. Just don't let go over the Hush.",
+      "Now go show Warden Ilsa. She said nobody goes near the Vault without a way across. Now you've got one."
     ]
   });
 
@@ -177,15 +126,16 @@
     id: "cinderveil.hesk.rumor",
     speaker: "Brother Hesk",
     portrait: "hesk",
+    onEnd: "meet_hesk",
     lines: [
-      "Oh. A face. Hello. Sorry — I am Brother Hesk.",
-      "I was Hollow Choir. I am now this crate, and the crate is winning.",
-      "They smiled when I left. Nobody shouted. That is how you know to run.",
-      "When you light the lamp, the Cantor will come admire it. They love a fresh hope. It is their favorite seasoning."
+      narr("Behind a stack of crates by the water, a thin man in a torn grey robe flinches when you come close.", "hesk"),
+      "Oh! Sorry. Sorry, I thought you were... never mind. Please don't tell anyone I'm here.",
+      "I'm H-Hesk. Brother Hesk. I was in the Hollow Choir. I left. They don't really let people leave.",
+      "You're the one with the shard, aren't you? Then you should know. The thing in the Ember Vault... the Choir put it there."
     ],
     choices: [
-      { text: "Breathe. Tell me the useful part.", next: "cinderveil.hesk.steady", setFlags: { hesk_mood: "steady" } },
-      { text: "What does the Cantor want?", next: "cinderveil.hesk.pressed", setFlags: { hesk_mood: "pressed" } }
+      { text: "Take your time. Tell me everything.", next: "cinderveil.hesk.steady", setFlags: { hesk_mood: "steady" } },
+      { text: "Get to the point.", next: "cinderveil.hesk.pressed", setFlags: { hesk_mood: "pressed" } }
     ]
   });
 
@@ -194,8 +144,10 @@
     speaker: "Brother Hesk",
     portrait: "hesk",
     lines: [
-      "Useful, yes. The thing in the vault is a Maw — hunger, not the Cantor.",
-      "Do not bow to it. The Cantor is the one with manners, and they hand your clever words back sharper."
+      "Th-thank you. Sorry. It's a Cinder Maw, a huge Hushborn. They lured it up from the Hush with burning shards and led it into the Vault.",
+      "It's eating the island's core. That's why the lamp died. When the core's gone, Cinderveil falls.",
+      "And it's a test. For you. The Cantor wanted to see what the shard-bearer would do. They knew you'd come.",
+      "If you beat it, the Cantor will come to you, and they'll be kind. Please remember I warned you."
     ]
   });
 
@@ -204,8 +156,8 @@
     speaker: "Brother Hesk",
     portrait: "hesk",
     lines: [
-      "They want the sky to finish its sentence. Islands are the pause. You, with a shard that woke, are a word that refused to end.",
-      "I said no. Then I said no again, from a crate, with my voice doing this. Please do not make a hobby of being brave at me."
+      "S-sorry! There's a Cinder Maw in the Vault, eating the core. If it finishes, the island falls.",
+      "The Choir led it there. That's all. I'm sorry, I can't... please, just go."
     ]
   });
 
@@ -215,14 +167,15 @@
     portrait: "ilsa",
     onEnd: "vault_open",
     lines: [
-      "Hold. Warden Ilsa. The Ember Vault stays shut while something in it chews the core.",
-      "You want in. The trial is the gap: your own line, your own weight, no bridge and no speech.",
-      "Fall, and the Hush files you under weather. I will not argue with its paperwork."
+      narr("On a cliff above a wide chasm, a woman in scarred Lanternwright armor stands guard. The Vault door glows on the far side.", "ilsa"),
+      "Halt. Warden Ilsa, Lanternwright Order. That's a grapple. Tamsin's?",
+      "Something in the Vault is eating the core. The bridge burned. My orders are to hold this cliff.",
+      "I can't cross. You might. Make it over and the Vault is yours. Fall, and nobody comes for you."
     ],
     choices: [
-      { text: "I'll cross.", next: "cinderveil.ilsa.cross" },
-      { text: "Hesk says the Cantor collects words.", next: "cinderveil.ilsa.hesk", requires: { hesk_mood: "steady" } },
-      { text: "Hesk says they want the sky finished.", next: "cinderveil.ilsa.hesk_dark", requires: { hesk_mood: "pressed" } }
+      { text: "Understood.", next: "cinderveil.ilsa.cross" },
+      { text: "Hesk says the Choir put the Maw there.", next: "cinderveil.ilsa.hesk", requires: { metHesk: true } },
+      { text: "Hesk says it's a test. For me.", next: "cinderveil.ilsa.test", requires: { hesk_mood: "steady" } }
     ]
   });
 
@@ -231,7 +184,7 @@
     speaker: "Warden Ilsa",
     portrait: "ilsa",
     lines: [
-      "Then cross. The door knows weight. I know hesitation. Go."
+      "Good. Go."
     ]
   });
 
@@ -240,50 +193,50 @@
     speaker: "Warden Ilsa",
     portrait: "ilsa",
     lines: [
-      "Hesk talks when he is afraid. He is always afraid. He is also right. Cross. Fear is not a key I honor."
+      "The deserter. He told me too, after two days of apologizing. I believe him. It doesn't change the job."
     ]
   });
 
   add({
-    id: "cinderveil.ilsa.hesk_dark",
+    id: "cinderveil.ilsa.test",
     speaker: "Warden Ilsa",
     portrait: "ilsa",
     lines: [
-      "A finished sky. I have heard the sermon. I kept the door anyway. You keep your feet. That is the whole trial."
+      "Then pass it. Go."
     ]
   });
 
   add({
     id: "cinderveil.maw.prefight",
-    speaker: "The Cinder Maw",
+    speaker: "Narration",
     portrait: "maw",
     onEnd: "boss_start",
     lines: [
-      "Ash inhales. The vault's core-light gutters in a throat that should not have learned how.",
-      "It turns. A seed burns in the chest. That seed is the island, borrowed. Strike that.",
-      "The teeth are only weather. Kestrel would call this a bad room, and he would be late."
+      narr("The Ember Vault. The island's core, a crystal the size of a house, glows a weak orange. Wrapped around it, chewing, is an enormous shape of grey cloud and live embers.", "maw"),
+      narr("It turns toward you. A bright point of light pulses in the middle of its chest. That's where to hit it.", "maw")
     ]
   });
 
   add({
     id: "cinderveil.maw.defeated",
-    speaker: "The Cinder Maw",
+    speaker: "Narration",
     portrait: "maw",
     lines: [
-      "The shape forgets the grudge. Ash lies down. The seed sits in the quiet, small and deeply offended.",
-      "It will be a lamp again if you ask with shards. Cores are bad at gratitude. Ask anyway."
+      narr("The Cinder Maw comes apart into drifting ash. The core is cracked and dim, but whole.", "maw"),
+      narr("The shard in your hand pulls toward the ridge above, where the lamp is waiting.", "lamp")
     ]
   });
 
   add({
     id: "cinderveil.lamp.relit",
-    speaker: "Cinderveil's Lamp",
-    portrait: "lamp",
+    speaker: "Warden Ilsa",
+    portrait: "ilsa",
     onEnd: "quest_cinder_lamp_done",
     lines: [
-      "You set the shards on the hurt core. It takes them the way a fever breaks: all at once, and then the room is different.",
-      "Orange comes back into the ash. Down at Lowmoor, the little lamps agree, one by one.",
-      "For a breath the Hush steps off the quay. Someone behind you clears a throat, as if the dark were a parlor."
+      narr("You press your hand to the cold lamp on the ridge. The shard burns hot, and orange light climbs the glass, then pours out across the island.", "lamp"),
+      narr("Down at Lowmoor, lights come on in window after window. The Hush pulls back from the shore.", "lamp"),
+      "I watched from the cliff. That was well done. I was wrong about you.",
+      "I'm sending word to the Order at Highspire. They'll want to see that hand."
     ]
   });
 
@@ -293,14 +246,19 @@
     portrait: "cantor",
     onEnd: "act1_end",
     lines: [
-      "Wayfarer. You lit another one. If this is a hobby, it is an expensive one, and I am terribly fond of it.",
-      "The Maw was a stomach. I am a sentence. You may interrupt. Most guests apologize instead.",
-      "Come along, hear the ending, or refuse. Only one of those is yours."
+      narr("A figure in a pale mask walks up the ridge path, alone and unhurried. Ilsa reaches for her sword. The Cantor raises both open hands.", "cantor"),
+      { text: "Hello again, Wayfarer. You lit Maren's lamp, and now this one. I hoped you would.", requires: { met_cantor: true } },
+      { text: "Hello, Wayfarer. I'm the Cantor, of the Hollow Choir. I've wanted to meet you for some time.", unless: { met_cantor: true } },
+      "I owe you honesty, so here it is. The Maw was ours. I needed to know if the shard chose you, or just landed on you.",
+      "It chose you. The lamps have never answered anyone the way they answer you.",
+      "The sky has been dying for a hundred years, one island at a time. Each lamp you light buys a few years of fear. Then it goes out, and the people go down with it.",
+      "That shard is the last of the Heartshard. With it, we could let the sky come down all at once, gently, and let the world start over.",
+      "I won't take it from you. Give it to me, or better yet, come with us. What do you say?"
     ],
     choices: [
-      { text: "Spare them.", next: "cinderveil.cantor.spare", setFlags: { cantor_choice: "spare" } },
-      { text: "Listen.", next: "cinderveil.cantor.listen", setFlags: { cantor_choice: "listen" } },
-      { text: "Refuse.", next: "cinderveil.cantor.refuse", setFlags: { cantor_choice: "refuse" } }
+      { text: "Just go. Leave Cinderveil alone.", next: "cinderveil.cantor.spare", setFlags: { cantor_choice: "spare" } },
+      { text: "Tell me the rest.", next: "cinderveil.cantor.listen", setFlags: { cantor_choice: "listen" } },
+      { text: "No. I'm keeping the lamps lit.", next: "cinderveil.cantor.refuse", setFlags: { cantor_choice: "refuse" } }
     ]
   });
 
@@ -308,10 +266,10 @@
     id: "cinderveil.cantor.spare",
     speaker: "The Cantor",
     portrait: "cantor",
-    next: "cinderveil.kestrel.epilogue_spare",
+    next: "cinderveil.cantor.leave",
     lines: [
-      "Spare. You put the knife down and left me the conversation. How like a person who keeps a lamp.",
-      "I accept the delay. Tell the brother who fled that I remain polite. He will know which of us that frightens."
+      "That's fair. You've had a long day, and I've given you a lot to think about.",
+      "The Choir will leave Cinderveil alone. You have my word. When you're ready to talk, we'll find you."
     ]
   });
 
@@ -319,10 +277,12 @@
     id: "cinderveil.cantor.listen",
     speaker: "The Cantor",
     portrait: "cantor",
-    next: "cinderveil.kestrel.epilogue_listen",
+    next: "cinderveil.cantor.leave",
     lines: [
-      "Then hear it once, cleanly. The sky is mid-sentence. We would like a period. Islands are the comma.",
-      "The shard in your hand has refused that period since you woke. I dress well for waiting."
+      "Thank you. Most people have stopped me by now.",
+      "Ask yourself why this lamp failed so fast. The lamps draw on the island cores, and every core is running down. The Maw only sped this one up.",
+      "Saltmere's core is nearly spent. Its lamp will go dark before the next full moon, and I won't have to lift a finger. Go and see for yourself.",
+      "When you've watched a whole island fall, come and find me. I think you'll understand then."
     ]
   });
 
@@ -330,10 +290,21 @@
     id: "cinderveil.cantor.refuse",
     speaker: "The Cantor",
     portrait: "cantor",
-    next: "cinderveil.kestrel.epilogue_refuse",
+    next: "cinderveil.cantor.leave",
     lines: [
-      "No is a complete sentence. I did tell the others you might. They hoped I was being modest.",
-      "Keep the lamp, the sailor, and the hand that will not finish the sentence. When the sky does it anyway, hold a rail."
+      "I'm sorry to hear that. I mean it.",
+      "Then I'll stop asking. Wherever you go, the Choir will be there, and sooner or later that shard comes with us.",
+      "Goodbye, Wayfarer. Light as many lamps as you like."
+    ]
+  });
+
+  add({
+    id: "cinderveil.cantor.leave",
+    speaker: "Narration",
+    portrait: "cantor",
+    onEnd: "act1_end",
+    lines: [
+      narr("The Cantor then walks down the path and is gone.", "cantor")
     ]
   });
 
@@ -341,8 +312,12 @@
     id: "cinderveil.kestrel.epilogue_spare",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
+    next: "cinderveil.act1.finale",
+    onEnd: "epilogue_done",
     lines: [
-      "You let the mask walk. I would have introduced a wrench. Wrenches are a kind of theology. Next time, vote wrench."
+      narr("Back at Lowmoor Quay, Kestrel is waiting at the gangplank.", "ship"),
+      "Ilsa told me. You just let them walk off? Your call, mate. I'll be sleeping with one eye open.",
+      "She says the Lanternwrights want you at Highspire. Good news is they pay. Let's go."
     ]
   });
 
@@ -350,8 +325,12 @@
     id: "cinderveil.kestrel.epilogue_listen",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
+    next: "cinderveil.act1.finale",
+    onEnd: "epilogue_done",
     lines: [
-      "You let them finish. Brave. I'll be over here, not making eye contact with the sky. Get on the boat when your ears stop ringing."
+      narr("Back at Lowmoor Quay, Kestrel is waiting at the gangplank.", "ship"),
+      "Saltmere? I've got friends on Saltmere. If that mask is right about the full moon, we haven't got long.",
+      "Highspire first. The Lanternwrights are the only ones who can tell us if it's true. Get aboard."
     ]
   });
 
@@ -359,101 +338,21 @@
     id: "cinderveil.kestrel.epilogue_refuse",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
+    next: "cinderveil.act1.finale",
+    onEnd: "epilogue_done",
     lines: [
-      "No. Excellent. No is a hull. It keeps the weather on the outside. Welcome aboard. Don't track ash onto the ash."
+      narr("Back at Lowmoor Quay, Kestrel is waiting at the gangplank.", "ship"),
+      "You told the Cantor no, to their face? Bravest thing I've seen all year. Maybe also the dumbest.",
+      "Ilsa says the Order wants you at Highspire. Let's get there before the Choir does."
     ]
   });
 
   add({
-    id: "inspect.lowmoor_sign",
-    speaker: "Quay Sign",
-    portrait: "sign",
+    id: "cinderveil.act1.finale",
+    speaker: "Narration",
+    portrait: "ship",
     lines: [
-      "LOWMOOR QUAY. ASH IS FREE. OPINIONS ARE NOT. PLEASE DO NOT FEED THE HUSH.",
-      "Under that, quicker: Tamsin, the bench is not a suggestion box. Stop leaving cogs in the suggestion box."
-    ]
-  });
-
-  add({
-    id: "inspect.tamsin_bench",
-    speaker: "Tamsin's Bench",
-    portrait: "crate",
-    lines: [
-      "A bench, a vise, and a teacup with a bolt in it. The bolt has been winning for some time.",
-      "Chalked on the wood: THREE COGS. NOT TWO. NOT A PROMISE."
-    ]
-  });
-
-  add({
-    id: "inspect.ash_cog",
-    speaker: "Ash Cog",
-    portrait: "ash",
-    lines: [
-      "A cog in the ash, warm as a coin someone was ashamed of. It ticks once, like it recognized you and regrets it."
-    ]
-  });
-
-  add({
-    id: "inspect.vault_seal",
-    speaker: "Vault Seal",
-    portrait: "vault",
-    lines: [
-      "EMBER VAULT. LANTERNWRIGHT SEAL. Under the wax, Ilsa's hand: If you can read this, you are too close. Good."
-    ]
-  });
-
-  add({
-    id: "inspect.cinder_core",
-    speaker: "Cinder Core",
-    portrait: "core",
-    lines: [
-      "The island's heart, dim as a coal under a story. Something has been breathing through it."
-    ]
-  });
-
-  add({
-    id: "inspect.maw_tooth",
-    speaker: "A Tooth",
-    portrait: "maw",
-    lines: [
-      "A tooth in the ash, if clouds had teeth. It is still warm. It does not deserve to be."
-    ]
-  });
-
-  add({
-    id: "inspect.choir_crate",
-    speaker: "Hesk's Crate",
-    portrait: "crate",
-    lines: [
-      "A crate, a blanket, three polite pamphlets, and a note: I am not here. — H.",
-      "The note is here. Hesk is also here. The pamphlets are sorry about both facts."
-    ]
-  });
-
-  add({
-    id: "inspect.ilsa_order",
-    speaker: "Posted Orders",
-    portrait: "sign",
-    lines: [
-      "No bridges. No speeches. No feeding the vault. If the vault asks, that counts as feeding."
-    ]
-  });
-
-  add({
-    id: "inspect.quay_bell",
-    speaker: "Quay Bell",
-    portrait: "bell",
-    lines: [
-      "A quay bell stuffed with ash so it cannot ring. Someone was tired of news. The news came anyway."
-    ]
-  });
-
-  add({
-    id: "inspect.ember_path",
-    speaker: "Ash Path",
-    portrait: "ash",
-    lines: [
-      "Stakes along an ash path, unlit. They look embarrassed, which is a lot of work for a stick."
+      narr("The *Quickmercy* pulls away from the quay. Behind it, Cinderveil's lamp burns orange. Ahead lies Highspire, and the last of the Lanternwrights. End of Act 1.", "ship")
     ]
   });
 
@@ -462,16 +361,7 @@
     speaker: "Tamsin Reed",
     portrait: "tamsin",
     lines: [
-      "Don't touch the cup. The cup is structural."
-    ]
-  });
-
-  add({
-    id: "bark.tamsin.dust",
-    speaker: "Tamsin Reed",
-    portrait: "tamsin",
-    lines: [
-      "If the ash squeaks, squeak back. Dominance. I read it in a pamphlet Hesk will not admit is his."
+      "Don't touch the tea! There's a bolt soaking in it. It's a long story. It's actually a short story."
     ]
   });
 
@@ -480,52 +370,106 @@
     speaker: "Brother Hesk",
     portrait: "hesk",
     lines: [
-      "I am not hiding. The crate is hiding. I am inspecting the crate from the inside."
+      "I'm not hiding. I'm... yes, I'm hiding. Sorry."
     ]
   });
 
   add({
-    id: "bark.hesk.sorry",
-    speaker: "Brother Hesk",
-    portrait: "hesk",
-    lines: [
-      "Sorry. That one was for earlier. I save them up, and then they leak."
-    ]
-  });
-
-  add({
-    id: "bark.ilsa.post",
+    id: "bark.ilsa.no_grapple",
     speaker: "Warden Ilsa",
     portrait: "ilsa",
     lines: [
-      "If you are lost, you are not. The gap is that way. So is the mistake."
+      "No way across, no crossing. Come back when you can reach the far side."
     ]
   });
 
   add({
-    id: "bark.ilsa.count",
-    speaker: "Warden Ilsa",
-    portrait: "ilsa",
+    id: "inspect.lowmoor_sign",
+    speaker: "Quay Sign",
+    portrait: "sign",
     lines: [
-      "One way in. It is the hard way. I already counted."
+      "LOWMOOR QUAY. Chalked underneath: LAMP OUT. STAY INSIDE AFTER DARK."
     ]
   });
 
   add({
-    id: "bark.quay.ash",
-    speaker: "Lowmoor",
+    id: "inspect.tamsin_bench",
+    speaker: "Tamsin's Bench",
+    portrait: "crate",
+    lines: [
+      "Springs, wire, half-built gadgets, and a cold cup of tea. A note on the vise says NEED 3 COGS!!!"
+    ]
+  });
+
+  add({
+    id: "inspect.ash_cog",
+    speaker: "Cog",
     portrait: "ash",
     lines: [
-      "A gull made of cinders lands, remembers it is not a gull, and leaves."
+      "A brass cog half-buried in ash, still in good shape. Tamsin will want this."
     ]
   });
 
   add({
-    id: "bark.maw.breath",
-    speaker: "The Ember Vault",
+    id: "inspect.vault_seal",
+    speaker: "Vault Door",
+    portrait: "vault",
+    lines: [
+      "A heavy iron door stamped with the Lanternwright crest. It's warm to the touch."
+    ]
+  });
+
+  add({
+    id: "inspect.cinder_core",
+    speaker: "Cinderveil's Core",
+    portrait: "core",
+    lines: [
+      "The crystal that holds the island up. Deep bite marks run across its surface."
+    ]
+  });
+
+  add({
+    id: "inspect.maw_tooth",
+    speaker: "Maw Tooth",
     portrait: "maw",
     lines: [
-      "Something in the vault exhales. The ash on the floor leans toward it, eager and stupid."
+      "A tooth as long as your arm, made of hardened ash. It crumbles when you touch it."
+    ]
+  });
+
+  add({
+    id: "inspect.choir_crate",
+    speaker: "Hesk's Hideout",
+    portrait: "crate",
+    lines: [
+      "A blanket, half a loaf of bread, and a stack of Choir pamphlets. The top one reads: LET THE SKY FALL. LET THE WORLD BEGIN AGAIN."
+    ]
+  });
+
+  add({
+    id: "inspect.ilsa_order",
+    speaker: "Posted Order",
+    portrait: "sign",
+    lines: [
+      "THE EMBER VAULT IS CLOSED BY ORDER OF THE LANTERNWRIGHTS. NO EXCEPTIONS. —WARDEN ILSA"
+    ]
+  });
+
+  add({
+    id: "inspect.quay_bell",
+    speaker: "Quay Bell",
+    portrait: "bell",
+    lines: [
+      "The town's warning bell. The rope is frayed from being rung so often."
+    ]
+  });
+
+  add({
+    id: "inspect.ember_path",
+    speaker: "Path Lamps",
+    portrait: "lamp",
+    lines: [
+      "A row of small lamps leading up the ridge, all dark."
     ]
   });
 })();

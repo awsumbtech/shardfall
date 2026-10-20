@@ -10,13 +10,17 @@
     nodes[node.id] = node;
   }
 
+  function narr(text, portrait) {
+    return { text: text, narration: true, portrait: portrait || "hush" };
+  }
+
   add({
     id: "emberhold.wake",
-    speaker: "The Waking Stones",
+    speaker: "Narration",
     portrait: "stones",
     lines: [
-      "You wake with grass in your teeth and a star clenched in your hand.",
-      "The stone is older than the crack. The words cut into it are not: the lamp is up the hill."
+      narr("Dusk. You wake in a ring of standing stones with no memory of your name. A sliver of glowing blue crystal has grown into your right palm.", "stones"),
+      narr("Down the hill, smoke rises from a cottage chimney. Up on the ridge, a great lamp flickers weakly.", "lamp")
     ]
   });
 
@@ -26,16 +30,16 @@
     portrait: "maren",
     onEnd: "meet_maren",
     lines: [
-      "You're awake. Good. I had a bet with the kettle, and I hate losing to a kettle.",
-      "I am Maren. I keep the lamp up this hill. The lamp keeps the Hush off the grass.",
-      "Dash the gaps you cannot walk. Strike the bright core in a thing of mist.",
-      "Five sky-shards wake the lamp. Set them on the plinth yourself — I will not take them from your hand.",
-      "If you tear, come talk. I mend. That is the whole of my magic."
+      "Oh, you're up. You've been lying out on those stones since yesterday. I'm Maren.",
+      "Do you know your name? No? That's all right. I'll call you Wayfarer till it comes back to you.",
+      "Let me see that hand. I've handled sky-shards all my life, and I've never seen one grow into a person.",
+      "Now, the lamp up the hill keeps the Hush off this island, and it's nearly out. The Hushborn are already coming up past the Scar at night.",
+      "It needs five sky-shards. My knees won't get me out to where they fall anymore. Will you find them and set them in the lamp?"
     ],
     choices: [
-      { text: "What is the Hush, really?", next: "emberhold.maren.ask_hush", setFlags: { asked_maren: "hush" } },
-      { text: "Why is this in my hand?", next: "emberhold.maren.ask_hand", setFlags: { asked_maren: "hand" } },
-      { text: "I'll find the shards.", next: "emberhold.maren.intro_go" }
+      { text: "What's the Hush?", next: "emberhold.maren.ask_hush", setFlags: { asked_maren: "hush" } },
+      { text: "What is this thing in my hand?", next: "emberhold.maren.ask_hand", setFlags: { asked_maren: "hand" } },
+      { text: "I'll get them.", next: "emberhold.maren.intro_go" }
     ]
   });
 
@@ -43,9 +47,10 @@
     id: "emberhold.maren.ask_hush",
     speaker: "Old Maren",
     portrait: "maren",
+    next: "emberhold.maren.intro_go",
     lines: [
-      "A tide with a memory. It wants the sky to finish breaking, and the grass has voted no.",
-      "We do not win forever. We light lamps. Go find five shards. The grass is waiting on you, not on a speech."
+      "The cloud sea under the islands. A hundred years ago the Heartshard cracked, the sky broke apart, and everything underneath went into the Hush.",
+      "Whatever falls in comes back as Hushborn, made of cloud and hunger. A lit lamp is the only thing they won't cross."
     ]
   });
 
@@ -53,9 +58,10 @@
     id: "emberhold.maren.ask_hand",
     speaker: "Old Maren",
     portrait: "maren",
+    next: "emberhold.maren.intro_go",
     lines: [
-      "It fused when you woke. I did not put it there. If the lamp did, it has not confessed.",
-      "Treat it like a tool that chose you. Tools still need a person. You will do."
+      "I wish I knew. It looks like a sky-shard, but it's brighter than any I've held.",
+      "While you were asleep, the lamp flared every time your hand twitched. Whatever that is, the lamp knows it."
     ]
   });
 
@@ -64,7 +70,9 @@
     speaker: "Old Maren",
     portrait: "maren",
     lines: [
-      "Good. The lamp is up the hill. The dock is down. Bring me your opinions if you start leaking."
+      "Shards glow, so they're easy to spot. Some Hushborn carry them too. Hit the bright spot in the middle and they'll drop them.",
+      "Where the path's broken, run and jump. Folk holding a shard can leap farther than they should, and yours is part of you.",
+      "If you get hurt, come back and I'll patch you up. And say hello to Kestrel at the dock."
     ]
   });
 
@@ -74,9 +82,8 @@
     portrait: "maren",
     onEnd: "maren_mend",
     lines: [
-      "Still walking. Good. The hill has not wandered off, and neither have I.",
-      "You hold {shards}. The lamp eats five. Some glow in the grass. Some fall out of a core, if you ask with the sharp end.",
-      "Come back torn. Talk, and I will put you back in the right order."
+      "There you are. Sit and let me look at you. You've got {shards} so far, and the lamp needs five.",
+      "If the hill's picked clean, try the far side of the broken span, east of the lamp. Be careful out there."
     ]
   });
 
@@ -86,41 +93,13 @@
     portrait: "maren",
     onEnd: "quest_lamp_done",
     lines: [
-      "There. The grass remembers green. I heard it from the kettle, which is now unbearable.",
-      "You set the shards on the plinth yourself. That is the work. I do not take a turn at someone else's lamp.",
-      "Your hand has a longer step. Use it. Kestrel will feel the wind and pretend the idea was his."
-    ],
-    choices: [
-      { text: "You called the Hush a tide.", next: "emberhold.maren.lit_hush", requires: { asked_maren: "hush" } },
-      { text: "The hand took a longer step.", next: "emberhold.maren.lit_hand", requires: { asked_maren: "hand" } },
-      { text: "Kestrel will take the credit.", next: "emberhold.maren.lit_plain" }
-    ]
-  });
-
-  add({
-    id: "emberhold.maren.lit_hush",
-    speaker: "Old Maren",
-    portrait: "maren",
-    lines: [
-      "You called it a tide. You pushed it back a step. Tides notice. Do not get loud about a step."
-    ]
-  });
-
-  add({
-    id: "emberhold.maren.lit_hand",
-    speaker: "Old Maren",
-    portrait: "maren",
-    lines: [
-      "The longer step is still yours. If the hand starts taking credit, remind it who woke up."
-    ]
-  });
-
-  add({
-    id: "emberhold.maren.lit_plain",
-    speaker: "Old Maren",
-    portrait: "maren",
-    lines: [
-      "Kestrel names winds after himself. Let him. The lamp knows who carried the shards. So does the grass."
+      narr("Maren has climbed the hill. She's out of breath, looking from the lamp to you and back.", "maren"),
+      "I saw that from the garden. Shards don't do that. That lamp hasn't burned so bright since I was a girl.",
+      "Your hand lit up before the lamp did. I don't know what you are, love, but I'm glad you came.",
+      { text: "You asked me about the Hush. Look, it's pulling back from the cliffs. That's your doing.", requires: { asked_maren: "hush" } },
+      { text: "You asked what that shard was. I still can't tell you. But I think the lamps could.", requires: { asked_maren: "hand" } },
+      "There's something else. Cinderveil's lamp, out west, went dark a week ago. No one's heard a word from them since.",
+      "The Lanternwrights there would never let it go out. Something's wrong. Kestrel can take you."
     ]
   });
 
@@ -130,14 +109,15 @@
     portrait: "kestrel",
     onEnd: "kestrel_hint",
     lines: [
-      "Kestrel Vane. The Quickmercy is winning an argument about nails, and I am losing it.",
-      "She will not sail while the lamp holds its breath. Last time I insisted, she sailed a circle and called it a principle.",
-      "East of the lamp, the span is broken. Dash from the lip. Walking is how a person becomes weather.",
-      "On the far islet, look behind the stones that face the wrong sky. Interesting things rarely face the lamp."
+      narr("Vane's Perch, a small dock at the island's edge. A woman in flight goggles is hammering a patch onto a little skiff that's mostly patches already.", "ship"),
+      "Hey, it's the sleeper! Kestrel Vane. And this beauty's the *Quickmercy*, fastest skiff on the wind. Ignore the patches.",
+      "Yes, a sailor sitting on a dock. With the lamp this low, Hushborn come up into the wind lanes. I'm not taking her out till it's lit.",
+      "Maren's got you hunting shards? East of the lamp, the old stone span's broken. Too far to jump on foot, but I hear that hand does tricks.",
+      "On the far side, check behind the standing stones. Shards pile up back there, out of the wind."
     ],
     choices: [
       { text: "Come with me.", next: "emberhold.kestrel.span_no" },
-      { text: "Save me a nail.", next: "emberhold.kestrel.span_nail" }
+      { text: "What's in it for you?", next: "emberhold.kestrel.span_pay" }
     ]
   });
 
@@ -146,16 +126,16 @@
     speaker: "Kestrel Vane",
     portrait: "kestrel",
     lines: [
-      "And leave her with the last word? I have a reputation with this hammer. Light the lamp. Then we talk about west."
+      "Me, on foot? No thanks, mate. Light that lamp and I'll take you anywhere the wind goes."
     ]
   });
 
   add({
-    id: "emberhold.kestrel.span_nail",
+    id: "emberhold.kestrel.span_pay",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
     lines: [
-      "She eats nails. I eat pride. Between us the hull stays up. Light the lamp, and the west gets a real name."
+      "Honestly? No lamp, no sailing. No sailing, no paying work. You light it, I eat this month."
     ]
   });
 
@@ -164,86 +144,8 @@
     speaker: "Kestrel Vane",
     portrait: "kestrel",
     lines: [
-      "Still the wrong wind. She refuses to be heroic, which is why we are both still here.",
-      "The stones face the lamp. Look the other way. That is the hint. I will not draw you a map. Maps get confident."
-    ]
-  });
-
-  add({
-    id: "emberhold.kestrel.offer_sail",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    onEnd: "open_sail_menu",
-    lines: [
-      "There. You lit it, and the tiller unclenched. Don't repeat that. She will deny having muscles.",
-      "West, under the bright crack: Cinderveil. Ash, a quay, a lamp that forgot its job.",
-      "We can take you. One of us will complain the whole way. I have already nominated her."
-    ],
-    choices: [
-      { text: "Take me west.", next: "emberhold.kestrel.sail_yes", setFlags: { sail_answer: "yes" } },
-      { text: "What are we sailing into?", next: "emberhold.kestrel.sail_what", setFlags: { sail_answer: "ask" } },
-      { text: "The hand did the clever part.", next: "emberhold.kestrel.sail_hand", setFlags: { sail_answer: "hand" }, requires: { asked_maren: "hand" } }
-    ]
-  });
-
-  add({
-    id: "emberhold.kestrel.sail_yes",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    lines: [
-      "Good. I like a short yes. When the wind takes, hold the rail. The Hush is not water, and falling is a hobby for other crews."
-    ]
-  });
-
-  add({
-    id: "emberhold.kestrel.sail_what",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    lines: [
-      "A hearth that lost an argument and kept the coals. Lowmoor Quay. Something in the ash has been eating their light.",
-      "We are going to be impolite about it. Hold the rail when the wind takes. Compliment the sail after, if you must."
-    ]
-  });
-
-  add({
-    id: "emberhold.kestrel.sail_hand",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    lines: [
-      "Maren told you the hand has ideas? Ideas don't trim a sail. You do. I'll shout which rope. You may pretend you already knew."
-    ]
-  });
-
-  add({
-    id: "emberhold.kestrel.docked",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    onEnd: "open_sail_menu",
-    lines: [
-      "West is still west. The hull voted yes, which she will deny if you ask her in front of me.",
-      "Say the word at the rail. And if a mask compliments the paint, do not offer it a tour."
-    ]
-  });
-
-  add({
-    id: "emberhold.kestrel.docked_ask",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    onEnd: "open_sail_menu",
-    lines: [
-      "Cinderveil has not gotten simpler since you asked. Ash, a quay, a lamp with its eyes shut.",
-      "The hull is ready. My metaphor budget is not. Hold the rail when you mean it."
-    ]
-  });
-
-  add({
-    id: "emberhold.kestrel.docked_hand",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    onEnd: "open_sail_menu",
-    lines: [
-      "Still interviewing your own hand? Leave the philosophy on the dock. It tangles in the lines.",
-      "West is the same west. The rope I shout will be the right rope. Probably."
+      "Still dark up there. The span's east of the lamp. Get a running start and dash right at the edge.",
+      "And check behind those stones."
     ]
   });
 
@@ -253,10 +155,33 @@
     portrait: "cantor",
     onEnd: "meet_cantor",
     lines: [
-      "Wayfarer. A pulse, in a shard, on a hill. How stubborn of you both.",
-      "Maren keeps a lamp against a tide. We are what the tide remembers. The Hollow Choir, if you need a name for the manners.",
-      "I will not spoil her grass. Mention to the sailor that the patches are admired. I do not wait on docks.",
-      "We keep a door. Not on this island. Not while you are still enjoying being kind."
+      narr("Whisper Hollow, a misty dip in the hills. A tall figure in a pale mask and gold-trimmed robes sits on a rock, as if they've been expecting you.", "cantor"),
+      "Hello. Please don't be alarmed. I'm called the Cantor, and I lead the Hollow Choir. You may hear unkind things about us.",
+      "May I see your hand? Remarkable. That's a piece of the Heartshard, you know. The very thing that broke the sky.",
+      "Maren will tell you the lamps are saving us. Ask her how many islands have fallen in her lifetime, lamps and all."
+    ],
+    choices: [
+      { text: "What does the Choir want?", next: "emberhold.cantor.want" },
+      { text: "Stay away from Maren.", next: "emberhold.cantor.warn" }
+    ]
+  });
+
+  add({
+    id: "emberhold.cantor.want",
+    speaker: "The Cantor",
+    portrait: "cantor",
+    lines: [
+      "For the suffering to stop. The sky has been falling for a hundred years. We'd like it to finish, so the world can begin again.",
+      "Light her lamp. I won't stop you. Just keep an open mind."
+    ]
+  });
+
+  add({
+    id: "emberhold.cantor.warn",
+    speaker: "The Cantor",
+    portrait: "cantor",
+    lines: [
+      "Of course. I have nothing against her. She's a good woman, doing her best with what she was taught."
     ]
   });
 
@@ -265,8 +190,75 @@
     speaker: "The Cantor",
     portrait: "cantor",
     lines: [
-      "Still listening. You are still mending. I find it touching, which I will deny if asked in company.",
-      "Kindness is not nothing. It is only not the end. The grass is having a good day. Do not waste it on me."
+      "Hello again. Did you ask Maren about the fallen islands?",
+      "She'll know the number. She's watched them go out from that hill. I'll be here if you want to talk."
+    ]
+  });
+
+  add({
+    id: "emberhold.kestrel.offer_sail",
+    speaker: "Kestrel Vane",
+    portrait: "kestrel",
+    onEnd: "open_sail_menu",
+    lines: [
+      "You did it! I saw that from down here. Looked like a second sunrise.",
+      "Maren tell you about Cinderveil? I run cargo there. A week dark means they're in real trouble.",
+      "I'll take you. Free this trip, since you lit my lamp. After that I charge like anybody else."
+    ],
+    choices: [
+      { text: "Let's go.", next: "emberhold.kestrel.sail_yes", setFlags: { sail_answer: "yes" } },
+      { text: "What's waiting for us there?", next: "emberhold.kestrel.sail_what", setFlags: { sail_answer: "ask" } },
+      { text: "I met someone in a mask, in Whisper Hollow.", next: "emberhold.kestrel.sail_cantor", setFlags: { sail_answer: "cantor" }, requires: { met_cantor: true } }
+    ]
+  });
+
+  add({
+    id: "emberhold.kestrel.sail_yes",
+    speaker: "Kestrel Vane",
+    portrait: "kestrel",
+    lines: [
+      "That's what I like to hear. Climb aboard when you're ready."
+    ]
+  });
+
+  add({
+    id: "emberhold.kestrel.sail_what",
+    speaker: "Kestrel Vane",
+    portrait: "kestrel",
+    lines: [
+      "Cinderveil's a mining island. Ash on everything. Lowmoor Quay's the town: good people, awful tea.",
+      "With the lamp out, there'll be Hushborn on the ridge. Bring that hand."
+    ]
+  });
+
+  add({
+    id: "emberhold.kestrel.sail_cantor",
+    speaker: "Kestrel Vane",
+    portrait: "kestrel",
+    lines: [
+      "Gold trim? Very polite? That's the Cantor. They lead the Hollow Choir. Half the Driftborn won't dock anywhere they've been.",
+      "They want the sky to finish falling. Whatever they told you, don't buy it."
+    ]
+  });
+
+  add({
+    id: "emberhold.kestrel.docked",
+    speaker: "Kestrel Vane",
+    portrait: "kestrel",
+    onEnd: "open_sail_menu",
+    lines: [
+      "Ready? Cinderveil's half a day west. Just say the word.",
+      { text: "Still ash, still Hushborn, still awful tea. Nothing's changed.", requires: { sail_answer: "ask" } },
+      { text: "And if that mask turns up again, walk the other way.", requires: { sail_answer: "cantor" } }
+    ]
+  });
+
+  add({
+    id: "bark.maren.scar",
+    speaker: "Old Maren",
+    portrait: "maren",
+    lines: [
+      "Stay away from the Scar after dark. That's where they climb up."
     ]
   });
 
@@ -275,8 +267,7 @@
     speaker: "Waking Stones",
     portrait: "stones",
     lines: [
-      "Fell in the first night. Rose with a shard for a pulse.",
-      "Under that, newer, a careful hand: If you wake, the lamp is up the hill. Talk to Old Maren."
+      "A ring of old standing stones. The grass in the middle is flattened in the shape of a person. That was you."
     ]
   });
 
@@ -285,18 +276,16 @@
     speaker: "The Scar",
     portrait: "scar",
     lines: [
-      "Here the meadow tore. Do not follow the lights down.",
-      "Smaller, almost worn off: The lights are weather that learned a grudge. — M."
+      "A long tear in the meadow where the ground drops into the Hush. A sign reads: KEEP BACK AFTER DARK. —M."
     ]
   });
 
   add({
     id: "inspect.quickmercy",
-    speaker: "Nameplate",
+    speaker: "The Quickmercy",
     portrait: "ship",
     lines: [
-      "QUICKMERCY. The letters are polished. The dents have been kept, like arguments she won.",
-      "Along the keel, scratched and then half scratched out: she bites."
+      "The name is hand-painted on the bow, and the paint is fresh. There are more patches than original wood."
     ]
   });
 
@@ -305,8 +294,7 @@
     speaker: "Great Lamp",
     portrait: "lamp",
     lines: [
-      "A violet quiet. It wants sky-shards. It will not pick them out of the grass itself.",
-      "Old Maren is down the hill. She will not carry them either. The hill is full of principles."
+      "Emberhold's lamp. The glass is cold, and the light inside barely flickers. The plinth has five empty sockets."
     ]
   });
 
@@ -315,7 +303,7 @@
     speaker: "Great Lamp",
     portrait: "lamp",
     lines: [
-      "It is awake enough to be hungry. You hold {shards}. It eats five, from a living hand, on the plinth."
+      "The light brightens a little as your hand comes near. You have {shards} of 5 shards."
     ]
   });
 
@@ -324,17 +312,16 @@
     speaker: "Great Lamp",
     portrait: "lamp",
     lines: [
-      "Gold, and a long breath. The little path-lamps have caught. The Hush has been asked to wait outside."
+      "A steady gold light. The mist has backed away from the cliffs."
     ]
   });
 
   add({
     id: "inspect.wrong_sky",
-    speaker: "The Wrong Sky",
+    speaker: "Standing Stones",
     portrait: "stones",
     lines: [
-      "Standing stones, all facing Emberhold's lamp, as if the light owed them an explanation.",
-      "Behind them the sky is the same sky. It does not seem to know it has been called wrong."
+      "A row of stones, all facing the lamp. Dirt and leaves have piled up behind them, out of the wind."
     ]
   });
 
@@ -343,7 +330,7 @@
     speaker: "Heartblossom",
     portrait: "blossom",
     lines: [
-      "A blossom the color of a healed scrape. It smells like rain that changed its mind."
+      "A small red flower that only grows near lamps. Maren uses it for burns."
     ]
   });
 
@@ -352,71 +339,25 @@
     speaker: "Rope Bridge",
     portrait: "bridge",
     lines: [
-      "Rope, plank, and a sign someone nailed upside down on purpose.",
-      "THE OTHER WAY IS FASTER. THE OTHER WAY IS A MISTAKE."
+      "A sign reads: ONE AT A TIME. Someone has scratched underneath: OR NONE."
     ]
   });
 
   add({
     id: "inspect.span_planks",
-    speaker: "Fallen Planks",
+    speaker: "Broken Span",
     portrait: "bridge",
     lines: [
-      "Planks hung in the gap, going nowhere on purpose. They are not a path. They are a warning with grain."
+      "What's left of the old stone span. The gap is too wide to cross on foot."
     ]
   });
 
   add({
     id: "inspect.sail_patch",
-    speaker: "The Sail",
+    speaker: "Sail Patch",
     portrait: "ship",
     lines: [
-      "A patch in slightly the wrong yellow. Threaded along the hem: she chose this color. Do not fix it. — K.V."
-    ]
-  });
-
-  add({
-    id: "bark.maren.kettle",
-    speaker: "Old Maren",
-    portrait: "maren",
-    lines: [
-      "The kettle says you'll be late. I told it to mind its water."
-    ]
-  });
-
-  add({
-    id: "bark.maren.grass",
-    speaker: "Old Maren",
-    portrait: "maren",
-    lines: [
-      "Grass is up. That's the whole report. I like a short report."
-    ]
-  });
-
-  add({
-    id: "bark.kestrel.nail",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    lines: [
-      "If you hand me that nail, hand me the right one. She can tell. I cannot, and I live with the shame."
-    ]
-  });
-
-  add({
-    id: "bark.kestrel.scarf",
-    speaker: "Kestrel Vane",
-    portrait: "kestrel",
-    lines: [
-      "Scarf stays on. Goggles stay on. Heroics stay off until the lamp says otherwise."
-    ]
-  });
-
-  add({
-    id: "bark.cantor.hem",
-    speaker: "The Cantor",
-    portrait: "cantor",
-    lines: [
-      "Lovely wind. Do not waste a compliment on me. I already kept it."
+      "A bright yellow patch, neatly stitched. Along the seam: K.V. FIXED THIS. DON'T TOUCH."
     ]
   });
 
@@ -429,14 +370,12 @@
     }
     if (who === "kestrel") {
       if (f.lampLit && !f.kestrelAfter) return "emberhold.kestrel.offer_sail";
-      if (f.lampLit && f.sail_answer === "ask") return "emberhold.kestrel.docked_ask";
-      if (f.lampLit && f.sail_answer === "hand") return "emberhold.kestrel.docked_hand";
       if (f.lampLit) return "emberhold.kestrel.docked";
       if (!f.kestrelHint) return "emberhold.kestrel.span";
       return "emberhold.kestrel.dark";
     }
     if (who === "cantor") {
-      if (!f.metCantor) return "emberhold.cantor.intro";
+      if (!f.met_cantor) return "emberhold.cantor.intro";
       return "emberhold.cantor.again";
     }
     return "";

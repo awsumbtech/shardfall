@@ -725,7 +725,8 @@ SF.drawKestrel = function (ctx, x, y) {
 };
 
 SF.drawCantor = function (ctx, x, y) {
-  var bob = Math.sin(SF.anim * 1.4) * 3;
+  var calm = SF.calm && SF.calm();
+  var bob = calm ? 0 : Math.sin(SF.anim * 1.4) * 3;
   ctx.save();
   ctx.translate(x, y + bob);
   ctx.drawImage(SF.blobs.gold, -16, -8, 32, 32);
@@ -745,6 +746,7 @@ SF.drawCantor = function (ctx, x, y) {
   ctx.arc(0, -8, 3.5, 0.2, Math.PI - 0.2);
   ctx.stroke();
   ctx.restore();
+  if (calm) return;
   var i;
   for (i = 0; i < 3; i++) {
     var a = SF.anim * 0.8 + i * 2.1;
@@ -1055,22 +1057,32 @@ SF.entityList = function (s) {
   list.push({ y: SF.LAMP.y, draw: function (ctx) { SF.drawLampCrystal(ctx, lit); } });
   SF.NPCS.forEach(function (n) {
     if (SF.npcHidden && SF.npcHidden(n)) return;
+    var nx = n.x;
+    var ny = n.y;
+    if (n.id === "cantor" && SF.cantorWorldPos) {
+      var spot = SF.cantorWorldPos();
+      if (spot) {
+        nx = spot.x;
+        ny = spot.y;
+      }
+    }
     list.push({
-      y: n.y,
+      y: ny,
       draw: function (ctx) {
-        SF.drawShadow(ctx, n.x, n.y, 10);
-        if (n.id === "maren") SF.drawMaren(ctx, n.x, n.y);
-        else if (n.id === "kestrel") SF.drawKestrel(ctx, n.x, n.y);
-        else if (n.id === "tamsin") SF.drawTamsin(ctx, n.x, n.y);
-        else if (n.id === "hesk") SF.drawHesk(ctx, n.x, n.y);
-        else if (n.id === "ilsa") SF.drawIlsa(ctx, n.x, n.y);
-        else SF.drawCantor(ctx, n.x, n.y);
-        if (s.mode === "play" && SF.dist(s.player.x, s.player.y, n.x, n.y) < 90) {
+        SF.drawShadow(ctx, nx, ny, 10);
+        if (n.id === "maren") SF.drawMaren(ctx, nx, ny);
+        else if (n.id === "kestrel") SF.drawKestrel(ctx, nx, ny);
+        else if (n.id === "tamsin") SF.drawTamsin(ctx, nx, ny);
+        else if (n.id === "hesk") SF.drawHesk(ctx, nx, ny);
+        else if (n.id === "ilsa") SF.drawIlsa(ctx, nx, ny);
+        else SF.drawCantor(ctx, nx, ny);
+        var walking = n.id === "cantor" && s.approach && s.approach.kind === "cantor";
+        if (walking || (s.mode === "play" && SF.dist(s.player.x, s.player.y, nx, ny) < 90)) {
           ctx.save();
           ctx.font = "600 12px Palatino, Georgia, serif";
           ctx.textAlign = "center";
           ctx.fillStyle = "#fff8ee";
-          ctx.fillText(n.name, n.x, n.y - 34);
+          ctx.fillText(n.name, nx, ny - 34);
           ctx.restore();
         }
       }
@@ -1397,13 +1409,26 @@ SF.drawMap = function () {
     ctx.arc(mx(goal.x), my(goal.y), 4, 0, Math.PI * 2);
     ctx.fill();
   }
+  if (s.discovered && s.discovered.vault && SF.islandId === "cinderveil") {
+    var heart = null;
+    SF.WALK.circles.forEach(function (c) { if (c.id === "vault-heart") heart = c; });
+    if (heart) {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "#ffb15a";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(mx(heart.x) - 3, my(heart.y) - 3, 6, 6);
+    }
+  }
   if (s.discovered.hollow || s.flags.metCantor || s.flags.cinderLit) {
     var cantor = null;
     SF.NPCS.forEach(function (n) { if (n.id === "cantor") cantor = n; });
     if (cantor && !(SF.npcHidden && SF.npcHidden(cantor))) {
+      var lived = SF.cantorWorldPos && SF.cantorWorldPos();
+      var cx = lived ? lived.x : cantor.x;
+      var cy = lived ? lived.y : cantor.y;
       ctx.globalAlpha = 1;
       ctx.fillStyle = "#e6c56a";
-      ctx.fillRect(mx(cantor.x) - 1.5, my(cantor.y) - 1.5, 3, 3);
+      ctx.fillRect(mx(cx) - 1.5, my(cy) - 1.5, 3, 3);
     }
   }
   ctx.globalAlpha = 1;

@@ -38,9 +38,52 @@ function linesInstant() {
   return !!SF.reduceFlash;
 }
 
+SF.lineText = function (line) {
+  if (line && typeof line === "object") return line.text == null ? "" : String(line.text);
+  return line == null ? "" : String(line);
+};
+
+function lineNarration(line) {
+  return !!(line && typeof line === "object" && line.narration);
+}
+
+function lineAllowed(line, flags) {
+  if (!line || typeof line !== "object") return true;
+  if (line.requires && !choiceAllowed({ requires: line.requires }, flags)) return false;
+  if (line.unless) {
+    var k;
+    for (k in line.unless) {
+      if (Object.prototype.hasOwnProperty.call(line.unless, k) && flags[k] === line.unless[k]) return false;
+    }
+  }
+  return true;
+}
+
+function visibleLines(node, flags) {
+  var raw = (node && node.lines) || [];
+  var out = [];
+  var i;
+  for (i = 0; i < raw.length; i++) {
+    if (lineAllowed(raw[i], flags)) out.push(raw[i]);
+  }
+  return out.length ? out : ["..."];
+}
+
 function fillLine(line, s) {
   var count = s && typeof s.shardsHeld === "number" ? s.shardsHeld : 0;
-  return String(line == null ? "" : line).replace(/\{shards\}/g, String(count));
+  return SF.lineText(line).replace(/\{shards\}/g, String(count));
+}
+
+function renderLine(el, text) {
+  var safe = String(text == null ? "" : text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  var html = safe.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  if (el.dataset.html !== html) {
+    el.dataset.html = html;
+    el.innerHTML = html;
+  }
 }
 
 function choiceAllowed(choice, flags) {
@@ -103,9 +146,12 @@ function showNode(id) {
   var s = SF.state;
   if (!s) return;
   var node = lookup(id);
-  var lines = node.lines && node.lines.length ? node.lines : ["..."];
+  var lines = visibleLines(node, (s.flags || {}));
   var full = fillLine(lines[0], s);
   var instant = linesInstant();
+  var walkingUp = !!(s.approach && s.approach.kind === "cantor" && (node.id === "cinderveil.cantor.confront"));
+  var lock = 0.2;
+  if (walkingUp) lock = Math.max(lock, (s.approach.dur || 3) - (s.approach.t || 0));
   s.dialogue = {
     id: node.id || String(id || ""),
     node: node,
@@ -119,7 +165,8 @@ function showNode(id) {
     acc: 0,
     phase: "line",
     choices: [],
-    lock: 0.2
+    lock: lock,
+    holdForApproach: walkingUp
   };
   s.mode = "dialogue";
   SF._portraitKey = null;
@@ -182,6 +229,11 @@ SF.advanceDialogue = function () {
   var d = s && s.dialogue;
   if (!d || s.mode !== "dialogue" || d.lock > 0) return;
   if (d.phase === "choice") return;
+  if (d.holdForApproach && s.approach && s.approach.t < s.approach.dur) {
+    if (SF.parkCantor) SF.parkCantor();
+    else s.approach = null;
+    d.holdForApproach = false;
+  }
   if (!d.done) {
     d.shown = d.full.length;
     d.done = true;
@@ -623,9 +675,13 @@ SF.paintDialogue = function () {
   var box = document.getElementById("dlg-choices");
   var portrait = document.getElementById("dlg-portrait");
   if (!who || !line || !hint || !box) return;
-  if (who.textContent !== d.speaker) who.textContent = d.speaker;
+  var rawLine = d.lines && d.lines[d.i];
+  var narrating = lineNarration(rawLine);
+  var shownSpeaker = narrating ? "" : (d.speaker || "");
+  if (who.textContent !== shownSpeaker) who.textContent = shownSpeaker;
+  who.hidden = !shownSpeaker;
   var text = d.full ? d.full.slice(0, d.shown) : "";
-  if (line.textContent !== text) line.textContent = text;
+  renderLine(line, text);
   var typing = d.phase !== "choice" && !d.done && !linesInstant();
   line.classList.toggle("typing", typing);
   var choiceKey = d.id + "|" + (d.phase === "choice" ? d.choices.map(function (c) { return c.text; }).join("|") : "");
@@ -646,11 +702,17 @@ SF.paintDialogue = function () {
       });
     }
   }
-  var hintText = d.phase === "choice" ? "Tap a reply" : (d.done ? "Tap to continue" : "Tap to finish");
+  var holding = !!(d.holdForApproach && s.approach && s.approach.t < s.approach.dur);
+  var hintText = holding ? "" : (d.phase === "choice" ? "Tap a reply" : (d.done ? "Tap to continue" : "Tap to finish"));
   if (hint.textContent !== hintText) hint.textContent = hintText;
-  if (portrait && SF._portraitKey !== d.portrait) {
-    SF._portraitKey = d.portrait;
-    drawPortrait(portrait, d.portrait);
+  var portraitKey = (rawLine && typeof rawLine === "object" && rawLine.portrait) || (narrating ? "hush" : d.portrait);
+  if (portrait && SF._portraitKey !== portraitKey) {
+    SF._portraitKey = portraitKey;
+    drawPortrait(portrait, portraitKey);
+  }
+  if ((d.id === "cinderveil.act1.finale") && !d.bannered && SF.pushBanner) {
+    d.bannered = true;
+    SF.pushBanner("End of Act 1", "Ahead lies Highspire, and the last of the Lanternwrights.", 14);
   }
 };
 
