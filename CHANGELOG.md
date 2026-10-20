@@ -17,6 +17,11 @@ Lowgate sits under the city. You can shop and sleep there. The gate stays shut u
 Chests remember when you open them. Shops buy and sell. A night at an inn fills your heart and brings field enemies back. A boss stays down.
 Reduce flashing stays on until you turn it off.
 
+The islands, the people, and the fight are drawn in a 16-bit pixel style.
+The Wayfarer carries a glowing shard. Kestrel wears a coat and goggles. Tamsin has a tool belt. Maren is old. Ilsa wears armor. Hesk wears Choir robes. The Cantor wears a pale mask.
+The dusk sky and the crack in it stay.
+Open the page with ?gallery to look at every sprite, portrait, and battle background.
+
 ## v0.2.1 — The Cantor walks up
 
 Act 1 is told again, in the words of the people on the road.

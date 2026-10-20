@@ -143,7 +143,10 @@ SF.drawTitleScene = function (ctx, w, h, dpr) {
 
   for (i = 0; i < ISLANDS.length; i++) {
     isl = ISLANDS[i];
-    sprite = art.islands[isl.sprite];
+    if (window.Art && Art.islandCard) {
+      var biomes = ["grass", "grass", "gold", "shore", "ash"];
+      sprite = Art.islandCard(biomes[isl.sprite] || "grass", isl.w);
+    } else sprite = art.islands[isl.sprite];
     iw = isl.w;
     ih = iw * (sprite.height / sprite.width);
     px = isl.x * w + Math.sin(t * (0.08 + isl.depth * 0.05) + isl.phase) * (8 + isl.depth * 18);

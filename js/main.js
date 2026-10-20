@@ -4,11 +4,16 @@ var SF = window.SF || {};
 window.SF = SF;
 
 SF.boot = function () {
+  if (window.Art && Art.wantsGallery && Art.wantsGallery()) {
+    Art.openGallery();
+    return;
+  }
   SF.view = document.getElementById("view");
   SF.map = document.getElementById("minimap");
   SF.ctx = SF.view.getContext("2d", { alpha: false }) || SF.view.getContext("2d");
   SF.buildWorld();
   SF.cacheSprites();
+  if (window.Art && Art.preload) Art.preload();
   SF.sfx.loadMute();
   if (SF.loadCalm) SF.loadCalm();
   SF.state = SF.fresh();

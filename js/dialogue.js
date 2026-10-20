@@ -654,7 +654,8 @@ function drawPortrait(canvas, key) {
   clipRound(ctx, 0, 0, 64, 64, 14);
   ctx.save();
   ctx.clip();
-  if (FACES[key]) drawFace(ctx, FACES[key]);
+  if (window.Art && Art.portrait) Art.portrait(ctx, key, 0, 0, 64);
+  else if (FACES[key]) drawFace(ctx, FACES[key]);
   else drawBadge(ctx, BADGES[key] || BADGES.unknown);
   ctx.restore();
   ctx.strokeStyle = "rgba(255, 211, 122, 0.45)";
