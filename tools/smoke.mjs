@@ -1203,4 +1203,44 @@ if (touch.flags.saltmere_lamp !== "lit") fail("the Saltmere lamp did not light a
 SF.seaFightChance = null;
 SF.mountIsland("emberhold");
 
+function pngSize(file) {
+  const buf = fs.readFileSync(file);
+  if (buf[0] !== 0x89 || buf.toString("ascii", 1, 4) !== "PNG") return null;
+  return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+}
+
+const manifest = JSON.parse(fs.readFileSync("manifest.webmanifest", "utf8"));
+if (manifest.name !== "Shardfall" || manifest.short_name !== "Shardfall") fail("manifest name");
+if (manifest.start_url !== "./" || manifest.scope !== "./" || manifest.id !== "/shardfall/") fail("manifest scope");
+if (manifest.display !== "fullscreen") fail("manifest display");
+if (!manifest.display_override || manifest.display_override[0] !== "fullscreen" || manifest.display_override[1] !== "standalone") {
+  fail("manifest display_override");
+}
+if (manifest.orientation !== "landscape") fail("manifest orientation");
+if (manifest.background_color !== "#140c28" || manifest.theme_color !== "#140c28") fail("manifest colors");
+const iconSizes = {};
+for (const icon of manifest.icons) {
+  const size = pngSize(icon.src);
+  const expected = icon.sizes.split("x").map(Number);
+  if (!size || size.w !== expected[0] || size.h !== expected[1]) fail("icon size " + icon.src);
+  iconSizes[icon.purpose + ":" + icon.sizes] = true;
+}
+if (!iconSizes["any:192x192"] || !iconSizes["any:512x512"] || !iconSizes["maskable:512x512"]) fail("manifest icons");
+const apple = pngSize("icons/apple-touch-icon.png");
+if (!apple || apple.w !== 180 || apple.h !== 180) fail("apple touch icon");
+
+const html = fs.readFileSync("index.html", "utf8");
+if (!html.includes('rel="manifest" href="manifest.webmanifest"')) fail("manifest link");
+if (!html.includes('rel="apple-touch-icon" href="icons/apple-touch-icon.png"')) fail("apple touch link");
+if (!html.includes('src="js/pwa.js"')) fail("pwa script");
+const sw = fs.readFileSync("sw.js", "utf8");
+if (!sw.includes('CACHE = "shardfall-v0.3.4"')) fail("cache version");
+if (!sw.includes("skipWaiting")) fail("skipWaiting");
+const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
+for (const href of refs.concat(manifest.icons.map((icon) => icon.src))) {
+  if (!fs.existsSync(href)) fail("missing asset " + href);
+  if (!sw.includes('"' + href + '"')) fail("not precached " + href);
+}
+if (!sw.includes('"js/pwa.js"')) fail("pwa.js not precached");
+
 console.log("smoke ok");

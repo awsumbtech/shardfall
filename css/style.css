@@ -34,6 +34,24 @@ html, body {
   font-family: var(--sans);
 }
 
+html.sf-installed,
+html.sf-installed body,
+html.sf-installed #app {
+  background: #140c28;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+}
+
+@media (display-mode: fullscreen), (display-mode: standalone) {
+  html, body, #app {
+    background: #140c28;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+  }
+}
+
 [hidden] { display: none !important; }
 
 button, .scroll { -webkit-user-select: none; user-select: none; }
@@ -923,7 +941,7 @@ body[data-modal="1"] #corner {
 
 #field-card h2 { color: #f0d878; font-size: 20px; margin: 0 0 2px; }
 #field-gold, #field-note { font-size: 14px; margin: 0 0 4px; }
-#field-note { color: #ffd37a; }
+#field-note { color: #ffd37a; white-space: pre-wrap; line-height: 1.35; }
 #field-note:empty { display: none; }
 #field-body { display: flex; flex-direction: column; gap: 4px; }
 .field-face {
