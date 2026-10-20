@@ -235,12 +235,12 @@ SF.tryArtSprite = function (ctx, id, x, y, opts) {
   if (!id || !window.Art || typeof Art.sprite !== "function") return false;
   var o = {
     frame: opts && opts.frame != null ? opts.frame : 0,
-    facing: opts && opts.facing != null ? opts.facing : 1,
-    scale: opts && opts.scale != null ? opts.scale : 2
+    facing: opts && opts.facing != null ? opts.facing : "down",
+    scale: opts && opts.scale != null ? opts.scale : 2,
+    pose: (opts && opts.pose) || "walk"
   };
-  if (SF.calm && SF.calm()) o.frame = 0;
+  if (SF.calm && SF.calm() && o.pose === "walk") o.frame = 0;
   try {
-    ctx.imageSmoothingEnabled = false;
     Art.sprite(ctx, id, x, y, o);
     return true;
   } catch (err) {
@@ -262,18 +262,33 @@ SF.drawVillager = function (ctx, x, y, tunic, skin) {
   ctx.restore();
 };
 
-SF.drawActor = function (ctx, n, x, y) {
-  var sprite = (n && n.sprite) || (n && SF.ACTOR_SPRITE[n.id]);
-  if (!sprite && !(n && n.sprite)) return false;
-  var frame = (SF.calm && SF.calm()) ? 0 : Math.floor((SF.anim || 0) * 4) % 4;
-  if (SF.tryArtSprite(ctx, sprite, x, y, { frame: frame, facing: 1, scale: 2 })) return true;
-  if (n && n.sprite) {
-    var tint = n.sprite === "villager_b" ? "#6a5348" : "#2f6a68";
-    SF.drawVillager(ctx, x, y, tint, "#f0c7a4");
-    return true;
-  }
-  return false;
-};
+(function () {
+  var pixelActor = SF.drawActor;
+  SF.drawActor = function (ctx, n, x, y, fx, fy, moving, alpha, phase) {
+    if (typeof n === "string") {
+      return pixelActor ? pixelActor(ctx, n, x, y, fx, fy, moving, alpha, phase) : false;
+    }
+    var sprite = (n && n.sprite) || (n && SF.ACTOR_SPRITE[n.id]);
+    if (!sprite) return false;
+    var frame = (SF.calm && SF.calm()) ? 0 : Math.floor((SF.anim || 0) * 4) % 4;
+    var facing = "down";
+    var p = SF.state && SF.state.player;
+    if (p && x != null && y != null) {
+      var dx = p.x - x;
+      var dy = p.y - y;
+      if (Math.abs(dx) > 18 || Math.abs(dy) > 18) {
+        facing = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
+      }
+    }
+    if (SF.tryArtSprite(ctx, sprite, x, y, { frame: frame, facing: facing, scale: 2, pose: "walk" })) return true;
+    if (n && n.sprite) {
+      var tint = n.sprite === "villager_b" ? "#6a5348" : "#2f6a68";
+      SF.drawVillager(ctx, x, y, tint, "#f0c7a4");
+      return true;
+    }
+    return false;
+  };
+})();
 
 SF.drawWorldFoe = function (ctx, e) {
   var look = SF.FOE_LOOK && SF.FOE_LOOK[e.kind];
@@ -390,7 +405,7 @@ SF.drawExtra = function (ctx, extra) {
     return true;
   }
   if (extra.kind === "shop") {
-    if (!SF.tryArtSprite(ctx, "sign", extra.x, extra.y - 16, { scale: 2 })) {
+    if (!SF.tryArtSprite(ctx, "sign", extra.x, extra.y - 10, { scale: 2 })) {
       ctx.save();
       ctx.translate(extra.x, extra.y);
       SF.drawWorldProp(ctx, { kind: "stall" });
@@ -399,22 +414,33 @@ SF.drawExtra = function (ctx, extra) {
     return true;
   }
   if (extra.kind === "inn") {
-    ctx.save();
-    ctx.fillStyle = "#ffd37a";
-    ctx.beginPath();
-    ctx.arc(extra.x, extra.y - 16, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#6b4030";
-    ctx.fillRect(extra.x - 2, extra.y - 12, 4, 16);
-    ctx.restore();
+    if (!SF.tryArtSprite(ctx, "inn", extra.x, extra.y, { scale: 2 })) {
+      ctx.save();
+      ctx.fillStyle = "#ffd37a";
+      ctx.beginPath();
+      ctx.arc(extra.x, extra.y - 16, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#6b4030";
+      ctx.fillRect(extra.x - 2, extra.y - 12, 4, 16);
+      ctx.restore();
+    }
     return true;
   }
   if (extra.kind === "skiff") {
     if (!SF.tryArtSprite(ctx, "skiff", extra.x, extra.y, { scale: 2 })) return false;
     return true;
   }
-  if (extra.kind === "sign" || extra.kind === "gate") {
+  if (extra.kind === "gate") {
     if (!SF.tryArtSprite(ctx, "sign", extra.x, extra.y, { scale: 2 })) {
+      ctx.save();
+      ctx.translate(extra.x, extra.y);
+      SF.drawWorldProp(ctx, { kind: "signpost" });
+      ctx.restore();
+    }
+    return true;
+  }
+  if (extra.kind === "sign") {
+    if (!SF.tryArtSprite(ctx, "signpost", extra.x, extra.y, { scale: 2 })) {
       ctx.save();
       ctx.translate(extra.x, extra.y);
       SF.drawWorldProp(ctx, { kind: "signpost" });
@@ -709,6 +735,61 @@ SF.auditWorld = function () {
   return issues;
 };
 
+SF.CHART_BIOME = {
+  emberhold: "grass",
+  cinderveil: "ash",
+  gullrock: "stone",
+  drift: "drift",
+  saltmere: "salt",
+  highspire: "hs"
+};
+
+SF.keeperPortrait = function (name) {
+  var n = String(name || "").toLowerCase();
+  if (n.indexOf("quinn") !== -1) return "nessa";
+  if (n.indexOf("stilt") !== -1) return "osric";
+  if (n.indexOf("lowgate") !== -1) return "dorrie";
+  if (n.indexOf("switchback") !== -1) return "maud";
+  if (n.indexOf("drift") !== -1) return "sile";
+  if (n.indexOf("maren") !== -1) return "maren";
+  if (n.indexOf("lowmoor") !== -1) return "villager_b";
+  if (n.indexOf("quay") !== -1) return "kestrel";
+  return "villager_a";
+};
+
+SF.paintKeeper = function (canvas, id) {
+  if (!canvas || !window.Art || !Art.portrait) return;
+  if (canvas.width !== 64) {
+    canvas.width = 64;
+    canvas.height = 64;
+  }
+  var g = canvas.getContext("2d");
+  if (!g) return;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, 64, 64);
+  Art.portrait(g, id, 0, 0, 64);
+};
+
+SF.ensureKeeper = function (panel, id) {
+  var slot = document.getElementById(id);
+  if (slot) return slot;
+  if (!panel) return null;
+  var card = panel.querySelector(".card");
+  if (!card) return null;
+  var row = document.createElement("div");
+  row.className = "keeper-row";
+  slot = document.createElement("canvas");
+  slot.id = id;
+  slot.className = "keeper-face";
+  slot.width = 64;
+  slot.height = 64;
+  row.appendChild(slot);
+  var title = card.querySelector("h2");
+  if (title) row.appendChild(title);
+  card.insertBefore(row, card.firstChild);
+  return slot;
+};
+
 SF.syncSailChart = function () {
   var root = document.getElementById("sail-chart");
   var list = document.getElementById("sail-list");
@@ -737,8 +818,18 @@ SF.syncSailChart = function () {
     pin.className = "chart-isle" + (here ? " here" : "") + (open ? "" : " locked");
     pin.style.left = d.x + "%";
     pin.style.top = d.y + "%";
-    pin.style.background = d.swatch || "#2f6a48";
-    pin.textContent = d.short || d.name;
+    if (window.Art && Art.islandCard) {
+      var card = Art.islandCard(SF.CHART_BIOME[d.id] || "grass", 36);
+      var cv = document.createElement("canvas");
+      cv.className = "chart-card";
+      cv.width = card.width;
+      cv.height = card.height;
+      cv.getContext("2d").drawImage(card, 0, 0);
+      pin.appendChild(cv);
+    }
+    var lab = document.createElement("span");
+    lab.textContent = d.short || d.name;
+    pin.appendChild(lab);
     pin.disabled = !open || here;
     pin.dataset.sail = d.id;
     root.appendChild(pin);
@@ -760,6 +851,7 @@ SF.syncShopUI = function () {
   if (!s || s.mode !== "shop" || !s.shop) return;
   var shop = s.shop;
   document.getElementById("shop-title").textContent = shop.title || shop.name || "Shop";
+  SF.paintKeeper(SF.ensureKeeper(panel, "shop-face"), SF.keeperPortrait(shop.name || shop.title));
   document.getElementById("shop-gold").textContent = "Marks: " + (s.gold || 0);
   var list = document.getElementById("shop-list");
   var owned = [];
@@ -808,6 +900,7 @@ SF.syncInnUI = function () {
   panel.hidden = !s || s.mode !== "inn";
   if (!s || s.mode !== "inn" || !s.inn) return;
   document.getElementById("inn-title").textContent = s.inn.title || "Inn";
+  SF.paintKeeper(SF.ensureKeeper(panel, "inn-face"), SF.keeperPortrait(s.inn.name || s.inn.title));
   document.getElementById("inn-copy").textContent = s.inn.blurb || "Rest here?";
 };
 

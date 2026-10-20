@@ -25,13 +25,13 @@ SF.ISLANDS.saltmere = {
     rects: []
   },
   npcs: [
-    { id: "holt", name: "Brenna Holt", x: -36, y: 108, node: "saltmere.harbormaster", sprite: "villager_a", role: "harbormaster" },
-    { id: "osric", name: "Osric Pell", x: 96, y: -16, node: "saltmere.innkeeper", sprite: "villager_b", role: "inn keeper at the Stilthouse" },
-    { id: "nessa", name: "Nessa Quinn", x: -108, y: -36, node: "saltmere.shopkeeper", sprite: "villager_a", role: "shopkeeper at Quinn's Hooks" },
-    { id: "sera", name: "Sera Dunne", x: 78, y: -96, node: "saltmere.sera", sprite: "villager_b", role: "lamp keeper" },
-    { id: "pip", name: "Pip", x: -60, y: 16, node: "saltmere.kids", sprite: "villager_a", role: "dock kid" },
-    { id: "lark", name: "Lark", x: 24, y: 64, node: "saltmere.kids", sprite: "villager_b", role: "dock kid" },
-    { id: "jory", name: "Jory Hale", x: -124, y: 96, node: "saltmere.jory", sprite: "villager_a", role: "fisher" }
+    { id: "holt", name: "Brenna Holt", x: -36, y: 108, node: "saltmere.harbormaster", sprite: "brenna", role: "harbormaster" },
+    { id: "osric", name: "Osric Pell", x: 96, y: -16, node: "saltmere.innkeeper", sprite: "osric", role: "inn keeper at the Stilthouse" },
+    { id: "nessa", name: "Nessa Quinn", x: -108, y: -36, node: "saltmere.shopkeeper", sprite: "nessa", role: "shopkeeper at Quinn's Hooks" },
+    { id: "sera", name: "Sera Dunne", x: 78, y: -96, node: "saltmere.sera", sprite: "sera", role: "lamp keeper" },
+    { id: "pip", name: "Pip", x: -60, y: 16, node: "saltmere.kids", sprite: "pip", role: "dock kid" },
+    { id: "lark", name: "Lark", x: 24, y: 64, node: "saltmere.kids", sprite: "lark", role: "dock kid" },
+    { id: "jory", name: "Jory Hale", x: -124, y: 96, node: "saltmere.jory", sprite: "jory", role: "fisher" }
   ],
   texts: [],
   pickups: [],

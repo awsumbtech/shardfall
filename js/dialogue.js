@@ -142,6 +142,23 @@ function flushEvents() {
   for (i = 0; i < events.length; i++) fireEvent(events[i]);
 }
 
+SF.portraitForSpeaker = function (name) {
+  var map = {
+    "Brenna Holt": "brenna",
+    "Osric Pell": "osric",
+    "Nessa Quinn": "nessa",
+    "Sera Dunne": "sera",
+    "Pip and Lark": "pip_lark",
+    "Jory Hale": "jory",
+    "Warden Brant": "brant",
+    "Dorrie Fen": "dorrie",
+    "Maud Keel": "maud",
+    "Ellis Ward": "ellis",
+    "Sile Voss": "sile"
+  };
+  return map[name] || "";
+};
+
 function showNode(id) {
   var s = SF.state;
   if (!s) return;
@@ -156,7 +173,7 @@ function showNode(id) {
     id: node.id || String(id || ""),
     node: node,
     speaker: node.speaker || "Someone",
-    portrait: node.portrait || "unknown",
+    portrait: node.portrait || (SF.portraitForSpeaker && SF.portraitForSpeaker(node.speaker)) || "unknown",
     lines: lines,
     i: 0,
     full: full,

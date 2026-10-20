@@ -16,7 +16,7 @@ SF.ISLANDS.drift = {
     rects: []
   },
   npcs: [
-    { id: "sile", name: "Sile Voss", x: 22, y: -18, node: "driftmarket.voss", sprite: "villager_b", role: "Drift Market trader" }
+    { id: "sile", name: "Sile Voss", x: 22, y: -18, node: "driftmarket.voss", sprite: "sile", role: "Drift Market trader" }
   ],
   texts: [],
   pickups: [],

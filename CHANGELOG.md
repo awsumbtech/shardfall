@@ -19,6 +19,7 @@ Reduce flashing stays on until you turn it off.
 
 The islands, the people, and the fight are drawn in a 16-bit pixel style.
 The Wayfarer carries a glowing shard. Kestrel wears a coat and goggles. Tamsin has a tool belt. Maren is old. Ilsa wears armor. Hesk wears Choir robes. The Cantor wears a pale mask.
+Saltmere, the Holdfast, Lowgate, Gullrock, and the Drift Market use that same pixel style. The sail chart, the chests, the shops, and the inns do too. Brenna Holt, Osric Pell, Nessa Quinn, Sera Dunne, Pip, Lark, Jory Hale, Warden Brant, Dorrie Fen, Maud Keel, Ellis Ward, and Sile Voss each have a sprite and a portrait.
 The dusk sky and the crack in it stay.
 Open the page with ?gallery to look at every sprite, portrait, and battle background.
 

@@ -217,6 +217,18 @@ People are drawn large enough to read on a phone (about 17×26 source pixels, dr
 - **Brother Hesk.** Choir hood and robe, a pale stole.
 - **The Cantor.** Pale mask, void robe, gold hem, no feet.
 - Villagers, Choirlings, and the later party-facing foes (saltwisp, drowned, stormgull, tidewyrm, choir soldier, sentinel, hush raider) each have their own silhouette and palette.
+- **Brenna Holt.** Harbormaster. Teal coat, dark cap, a coil of rope.
+- **Osric Pell.** Inn keeper at the Stilthouse. White hair, apron, a mug.
+- **Nessa Quinn.** Shopkeeper. Sand vest, tool belt, a hook.
+- **Sera Dunne.** Lamp keeper. Pale, a shawl, a small lantern.
+- **Pip.** Dock kid. Green cap.
+- **Lark.** Dock kid. Red scarf and skirt. The shared line uses a portrait of both.
+- **Jory Hale.** Fisher. Oilskin coat and a net.
+- **Warden Brant.** Stone helm, gold plume, a spear. Not Ilsa's red plume.
+- **Dorrie Fen.** Lowgate shopkeeper. Grey bun, brown apron.
+- **Maud Keel.** Inn keeper at the Switchback. Broad, gold apron, a mug.
+- **Ellis Ward.** Young townsman in a blue coat.
+- **Sile Voss.** Drift Market trader. Wide violet hat, gold satchel.
 
 ### Calling the art
 
@@ -237,9 +249,9 @@ Art.preload();
 
 `pose: "walk"` is the field cycle: four directions, four frames (0 and 2 are the contact poses, 1 and 3 step). A numeric `frame` is that walk index. `pose` `"idle"`, `"attack"`, `"hurt"`, or `"cast"` is the side-view battle frame (two frames, facing left or right). A string `frame` (`"idle"`, `"attack"`, `"hurt"`, `"cast"`, `"walk"`) is treated as the pose, so `Art.sprite(ctx, "kestrel", x, y, { frame: "attack" })` is a battle swing. The Cinder Maw is the exception: every pose uses the same three-quarter painter; idle and hurt close the mouth and dim the core.
 
-Sprite ids: `wayfarer`, `kestrel`, `tamsin`, `maren`, `hesk`, `ilsa`, `cantor`, `villager_a`, `villager_b`, `wisp`, `brumekin`, `choirling`, `ashling`, `cinderhound`, `cinder_maw`, `saltwisp`, `drowned`, `stormgull`, `tidewyrm`, `choir_soldier`, `sentinel`, `hush_raider`, `chest`, `chest_open`, `lamp_cold`, `lamp_lit`, `shard`, `skiff`, `cog`, `sign`. The field also uses `sootwing`, `tree`, `tree_bare`, `rock`, `cottage`, `workshop`, `stones`, `ruin`, `plank`, `flower`, `flower_gold`, `flower_tide`, `blossom`, `bench`, `bell`, and `tile_*` pattern names. An unknown id draws an 8×8 magenta checker and does not warn.
+Sprite ids: `wayfarer`, `kestrel`, `tamsin`, `maren`, `hesk`, `ilsa`, `cantor`, `villager_a`, `villager_b`, `brenna`, `osric`, `nessa`, `sera`, `pip`, `lark`, `jory`, `brant`, `dorrie`, `maud`, `ellis`, `sile`, `wisp`, `brumekin`, `choirling`, `ashling`, `cinderhound`, `cinder_maw`, `saltwisp`, `drowned`, `stormgull`, `tidewyrm`, `choir_soldier`, `sentinel`, `hush_raider`, `chest`, `chest_open`, `lamp_cold`, `lamp_lit`, `shard`, `skiff`, `cog`, `sign`. The field also uses `sootwing`, `tree`, `tree_bare`, `rock`, `cottage`, `workshop`, `stones`, `ruin`, `plank`, `flower`, `flower_gold`, `flower_tide`, `blossom`, `bench`, `bell`, `hut`, `stilt`, `stall`, `wreckhull`, `gatearch`, `raft`, `signpost`, `inn`, and `tile_*` pattern names. An unknown id draws an 8×8 magenta checker and does not warn.
 
-`Art.portrait(ctx, id, x, y, size)` draws a square face for dialogue and menus. Named people have portraits. So do `cinder_maw`, `tidewyrm`, and the inscription badges (`stones`, `lamp`, `ship`, `scar`, `core`, `sign`, `crate`, `ash`, `blossom`, `bridge`, `vault`, `bell`, `hush`). Unknown ids use a generic face. `Art.portraitIds()` lists them.
+`Art.portrait(ctx, id, x, y, size)` draws a square face for dialogue and menus. Named people have portraits, including the Wider Hush cast and `pip_lark` for the shared dock-kid line. So do `cinder_maw`, `tidewyrm`, and the inscription badges (`stones`, `lamp`, `ship`, `scar`, `core`, `sign`, `crate`, `ash`, `blossom`, `bridge`, `vault`, `bell`, `hush`). Unknown ids use a generic face. `Art.portraitIds()` lists them. A dialogue node can set `portrait`. If it does not, the speaker name still picks a face for the people above.
 
 `Art.battleBg(ctx, bgId, w, h, t)` fills the rectangle at the current origin, from `(0, 0)` to `(w, h)`, clipped to that box. Ids: `emberhold_meadow`, `emberhold_scar`, `cinderveil_ash`, `ember_vault`, `saltmere_shore`, `saltmere_wreck`, `highspire_road`, `hush_deck`. An unknown id uses the meadow. `t` is seconds. Clouds drift slowly unless `Art.calm()` is true, which it is when Reduce flashing is on (the default) or the system asks for less motion.
 
@@ -247,13 +259,13 @@ The battle screen is a side view on that background. Enemies stand on the left, 
 
 `Art.window(ctx, x, y, w, h, opts)` paints a Final Fantasy-style window: deep blue, cream outer border, light-blue inner line. It returns the content rectangle `{ x, y, w, h }`. `opts.title` draws a gold label and pushes the content rect down. DOM menus use the same chrome in CSS (`.panel`, `.card`, `#dialogue`, `#toast`, the corner buttons).
 
-`Art.tile` stamps one terrain cell. `Art.fillPattern(ctx, name)` fills the current path with a repeating tile. Terrain names: `grass`, `grass_light`, `cliff`, `shore`, `gold`, `ash`, `stone`, `vault`, `path`, `cobble`, `plank`, plus the `_light` variants the islands use for a sunward rim.
+`Art.tile` stamps one terrain cell. `Art.fillPattern(ctx, name)` fills the current path with a repeating tile. Terrain names: `grass`, `grass_light`, `cliff`, `shore`, `gold`, `ash`, `stone`, `vault`, `path`, `cobble`, `plank`, `dock`, `pier`, `sand`, `hold`, `wood`, plus the `_light` variants the islands use for a sunward rim.
 
 `Art.spriteSize(id, pose, facing)` returns `{ w, h, ax, ay }` in source pixels. `Art.ids()` lists sprite ids. Call `Art.preload()` once after boot; the game already does.
 
 ### The drift
 
-Islands are still unions of circles. The cliff is terracotta pixel stone, the top is a tileset: Emberhold grass, Cinderstep coin-gold, Vane's Perch a teal shore, the span pale stone, Lowmoor cobble, the Ashfields ash, the vault dark rock. Paths are stamped tile, not a stroked line. Trees, rocks, cottages, the workshop, lamps, and the skiff are sprites. The Hush under the islands is the same cloud sea, now stamped from pixel clouds that drift behind the camera. Reduce flashing holds the lamp steady, skips decorative bobbing, and leaves the walk cycle running while someone is actually moving. Hits do not blink the Wayfarer. A hit is a small warm spark and, unless Reduce flashing is on, a faint red edge. Shake is off when Reduce flashing is on. The canvas backing store is still reallocated only when the CSS size changes by more than a pixel.
+Islands are still unions of circles. The cliff is terracotta pixel stone, the top is a tileset: Emberhold grass, Cinderstep coin-gold, Vane's Perch a teal shore, the span pale stone, Lowmoor cobble, the Ashfields ash, the vault dark rock. Saltmere is dock planks over a pier, the shore is sand, the Holdfast is dark hold timber, Lowgate is cobble, the switchback is a path, Gullrock is stone, and the Drift Market is plank. Paths are stamped tile, not a stroked line. Trees, rocks, cottages, the workshop, lamps, the skiff, stilts, huts, stalls, the wreck hull, the Lowgate arch, and the market raft are sprites. The sail chart, the shop, and the inn use the same blue window, with a pixel island on each chart pin and the keeper's portrait on the shop and the inn. The Hush under the islands is the same cloud sea, now stamped from pixel clouds that drift behind the camera. Reduce flashing holds the lamp steady, skips decorative bobbing, and leaves the walk cycle running while someone is actually moving. Hits do not blink the Wayfarer. A hit is a small warm spark and, unless Reduce flashing is on, a faint red edge. Shake is off when Reduce flashing is on. The canvas backing store is still reallocated only when the CSS size changes by more than a pixel.
 
 The title is that same sky, with pixel island cards, and the menus sit in the blue window chrome. Zoom snaps so device pixels times zoom is an integer, which is what keeps the sprites crisp at 412×915.
 

@@ -296,6 +296,123 @@
     return s;
   }, 2, 2);
 
+  prop("hut", function () {
+    var s = Art.spr(28, 24);
+    var i;
+    fill(s, 4, 12, 20, 9, C.sand);
+    fill(s, 6, 14, 4, 3, C.gold);
+    fill(s, 16, 14, 4, 3, C.woodD);
+    fill(s, 11, 15, 6, 6, C.wood);
+    for (i = 0; i < 7; i++) fill(s, 3 + i, 11 - i, 22 - i * 2, 1, i % 2 ? C.tealD : C.teal);
+    fill(s, 12, 2, 3, 4, C.woodD);
+    s.ax = 14;
+    s.ay = 22;
+    return s;
+  });
+
+  prop("stilt", function () {
+    var s = Art.spr(22, 28);
+    fill(s, 3, 10, 2, 16, C.woodD);
+    fill(s, 16, 10, 2, 16, C.wood);
+    fill(s, 1, 8, 20, 3, C.woodL);
+    fill(s, 3, 6, 16, 2, C.tide);
+    fill(s, 5, 4, 12, 2, C.wood);
+    plot(s, 7, 5, C.foam);
+    plot(s, 13, 5, C.gold);
+    s.ax = 11;
+    s.ay = 26;
+    return s;
+  });
+
+  prop("stall", function () {
+    var s = Art.spr(28, 22);
+    fill(s, 6, 16, 2, 4, C.woodD);
+    fill(s, 20, 16, 2, 4, C.wood);
+    fill(s, 3, 12, 22, 5, C.wood);
+    fill(s, 5, 13, 6, 3, C.gold);
+    fill(s, 14, 13, 7, 3, C.scarf);
+    fill(s, 2, 6, 24, 6, C.red);
+    fill(s, 4, 7, 20, 2, C.redD);
+    fill(s, 2, 11, 24, 1, C.woodD);
+    s.ax = 14;
+    s.ay = 20;
+    return s;
+  });
+
+  prop("wreckhull", function () {
+    var s = Art.spr(36, 24);
+    fill(s, 4, 12, 26, 7, C.woodD);
+    fill(s, 2, 16, 32, 4, C.rock);
+    fill(s, 8, 6, 3, 12, C.wood);
+    fill(s, 20, 4, 2, 12, C.bone);
+    fill(s, 6, 13, 12, 2, C.ash);
+    plot(s, 24, 14, C.tide);
+    plot(s, 26, 15, C.weed);
+    plot(s, 12, 8, C.goldD);
+    plot(s, 14, 15, C.foam);
+    s.ax = 18;
+    s.ay = 21;
+    return s;
+  });
+
+  prop("gatearch", function () {
+    var s = Art.spr(32, 28);
+    fill(s, 2, 8, 6, 16, C.stone);
+    fill(s, 24, 8, 6, 16, C.stoneD);
+    fill(s, 2, 4, 28, 6, C.stoneL);
+    fill(s, 8, 10, 16, 14, C.woodD);
+    fill(s, 10, 12, 12, 2, C.goldD);
+    fill(s, 15, 12, 2, 10, C.gold);
+    plot(s, 16, 6, C.gold);
+    plot(s, 8, 6, C.stone);
+    s.ax = 16;
+    s.ay = 26;
+    return s;
+  });
+
+  prop("raft", function () {
+    var s = Art.spr(40, 18);
+    var x;
+    fill(s, 2, 8, 36, 6, C.wood);
+    fill(s, 2, 12, 36, 2, C.woodD);
+    for (x = 4; x < 36; x += 6) fill(s, x, 8, 1, 6, C.woodD);
+    fill(s, 6, 4, 8, 5, C.woodL);
+    fill(s, 24, 3, 8, 6, C.violetD);
+    plot(s, 26, 5, C.gold);
+    plot(s, 30, 5, C.gold);
+    s.ax = 20;
+    s.ay = 16;
+    return s;
+  });
+
+  prop("signpost", function () {
+    var s = Art.spr(18, 20);
+    fill(s, 8, 8, 2, 10, C.woodD);
+    fill(s, 2, 2, 14, 8, C.paper);
+    fill(s, 3, 3, 12, 6, C.sand);
+    plot(s, 5, 5, C.ink);
+    plot(s, 7, 5, C.ink);
+    plot(s, 9, 6, C.ink);
+    plot(s, 11, 5, C.ink);
+    s.ax = 9;
+    s.ay = 18;
+    return s;
+  });
+
+  prop("inn", function () {
+    var s = Art.spr(14, 24);
+    fill(s, 6, 10, 2, 12, C.woodD);
+    fill(s, 3, 20, 8, 2, C.wood);
+    fill(s, 4, 3, 6, 7, C.gold);
+    fill(s, 5, 4, 4, 5, C.warm);
+    plot(s, 6, 6, C.lite);
+    plot(s, 3, 8, C.goldD);
+    plot(s, 10, 8, C.goldD);
+    s.ax = 7;
+    s.ay = 22;
+    return s;
+  });
+
   prop("bell", function () {
     var s = Art.spr(12, 18);
     fill(s, 5, 2, 2, 3, C.wood);
@@ -417,8 +534,12 @@
     var cliff = "cliff";
     if (biome === "gold") grass = "gold";
     else if (biome === "shore") grass = "shore";
+    else if (biome === "salt") { grass = "dock"; cliff = "pier"; }
     else if (biome === "ash") grass = "ash";
-    else if (biome === "stone") grass = "stone";
+    else if (biome === "stone" || biome === "gull") { grass = "stone"; cliff = "stone"; }
+    else if (biome === "drift") { grass = "plank"; cliff = "pier"; }
+    else if (biome === "hs") { grass = "cobble"; cliff = "stone"; }
+    else if (biome === "wreck") { grass = "hold"; cliff = "hold"; }
     var h = Math.round(width * 0.72);
     var canvas = document.createElement("canvas");
     canvas.width = width;

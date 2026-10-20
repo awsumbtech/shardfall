@@ -75,9 +75,9 @@
     note.textContent = "Field walk frames, then battle idle, attack, hurt, and cast. Open this page with ?gallery.";
     root.appendChild(note);
 
-    var people = ["wayfarer", "kestrel", "tamsin", "maren", "hesk", "ilsa", "cantor", "villager_a", "villager_b"];
+    var people = ["wayfarer", "kestrel", "tamsin", "maren", "hesk", "ilsa", "cantor", "villager_a", "villager_b", "brenna", "osric", "nessa", "sera", "pip", "lark", "jory", "brant", "dorrie", "maud", "ellis", "sile"];
     var foes = ["wisp", "brumekin", "choirling", "ashling", "cinderhound", "cinder_maw", "saltwisp", "drowned", "stormgull", "tidewyrm", "choir_soldier", "sentinel", "hush_raider", "sootwing"];
-    var props = ["chest", "chest_open", "lamp_cold", "lamp_lit", "shard", "skiff", "cog", "sign", "tree", "rock", "cottage", "workshop", "stones", "ruin", "flower", "blossom"];
+    var props = ["chest", "chest_open", "lamp_cold", "lamp_lit", "shard", "skiff", "cog", "sign", "tree", "rock", "cottage", "workshop", "stones", "ruin", "flower", "blossom", "hut", "stilt", "stall", "wreckhull", "gatearch", "raft", "signpost", "inn"];
     var dirs = ["down", "left", "right", "up"];
 
     function actorBlock(id) {

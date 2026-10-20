@@ -95,6 +95,12 @@
       box(s, 5, 5, 7, 1, hair, y);
       return;
     }
+    if (d.style === "brim") {
+      box(s, 4, 1, 9, 2, d.cap || d.cloth, y);
+      box(s, 2, 3, 13, 1, d.capD || C.gold, y);
+      box(s, 5, 4, 7, 2, hair, y);
+      return;
+    }
     box(s, 5, 2, 7, 3, hair, y);
     box(s, 4, 4, 2, 3, hairD, y);
     box(s, 11, 4, 2, 3, hair, y);
@@ -204,7 +210,52 @@
       plot(s, tx + tw, 16 + bob, C.metalL || C.metal);
       plot(s, tx + tw + 1, 17 + bob, C.metal);
     }
+    marks(s, d, bob, "down");
     return { tx: tx, tw: tw, th: th };
+  }
+
+  function marks(s, d, bob, side) {
+    var y = bob || 0;
+    if (d.apron) {
+      var ax = side === "side" ? 8 : 6;
+      fill(s, ax, 14 + y, side === "side" ? 3 : 5, 5, C.cream);
+      plot(s, ax, 14 + y, C.goldD);
+    }
+    if (d.coil) {
+      plot(s, 3, 16 + y, C.goldD);
+      plot(s, 2, 17 + y, C.wood);
+      plot(s, 3, 18 + y, C.gold);
+      plot(s, 4, 17 + y, C.woodD);
+    }
+    if (d.mug) {
+      fill(s, side === "side" ? 14 : 13, 15 + y, 2, 3, C.cream);
+      plot(s, side === "side" ? 16 : 15, 16 + y, C.gold);
+    }
+    if (d.hook) {
+      plot(s, 14, 15 + y, C.metal);
+      plot(s, 15, 16 + y, C.metalD);
+      plot(s, 15, 17 + y, C.metal);
+      plot(s, 14, 18 + y, C.metal);
+    }
+    if (d.lantern) {
+      plot(s, 13, 14 + y, C.wood);
+      plot(s, 14, 15 + y, C.gold);
+      plot(s, 15, 16 + y, C.warm);
+      plot(s, 14, 17 + y, C.goldD);
+      plot(s, 15, 15 + y, C.lite);
+    }
+    if (d.net) {
+      plot(s, 1, 14 + y, C.sand);
+      plot(s, 2, 15 + y, C.paper);
+      plot(s, 1, 16 + y, C.sand);
+      plot(s, 3, 16 + y, C.wood);
+      plot(s, 2, 17 + y, C.sand);
+    }
+    if (d.satchel) {
+      fill(s, 2, 14 + y, 3, 4, C.goldD);
+      plot(s, 3, 15 + y, C.gold);
+      plot(s, 3, 16 + y, C.violet);
+    }
   }
 
   function paintDown(d, frame) {
@@ -268,6 +319,10 @@
       box(s, 4, 2, 9, 3, d.cap || d.cloth, bob);
       box(s, 3, 4, 11, 1, d.capD || d.clothD, bob);
       box(s, 4, 5, 9, 3, hair, bob);
+    } else if (d.style === "brim") {
+      box(s, 4, 1, 9, 2, d.cap || d.cloth, bob);
+      box(s, 2, 3, 13, 1, d.capD || C.gold, bob);
+      box(s, 4, 4, 9, 3, hair, bob);
     } else {
       box(s, 4, 2, 9, 6, hair, bob);
       box(s, 5, 7, 7, 2, hairD, bob);
@@ -300,6 +355,7 @@
       fill(s, 0, 4, 3, 3, C.gold);
       plot(s, 1, 5, C.shardH);
     }
+    marks(s, d, bob, "up");
     s.ax = 8;
     s.ay = 24;
     return s;
@@ -329,6 +385,10 @@
       box(s, 5, 2, 8, 2, d.cap || d.cloth, bob);
       box(s, 4, 4, 10, 1, d.capD || d.clothD, bob);
       box(s, 6, 5, 6, 2, hair, bob);
+    } else if (d.style === "brim") {
+      box(s, 4, 1, 9, 2, d.cap || d.cloth, bob);
+      box(s, 2, 3, 14, 1, d.capD || C.gold, bob);
+      box(s, 6, 4, 6, 2, hair, bob);
     } else {
       box(s, 5, 2, 7, 4, hair, bob);
       box(s, 4, 5, 2, 3, hairD, bob);
@@ -415,6 +475,7 @@
       plot(s, 17, 2, C.metal);
       plot(s, 18, 2, C.armorL);
     }
+    marks(s, d, bob, "side");
     s.ax = 10;
     s.ay = 24;
     return s;
@@ -591,6 +652,10 @@
       } else if (d.style === "cap") {
         fill(s, 7, 4, 18, 4, d.cap || d.cloth);
         fill(s, 6, 8, 20, 2, d.capD || d.clothD);
+      } else if (d.style === "brim") {
+        fill(s, 8, 3, 16, 3, d.cap || d.cloth);
+        fill(s, 4, 6, 24, 2, d.capD || C.gold);
+        fill(s, 10, 6, 12, 2, d.hair);
       }
       fill(s, 10, 9, 12, 12, d.skin);
       fill(s, 9, 12, 2, 6, d.skinD);
@@ -650,6 +715,18 @@
       plot(s, 26, 27, C.shardH);
       plot(s, 25, 26, C.shard);
     }
+    if (d.apron) fill(s, 12, 24, 8, 6, C.cream);
+    if (d.lantern) {
+      plot(s, 26, 24, C.gold);
+      plot(s, 27, 25, C.warm);
+      plot(s, 26, 26, C.lite);
+    }
+    if (d.hook) {
+      plot(s, 26, 25, C.metal);
+      plot(s, 27, 26, C.metalD);
+      plot(s, 26, 27, C.metal);
+    }
+    if (d.satchel) fill(s, 4, 24, 5, 5, C.goldD);
     s.ax = 16;
     s.ay = 31;
     return s;
@@ -728,6 +805,128 @@
     cloth: C.red, clothD: C.redD, clothL: C.cream,
     boot: C.redD, skirt: true, femme: true
   }, 2, 2);
+
+  person({
+    id: "brenna", bg: C.tealD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hairK, hairD: C.ink, style: "cap", cap: C.tealD, capD: C.ink,
+    cloth: C.teal, clothD: C.tealD, clothL: C.tealL,
+    boot: C.woodD, coat: true, femme: true, stern: true, coil: true
+  }, 2, 2);
+
+  person({
+    id: "osric", bg: C.woodD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hairW, hairD: C.hairWD, hairL: C.paper, style: "short",
+    cloth: C.vest, clothD: C.woodD, clothL: C.cream, shirt: C.cream,
+    boot: C.woodD, apron: true, old: true, mug: true, broad: true
+  }, 2, 2);
+
+  person({
+    id: "nessa", bg: C.vestD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hair, hairD: C.hairD, style: "pony", tie: C.gold,
+    cloth: C.sand, clothD: C.woodD, clothL: C.gold, shirt: C.cream,
+    boot: C.woodD, belt: true, hook: true, femme: true
+  }, 2, 2);
+
+  person({
+    id: "sera", bg: C.shawlD,
+    skin: C.pale, skinD: C.paleD, skinDeep: C.skinD,
+    hair: C.hairW, hairD: C.hairWD, style: "bob",
+    cloth: C.shawl, clothD: C.shawlD, clothL: C.shawlL,
+    boot: C.shawlD, skirt: true, worried: true, femme: true, lantern: true
+  }, 2, 2);
+
+  person({
+    id: "pip", bg: C.greenD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hairR, hairD: C.hairRD, style: "cap", cap: C.green, capD: C.greenD,
+    cloth: C.green, clothD: C.greenD, clothL: C.leafL,
+    boot: C.woodD, young: true
+  }, 2, 2);
+
+  person({
+    id: "lark", bg: C.redD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hair, hairD: C.hairD, style: "bob",
+    cloth: C.red, clothD: C.redD, clothL: C.cream,
+    boot: C.redD, young: true, femme: true, skirt: true, scarf: true
+  }, 2, 2);
+
+  person({
+    id: "jory", bg: C.tideD,
+    skin: C.skinD, skinD: C.skinDeep, skinDeep: C.skinDeep,
+    hair: C.hairK, hairD: C.ink, style: "cap", cap: C.tideD, capD: C.sea,
+    cloth: C.tide, clothD: C.tideD, clothL: C.tideL,
+    boot: C.woodD, coat: true, net: true, stern: true
+  }, 2, 2);
+
+  person({
+    id: "brant", bg: C.stoneD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hairK, hairD: C.ink, style: "helm",
+    cloth: C.stoneD, clothD: C.ink, clothL: C.stone,
+    metal: C.stoneL, metalD: C.stoneD, plume: C.gold,
+    boot: C.armorD, armor: true, spear: true, broad: true, stern: true
+  }, 2, 2);
+
+  person({
+    id: "dorrie", bg: C.woodD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hairWD, hairD: C.hairK, hairL: C.paper, style: "bun",
+    cloth: C.wood, clothD: C.woodD, clothL: C.sand, shirt: C.cream,
+    boot: C.woodD, apron: true, old: true, femme: true, skirt: true
+  }, 2, 2);
+
+  person({
+    id: "maud", bg: C.goldD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hair, hairD: C.hairD, hairL: C.gold, style: "bun",
+    cloth: C.goldD, clothD: C.woodD, clothL: C.warm, shirt: C.cream,
+    boot: C.woodD, apron: true, broad: true, femme: true, mug: true
+  }, 2, 2);
+
+  person({
+    id: "ellis", bg: C.coatD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hair, hairD: C.hairD, style: "short",
+    cloth: C.coat, clothD: C.coatD, clothL: C.coatL,
+    boot: C.coatD, young: true, coat: true
+  }, 2, 2);
+
+  person({
+    id: "sile", bg: C.violetD,
+    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
+    hair: C.hairK, hairD: C.ink, style: "brim", cap: C.violetD, capD: C.gold,
+    cloth: C.violet, clothD: C.violetD, clothL: C.core,
+    boot: C.woodD, coat: true, belt: true, satchel: true
+  }, 2, 2);
+
+  Art.addPortrait("pip_lark", function () {
+    var s = Art.spr(32, 32);
+    fill(s, 0, 0, 32, 32, C.tideD);
+    fill(s, 1, 18, 14, 13, C.greenD);
+    fill(s, 3, 20, 10, 8, C.green);
+    fill(s, 2, 4, 12, 3, C.green);
+    fill(s, 1, 7, 14, 2, C.greenD);
+    fill(s, 4, 8, 8, 9, C.skin);
+    fill(s, 5, 11, 2, 2, C.eye);
+    fill(s, 9, 11, 2, 2, C.eye);
+    plot(s, 6, 15, C.lip);
+    plot(s, 8, 15, C.lip);
+    fill(s, 17, 18, 14, 13, C.redD);
+    fill(s, 19, 20, 10, 8, C.red);
+    fill(s, 18, 20, 12, 2, C.scarf);
+    fill(s, 17, 5, 12, 8, C.hair);
+    fill(s, 19, 9, 8, 8, C.skin);
+    fill(s, 20, 12, 2, 2, C.eye);
+    fill(s, 24, 12, 2, 2, C.eye);
+    plot(s, 22, 16, C.lip);
+    s.ax = 16;
+    s.ay = 31;
+    return s;
+  });
 
   person({
     id: "choirling", bg: C.violetD,

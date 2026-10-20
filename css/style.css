@@ -565,12 +565,14 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 }
 #sail-chart {
   position: relative;
-  height: 220px;
+  height: 240px;
   margin: 8px 0 12px;
-  border-radius: 16px;
+  border-radius: 2px;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 42%, #3a2458, #140c28 72%);
-  border: 1px solid rgba(255, 244, 220, 0.18);
+  background:
+    linear-gradient(180deg, #1a1038 0%, #4c356c 46%, #e39a8c 78%, #2a1848 100%);
+  border: 2px solid #f4f0e4;
+  box-shadow: inset 0 0 0 2px #07102a, inset 0 0 0 4px #8ec8f0;
 }
 #sail-routes {
   position: absolute;
@@ -586,26 +588,58 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 .chart-isle {
   position: absolute;
   transform: translate(-50%, -50%);
-  min-width: 84px;
-  min-height: 44px;
-  padding: 6px 8px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  min-width: 76px;
+  min-height: 52px;
+  padding: 3px 4px 4px;
+  border-radius: 2px;
+  border: 2px solid #f4f0e4;
+  background: linear-gradient(180deg, #1e4c98, #0e2868);
+  box-shadow: inset 0 0 0 2px #07102a;
   color: #fff8ee;
   font-family: var(--serif);
-  font-size: 13px;
+  font-size: 11px;
+  line-height: 1.1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
 }
-.chart-isle.here { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.chart-isle .chart-card {
+  width: 36px;
+  height: 26px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.chart-isle.here { border-color: #f0d878; box-shadow: inset 0 0 0 2px #f0d878; }
 .chart-isle.locked, .chart-isle:disabled { opacity: 0.55; }
 #sail-list button, #shop-list button, #inn .card > button, #notice .card > button, #shop .card > button {
   width: 100%;
   min-height: 48px;
   margin: 6px 0;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--line);
+  border-radius: 2px;
+  border: 2px solid #f4f0e4;
+  background: linear-gradient(180deg, #2458a8, #0e2868);
+  box-shadow: inset 0 0 0 2px #07102a;
+  color: #f6f2ea;
   text-align: left;
   padding: 8px 12px;
+}
+.keeper-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.keeper-row h2 { margin: 0; }
+.keeper-face {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0c2268;
+  border: 2px solid #f0d878;
+  box-shadow: inset 0 0 0 2px #07102a;
 }
 #sail-list button:disabled { opacity: 0.55; }
 
