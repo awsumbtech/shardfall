@@ -84,16 +84,31 @@
       var block = document.createElement("div");
       block.className = "g-actor";
       var name = document.createElement("h3");
-      name.textContent = id;
+      var walk = Art.nativeSize(id, "walk", "down");
+      var side = Art.nativeSize(id, "walk", "right");
+      var idle = Art.nativeSize(id, "idle", "right");
+      name.textContent = id + "  ·  " + walk.w + "×" + walk.h;
+      if (side.w !== walk.w || side.h !== walk.h) name.textContent += "  side " + side.w + "×" + side.h;
+      if (idle.w !== side.w || idle.h !== side.h) name.textContent += "  battle " + idle.w + "×" + idle.h;
       block.appendChild(name);
       var row = document.createElement("div");
       row.className = "g-row";
-      var d, f;
+      var d, f, src, sc;
       for (d = 0; d < dirs.length; d++) {
-        for (f = 0; f < 4; f++) row.appendChild(cell(scaled(id, "walk", dirs[d], f, 3), dirs[d] + " " + f));
+        for (f = 0; f < 4; f++) {
+          src = Art.frameOf(id, "walk", dirs[d], f);
+          sc = src.height > 44 ? 2 : 3;
+          row.appendChild(cell(scaled(id, "walk", dirs[d], f, sc), dirs[d] + " " + f + " · " + src.width + "×" + src.height));
+        }
       }
       ["idle", "attack", "hurt", "cast", "victory"].forEach(function (pose) {
-        row.appendChild(cell(scaled(id, pose, "right", 0, 3), pose));
+        src = Art.frameOf(id, pose, "right", 0);
+        sc = src.height > 44 ? 2 : 3;
+        row.appendChild(cell(scaled(id, pose, "right", 0, sc), pose + " · " + src.width + "×" + src.height));
+        if (pose === "attack" || pose === "idle") {
+          src = Art.frameOf(id, pose, "right", 1);
+          row.appendChild(cell(scaled(id, pose, "right", 1, sc), pose + " 1 · " + src.width + "×" + src.height));
+        }
       });
       block.appendChild(row);
       return block;
