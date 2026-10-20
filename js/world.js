@@ -261,7 +261,10 @@ SF.drawVillager = function (ctx, x, y, tunic, skin) {
     }
     var sprite = (n && n.sprite) || (n && SF.ACTOR_SPRITE[n.id]);
     if (!sprite) return false;
-    var frame = (SF.calm && SF.calm()) ? 0 : Math.floor((SF.anim || 0) * 4) % 4;
+    var calm = SF.calm && SF.calm();
+    var cast = window.Art && Art.fieldCast && Art.fieldCast[sprite];
+    var frame = calm ? 0 : Math.floor((SF.anim || 0) * (cast ? 2 : 4)) % (cast ? 2 : 4);
+    var pose = cast ? "stand" : "walk";
     var facing = "down";
     var p = SF.state && SF.state.player;
     if (p && x != null && y != null) {
@@ -271,7 +274,7 @@ SF.drawVillager = function (ctx, x, y, tunic, skin) {
         facing = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
       }
     }
-    if (SF.tryArtSprite(ctx, sprite, x, y, { frame: frame, facing: facing, scale: 1, pose: "walk" })) return true;
+    if (SF.tryArtSprite(ctx, sprite, x, y, { frame: frame, facing: facing, scale: 1, pose: pose })) return true;
     if (n && n.sprite) {
       var tint = n.sprite === "villager_b" ? "#6a5348" : "#2f6a68";
       SF.drawVillager(ctx, x, y, tint, "#f0c7a4");
