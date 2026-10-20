@@ -65,12 +65,16 @@
     }
   }
 
+  function propTop(sc, spriteH) {
+    return Math.max(2, Math.floor(sc.h * 0.28) - spriteH);
+  }
+
   function meadow(sc) {
     sc.bands(0, Math.floor(sc.h * 0.62), DUSK);
-    sc.crack(Math.floor(sc.h * 0.12));
-    sc.stamp("tree", 8, Math.floor(sc.h * 0.4), 1);
-    sc.stamp("tree", sc.w - 36, Math.floor(sc.h * 0.42), 1);
-    sc.stamp("lamp_lit", sc.w / 2 - 8, Math.floor(sc.h * 0.36), 1);
+    sc.crack(Math.floor(sc.h * 0.08));
+    sc.stamp("tree", 2, propTop(sc, 36), 1);
+    sc.stamp("tree", Math.max(2, sc.w - 26), Math.max(2, propTop(sc, 36) - 4), 1);
+    sc.stamp("lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 32), 1);
     ground(sc, "grass", Math.floor(sc.h * 0.58));
     sc.tileRow("path", Math.floor(sc.h * 0.72), 1);
     sc.stamp("flower", 20, Math.floor(sc.h * 0.7), 1);
@@ -81,9 +85,9 @@
     sc.bands(0, Math.floor(sc.h * 0.6), NIGHT);
     sc.crack(Math.floor(sc.h * 0.1));
     ground(sc, "grass_dark", Math.floor(sc.h * 0.55));
-    sc.stamp("rock", 12, Math.floor(sc.h * 0.62), 1);
-    sc.stamp("rock", sc.w - 40, Math.floor(sc.h * 0.66), 1);
-    sc.stamp("ruin", sc.w / 2 - 10, Math.floor(sc.h * 0.5), 1);
+    sc.stamp("rock", 12, Math.floor(sc.h * 0.72), 1);
+    sc.stamp("rock", sc.w - 40, Math.floor(sc.h * 0.76), 1);
+    sc.stamp("ruin", Math.floor(sc.w * 0.5) - 10, propTop(sc, 18), 1);
     var y = Math.floor(sc.h * 0.74);
     sc.rect(Math.floor(sc.w * 0.3), y, Math.floor(sc.w * 0.4), 4, Art.hex(C.violetD));
     sc.rect(Math.floor(sc.w * 0.38), y + 2, Math.floor(sc.w * 0.22), 2, Art.hex(C.core));
@@ -93,8 +97,8 @@
     sc.bands(0, Math.floor(sc.h * 0.58), ASH);
     sc.crack(Math.floor(sc.h * 0.14));
     ground(sc, "ash", Math.floor(sc.h * 0.55));
-    sc.stamp("tree_bare", 6, Math.floor(sc.h * 0.38), 1);
-    sc.stamp("tree_bare", sc.w - 34, Math.floor(sc.h * 0.4), 1);
+    sc.stamp("tree_bare", 2, propTop(sc, 36), 1);
+    sc.stamp("tree_bare", Math.max(2, sc.w - 26), Math.max(2, propTop(sc, 36) - 4), 1);
     sc.stamp("rock", sc.w / 2, Math.floor(sc.h * 0.7), 1);
     sc.rect(16, Math.floor(sc.h * 0.8), 28, 2, Art.hex(C.ember));
     sc.rect(sc.w - 50, Math.floor(sc.h * 0.74), 20, 2, Art.hex(C.emberH));
@@ -107,7 +111,7 @@
       sc.rect(8 + col * Math.floor(sc.w / 4), 10, 10, Math.floor(sc.h * 0.7), Art.hex(col % 2 ? C.stoneD : C.rock));
     }
     ground(sc, "vault", Math.floor(sc.h * 0.72));
-    sc.stamp("lamp_lit", sc.w / 2 - 8, Math.floor(sc.h * 0.42), 1);
+    sc.stamp("lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 32), 1);
     sc.rect(sc.w / 2 - 6, Math.floor(sc.h * 0.62), 12, 8, Art.hex(C.ember));
     sc.rect(sc.w / 2 - 3, Math.floor(sc.h * 0.64), 6, 4, Art.hex(C.lite));
   }
@@ -232,8 +236,8 @@
       var layer = cloudLayer();
       var dw = Math.round(w * 0.9);
       var dh = Math.round(h * 0.16);
-      Art.blit(ctx, layer, -drift, Math.round(h * 0.2), dw, dh);
-      Art.blit(ctx, layer, Math.round(w * 0.35) - drift, Math.round(h * 0.34), dw, dh);
+      Art.blit(ctx, layer, -drift, Math.round(h * 0.04), dw, dh);
+      Art.blit(ctx, layer, Math.round(w * 0.42) - drift, Math.round(h * 0.01), dw, dh);
     }
     ctx.restore();
   };

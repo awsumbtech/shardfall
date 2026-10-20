@@ -2,6 +2,12 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.3.1 — Room to read
+
+The phone screen is less cramped. Heart, level, shards, and the quest share one short card. A place name fades in, then leaves. The map is smaller until you tap it. Tips no longer mention keyboard keys on a phone.
+In a fight the people and the foes are easier to see and to tap. A skill or item list sits along the bottom, and the heart stays on screen. Sideways, the commands sit on the right.
+The menu opens on Party, Items, Equip, Skills, Save, and Resume. The rest is under More. The page can be added to a phone's home screen.
+
 ## v0.3 — The Wider Hush
 
 Fights are turn-based. Walk into a foe, or press Fight when one is close.
