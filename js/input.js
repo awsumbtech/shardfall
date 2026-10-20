@@ -18,10 +18,60 @@ SF.inputState = {
   grappleRelease: false
 };
 
+SF.pollGamepad = function () {
+  var pads = navigator.getGamepads ? navigator.getGamepads() : null;
+  if (!pads) return;
+  var i, pad, ax, ay, btn;
+  for (i = 0; i < pads.length; i++) {
+    pad = pads[i];
+    if (!pad) continue;
+    ax = pad.axes[0] || 0;
+    ay = pad.axes[1] || 0;
+    if (Math.abs(ax) < 0.2) ax = 0;
+    if (Math.abs(ay) < 0.2) ay = 0;
+    if (pad.buttons[14] && pad.buttons[14].pressed) ax = -1;
+    if (pad.buttons[15] && pad.buttons[15].pressed) ax = 1;
+    if (pad.buttons[12] && pad.buttons[12].pressed) ay = -1;
+    if (pad.buttons[13] && pad.buttons[13].pressed) ay = 1;
+    SF.inputState.padX = ax;
+    SF.inputState.padY = ay;
+    function edge(index, key) {
+      btn = pad.buttons[index];
+      var down = !!(btn && (btn.pressed || btn.value > 0.5));
+      if (down && !SF.inputState[key]) SF.inputState[key + "Edge"] = true;
+      SF.inputState[key] = down;
+    }
+    edge(0, "padA");
+    edge(1, "padB");
+    edge(2, "padX");
+    edge(5, "padRB");
+    edge(9, "padStart");
+    if (ax || ay || (pad.buttons[0] && pad.buttons[0].pressed)) {
+      SF.inputState.hideTouch = true;
+      if (document.body) document.body.dataset.touch = "0";
+    }
+  }
+};
+
 SF.readMove = function () {
+  if (SF.pollGamepad) SF.pollGamepad();
   var i = SF.inputState;
-  var x = i.stickX + i.keysX;
-  var y = i.stickY + i.keysY;
+  if (i.padAEdge) { i.interactEdge = true; i.padAEdge = false; }
+  if (i.padBEdge) { i.padBEdge = false; }
+  if (i.padXEdge) { i.dashEdge = true; i.padXEdge = false; }
+  if (i.padRB && !i.padRBWas) i.grappleHold = true;
+  if (!i.padRB && i.padRBWas) { i.grappleHold = false; i.grappleRelease = true; }
+  i.padRBWas = !!i.padRB;
+  if (i.padStartEdge) {
+    i.padStartEdge = false;
+    var st = SF.state;
+    if (st && st.mode === "play" && SF.openFieldMenu) SF.openFieldMenu();
+    else if (st && st.mode === "fieldmenu" && SF.closeFieldMenu) SF.closeFieldMenu();
+    else if (st && st.mode === "pause" && SF.resumeGame) SF.resumeGame();
+    else if (st && SF.pauseGame) SF.pauseGame();
+  }
+  var x = i.stickX + i.keysX + (i.padX || 0);
+  var y = i.stickY + i.keysY + (i.padY || 0);
   var m = Math.hypot(x, y);
   if (m > 1) {
     x /= m;
@@ -196,10 +246,17 @@ SF.bindInput = function () {
       if (e.code === "Escape" && s.mode === "dialogue") SF.pauseGame();
       return;
     }
-    if (e.code === "KeyJ" || e.code === "KeyZ") SF.inputState.attackKey = true;
-    if (e.code === "KeyK" || e.code === "Space") SF.inputState.dashEdge = true;
+    SF.inputState.hideTouch = true;
+    if (document.body) document.body.dataset.touch = "0";
+    if (e.code === "KeyK" || e.code === "ShiftLeft" || e.code === "ShiftRight") SF.inputState.dashEdge = true;
     if (e.code === "KeyG") SF.inputState.grappleHold = true;
-    if (e.code === "KeyE" || e.code === "Enter") SF.inputState.interactEdge = true;
+    if (e.code === "KeyE" || e.code === "Enter" || e.code === "Space") SF.inputState.interactEdge = true;
+    if (e.code === "Tab") {
+      e.preventDefault();
+      if (SF.openFieldMenu && s.mode === "play") SF.openFieldMenu();
+      else if (s.mode === "pause") SF.resumeGame();
+      else SF.pauseGame();
+    }
     if (e.code === "Escape") {
       if (s.mode === "fieldmenu" && SF.closeFieldMenu) SF.closeFieldMenu();
       else if (s.mode === "pause") SF.resumeGame();
@@ -255,6 +312,27 @@ SF.bindInput = function () {
   document.addEventListener("wheel", function (e) {
     if (!allowScroll(e)) e.preventDefault();
   }, { passive: false });
+  var view = document.getElementById("view");
+  if (view) {
+    view.addEventListener("pointerdown", function (e) {
+      if (e.button === 2) {
+        var st = SF.state;
+        if (st && st.player && st.player.grapple) SF.inputState.grappleHold = true;
+        else if (st && st.mode === "dialogue" && SF.advanceDialogue) SF.advanceDialogue();
+        e.preventDefault();
+        return;
+      }
+      if (e.button !== 0) return;
+      if (e.target && e.target.closest && e.target.closest("button, .scroll, #controls")) return;
+      SF.inputState.interactEdge = true;
+    });
+    view.addEventListener("pointerup", function (e) {
+      if (e.button === 2 && SF.inputState.grappleHold) {
+        SF.inputState.grappleHold = false;
+        SF.inputState.grappleRelease = true;
+      }
+    });
+  }
   document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   document.addEventListener("selectstart", function (e) {
     if (!allowScroll(e)) e.preventDefault();

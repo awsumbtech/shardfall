@@ -21,11 +21,22 @@
   };
   Scene.prototype.bands = function (y0, y1, colors) {
     var span = Math.max(1, y1 - y0);
-    var i, y, h, n = colors.length;
-    for (i = 0; i < n; i++) {
-      y = y0 + Math.floor(span * i / n);
-      h = Math.floor(span * (i + 1) / n) - Math.floor(span * i / n);
-      this.rect(0, y, this.w, Math.max(1, h), colors[i]);
+    var g = this.g;
+    var cols = colors.map(function (hex) {
+      return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+    });
+    var y, t, i, local, c0, c1;
+    for (y = y0; y < y1; y++) {
+      t = (y - y0) / span * (cols.length - 1);
+      i = Math.min(cols.length - 2, Math.floor(t));
+      local = t - i;
+      c0 = cols[i];
+      c1 = cols[i + 1];
+      g.fillStyle = "rgb(" +
+        ((c0[0] + (c1[0] - c0[0]) * local) | 0) + "," +
+        ((c0[1] + (c1[1] - c0[1]) * local) | 0) + "," +
+        ((c0[2] + (c1[2] - c0[2]) * local) | 0) + ")";
+      g.fillRect(0, y | 0, this.w, 1);
     }
   };
   Scene.prototype.stamp = function (id, x, y, scale, pose, facing, frame) {
@@ -40,17 +51,7 @@
     var x;
     for (x = 0; x < this.w; x += tw) this.g.drawImage(canvas, x, y, tw, canvas.height * sc);
   };
-  Scene.prototype.crack = function (y) {
-    var g = this.g;
-    g.fillStyle = Art.hex(C.lite);
-    var x = 8;
-    var pts = [0, 2, -1, 3, 1, -2, 2, 1, -1, 2, 0];
-    var i;
-    for (i = 0; i < pts.length; i++) {
-      g.fillRect(x, y + pts[i], 10, 1);
-      x += 10;
-    }
-  };
+  Scene.prototype.crack = function () {};
 
   var DUSK = ["#140c28", "#241448", "#3a2060", "#6a4068", "#c47868", "#e8a888", "#f0c4a8"];
   var ASH = ["#1c100c", "#3a2018", "#6a3828", "#a85838", "#e08858", "#f0b088"];
@@ -88,9 +89,6 @@
     sc.stamp("rock", 12, Math.floor(sc.h * 0.72), 1);
     sc.stamp("rock", sc.w - 40, Math.floor(sc.h * 0.76), 1);
     sc.stamp("ruin", Math.floor(sc.w * 0.5) - 10, propTop(sc, 18), 1);
-    var y = Math.floor(sc.h * 0.74);
-    sc.rect(Math.floor(sc.w * 0.3), y, Math.floor(sc.w * 0.4), 4, Art.hex(C.violetD));
-    sc.rect(Math.floor(sc.w * 0.38), y + 2, Math.floor(sc.w * 0.22), 2, Art.hex(C.core));
   }
 
   function ash(sc) {

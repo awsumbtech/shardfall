@@ -18,7 +18,7 @@ SF.storage = function () {
 SF.exportState = function (s) {
   if (SF.snapshotEnemies) SF.snapshotEnemies();
   return {
-    v: 3,
+    v: 4,
     game: SF.VERSION,
     savedAt: Date.now(),
     playTime: s.playTime,
@@ -67,7 +67,7 @@ SF.readSave = function () {
   if (!raw) return null;
   try {
     var data = JSON.parse(raw);
-    if (!data || (data.v !== 1 && data.v !== 2 && data.v !== 3)) return null;
+    if (!data || (data.v !== 1 && data.v !== 2 && data.v !== 3 && data.v !== 4)) return null;
     return data;
   } catch (err) {
     return null;
@@ -78,8 +78,43 @@ SF.hasSave = function () {
   return !!SF.readSave();
 };
 
+SF.migrateSpot = function (s) {
+  var f = s.flags || {};
+  var q = s.quest || "awaken";
+  var onCinder = s.island === "cinderveil" || q === "quay" || q === "cogs" || q === "vault" || q === "trial" || q === "seal" || q === "maw" || q === "relight" || q === "cantor" || q === "act1" || f.mawDead || f.cinderLit || f.metTamsin;
+  var island = onCinder ? "cinderveil" : (s.island && SF.ISLANDS[s.island] ? s.island : "emberhold");
+  if (island !== "emberhold" && island !== "cinderveil") {
+    if (SF.mountIsland) SF.mountIsland(island);
+    var dock = SF.DOCKS && SF.DOCKS[island];
+    if (dock) {
+      s.player.x = dock.x;
+      s.player.y = dock.y;
+    }
+    return;
+  }
+  if (SF.mountIsland) SF.mountIsland(island);
+  s.island = island;
+  var spot = null;
+  if (island === "cinderveil") {
+    if (f.needsEpilogue || f.epilogueHeard || q === "act1") spot = SF.DOCKS.cinderveil;
+    else if (f.mawDead || q === "relight" || q === "cantor" || f.cinderLit) spot = (SF.ISLANDS.cinderveil.spots || {}).lamp || SF.LAMP;
+    else if (q === "vault" || q === "trial" || q === "seal" || q === "maw" || f.vaultOpen) spot = (SF.ISLANDS.cinderveil.spots || {}).vledge;
+    else spot = SF.DOCKS.cinderveil;
+  } else if (f.lampLit || q === "stirring" || q === "hooked" || q === "sail" || q === "road") {
+    spot = SF.DOCKS.emberhold;
+  } else if (f.metMaren || (q && q !== "awaken")) {
+    var maren = null;
+    (SF.NPCS || []).forEach(function (n) { if (n.id === "maren") maren = n; });
+    spot = maren || SF.WAKE;
+  } else spot = SF.WAKE;
+  if (!spot) spot = SF.WAKE;
+  s.player.x = spot.x;
+  s.player.y = spot.y;
+  if (f.metMaren || (q && q !== "awaken") || f.lampLit || (s.shardsHeld || 0) > 0) f.shard_sense = true;
+};
+
 SF.applySave = function (s, data) {
-  if (!data || (data.v !== 1 && data.v !== 2 && data.v !== 3) || !data.player) return false;
+  if (!data || (data.v !== 1 && data.v !== 2 && data.v !== 3 && data.v !== 4) || !data.player) return false;
   var p = s.player;
   var sp = data.player;
   s.playTime = data.playTime || 0;
@@ -114,8 +149,16 @@ SF.applySave = function (s, data) {
   }
   if (SF.mountIsland) SF.mountIsland(s.island);
   if (SF.makeEnemies) s.enemies = SF.makeEnemies();
-  p.x = sp.x;
-  p.y = sp.y;
+  if (data.v < 4) {
+    p.x = sp.x;
+    p.y = sp.y;
+    SF.migrateSpot(s);
+    p.x = s.player.x;
+    p.y = s.player.y;
+  } else {
+    p.x = sp.x;
+    p.y = sp.y;
+  }
   p.fx = sp.fx || 1;
   p.fy = sp.fy || 0;
   p.hp = sp.hp;
@@ -124,6 +167,9 @@ SF.applySave = function (s, data) {
   p.level = sp.level || 1;
   p.atk = sp.atk || 12;
   p.shardstep = !!sp.shardstep || !!s.flags.shardstep;
+  s.encounterGrace = 10;
+  s.stepAcc = 0;
+  s.zoneId = null;
   if (!SF.walkable(p.x, p.y)) {
     var dock = SF.DOCKS && SF.DOCKS[s.island];
     p.x = dock ? dock.x : SF.WAKE.x;

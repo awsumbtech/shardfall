@@ -2,6 +2,17 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4 — Act 1, again
+
+The game is a landscape now. The picture is 640 by 360, scaled in whole steps, with black bars when the window does not match.
+Nothing walks the grass. Fights arrive by the step, from the ground you are on. Safe ground stays safe. A lit lamp quiets that island. The Scar does not quiet.
+Shards are hidden until Maren shows you the lamp. After that, your hand pulses when one is close, and it glints when you are closer. They never appear on the map.
+Dash crosses the broken span. Shardstep crosses a wider gap on the way back. The hook crosses the gaps Ilsa opens, and those are wider still.
+Ilsa stands where you can walk. The Cinder Maw is still there to see, and it still cannot be fled.
+A night at an inn fills your heart and saves the journey.
+An older save wakes in a safe place on the new island. If you had already met Maren, you can sense shards.
+The game can be installed from the field menu: More, then Install. An installed copy opens full screen and keeps working with the network off. A newer version replaces the old one the next time you open it.
+
 ## v0.3.4 — Install the game
 
 Shardfall can be installed, like an app, from the field menu: More, then Install.

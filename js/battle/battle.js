@@ -280,7 +280,21 @@ function finishBattle(win) {
   var fled = b.result && b.result.fled;
   s.battle = null;
   s.touchCd = 0.7;
+  s.encounterGrace = 10;
+  s.stepAcc = 0;
   s.mode = "play";
+  if (!win && b.id === "boss_cinder_maw") {
+    s.flags.mawFight = false;
+    (s.enemies || []).forEach(function (e) {
+      if (e.kind !== "maw") return;
+      e.alive = true;
+      e.dying = 0;
+      e.hp = e.maxHp;
+      e.dormant = true;
+      e.x = e.homeX;
+      e.y = e.homeY;
+    });
+  }
   if (win && !fled) {
     if (window.Sfx) Sfx.play("fanfare");
     if (fieldId) {
@@ -368,7 +382,13 @@ function openResult(b, row) {
 function victory(b) {
   var s = SF.state;
   writeBackParty(s, b);
-  var levels = SF.grantPartyXp(s, b.xp || 0);
+  var xpOpts = {};
+  if (b.zoneLevel != null) {
+    xpOpts.zoneLevel = b.zoneLevel;
+    xpOpts.fixed = !!b.fixed || !!b.boss;
+    xpOpts.base = b.xp || 0;
+  }
+  var levels = SF.grantPartyXp(s, b.xp || 0, xpOpts);
   s.gold = (s.gold || 0) + (b.gold || 0);
   var found = [];
   (b.drops || []).forEach(function (drop) {
@@ -381,6 +401,17 @@ function victory(b) {
   (b.stolen || []).forEach(function (name) {
     if (found.indexOf(name) < 0) found.push(name);
   });
+  if (b.carrier && b.carrierRegion && s.flags && s.flags.shard_sense) {
+    s.flags.carriers = s.flags.carriers || {};
+    if (!s.flags.carriers[b.carrierRegion]) {
+      s.flags.carriers[b.carrierRegion] = true;
+      s.shardsHeld = (s.shardsHeld || 0) + 1;
+      if (!s.stats) s.stats = { foes: 0, shardsEver: 0 };
+      s.stats.shardsEver = (s.stats.shardsEver || 0) + 1;
+      found.push("Sky-shard");
+    }
+  }
+  if (b.carrierRegion === "cinderstep" && s.flags) s.flags.choirlingDown = true;
   SF.syncFieldVitals(s);
   if (levels.length) SF.emit && SF.emit("level");
   openResult(b, {
@@ -842,6 +873,10 @@ SF.Battle.start = function (encounterId, opts) {
     drops: (enc.drops || []).map(function (d) { return { id: d.id, chance: d.chance }; }),
     stolen: [],
     fieldId: opts.fieldId || null,
+    zoneLevel: opts.zoneLevel != null ? opts.zoneLevel : null,
+    fixed: !!opts.fixed,
+    carrier: !!opts.carrier,
+    carrierRegion: opts.carrierRegion || null,
     onWin: opts.onWin || null,
     onLose: opts.onLose || null,
     rng: battleRng(SF.Battle.rngSeed++),
@@ -907,12 +942,6 @@ SF.defeatFieldFoe = function (e) {
   e.dying = 0.45;
   e.hp = 0;
   s.stats.foes = (s.stats.foes || 0) + 1;
-  if (kind && kind.drops) {
-    var id = "drop-" + e.id;
-    var dropX = SF.walkable(e.x, e.y) ? e.x : e.homeX;
-    var dropY = SF.walkable(e.x, e.y) ? e.y : e.homeY;
-    if (!s.picked[id] && !s.drops[id]) s.drops[id] = { x: dropX, y: dropY };
-  }
   SF.burst && SF.burst(e.x, e.y, "#ffe9a8", 10, 70);
   if (e.kind === "maw" && SF.onMawDead) SF.onMawDead();
 };
@@ -957,7 +986,7 @@ SF.grantActEndParty = function (s) {
 
 SF.migrateBattleSave = function (s, data) {
   SF.ensureParty(s);
-  if (data && data.v === 3 && data.party && data.party.members) {
+  if (data && data.v >= 3 && data.party && data.party.members) {
     s.party = data.party;
     s.inventory = data.inventory || {};
     s.gold = data.gold || 0;
@@ -1018,19 +1047,9 @@ function installHooks() {
     }
     if (!e.alive || e.dormant) return;
     e.hurt = Math.max(0, e.hurt - dt);
-    var p = s.player;
-    if (e.kind === "maw") {
-      if (s.mode === "play" && s.flags.mawFight && !s.flags.mawDead && SF.dist(e.x, e.y, p.x, p.y) < e.r + p.r + 2) {
-        SF.touchFoe(e);
-      }
-      return;
+    if (e.kind === "tidewyrm" && s.mode === "play" && SF.dist(e.x, e.y, s.player.x, s.player.y) < e.r + s.player.r) {
+      SF.touchFoe(e);
     }
-    var kind = SF.KINDS[e.kind] || { speed: 40 };
-    var ang = (SF.anim || 0) * 0.65 + (e.phase || 0);
-    var tx = e.homeX + Math.cos(ang) * 16;
-    var ty = e.homeY + Math.sin(ang) * 12;
-    if (SF.steer) SF.steer(e, tx, ty, kind.speed * 0.32, dt);
-    if (s.mode === "play" && SF.dist(e.x, e.y, p.x, p.y) < e.r + p.r - 1) SF.touchFoe(e);
   };
 
   SF.damageEnemy = function (e, dmg) {
@@ -1069,26 +1088,6 @@ function installHooks() {
 
   var basePlayer = SF.updatePlayer;
   SF.updatePlayer = function (dt) {
-    var s = SF.state;
-    var p = s.player;
-    var held = (SF.consumeAttack || function () { return false; })();
-    if (held && !p.attackHeld) {
-      p.attackHeld = true;
-      var near = null;
-      var nearD = 78;
-      s.enemies.forEach(function (e) {
-        if (!e.alive || e.dying > 0 || e.dormant) return;
-        if (e.kind === "maw" && !s.flags.mawFight) return;
-        var d = SF.dist(e.x, e.y, p.x, p.y);
-        if (d < nearD) {
-          nearD = d;
-          near = e;
-        }
-      });
-      if (near) SF.touchFoe(near);
-      else SF.pushToast("Walk into a foe to fight.");
-    }
-    if (!held) p.attackHeld = false;
     var realConsume = SF.consumeAttack;
     SF.consumeAttack = function () { return false; };
     basePlayer(dt);

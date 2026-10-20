@@ -4,7 +4,7 @@
 // the baseline (ay). Battle poses reuse the side view at that same native
 // height, except the Cinder Maw and the Tidewyrm, whose battle frames are
 // taller. Read the size with Art.nativeSize(id, pose, facing). Field scale
-// stays 2 so a 412px-wide phone still shows a person, not a giant.
+// is 1, so a person is the same height as the hero.
 (function () {
   var C = Art.C;
   var plot = Art.plot;
@@ -863,7 +863,7 @@
       }
       var face = facing === "left" ? "left" : "right";
       return Art.clone(bakeBattle(pose, face, frame % 2));
-    }, scale, fieldScale);
+    }, scale, 1);
     Art.addPortrait(d.id, function () { return portrait(d); });
   }
 

@@ -72,6 +72,8 @@ SF.fresh = function () {
     lastRest: { island: "emberhold", x: SF.WAKE.x, y: SF.WAKE.y },
     flags: {
       metMaren: false,
+      shard_sense: false,
+      choirlingDown: false,
       metKestrel: false,
       metCantor: false,
       lampLit: false,
@@ -155,7 +157,10 @@ SF.fresh = function () {
     camX: 190,
     camY: -170,
     cut: null,
-    savedFlash: 0
+    savedFlash: 0,
+    encounterGrace: 10,
+    stepAcc: 0,
+    zoneId: null
   };
 };
 
@@ -241,8 +246,13 @@ SF.checkLevel = function () {
 SF.activePickups = function () {
   var s = SF.state;
   var list = [];
+  var sense = !!(s.flags && s.flags.shard_sense);
   SF.PICKUPS.forEach(function (p) {
-    if (!s.picked[p.id]) list.push(p);
+    if (s.picked[p.id]) return;
+    if (p.kind === "shard" && !sense) return;
+    if (p.kind === "cog" && !(s.flags && s.flags.cogsStarted)) return;
+    if (p.secret && SF.secretVisible && !SF.secretVisible(p)) return;
+    list.push(p);
   });
   Object.keys(s.drops).forEach(function (id) {
     if (!s.picked[id]) list.push({ id: id, kind: "shard", x: s.drops[id].x, y: s.drops[id].y, dropped: true });
@@ -253,7 +263,9 @@ SF.activePickups = function () {
 SF.secretVisible = function (pickup) {
   if (!pickup.secret) return true;
   var s = SF.state;
-  if (pickup.id === "shard-alcove") return !!(s.flags.kestrelHint || s.discovered.cinder);
+  if (!s || !s.flags) return false;
+  if (pickup.id === "shard-alcove") return !!s.flags.kestrelHint;
+  if (pickup.id === "bloom-hollow") return !!(s.discovered && s.discovered.hollow);
   return true;
 };
 
@@ -398,7 +410,7 @@ SF.applySwing = function (p) {
 SF.startDash = function (p) {
   if (p.dashCd > 0 || p.dashT > 0) return false;
   var speed = p.shardstep ? SF.DASH_SPEED_PLUS : SF.DASH_SPEED;
-  if (SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= 1.2;
+  if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= 1.2;
   p.dashT = SF.DASH_TIME;
   p.dvx = p.fx * speed;
   p.dvy = p.fy * speed;
@@ -434,6 +446,7 @@ SF.releaseHolds = function () {
 SF.onDialogueEvent("meet_maren", function () {
   var s = SF.state;
   s.flags.metMaren = true;
+  s.flags.shard_sense = true;
   if (s.quest === "awaken") s.quest = "gather";
   s.player.hp = s.player.maxHp;
   SF.saveGame({ silent: true });
@@ -532,6 +545,8 @@ SF.actionFor = function (s, near) {
   return { label: "Talk", name: near.ref.name, prompt: "Talk — " + near.ref.name };
 };
 
+SF.SHARD_GLINT = 96;
+
 SF.objectivePoint = function (s) {
   if (!s || s.mode === "title") return null;
   if (s.quest === "awaken") {
@@ -544,24 +559,19 @@ SF.objectivePoint = function (s) {
     var bestD = Infinity;
     SF.activePickups().forEach(function (item) {
       if (item.kind !== "shard") return;
-      if (item.secret && !SF.secretVisible(item)) return;
+      if (SF.shardReachable && !SF.shardReachable(item)) return;
+      if (item.secret && SF.secretVisible && !SF.secretVisible(item)) return;
       var d = SF.dist(s.player.x, s.player.y, item.x, item.y);
       if (d < bestD) {
         bestD = d;
         best = item;
       }
     });
-    if (!best) {
-      s.enemies.forEach(function (e) {
-        if (!e.alive || !SF.KINDS[e.kind].drops) return;
-        var d = SF.dist(s.player.x, s.player.y, e.x, e.y);
-        if (d < bestD) {
-          bestD = d;
-          best = e;
-        }
-      });
+    if (best) return { x: best.x, y: best.y, kind: "shard", precise: bestD <= (SF.SHARD_GLINT || 96) };
+    if (SF.carrierAim) {
+      var zone = SF.carrierAim(s);
+      if (zone) return zone;
     }
-    if (best) return { x: best.x, y: best.y };
     return { x: SF.LAMP.x, y: SF.LAMP.y };
   }
   if (s.quest === "stirring") {
@@ -578,19 +588,14 @@ SF.coachLine = function (s) {
   if (!h.moved) return "Move: drag the stick, or press WASD.";
   var near = SF.nearestInteract();
   if (near && !h.talk) return "Press " + SF.actionFor(s, near).label + ", or E.";
-  if (!near && !h.strike) {
-    var foe = s.enemies.some(function (e) {
-      return e.alive && e.dying <= 0 && !e.dormant && SF.dist(e.x, e.y, p.x, p.y) < 150;
-    });
-    if (foe) return "Walk into a foe to fight. The Fight button starts a nearby fight.";
-  }
-  var nearSpan = SF.islandId !== "cinderveil" && SF.dist(p.x, p.y, 300, -88) < 155;
+  var span = SF.circle && SF.circle("span");
+  var nearSpan = span && SF.islandId === "emberhold" && SF.dist(p.x, p.y, span.x, span.y) < span.r + 90;
   if (!near && nearSpan && !h.span) {
     return h.dash
       ? "This gap is too wide to walk. Dash from the lip."
-      : "Dash crosses gaps — dash button, or K. Do not walk the span.";
+      : "Dash crosses gaps — Shift or K. Do not walk the span.";
   }
-  if (!near && !h.dash && s.playTime < 40) return "Dash crosses gaps — dash button, or K.";
+  if (!near && !h.dash && s.playTime < 40) return "Dash crosses gaps — Shift or K.";
   return "";
 };
 
@@ -601,9 +606,12 @@ SF.tryLamp = function () {
     if (s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld >= need) SF.startDialogue("cinderveil.lamp.relit");
     else SF.startDialogue("inspect.cinder_core");
     if (s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld < need) {
-      SF.pushToast("The core wants " + need + " shards. You hold " + s.shardsHeld + ".", 2.2);
+      SF.pushToast("The lamp needs " + need + ". You have " + s.shardsHeld + ".", 2.2);
     }
     return;
+  }
+  if (!s.flags.lampLit && s.shardsHeld < SF.QUEST_SHARDS && s.quest === "gather") {
+    SF.pushToast("The lamp needs " + SF.QUEST_SHARDS + ". You have " + s.shardsHeld + ".", 2.2);
   }
   if (!s.flags.lampLit && s.shardsHeld >= SF.QUEST_SHARDS) {
     SF.beginCutscene();
@@ -730,10 +738,12 @@ SF.collectPickup = function (item) {
     SF.burst(item.x, item.y, "#9af6ff", 10, 50);
     SF.emit("pickup");
     var got = s.shardsHeld;
-    var sub = "The lamp on the hill needs " + SF.QUEST_SHARDS + ".";
-    if (s.quest === "awaken") sub = "Talk to Old Maren, up the hill.";
-    else if (got >= SF.QUEST_SHARDS) sub = "Bring them to the lamp. Press Place shards.";
-    SF.pushBanner("Sky-shard " + got + " of " + SF.QUEST_SHARDS, sub, 2.6);
+    var onCinder = SF.islandId === "cinderveil";
+    var need = onCinder ? (SF.CINDER_SHARDS || 3) : SF.QUEST_SHARDS;
+    var sub = onCinder ? ("The ridge lamp needs " + need + ".") : ("The lamp on the hill needs " + need + ".");
+    if (!onCinder && s.quest === "awaken") sub = "Talk to Old Maren, up the hill.";
+    else if (got >= need) sub = onCinder ? "Bring them to the ridge lamp." : "Bring them to the lamp. Press Place shards.";
+    SF.pushBanner("Sky-shard " + got + " of " + need, sub, 2.6);
   } else if (item.kind === "cog") {
     s.cogs = (s.cogs || 0) + 1;
     SF.floater(item.x, item.y, "+ cog", "#ffb15a");
@@ -1062,6 +1072,21 @@ SF.updatePlayer = function (dt) {
   }
   if (SF.noteZone) SF.noteZone(zone);
   if (!s.hints.moved && SF.dist(p.x, p.y, SF.WAKE.x, SF.WAKE.y) > 28) SF.noteHint("moved");
+  if (SF.noteTravel && s.mode === "play") SF.noteTravel(s, p.px, p.py, p.x, p.y, zone);
+  if (s.flags && s.flags.shard_sense && SF.activePickups) {
+    var nearShard = false;
+    SF.activePickups().forEach(function (item) {
+      if (item.kind === "shard" && SF.dist(p.x, p.y, item.x, item.y) <= 160) nearShard = true;
+    });
+    s.handNear = nearShard;
+    if (nearShard) {
+      s.handChime = (s.handChime || 0) + dt;
+      if (s.handChime > 2.8) {
+        s.handChime = 0;
+        if (window.Sfx) Sfx.play("ui");
+      }
+    } else s.handChime = 0;
+  } else if (s) s.handNear = false;
 };
 
 SF.updateCamera = function (dt) {
@@ -1074,6 +1099,21 @@ SF.updateCamera = function (dt) {
   } else if (s.mode === "cutscene") {
     targetX = SF.LAMP.x;
     targetY = SF.LAMP.y - 8;
+  } else if (s.revealPan && SF.LAMP) {
+    s.revealPan.t += dt;
+    var u = s.revealPan.t / s.revealPan.dur;
+    var lampW = 0;
+    if (u < 0.28) lampW = 0;
+    else if (u < 0.46) lampW = (u - 0.28) / 0.18;
+    else if (u < 0.68) lampW = 1;
+    else if (u < 0.88) lampW = Math.max(0, 1 - (u - 0.68) / 0.2);
+    var crystalY = SF.LAMP.y - 126;
+    targetX = s.player.x + (SF.LAMP.x - s.player.x) * lampW;
+    targetY = s.player.y + (crystalY - s.player.y) * lampW;
+    if (u >= 1) s.revealPan = null;
+  } else if (SF.debugCam) {
+    targetX = SF.debugCam.x;
+    targetY = SF.debugCam.y;
   } else if (s.approach && s.approach.kind === "cantor" && SF.cantorWorldPos) {
     var spot = SF.cantorWorldPos();
     targetX = spot ? (s.player.x + spot.x) * 0.5 : s.player.x;
@@ -1081,6 +1121,13 @@ SF.updateCamera = function (dt) {
   } else {
     targetX = s.player.x + s.player.fx * 26;
     targetY = s.player.y + s.player.fy * 18;
+  }
+  if (SF.bounds && s.mode !== "title" && !SF.debugOverview) {
+    var hw = (SF.viewW || 640) / 2;
+    var hh = (SF.viewH || 360) / 2;
+    var b = SF.bounds;
+    if (b.w > hw * 2) targetX = SF.clamp(targetX, b.x + hw, b.x + b.w - hw);
+    if (b.h > hh * 2) targetY = SF.clamp(targetY, b.y + hh, b.y + b.h - hh);
   }
   var k = SF.reduceMotion ? 1 : 1 - Math.exp(-5.2 * dt);
   s.camX += (targetX - s.camX) * k;
@@ -1090,6 +1137,7 @@ SF.updateCamera = function (dt) {
 
 SF.pumpMessages = function (dt) {
   var s = SF.state;
+  if (s.mode === "dialogue" || s.mode === "cutscene" || s.revealPan) return;
   if (s.toast) {
     s.toast.ttl -= dt;
     if (s.toast.ttl <= 0) s.toast = null;

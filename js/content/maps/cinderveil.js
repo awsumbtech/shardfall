@@ -42,7 +42,7 @@ window.SF = SF;
       title: "Quay bunk",
       x: -50,
       y: 40,
-      blurb: "Rest here? Heart returns to full, the journey is saved, and field enemies come back."
+      blurb: "Rest here? Heart returns to full, and the journey is saved."
     },
     {
       id: "chest-ash",

@@ -63,18 +63,7 @@ SF.healParty = function (fraction) {
   }
 };
 
-SF.respawnFieldEnemies = function () {
-  var s = SF.state;
-  if (!s) return;
-  if (SF.snapshotEnemies) SF.snapshotEnemies();
-  var save = s.enemySave || {};
-  Object.keys(save).forEach(function (isle) {
-    save[isle] = (save[isle] || []).filter(function (row) {
-      return row.boss && row.alive === false;
-    });
-  });
-  if (SF.loadEnemies) SF.loadEnemies();
-};
+SF.respawnFieldEnemies = function () {};
 
 SF.restAtInn = function (spot) {
   var s = SF.state;
@@ -86,7 +75,7 @@ SF.restAtInn = function (spot) {
   s.lastRest = { island: SF.islandId, x: x, y: y };
   s.checkpoint = { x: x, y: y, island: SF.islandId };
   s.mode = "play";
-  SF.pushToast("Rested. Field enemies are back on the roads.", 2.2);
+  SF.pushToast("Rested. Heart is full. The journey is saved.", 2.2);
   if (SF.saveGame) SF.saveGame();
 };
 
@@ -207,6 +196,8 @@ SF.maybeSeaFight = function (s) {
   var ok = SF.Battle.start("sea_hush_raiders", {
     boss: false,
     canFlee: true,
+    fixed: true,
+    zoneLevel: 6,
     bg: "hush_deck",
     onWin: function () {
       if (!s.voyage) return;
@@ -236,7 +227,7 @@ SF.tryArtSprite = function (ctx, id, x, y, opts) {
   var o = {
     frame: opts && opts.frame != null ? opts.frame : 0,
     facing: opts && opts.facing != null ? opts.facing : "down",
-    scale: opts && opts.scale != null ? opts.scale : 2,
+    scale: opts && opts.scale != null ? opts.scale : 1,
     pose: (opts && opts.pose) || "walk"
   };
   if (SF.calm && SF.calm() && o.pose === "walk") o.frame = 0;
@@ -280,7 +271,7 @@ SF.drawVillager = function (ctx, x, y, tunic, skin) {
         facing = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
       }
     }
-    if (SF.tryArtSprite(ctx, sprite, x, y, { frame: frame, facing: facing, scale: 2, pose: "walk" })) return true;
+    if (SF.tryArtSprite(ctx, sprite, x, y, { frame: frame, facing: facing, scale: 1, pose: "walk" })) return true;
     if (n && n.sprite) {
       var tint = n.sprite === "villager_b" ? "#6a5348" : "#2f6a68";
       SF.drawVillager(ctx, x, y, tint, "#f0c7a4");
@@ -394,7 +385,7 @@ SF.drawExtra = function (ctx, extra) {
   if (extra.kind === "chest") {
     var open = s && s.picked && s.picked[extra.id];
     var sprite = open ? "chest_open" : "chest";
-    if (!SF.tryArtSprite(ctx, sprite, extra.x, extra.y, { scale: 2 })) {
+    if (!SF.tryArtSprite(ctx, sprite, extra.x, extra.y, { scale: 1 })) {
       ctx.save();
       ctx.fillStyle = open ? "#8a6a48" : "#c4552a";
       ctx.fillRect(extra.x - 10, extra.y - 8, 20, 14);
@@ -405,7 +396,7 @@ SF.drawExtra = function (ctx, extra) {
     return true;
   }
   if (extra.kind === "shop") {
-    if (!SF.tryArtSprite(ctx, "sign", extra.x, extra.y - 10, { scale: 2 })) {
+    if (!SF.tryArtSprite(ctx, "sign", extra.x, extra.y - 10, { scale: 1 })) {
       ctx.save();
       ctx.translate(extra.x, extra.y);
       SF.drawWorldProp(ctx, { kind: "stall" });
@@ -414,7 +405,7 @@ SF.drawExtra = function (ctx, extra) {
     return true;
   }
   if (extra.kind === "inn") {
-    if (!SF.tryArtSprite(ctx, "inn", extra.x, extra.y, { scale: 2 })) {
+    if (!SF.tryArtSprite(ctx, "inn", extra.x, extra.y, { scale: 1 })) {
       ctx.save();
       ctx.fillStyle = "#ffd37a";
       ctx.beginPath();
@@ -427,11 +418,11 @@ SF.drawExtra = function (ctx, extra) {
     return true;
   }
   if (extra.kind === "skiff") {
-    if (!SF.tryArtSprite(ctx, "skiff", extra.x, extra.y, { scale: 2 })) return false;
+    if (!SF.tryArtSprite(ctx, "skiff", extra.x, extra.y, { scale: 1 })) return false;
     return true;
   }
   if (extra.kind === "gate") {
-    if (!SF.tryArtSprite(ctx, "sign", extra.x, extra.y, { scale: 2 })) {
+    if (!SF.tryArtSprite(ctx, "sign", extra.x, extra.y, { scale: 1 })) {
       ctx.save();
       ctx.translate(extra.x, extra.y);
       SF.drawWorldProp(ctx, { kind: "signpost" });
@@ -440,7 +431,7 @@ SF.drawExtra = function (ctx, extra) {
     return true;
   }
   if (extra.kind === "sign") {
-    if (!SF.tryArtSprite(ctx, "signpost", extra.x, extra.y, { scale: 2 })) {
+    if (!SF.tryArtSprite(ctx, "signpost", extra.x, extra.y, { scale: 1 })) {
       ctx.save();
       ctx.translate(extra.x, extra.y);
       SF.drawWorldProp(ctx, { kind: "signpost" });

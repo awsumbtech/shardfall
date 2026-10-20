@@ -76,7 +76,7 @@ SF.ISLANDS.highspire = {
       title: "the Switchback",
       x: -120,
       y: 310,
-      blurb: "Rest at the Switchback? Heart returns to full, the journey is saved, and field enemies come back."
+      blurb: "Rest at the Switchback? Heart returns to full, and the journey is saved."
     },
     {
       id: "chest-hs-town",

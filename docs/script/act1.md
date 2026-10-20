@@ -65,6 +65,10 @@
 
 **OLD MAREN:** Now, the lamp up the hill keeps the Hush off this island, and it's nearly out. The Hushborn are already coming up past the Scar at night.
 
+*Maren points up the hill. The camera pans to the lamp on the ridge. The shard in your palm flares bright, and the lamp flickers brighter for a moment in answer. The camera pans back. Your palm keeps tingling, and you can tell which way other shards are.*
+
+**OLD MAREN:** Did you see that? The lamp brightened when your hand did.
+
 **OLD MAREN:** It needs five sky-shards. My knees won't get me out to where they fall anymore. Will you find them and set them in the lamp?
 
 - "What's the Hush?" → `emberhold.maren.ask_hush` *(sets `asked_maren = hush`)*
@@ -95,7 +99,7 @@
 
 **OLD MAREN:** If you get hurt, come back and I'll patch you up. And say hello to Kestrel at the dock.
 
-*When the scene ends, the quest "Five Shards for the Lamp" begins.*
+*When the scene ends, the quest "Five Shards for the Lamp" begins. Shards out on the island can now be sensed and picked up (`shard_sense`).*
 
 ### Maren, while you're still searching
 

@@ -19,12 +19,15 @@
 <body data-mode="title" data-modal="0">
   <div id="app">
     <canvas id="view" aria-hidden="true"></canvas>
+    <div id="chrome">
     <div id="hurt" aria-hidden="true"></div>
 
     <div id="hud">
       <div class="panel" id="vitals">
-        <div id="hp"><span id="hp-fill"></span></div>
-        <div id="vitals-text"><span id="hp-num">40/40</span> · <span id="lv">Lv 1</span> · <span id="shards">✦ 0</span> <span id="saved" hidden>Saved</span></div>
+        <div id="vitals-row">
+          <div id="hp"><span id="hp-fill"></span></div>
+          <div id="vitals-text"><span id="hp-num">40/40</span> · <span id="lv">Lv 1</span> · <span id="shards">✦ 0</span> <span id="saved" hidden>Saved</span></div>
+        </div>
         <div id="xp"><span id="xp-fill"></span></div>
         <div id="questline">Talk to Old Maren, up the hill.</div>
         <div id="coach" hidden>Move: drag the stick.</div>
@@ -44,10 +47,17 @@
       </button>
     </div>
 
+    <div id="rotate" role="dialog" aria-label="Rotate your phone">Turn your phone sideways.</div>
     <div id="toast" hidden></div>
     <div id="banner" hidden>
       <div id="banner-title"></div>
       <div id="banner-sub"></div>
+    </div>
+    <div id="endcard" hidden>
+      <div class="endcard-panel">
+        <h2>End of Act 1</h2>
+        <p>Ahead lies Highspire, and the last of the Lanternwrights.</p>
+      </div>
     </div>
 
     <div id="controls">
@@ -137,7 +147,7 @@
 
     <div id="title">
       <div class="title-card">
-        <p class="eyebrow">v0.3 · The Wider Hush</p>
+        <p class="eyebrow">v0.4 · Act 1</p>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
         </div>
@@ -147,11 +157,11 @@
           <button id="continue" type="button" hidden>Continue</button>
           <button id="newgame" type="button">New Game</button>
           <button id="title-settings" type="button" class="ghost">Settings</button>
-          <button id="title-news" type="button" class="ghost">What's new in v0.3</button>
+          <button id="title-news" type="button" class="ghost">What's new in v0.4</button>
           <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
         </div>
-        <p class="legend">Stick on the left. Fight, dash, hook, and talk on the right.<span class="kb-hint"><br>Keys: WASD · K dash · G hook · E talk · Esc menu · M mute</span></p>
+        <p class="legend">Stick on the left. Dash, hook, and talk on the right.<span class="kb-hint"><br>Keys: WASD · K dash · G hook · E talk · Esc menu · M mute</span></p>
       </div>
     </div>
 
@@ -161,15 +171,17 @@
         <p id="pause-quest"></p>
         <p id="pause-stats"></p>
         <p id="pause-note"></p>
-        <button id="resume" type="button">Resume</button>
-        <button id="pause-settings" type="button" class="ghost">Settings</button>
-        <button id="pause-news" type="button" class="ghost">What's new in v0.3</button>
-        <button id="pause-hand" type="button" class="ghost">The hand</button>
-        <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
-        <button id="pause-save" type="button" class="ghost">Save</button>
-        <button id="pause-load" type="button" class="ghost">Load</button>
-        <button id="pause-reset" type="button" class="ghost">Reset save</button>
-        <button id="pause-title" type="button" class="ghost">Title</button>
+        <div id="pause-actions" class="scroll">
+          <button id="resume" type="button">Resume</button>
+          <button id="pause-settings" type="button" class="ghost">Settings</button>
+          <button id="pause-news" type="button" class="ghost">What's new in v0.4</button>
+          <button id="pause-hand" type="button" class="ghost">The hand</button>
+          <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
+          <button id="pause-save" type="button" class="ghost">Save</button>
+          <button id="pause-load" type="button" class="ghost">Load</button>
+          <button id="pause-reset" type="button" class="ghost">Reset save</button>
+          <button id="pause-title" type="button" class="ghost">Title</button>
+        </div>
       </div>
     </div>
 
@@ -182,6 +194,12 @@
         <input id="sfx-vol" type="range" min="0" max="100" value="80" aria-label="Effects volume">
         <button id="set-haptics" type="button" class="ghost" aria-pressed="true">Haptics: On</button>
         <button id="set-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
+        <p class="fine" id="enc-label">Encounters</p>
+        <div class="actions" id="enc-rate">
+          <button id="enc-fewer" type="button" class="ghost">Fewer</button>
+          <button id="enc-normal" type="button" class="ghost">Normal</button>
+          <button id="enc-more" type="button" class="ghost">More</button>
+        </div>
         <p class="fine">Haptics are a short buzz on a hit, a shard, and the lamp, when the phone allows it.</p>
         <button id="set-close" type="button">Close</button>
       </div>
@@ -189,7 +207,7 @@
 
     <div id="modal" hidden>
       <div class="card scroll">
-        <h2 id="modal-title">What's new in v0.3</h2>
+        <h2 id="modal-title">What's new in v0.4</h2>
         <div id="news-body"></div>
         <p id="modal-copy"></p>
         <div class="actions">
@@ -198,6 +216,7 @@
           <button id="modal-close" type="button">Close</button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -228,6 +247,7 @@
   <script src="js/content/maps/highspire.js"></script>
   <script src="js/content/maps/gullrock.js"></script>
   <script src="js/content/maps/drift.js"></script>
+  <script src="js/content/maps/v2layout.js"></script>
   <script src="js/grapple.js"></script>
   <script src="js/art/core.js"></script>
   <script src="js/art/actors.js"></script>

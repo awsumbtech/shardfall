@@ -56,7 +56,7 @@ window.SF = SF;
       x: 100,
       y: -130,
       title: "Maren's hearth",
-      blurb: "Rest here? Heart returns to full, the journey is saved, and field enemies come back."
+      blurb: "Rest here? Heart returns to full, and the journey is saved."
     }
   );
 

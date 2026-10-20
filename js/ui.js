@@ -163,6 +163,16 @@ SF.bindUI = function () {
   openSettingsFrom("title-settings");
   openSettingsFrom("pause-settings");
   document.getElementById("set-close").addEventListener("click", SF.closeSettings);
+  ["fewer", "normal", "more"].forEach(function (rate) {
+    var btn = document.getElementById("enc-" + rate);
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      if (SF.setEncounterRate) SF.setEncounterRate(rate);
+      SF.sfx.ensure();
+      SF.emit("ui");
+      SF.syncUI();
+    });
+  });
   document.getElementById("set-haptics").addEventListener("click", function () {
     SF.sfx.ensure();
     SF.emit("ui");
@@ -280,10 +290,11 @@ SF.bindUI = function () {
 };
 
 SF.touchPrimary = function () {
+  if (SF.inputState && SF.inputState.hideTouch) return false;
   if (typeof window === "undefined" || !window.matchMedia) return false;
   try {
     if (window.matchMedia("(pointer: coarse)").matches) return true;
-    if (window.matchMedia("(hover: none)").matches) return true;
+    if (window.matchMedia("(hover: none)").matches && navigator.maxTouchPoints > 0) return true;
   } catch (err) {
     return false;
   }
@@ -297,8 +308,11 @@ SF.presentCoach = function (line) {
     .replace(/\s*,?\s*or press WASD/gi, "")
     .replace(/\s*,?\s*or WASD/gi, "")
     .replace(/\s*,?\s*or E\b/gi, "")
+    .replace(/\s*[—-]\s*Shift or K\.?/gi, "")
+    .replace(/\s*Shift or K\.?/gi, "")
     .replace(/\s*,?\s*or K\b/gi, "")
     .replace(/\s{2,}/g, " ")
+    .replace(/\s+\./g, ".")
     .trim();
 };
 
@@ -328,6 +342,7 @@ SF.syncUI = function () {
   if (!s) return;
   document.body.dataset.mode = s.mode;
   document.body.dataset.modal = SF.uiModal ? "1" : "0";
+  document.body.dataset.reveal = s.revealPan ? "1" : "0";
 
   var title = document.getElementById("title");
   title.hidden = s.mode !== "title";
@@ -373,7 +388,8 @@ SF.syncUI = function () {
   var hand = document.getElementById("hand");
   hand.hidden = s.mode !== "hand";
   if (s.mode === "hand" && SF.HAND_UPGRADES) {
-    setText("hand-shards", "Spare shards: " + s.shardsHeld);
+    var spareNow = SF.spareShards ? SF.spareShards(s) : s.shardsHeld;
+    setText("hand-shards", "Spare shards: " + spareNow);
     var list = document.getElementById("hand-list");
     var owned = Object.keys(s.upgrades || {}).sort().join(",");
     var handSig = s.shardsHeld + "|" + owned + "|" + (s.player.grapple ? 1 : 0) + "|" + (s.player.shardstep ? 1 : 0);
@@ -385,8 +401,10 @@ SF.syncUI = function () {
         row.type = "button";
         var has = !!(s.upgrades && s.upgrades[upgrade.id]);
         var locked = (upgrade.needs === "grapple" && !s.player.grapple) || (upgrade.needs === "shardstep" && !s.player.shardstep);
-        row.textContent = upgrade.branch + " · " + upgrade.name + " — " + (has ? "fitted" : (upgrade.cost + " shards")) + ". " + upgrade.blurb;
-        row.disabled = has || locked;
+        var saved = !has && !locked && s.shardsHeld >= upgrade.cost && spareNow < upgrade.cost;
+        var costLabel = has ? "fitted" : (saved ? "Saved for the lamp." : (upgrade.cost + " shards"));
+        row.textContent = upgrade.branch + " · " + upgrade.name + " — " + costLabel + ". " + upgrade.blurb;
+        row.disabled = has || locked || saved || spareNow < upgrade.cost;
         row.addEventListener("click", function () { SF.buyUpgrade(upgrade.id); });
         list.appendChild(row);
       });
@@ -403,7 +421,9 @@ SF.syncUI = function () {
   document.getElementById("hp").classList.toggle("low", hpPct < 0.3 && hpPct > 0);
   setText("hp-num", Math.max(0, Math.ceil(pstat.hp)) + "/" + pstat.maxHp);
   setText("lv", "Lv " + pstat.level);
-  setText("shards", "✦ " + s.shardsHeld);
+  setText("shards", SF.handMeter ? SF.handMeter(s) : ("✦ " + s.shardsHeld));
+  var vitals = document.getElementById("vitals");
+  if (vitals) vitals.classList.toggle("hand-pulse", !!(s.handNear && s.flags && s.flags.shard_sense));
   var prev = SF.XP_NEED[pstat.level - 1] || 0;
   var next = SF.XP_NEED[pstat.level];
   var xpPct = pstat.level >= SF.XP_NEED.length ? 1 : SF.clamp((pstat.xp - prev) / ((next || prev + 1) - prev), 0, 1);
@@ -454,18 +474,25 @@ SF.syncUI = function () {
     placeEl.hidden = true;
   }
 
+  var quiet = s.mode === "dialogue" || s.mode === "cutscene" || s.revealPan;
+  var fieldChrome = s.mode !== "title" && s.mode !== "battle" && s.mode !== "results" && !quiet;
   var toast = document.getElementById("toast");
-  if (s.toast && s.mode !== "title") {
+  if (s.toast && fieldChrome) {
     toast.hidden = false;
     setText("toast", s.toast.text);
   } else toast.hidden = true;
 
   var banner = document.getElementById("banner");
-  if (s.banner && s.mode !== "title" && s.mode !== "pause") {
+  if (s.banner && fieldChrome && s.mode !== "pause") {
     banner.hidden = false;
     setText("banner-title", s.banner.title);
     setText("banner-sub", s.banner.sub || "");
   } else banner.hidden = true;
+
+  var endcard = document.getElementById("endcard");
+  if (endcard && !(s.dialogue && s.dialogue.id === "cinderveil.act1.finale" && s.mode === "dialogue")) {
+    endcard.hidden = true;
+  }
 
   var hurtA = 0;
   if (s.mode === "play" && pstat.hurt > 0 && !SF.calm()) hurtA = Math.min(0.2, (pstat.hurt / 0.28) * 0.2);
@@ -499,6 +526,12 @@ SF.syncUI = function () {
     hookBtn.style.setProperty("--p", hookP.toFixed(3));
   }
   var hapticsOn = !(window.Haptics) || Haptics.enabled;
+  ["fewer", "normal", "more"].forEach(function (rate) {
+    var btn = document.getElementById("enc-" + rate);
+    if (!btn) return;
+    var on = (SF.encounterMul ? (rate === "fewer" ? SF.encounterMul() === 0.5 : rate === "more" ? SF.encounterMul() === 1.5 : SF.encounterMul() === 1) : rate === "normal");
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  });
   var hap = document.getElementById("set-haptics");
   if (hap) {
     var hapText = "Haptics: " + (hapticsOn ? "On" : "Off");

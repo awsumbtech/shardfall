@@ -2,7 +2,8 @@
 
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
-var CACHE = "shardfall-v0.3.4";
+// CACHE is the precache version. A new name drops every older shell.
+var CACHE = "shardfall-v0.4";
 
 var SHELL = [
   "index.html",
@@ -40,6 +41,7 @@ var SHELL = [
   "js/content/maps/highspire.js",
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
+  "js/content/maps/v2layout.js",
   "js/grapple.js",
   "js/art/core.js",
   "js/art/actors.js",
@@ -57,11 +59,23 @@ var SHELL = [
   "js/main.js"
 ];
 
+function freshRequest(url) {
+  // A unique query misses the previous worker's cache. cache:"reload" and
+  // Cache-Control: no-store both skip the HTTP cache, so install never
+  // stores old bytes under the new name.
+  var bust = url + (url.indexOf("?") === -1 ? "?" : "&") + "sf=" + encodeURIComponent(CACHE);
+  return new Request(bust, {
+    cache: "reload",
+    credentials: "same-origin",
+    headers: { "Cache-Control": "no-store" }
+  });
+}
+
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
       return Promise.all(SHELL.map(function (url) {
-        return fetch(new Request(url, { cache: "reload" })).then(function (response) {
+        return fetch(freshRequest(url)).then(function (response) {
           if (!response.ok) throw new Error(url + " " + response.status);
           return cache.put(url, response);
         });
@@ -131,7 +145,7 @@ self.addEventListener("fetch", function (event) {
 
   if (isDocument(request)) {
     event.respondWith(
-      fetch(request.url, { cache: "no-cache", credentials: "same-origin" }).then(function (response) {
+      fetch(request.url, { cache: "reload", credentials: "same-origin" }).then(function (response) {
         return store(request, response);
       }).catch(function () {
         return fromCache(request).then(function (hit) {
@@ -145,7 +159,7 @@ self.addEventListener("fetch", function (event) {
   event.respondWith(
     caches.match(request).then(function (hit) {
       if (hit) return hit;
-      return fetch(request).then(function (response) {
+      return fetch(freshRequest(request.url)).then(function (response) {
         return store(request, response);
       });
     })

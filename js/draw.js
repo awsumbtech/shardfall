@@ -9,11 +9,16 @@ SF.dpr = 1;
 SF.viewW = 1;
 SF.viewH = 1;
 
-SF.zoomFor = function (w, h) {
-  var ideal = SF.clamp(Math.min(w, h) / 300, 1, 1.85);
-  var dpr = SF.dpr || 1;
-  var snapped = Math.max(1, Math.round(ideal * dpr));
-  return snapped / dpr;
+SF.zoomFor = function () {
+  return 1;
+};
+
+SF.foot = function (c) {
+  if (!c) return { x: 0, y: 0, rx: 8, ry: 8, rect: false };
+  if (c.k === "r" || (c.w != null && c.rx == null)) {
+    return { x: c.x + c.w / 2, y: c.y + c.h / 2, rx: c.w / 2, ry: c.h / 2, rect: true, sh: c };
+  }
+  return { x: c.x, y: c.y, rx: c.rx || c.r || 8, ry: c.ry || c.r || 8, rect: false, sh: c };
 };
 
 SF.viewRect = function (pad) {
@@ -53,32 +58,35 @@ SF.cacheSprites = function () {
 SF.buildWorld = function () {
   var rand = SF.mulberry32(20261019);
   var specks = [];
-  SF.WALK.circles.forEach(function (c) {
-    var n = Math.floor((c.r * c.r) / 780);
-    var i, a, d;
+  function sprinkle(c) {
+    var f = SF.foot(c);
+    var reach = Math.max(f.rx, f.ry);
+    var n = Math.min(80, Math.floor((reach * reach) / 780));
+    var i, a, dx, dy;
     for (i = 0; i < n; i++) {
       a = rand() * Math.PI * 2;
-      d = Math.sqrt(rand()) * (c.r - 10);
-      specks.push({
-        x: c.x + Math.cos(a) * d,
-        y: c.y + Math.sin(a) * d,
-        k: rand(),
-        group: c.group
-      });
+      dx = Math.cos(a) * Math.sqrt(rand()) * (f.rx - 8);
+      dy = Math.sin(a) * Math.sqrt(rand()) * (f.ry - 8);
+      specks.push({ x: f.x + dx, y: f.y + dy, k: rand(), group: c.group });
     }
-  });
+  }
+  SF.WALK.circles.forEach(sprinkle);
+  (SF.WALK.rects || []).forEach(sprinkle);
   SF.specks = specks;
   var clouds = [];
   var minX = -900;
   var maxX = 1100;
   var minY = -700;
   var maxY = 1000;
-  SF.WALK.circles.forEach(function (c) {
-    minX = Math.min(minX, c.x - c.r - 180);
-    maxX = Math.max(maxX, c.x + c.r + 180);
-    minY = Math.min(minY, c.y - c.r - 180);
-    maxY = Math.max(maxY, c.y + c.r + 180);
-  });
+  function growBounds(c) {
+    var f = SF.foot(c);
+    minX = Math.min(minX, f.x - f.rx - 180);
+    maxX = Math.max(maxX, f.x + f.rx + 180);
+    minY = Math.min(minY, f.y - f.ry - 180);
+    maxY = Math.max(maxY, f.y + f.ry + 180);
+  }
+  SF.WALK.circles.forEach(growBounds);
+  (SF.WALK.rects || []).forEach(growBounds);
   var gx, gy;
   for (gx = minX; gx <= maxX; gx += 170) {
     for (gy = minY; gy <= maxY; gy += 150) {
@@ -92,20 +100,31 @@ SF.buildWorld = function () {
     }
   }
   SF.clouds = clouds;
-  var groups = { ember: [], span: [], cinder: [], perch: [], quay: [], ash: [], vault: [] };
-  SF.WALK.circles.forEach(function (c) {
+  var groups = { ember: [], span: [], cinder: [], perch: [], quay: [], ash: [], vault: [], ridge: [], scar: [] };
+  function pushGroup(c) {
+    if (!c.group) return;
     if (!groups[c.group]) groups[c.group] = [];
     groups[c.group].push(c);
-  });
+  }
+  SF.WALK.circles.forEach(pushGroup);
+  (SF.WALK.rects || []).forEach(pushGroup);
   SF.groups = groups;
 };
 
 SF.traceGroup = function (ctx, circles, grow) {
   ctx.beginPath();
-  circles.forEach(function (c) {
-    var r = c.r + (grow || 0);
-    ctx.moveTo(c.x + r, c.y);
-    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+  (circles || []).forEach(function (c) {
+    var g = grow || 0;
+    var f = SF.foot(c);
+    if (f.rect && c.w != null) {
+      ctx.rect(c.x - g, c.y - g, c.w + g * 2, c.h + g * 2);
+      return;
+    }
+    var rx = Math.max(2, f.rx + g);
+    var ry = Math.max(2, f.ry + g);
+    ctx.moveTo(f.x + rx, f.y);
+    if (ctx.ellipse) ctx.ellipse(f.x, f.y, rx, ry, 0, 0, Math.PI * 2);
+    else ctx.arc(f.x, f.y, Math.min(rx, ry), 0, Math.PI * 2);
   });
 };
 
@@ -188,20 +207,13 @@ SF.buildCloudSheet = function () {
   sheet.height = Math.max(1, Math.ceil(worldH * ppm));
   var g = sheet.getContext("2d");
   g.setTransform(ppm, 0, 0, ppm, -minX * ppm, -minY * ppm);
-  g.imageSmoothingEnabled = false;
-  var stamps = (window.Art && Art.clouds) ? Art.clouds() : null;
+  g.imageSmoothingEnabled = true;
   for (i = 0; i < clouds.length; i++) {
     c = clouds[i];
-    if (stamps) {
-      var stamp = stamps[i % stamps.length];
-      var dw = Math.max(stamp.width * 3, Math.round(c.s * 1.4));
-      var dh = Math.round(dw * (stamp.height / stamp.width));
-      g.drawImage(stamp, Math.round(c.x - dw / 2), Math.round(c.y - dh / 2), dw, dh);
-    } else {
-      g.globalAlpha = 0.55;
-      g.drawImage(SF.blobs[c.kind] || SF.blobs.cloud, c.x - c.s, c.y - c.s * 0.45, c.s * 2, c.s);
-    }
+    g.globalAlpha = 0.78;
+    g.drawImage(SF.blobs[c.kind] || SF.blobs.cloud, c.x - c.s, c.y - c.s * 0.42, c.s * 2, c.s * 0.9);
   }
+  g.globalAlpha = 1;
   SF._cloudSheet = sheet;
   SF._cloudBox = { minX: minX, minY: minY };
   SF._cloudPpm = ppm;
@@ -261,11 +273,13 @@ SF.landTiles = function (name, lit) {
   var map = {
     ember: lit ? ["grass_light", "grass_light"] : ["grass", "grass_light"],
     perch: ["shore", "shore_light"],
-    cinder: ["gold", "gold_light"],
+    cinder: ["ash", "ash_rock"],
     span: ["stone", "stone_light"],
-    quay: ["cobble", "stone_light"],
-    ash: ["ash", "ash_light"],
-    vault: ["vault", "ash"],
+    quay: ["stone", "ash"],
+    ash: ["ash", "ash_rock"],
+    vault: ["vault", "ash_ember"],
+    scar: ["gold", "stone"],
+    ridge: ["ash_ember", "ash_rock"],
     salt: ["dock", "pier"],
     shore: ["sand", "gold_light"],
     wreck: ["hold", "vault"],
@@ -281,11 +295,17 @@ SF.landTiles = function (name, lit) {
 SF.drawLands = function (ctx, s) {
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!s.flags.lampLit;
   var pixel = window.Art && Art.fillPattern;
+  function solids(group) {
+    return (SF.groups[group] || []).filter(function (c) {
+      return !(c.id && String(c.id).indexOf("trail-") === 0);
+    });
+  }
   function cliff(group) {
-    if (!SF.groups[group] || !SF.groups[group].length) return;
+    var shapes = solids(group);
+    if (!shapes.length) return;
     ctx.save();
-    ctx.translate(0, 12);
-    SF.traceGroup(ctx, SF.groups[group], 2);
+    ctx.translate(0, 16);
+    SF.traceGroup(ctx, shapes, 3);
     if (pixel) {
       ctx.clip();
       Art.fillPattern(ctx, SF.cliffTile ? SF.cliffTile(group) : (group === "quay" ? "stone" : "cliff"));
@@ -296,33 +316,58 @@ SF.drawLands = function (ctx, s) {
     }
     ctx.restore();
   }
-  function top(group, name, light) {
-    if (!SF.groups[group] || !SF.groups[group].length) return;
+  function paintShapes(shapes, tileName, fallback) {
+    if (!shapes || !shapes.length) return;
     ctx.save();
-    ctx.translate(-3, -4);
-    SF.traceGroup(ctx, SF.groups[group], 2);
+    SF.traceGroup(ctx, shapes, 0);
+    ctx.clip();
+    if (pixel) Art.fillPattern(ctx, tileName);
+    else {
+      ctx.fillStyle = fallback || "#5cba78";
+      ctx.fillRect(-4000, -4000, 8000, 8000);
+    }
+    ctx.restore();
+  }
+  function highlight(group, light) {
+    var shapes = solids(group);
+    if (!shapes.length) return;
+    ctx.save();
+    ctx.translate(-3, -5);
+    SF.traceGroup(ctx, shapes, 2);
     if (pixel) {
       ctx.clip();
-      Art.fillPattern(ctx, light || name);
+      Art.fillPattern(ctx, light);
     } else {
       ctx.fillStyle = "#e7ffc4";
       ctx.fill();
     }
     ctx.restore();
-    ctx.save();
-    SF.traceGroup(ctx, SF.groups[group], 0);
-    ctx.clip();
-    if (pixel) Art.fillPattern(ctx, name);
-    else {
-      ctx.fillStyle = "#5cba78";
-      ctx.fillRect(-4000, -4000, 8000, 8000);
-    }
-    ctx.restore();
   }
-  Object.keys(SF.groups || {}).forEach(function (name) {
-    cliff(name);
+  var names = Object.keys(SF.groups || {});
+  names.forEach(cliff);
+  names.forEach(function (name) {
     var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
-    top(name, tiles[0], tiles[1]);
+    highlight(name, tiles[1] || tiles[0]);
+  });
+  names.forEach(function (name) {
+    var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
+    paintShapes(SF.groups[name], tiles[0]);
+  });
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 3;
+  names.forEach(function (name) {
+    var shapes = solids(name);
+    if (!shapes.length) return;
+    SF.traceGroup(ctx, shapes, 0);
+    ctx.strokeStyle = (SF.LANDS[name] && SF.LANDS[name].lo) || "#2a4030";
+    ctx.stroke();
+  });
+  ctx.restore();
+  names.forEach(function (name) {
+    var tiles = (SF.landTiles && SF.landTiles(name, lit)) || ["grass", "grass_light"];
+    paintShapes(SF.groups[name], tiles[0]);
   });
 
   var hollow = SF.circle("hollow");
@@ -352,28 +397,59 @@ SF.drawLands = function (ctx, s) {
 SF.drawGround = function (ctx, s) {
   ctx.save();
   ctx.beginPath();
-  SF.WALK.circles.forEach(function (c) {
-    ctx.moveTo(c.x + c.r, c.y);
-    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
-  });
+  SF.traceGroup(ctx, (SF.WALK.circles || []).concat(SF.WALK.rects || []), 0);
   ctx.clip();
-  if (window.Art && Art.pattern) {
-    var pathTile = Art.pattern("path");
+  if (SF.PATHS && SF.PATHS.length) {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     SF.PATHS.forEach(function (path) {
-      var i, t, steps, x0, y0, x1, y1, len, x, y;
+      var i, t, steps, x0, y0, x1, y1, len, x, y, px, py, wobble, wide;
       for (i = 0; i < path.length - 2; i += 2) {
         x0 = path[i];
         y0 = path[i + 1];
         x1 = path[i + 2];
         y1 = path[i + 3];
         len = Math.hypot(x1 - x0, y1 - y0) || 1;
-        steps = Math.ceil(len / 8);
-        for (t = 0; t <= steps; t++) {
-          x = Math.round(x0 + (x1 - x0) * (t / steps));
-          y = Math.round(y0 + (y1 - y0) * (t / steps));
-          ctx.drawImage(pathTile, x - 8, y - 6);
-          ctx.drawImage(pathTile, x - 2, y + 2);
-          ctx.drawImage(pathTile, x + 4, y - 2);
+        steps = Math.max(1, Math.ceil(len / 6));
+        px = x0;
+        py = y0;
+        for (t = 1; t <= steps; t++) {
+          x = x0 + (x1 - x0) * (t / steps);
+          y = y0 + (y1 - y0) * (t / steps);
+          wobble = ((Math.imul(((x0 + y0 + i * 13) | 0) ^ (t * 17), 747796405) >>> 0) % 9);
+          wide = 5 + wobble;
+          if ((wobble + t) % 11 === 0) {
+            px = x;
+            py = y;
+            continue;
+          }
+          ctx.strokeStyle = "rgba(96, 122, 58, 0.18)";
+          ctx.lineWidth = wide + 14;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.strokeStyle = "rgba(146, 112, 66, 0.42)";
+          ctx.lineWidth = wide + 6;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.strokeStyle = "rgba(164, 124, 72, 0.58)";
+          ctx.lineWidth = wide;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          if ((wobble + t) % 4 === 0) {
+            ctx.fillStyle = "rgba(92, 64, 38, 0.65)";
+            ctx.fillRect(x - 1, y + (wobble % 3) - 1, 2, 1);
+          } else if ((wobble + t) % 5 === 0) {
+            ctx.fillStyle = "rgba(214, 186, 130, 0.45)";
+            ctx.fillRect(x, y - 1, 1, 1);
+          }
+          px = x;
+          py = y;
         }
       }
     });
@@ -400,17 +476,27 @@ SF.drawGround = function (ctx, s) {
     sp = specks[i];
     cull = view && (sp.x < view.l || sp.x > view.r || sp.y < view.t || sp.y > view.b);
     if (cull) continue;
-    var ash = sp.group === "ash" || sp.group === "vault" || sp.group === "span";
+    var ash = sp.group === "ash" || sp.group === "vault" || sp.group === "ridge" || sp.group === "cinder";
     var quay = sp.group === "quay" || sp.group === "perch";
-    if (sp.k > 0.92) {
-      ctx.fillStyle = ash ? "#e06828" : (quay ? "#8ad4d4" : (sp.k > 0.97 ? "#f0d078" : "#ffd0e4"));
-      ctx.fillRect(sp.x, sp.y, 2, 2);
-      ctx.fillRect(sp.x - 1, sp.y + 1, 1, 1);
-      ctx.fillRect(sp.x + 2, sp.y + 1, 1, 1);
-    } else if (sp.k > 0.45) {
-      ctx.fillStyle = ash ? "#6e6460" : (quay ? "#1a5868" : "#1e5828");
+    if (ash) {
+      if (sp.k > 0.992) {
+        ctx.fillStyle = "#ffb15a";
+        ctx.fillRect(sp.x, sp.y, 1, 1);
+        ctx.fillStyle = "#a04418";
+        ctx.fillRect(sp.x + 1, sp.y, 2, 1);
+      } else if (sp.k > 0.78) {
+        ctx.fillStyle = "#3a342e";
+        ctx.fillRect(sp.x, sp.y, 2, 1);
+        ctx.fillStyle = "#6a625c";
+        ctx.fillRect(sp.x, sp.y, 1, 1);
+      }
+    } else if (sp.k > 0.94) {
+      ctx.fillStyle = quay ? "#8ad4d4" : (sp.k > 0.98 ? "#f0d078" : "#ffd0e4");
+      ctx.fillRect(sp.x, sp.y, 2, 1);
+    } else if (sp.k > 0.55) {
+      ctx.fillStyle = quay ? "#1a5868" : "#1e5828";
       ctx.fillRect(sp.x, sp.y, 1, 2);
-      ctx.fillStyle = ash ? "#b0a49c" : "#8ed45c";
+      ctx.fillStyle = quay ? "#8ad4d4" : "#8ed45c";
       ctx.fillRect(sp.x, sp.y, 1, 1);
     }
   }
@@ -436,8 +522,9 @@ SF.terrainBounds = function () {
   circles = SF.WALK.circles;
   for (i = 0; i < circles.length; i++) {
     c = circles[i];
-    add(c.x - c.r * 1.2 - 8, c.y - c.r - 16);
-    add(c.x + c.r * 1.2 + 8, c.y + c.r * 1.3 + 24);
+    var f = SF.foot(c);
+    add(f.x - f.rx * 1.2 - 8, f.y - f.ry - 16);
+    add(f.x + f.rx * 1.2 + 8, f.y + f.ry * 1.3 + 24);
   }
   rects = SF.WALK.rects;
   for (i = 0; i < rects.length; i++) {
@@ -470,7 +557,9 @@ SF.buildTerrainSheet = function (lit) {
   var fake = { flags: { lampLit: !!lit, cinderLit: SF.islandId === "cinderveil" && !!lit } };
   Object.keys(SF.groups || {}).forEach(function (name) {
     (SF.groups[name] || []).forEach(function (c) {
-      bctx.drawImage(SF.blobs.shadow, c.x - c.r * 1.15, c.y - c.r * 0.45 + 18, c.r * 2.3, c.r * 1.25);
+      if (c.id && String(c.id).indexOf("trail-") === 0) return;
+      var f = SF.foot(c);
+      bctx.drawImage(SF.blobs.shadow, f.x - f.rx * 1.15, f.y - f.ry * 0.45 + 22, f.rx * 2.3, f.ry * 1.35);
     });
   });
   SF.drawLands(bctx, fake);
@@ -585,10 +674,29 @@ SF.drawPropArt = function (ctx, prop, lit) {
   else if (id === "flower") {
     var c = prop.c || "";
     id = (c.indexOf("9af") !== -1 || c.indexOf("c8be") !== -1) ? "flower_tide" : (c.indexOf("ffb") !== -1 || c.indexOf("ffe") !== -1 || c.indexOf("e7a") !== -1 ? "flower_gold" : "flower");
-  } else if (id === "tree" && (SF.islandId === "cinderveil")) id = "tree_bare";
+  }   else if (id === "tree" && (SF.islandId === "cinderveil")) id = "tree_dead";
+  else if (id === "bush" && (SF.islandId === "cinderveil")) id = "bush_dead";
+  else if (id === "rock" && (SF.islandId === "cinderveil")) id = "basalt";
+  else if (id === "tuft" && (SF.islandId === "cinderveil")) id = "tuft_dead";
   if (!Art._makers[id]) return false;
-  var sc = Math.max(2, Math.round(scale * (prop.s || 1)));
+  var sc = Art.fieldScale ? Art.fieldScale(id) : 1;
   Art.sprite(ctx, id, prop.x, prop.y, { scale: sc, frame: 0, facing: "down" });
+  if (prop.kind === "cottage") {
+    var t = SF.reduceMotion ? 0.35 : (SF.anim || 0);
+    var sx = prop.x + 40;
+    var sy = prop.y - 116;
+    var i, puff;
+    ctx.save();
+    for (i = 0; i < 3; i++) {
+      puff = (t * 0.28 + i * 0.34) % 1;
+      ctx.globalAlpha = (1 - puff) * 0.42;
+      ctx.fillStyle = "#ddd4cc";
+      ctx.beginPath();
+      ctx.arc(sx + Math.sin(t * 0.7 + i) * 1.5, sy - puff * 16, 1.6 + puff * 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
   return true;
 };
 
@@ -1180,17 +1288,52 @@ SF.drawPickup = function (ctx, item, hiddenIcon) {
   }
 };
 
+SF.revealU = function (s) {
+  if (!s || !s.revealPan || !s.revealPan.dur) return null;
+  return s.revealPan.t / s.revealPan.dur;
+};
+
+SF.palmAmt = function (s) {
+  var u = SF.revealU(s);
+  if (u == null || u < 0.04 || u > 0.32) return 0;
+  if (u < 0.12) return (u - 0.04) / 0.08;
+  if (u > 0.24) return (0.32 - u) / 0.08;
+  return 1;
+};
+
+SF.lampFlareAmt = function (s) {
+  var u = SF.revealU(s);
+  if (u == null || u < 0.4 || u > 0.76) return 0;
+  if (u < 0.5) return (u - 0.4) / 0.1;
+  if (u > 0.66) return (0.76 - u) / 0.1;
+  return 1;
+};
+
+SF.palmPoint = function (p) {
+  var face = SF.artFacing ? SF.artFacing(p.fx || 0, p.fy || 1) : "down";
+  if (face === "left") return { x: p.x - 13, y: p.y - 10 };
+  if (face === "right") return { x: p.x + 13, y: p.y - 10 };
+  if (face === "up") return { x: p.x - 7, y: p.y - 12 };
+  return { x: p.x + 7, y: p.y - 11 };
+};
+
 SF.drawLampCrystal = function (ctx, lit) {
   var x = SF.LAMP.x;
   var y = SF.LAMP.y;
+  var crystalY = y - 126;
+  var flare = SF.lampFlareAmt ? SF.lampFlareAmt(SF.state) : 0;
+  var showLit = lit || flare > 0.35;
   if (window.Art && Art.sprite) {
-    if (lit && SF.blobs) {
+    if ((showLit || flare > 0) && SF.blobs) {
       ctx.save();
-      ctx.globalAlpha = 0.85;
-      ctx.drawImage(SF.blobs.gold, x - 46, y - 62, 92, 92);
+      ctx.globalAlpha = showLit ? 0.9 : 0.35 + flare * 0.6;
+      var bloom = showLit ? 72 : 40 + flare * 36;
+      ctx.drawImage(SF.blobs.gold, x - bloom / 2, crystalY - bloom / 2, bloom, bloom);
       ctx.restore();
     }
-    Art.sprite(ctx, lit ? "lamp_lit" : "lamp_cold", x, y + 10, { scale: Art.fieldScale(lit ? "lamp_lit" : "lamp_cold") });
+    var lampId = showLit ? "great_lamp_lit" : "great_lamp";
+    if (!Art._makers[lampId]) lampId = showLit ? "lamp_lit" : "lamp_cold";
+    Art.sprite(ctx, lampId, x, y + 10, { scale: Art.fieldScale(lampId) });
     if (!lit && SF.state && SF.state.shardsHeld >= SF.QUEST_SHARDS && SF.state.quest === "gather") {
       var calmReady = SF.calm && SF.calm();
       ctx.save();
@@ -1198,7 +1341,7 @@ SF.drawLampCrystal = function (ctx, lit) {
       ctx.strokeStyle = "#ffe7a8";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, y - 8, 20, 0, Math.PI * 2);
+      ctx.arc(x, crystalY, 14, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -1209,23 +1352,20 @@ SF.drawLampCrystal = function (ctx, lit) {
   ctx.fillStyle = "#8d7368";
   ctx.fillRect(x - 10, y + 6, 20, 8);
   ctx.fillRect(x - 3, y - 2, 6, 12);
-  if (lit) {
-    ctx.drawImage(SF.blobs.gold, x - 48 * flick, y - 64 * flick, 96 * flick, 96 * flick);
-    ctx.fillStyle = "rgba(255, 236, 180, 0.2)";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 120);
-    ctx.lineTo(x - 26, y);
-    ctx.lineTo(x + 26, y);
-    ctx.fill();
+  if (lit || flare > 0) {
+    var bloom = (lit ? 72 : 40 + flare * 36) * (lit ? flick : 1);
+    ctx.globalAlpha = lit ? 0.9 : 0.35 + flare * 0.6;
+    ctx.drawImage(SF.blobs.gold, x - bloom / 2, crystalY - bloom / 2, bloom, bloom);
+    ctx.globalAlpha = 1;
   } else {
-    ctx.drawImage(SF.blobs.violet, x - 18, y - 28, 36, 36);
+    ctx.drawImage(SF.blobs.violet, x - 16, crystalY - 16, 32, 32);
   }
-  ctx.fillStyle = lit ? "#fff8e4" : "#c9b6e8";
+  ctx.fillStyle = lit || flare > 0.35 ? "#fff8e4" : "#c9b6e8";
   ctx.beginPath();
-  ctx.moveTo(x, y - 22);
-  ctx.lineTo(x + 7, y - 6);
-  ctx.lineTo(x, y + 4);
-  ctx.lineTo(x - 7, y - 6);
+  ctx.moveTo(x, crystalY - 8);
+  ctx.lineTo(x + 7, crystalY);
+  ctx.lineTo(x, crystalY + 8);
+  ctx.lineTo(x - 7, crystalY);
   ctx.fill();
   ctx.restore();
   if (!lit && SF.state && SF.state.shardsHeld >= SF.QUEST_SHARDS && SF.state.quest === "gather") {
@@ -1236,7 +1376,7 @@ SF.drawLampCrystal = function (ctx, lit) {
     ctx.strokeStyle = "#ffe7a8";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y - 8, calm ? 20 : (19 + Math.sin(SF.anim * 1.4) * 1), 0, Math.PI * 2);
+    ctx.arc(x, crystalY, calm ? 14 : (13 + Math.sin(SF.anim * 1.4) * 1), 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   }
@@ -1269,7 +1409,7 @@ SF.entityList = function (s) {
     if (!sid || !window.Art) return;
     list.push({
       y: mark.y,
-      draw: function (ctx) { Art.sprite(ctx, sid, mark.x, mark.y, { scale: 2 }); }
+      draw: function (ctx) { Art.sprite(ctx, sid, mark.x, mark.y, { scale: 1 }); }
     });
   });
   (SF.EXTRAS || []).forEach(function (extra) {
@@ -1282,14 +1422,14 @@ SF.entityList = function (s) {
           return;
         }
         if (extra.kind === "bench" && window.Art && Art.sprite) {
-          Art.sprite(ctx, "bench", extra.x, extra.y, { scale: 2 });
+          Art.sprite(ctx, "bench", extra.x, extra.y, { scale: 1 });
         } else if (extra.kind === "bench") {
           ctx.fillStyle = "#6a5348";
           ctx.fillRect(extra.x - 14, extra.y - 4, 28, 6);
           ctx.fillRect(extra.x - 12, extra.y - 10, 4, 8);
           ctx.fillRect(extra.x + 8, extra.y - 10, 4, 8);
         } else if (window.Art && Art.sprite) {
-          Art.sprite(ctx, "stones", extra.x, extra.y, { scale: 2 });
+          Art.sprite(ctx, "stones", extra.x, extra.y, { scale: 1 });
         } else {
           ctx.fillStyle = "#8a6860";
           ctx.beginPath();
@@ -1303,7 +1443,7 @@ SF.entityList = function (s) {
     });
   });
   SF.activePickups().forEach(function (item) {
-    if ((item.id === "shard-ash-nook" || item.id === "bloom-ash-nook") && SF.secretVisible && !SF.secretVisible(item)) return;
+    if (item.kind === "shard" && SF.state && SF.state.player && SF.dist(SF.state.player.x, SF.state.player.y, item.x, item.y) > 96) return;
     list.push({ y: item.y, draw: function (ctx) { SF.drawPickup(ctx, item, false); } });
   });
   list.push({ y: SF.LAMP.y, draw: function (ctx) { SF.drawLampCrystal(ctx, lit); } });
@@ -1353,7 +1493,8 @@ SF.entityList = function (s) {
         SF.drawShadow(ctx, e.x, e.y, e.r);
         var foeSprite = SF.foeSprite ? SF.foeSprite(e) : null;
         var bigFoe = e.boss || e.kind === "maw" || e.kind === "tidewyrm";
-        var drewFoe = foeSprite && SF.tryArtSprite && SF.tryArtSprite(ctx, foeSprite, e.x, e.y, { scale: bigFoe ? 3 : 2 });
+        var foeScale = (window.Art && Art.fieldScale) ? Art.fieldScale(foeSprite || "wayfarer") : 1;
+        var drewFoe = foeSprite && SF.tryArtSprite && SF.tryArtSprite(ctx, foeSprite, e.x, e.y, { scale: foeScale });
         if (!drewFoe) {
           if (e.kind === "wisp") SF.drawWisp(ctx, e);
           else if (e.kind === "brumekin") SF.drawBrume(ctx, e);
@@ -1386,6 +1527,15 @@ SF.entityList = function (s) {
       ctx.stroke();
       ctx.restore();
       SF.drawWayfarer(ctx, p.x, p.y + sink, p.fx, p.fy, alpha, p.shardstep);
+      var palm = SF.palmAmt ? SF.palmAmt(s) : 0;
+      if (palm > 0 && SF.blobs) {
+        var hand = SF.palmPoint(p);
+        ctx.save();
+        ctx.globalAlpha = 0.4 + palm * 0.6;
+        ctx.drawImage(SF.blobs.cyan, hand.x - 11, hand.y - 11, 22, 22);
+        ctx.drawImage(SF.blobs.gold, hand.x - 6, hand.y - 6, 12, 12);
+        ctx.restore();
+      }
       if (p.swinging) {
         var ang = Math.atan2(p.fy, p.fx);
         ctx.save();
@@ -1403,10 +1553,14 @@ SF.entityList = function (s) {
   return list;
 };
 
+SF.goalPrecise = function (goal) {
+  return !goal || goal.kind !== "shard" || goal.precise !== false;
+};
+
 SF.drawGuide = function (ctx, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
-  if (!goal) return;
+  if (!goal || !SF.goalPrecise(goal)) return;
   var p = s.player;
   var dx = goal.x - p.x;
   var dy = goal.y - p.y;
@@ -1436,14 +1590,15 @@ SF.drawEdgeArrow = function (ctx, w, h, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
   if (!goal) return;
+  var sensed = goal.kind === "shard" && goal.precise === false;
   var zoom = SF.zoom || 1;
   var sx = (goal.x - s.camX) * zoom + w / 2;
   var sy = (goal.y - s.camY) * zoom + h / 2;
   var left = 28;
   var right = w - 28;
-  var top = 120;
-  var bottom = h - 170;
-  if (sx > left && sx < right && sy > top && sy < bottom) return;
+  var top = 88;
+  var bottom = h - 150;
+  if (!sensed && sx > left && sx < right && sy > top && sy < bottom) return;
   var cx = w / 2;
   var cy = h / 2;
   var dx = sx - cx;
@@ -1458,7 +1613,8 @@ SF.drawEdgeArrow = function (ctx, w, h, s) {
   ctx.save();
   ctx.translate(cx + dx * t, cy + dy * t);
   ctx.rotate(Math.atan2(dy, dx));
-  ctx.fillStyle = "#ffd37a";
+  if (sensed) ctx.globalAlpha = 0.55 + Math.sin((SF.anim || 0) * 5) * 0.4;
+  ctx.fillStyle = sensed ? "#9af6ff" : "#ffd37a";
   ctx.strokeStyle = "rgba(20, 10, 30, 0.7)";
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -1614,12 +1770,15 @@ SF.drawMap = function () {
   var minY = Infinity;
   var maxX = -Infinity;
   var maxY = -Infinity;
-  SF.WALK.circles.forEach(function (c) {
-    minX = Math.min(minX, c.x - c.r);
-    minY = Math.min(minY, c.y - c.r);
-    maxX = Math.max(maxX, c.x + c.r);
-    maxY = Math.max(maxY, c.y + c.r);
-  });
+  function mapBound(c) {
+    var f = SF.foot(c);
+    minX = Math.min(minX, f.x - f.rx);
+    minY = Math.min(minY, f.y - f.ry);
+    maxX = Math.max(maxX, f.x + f.rx);
+    maxY = Math.max(maxY, f.y + f.ry);
+  }
+  SF.WALK.circles.forEach(mapBound);
+  (SF.WALK.rects || []).forEach(mapBound);
   var pad = 16;
   var scale = Math.min((w - pad * 2) / (maxX - minX), (h - pad * 2) / (maxY - minY));
   function mx(x) { return pad + (x - minX) * scale; }
@@ -1634,6 +1793,8 @@ SF.drawMap = function () {
     quay: "#8d8680",
     ash: "#a89890",
     vault: "#6e4038",
+    scar: "#c45a48",
+    ridge: "#7eb8c8",
     salt: "#5ec4b0",
     shore: "#e0c07a",
     wreck: "#5c6560",
@@ -1648,26 +1809,26 @@ SF.drawMap = function () {
     if (!group || !group.length) return;
     ctx.beginPath();
     group.forEach(function (c) {
-      ctx.moveTo(mx(c.x + c.r), my(c.y));
-      ctx.arc(mx(c.x), my(c.y), c.r * scale, 0, Math.PI * 2);
+      var f = SF.foot(c);
+      if (f.rect && c.w != null) {
+        ctx.rect(mx(c.x), my(c.y), c.w * scale, c.h * scale);
+        return;
+      }
+      ctx.moveTo(mx(f.x + f.rx), my(f.y));
+      if (ctx.ellipse) ctx.ellipse(mx(f.x), my(f.y), Math.max(1, f.rx * scale), Math.max(1, f.ry * scale), 0, 0, Math.PI * 2);
+      else ctx.arc(mx(f.x), my(f.y), Math.max(1, Math.min(f.rx, f.ry) * scale), 0, Math.PI * 2);
     });
     ctx.fillStyle = mapColors[name];
     ctx.fill();
   });
-  var bridge = SF.WALK.rects[0];
-  if (bridge) {
-    ctx.fillStyle = "#8a5436";
-    ctx.fillRect(mx(bridge.x), my(bridge.y), bridge.w * scale, bridge.h * scale);
-  }
-
   SF.activePickups().forEach(function (item) {
-    if (item.kind !== "shard" && item.kind !== "cog") return;
-    if (item.secret && !SF.secretVisible(item)) return;
-    ctx.fillStyle = item.kind === "cog" ? "#ffb15a" : "#9af6ff";
+    if (item.kind !== "cog") return;
+    ctx.fillStyle = "#ffb15a";
     ctx.fillRect(mx(item.x) - 1.5, my(item.y) - 1.5, 3, 3);
   });
   s.enemies.forEach(function (e) {
     if (!e.alive) return;
+    if (e.kind !== "maw" && e.kind !== "tidewyrm") return;
     ctx.fillStyle = "rgba(255,120,140,0.9)";
     ctx.beginPath();
     ctx.arc(mx(e.x), my(e.y), 2, 0, Math.PI * 2);
@@ -1676,11 +1837,26 @@ SF.drawMap = function () {
   ctx.fillStyle = (SF.lampIsLit ? SF.lampIsLit(s) : s.flags.lampLit) ? "#ffe7a8" : "#c9b6e8";
   ctx.fillRect(mx(SF.LAMP.x) - 2, my(SF.LAMP.y) - 2, 4, 4);
   var goal = SF.objectivePoint(s);
-  if (goal) {
+  if (goal && SF.goalPrecise(goal)) {
     ctx.globalAlpha = (SF.calm && SF.calm()) ? 0.92 : (0.8 + Math.sin(SF.anim * 1.4) * 0.12);
     ctx.fillStyle = "#ffd37a";
     ctx.beginPath();
     ctx.arc(mx(goal.x), my(goal.y), 4, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (goal && s.player) {
+    var px = mx(s.player.x);
+    var py = my(s.player.y);
+    var gx = mx(goal.x) - px;
+    var gy = my(goal.y) - py;
+    var glen = Math.hypot(gx, gy) || 1;
+    var tick = Math.min(12, glen * 0.35);
+    ctx.globalAlpha = 0.55 + Math.sin((SF.anim || 0) * 5) * 0.35;
+    ctx.fillStyle = "#9af6ff";
+    ctx.beginPath();
+    ctx.moveTo(px + gx / glen * (tick + 4), py + gy / glen * (tick + 4));
+    ctx.lineTo(px + gx / glen * tick - gy / glen * 3, py + gy / glen * tick + gx / glen * 3);
+    ctx.lineTo(px + gx / glen * tick + gy / glen * 3, py + gy / glen * tick - gx / glen * 3);
+    ctx.closePath();
     ctx.fill();
   }
   if (s.discovered && s.discovered.vault && SF.islandId === "cinderveil") {

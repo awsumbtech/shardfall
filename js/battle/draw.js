@@ -310,13 +310,14 @@ function listRowCount(b) {
 
 function layoutBattle(w, h, phase, nParty, listRows) {
   var land = w > h;
-  var margin = 8;
-  var gap = 6;
-  var stripH = 50;
-  var btnH = 48;
-  var promptH = phase === "target" ? 28 : 0;
-  var cardH = nParty > 1 ? 78 : 84;
-  var logH = 52;
+  var short = h <= 400;
+  var margin = short ? 6 : 8;
+  var gap = short ? 4 : 6;
+  var stripH = short ? 50 : 64;
+  var btnH = short ? 44 : 48;
+  var promptH = phase === "target" ? (short ? 20 : 28) : 0;
+  var cardH = short ? 72 : (nParty > 1 ? 78 : 84);
+  var logH = short ? 36 : 52;
   var cmdH = btnH * 3 + gap * 2;
   listRows = listRows || 0;
   var strip = { x: margin, y: margin, w: w - margin * 2, h: stripH };
@@ -377,13 +378,13 @@ function layoutBattle(w, h, phase, nParty, listRows) {
     var commands = { x: rx, y: cmdY, w: rw, h: cmdH, btnH: btnH, gap: gap };
     if (commands.y + cmdH > bottom) {
       var overflow = commands.y + cmdH - bottom;
-      var take = Math.min(overflow, Math.max(0, log.h - 36));
+      var take = Math.min(overflow, Math.max(0, log.h - 32));
       log.h -= take;
       prompt.y -= take;
       commands.y -= take;
       overflow -= take;
       if (overflow > 0) {
-        var takeCard = Math.min(overflow, Math.max(0, card.h - 68));
+        var takeCard = Math.min(overflow, Math.max(0, card.h - 64));
         card.h -= takeCard;
         log.y -= takeCard;
         prompt.y -= takeCard;
@@ -412,7 +413,7 @@ function layoutBattle(w, h, phase, nParty, listRows) {
   var stagePo = { x: 0, y: y0, w: w, h: cardPo.y - gap - y0 };
   if (stagePo.h < 150) {
     var short = 150 - stagePo.h;
-    var fromLog = Math.min(short, Math.max(0, logP.h - 36));
+    var fromLog = Math.min(short, Math.max(0, logP.h - 32));
     logP.h -= fromLog;
     logP.y += fromLog;
     cardPo.y += fromLog;
@@ -461,7 +462,7 @@ var UNIT_SHORT = {
   kestrel: "Kestrel",
   tamsin: "Tamsin",
   wisp: "Wisp",
-  brumekin: "Brume",
+  brumekin: "Brumekin",
   choirling: "Choir",
   ashling: "Ashling",
   cinderhound: "Hound",
@@ -481,7 +482,7 @@ var UNIT_TIGHT = {
   tamsin: "Tam",
   sentinel: "Sentry",
   choir_soldier: "Choir",
-  brumekin: "Brume",
+  brumekin: "Brumekin",
   drowned: "Drowned",
   stormgull: "Gull"
 };
@@ -562,9 +563,10 @@ function drawStrip(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
   var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
   var n = Math.min(8, order.length || 1);
-  var inset = 12;
+  var inset = 8;
   var slot = Math.floor((w - inset * 2) / n);
-  var face = Math.max(18, Math.min(24, slot - 8, h - 26));
+  var nameH = 13;
+  var face = Math.max(16, Math.min(26, slot - 6, h - nameH - 8));
   var i, id, actor, ox, label, gx, box;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
@@ -573,30 +575,26 @@ function drawStrip(ctx, b, x, y, w, h) {
     actor = actorOf(b, id);
     if (!actor) continue;
     ox = x + inset + i * slot + Math.max(0, Math.floor((slot - face) / 2));
-    box = face + 4;
-    gx = ox - 2;
-    if (gx < x + 10) {
-      ox += x + 10 - gx;
-      gx = ox - 2;
+    box = face + 2;
+    gx = ox - 1;
+    if (gx < x + 6) {
+      ox += x + 6 - gx;
+      gx = ox - 1;
     }
-    if (gx + box > x + w - 8) box = Math.max(face, x + w - 8 - gx);
+    if (gx + box > x + w - 6) box = Math.max(face, x + w - 6 - gx);
+    var portraitY = y + 4;
     if (i === 0) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 2;
-      ctx.strokeRect(gx, y + 6, box, box);
+      ctx.strokeRect(gx, portraitY - 1, box, box);
     }
-    drawPortrait(ctx, actor.sprite, ox, y + 8, face);
+    drawPortrait(ctx, actor.sprite, ox, portraitY, face);
     var slotX = x + inset + i * slot;
-    label = pickFitting(ctx, labelChoices(actor, b, false), Math.max(12, slot - 4), 12, 9);
+    label = pickFitting(ctx, labelChoices(actor, b, true), Math.max(12, slot - 2), 11, 8);
     if (!label.text) continue;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(slotX, y + h - 16, slot, 15);
-    ctx.clip();
     ctx.fillStyle = i === 0 ? "#ffd37a" : "#d5def2";
     ctx.font = "700 " + label.size + "px system-ui, sans-serif";
-    ctx.fillText(label.text, slotX + slot / 2, y + h - 6);
-    ctx.restore();
+    ctx.fillText(label.text, slotX + slot / 2, portraitY + face + 14);
   }
 }
 
@@ -906,15 +904,16 @@ function drawPartyCards(ctx, b, party, x, y, w, h) {
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
-    ctx.font = "700 16px Palatino, Georgia, serif";
-    ctx.fillText(a.name, textX, y + 6);
+    ctx.font = "700 15px Palatino, Georgia, serif";
+    ctx.fillText(a.name, textX, y + 4);
     var barW = Math.max(36, cx + bw - 12 - textX);
-    ctx.font = "700 14px system-ui, sans-serif";
+    var labelW = Math.min(78, Math.round(barW * 0.46));
+    ctx.font = "700 13px system-ui, sans-serif";
     ctx.fillStyle = "#d7e6ff";
-    ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 26);
-    bar(ctx, textX, y + 44, barW, 6, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
-    ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 54);
-    bar(ctx, textX, y + h - 12, barW, 5, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
+    ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 22);
+    bar(ctx, textX + labelW, y + 24, Math.max(20, barW - labelW), 6, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
+    ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 42);
+    bar(ctx, textX + labelW, y + 44, Math.max(20, barW - labelW), 6, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
     if (b.phase === "target" && b.aim === "ally" && a.alive) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 3;
@@ -935,16 +934,18 @@ function weakLabel(id) {
 function drawLog(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
   var lines = b.log.slice(-2);
+  var lineH = Math.max(12, Math.floor((h - 8) / Math.max(1, lines.length)));
+  var fontPx = Math.min(14, Math.max(11, lineH - 1));
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x + 8, y + 6, Math.max(8, w - 16), Math.max(8, h - 12));
+  ctx.rect(x + 6, y + 3, Math.max(8, w - 12), Math.max(8, h - 6));
   ctx.clip();
   ctx.fillStyle = "#f6f2ea";
-  ctx.font = "700 14px system-ui, sans-serif";
+  ctx.font = "700 " + fontPx + "px system-ui, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   lines.forEach(function (line, i) {
-    ctx.fillText(line, x + 12, y + 8 + i * 20);
+    ctx.fillText(line, x + 8, y + 4 + i * lineH);
   });
   ctx.restore();
 }
@@ -1192,7 +1193,9 @@ function bindBattlePointer() {
     var s = SF.state;
     if (!s || (s.mode !== "battle" && s.mode !== "results")) return;
     var rect = view.getBoundingClientRect();
-    SF.Battle.onPointer(e.clientX - rect.left, e.clientY - rect.top);
+    var sx = rect.width ? (SF.viewW || rect.width) / rect.width : 1;
+    var sy = rect.height ? (SF.viewH || rect.height) / rect.height : 1;
+    SF.Battle.onPointer((e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy);
     e.preventDefault();
   });
   window.addEventListener("keydown", function (e) {

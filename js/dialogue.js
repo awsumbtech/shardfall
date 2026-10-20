@@ -165,6 +165,7 @@ function showNode(id) {
   var node = lookup(id);
   var lines = visibleLines(node, (s.flags || {}));
   var full = fillLine(lines[0], s);
+  if (SF.armReveal) SF.armReveal(full);
   var instant = linesInstant();
   var walkingUp = !!(s.approach && s.approach.kind === "cantor" && (node.id === "cinderveil.cantor.confront"));
   var lock = 0.2;
@@ -260,6 +261,7 @@ SF.advanceDialogue = function () {
   if (d.i < d.lines.length - 1) {
     d.i += 1;
     d.full = fillLine(d.lines[d.i], s);
+    if (SF.armReveal) SF.armReveal(d.full);
     var instant = linesInstant();
     d.shown = instant ? d.full.length : 0;
     d.done = instant || !d.full.length;
@@ -728,10 +730,10 @@ SF.paintDialogue = function () {
     SF._portraitKey = portraitKey;
     drawPortrait(portrait, portraitKey);
   }
-  if ((d.id === "cinderveil.act1.finale") && !d.bannered && SF.pushBanner) {
-    d.bannered = true;
-    SF.pushBanner("End of Act 1", "Ahead lies Highspire, and the last of the Lanternwrights.", 14);
-  }
+  var endcard = document.getElementById("endcard");
+  var finale = d.id === "cinderveil.act1.finale";
+  if (finale) root.hidden = true;
+  if (endcard) endcard.hidden = !finale;
 };
 
 if (SF._dialogueUi) {
