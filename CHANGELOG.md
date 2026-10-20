@@ -11,6 +11,10 @@ Kestrel and Tamsin join after the act ends. The banners say "Kestrel joined the 
 Levels go to 30. Marks are the coins. The pause button opens Party, Skills, Items, Equip, Save, and Settings.
 The Cinder Maw is fought in turns. Aim at the core.
 A saved game from v0.2 keeps going, with a level from the old journey. A finished Act 1 adds both companions. A journey still on the road stays solo.
+The sail chart opens after Act 1. Saltmere, Gullrock, the Drift Market, and the road to Highspire are on it.
+Saltmere is a stilt town: Quinn's Hooks, the Stilthouse, and the Holdfast under the west pier. The gap to the wreck takes a hook.
+Lowgate sits under the city. You can shop and sleep there. The gate stays shut until Saltmere's lamp is lit, and the city is still closed after that.
+Chests remember when you open them. Shops buy and sell. A night at an inn fills your heart and brings field enemies back. A boss stays down.
 Reduce flashing stays on until you turn it off.
 
 ## v0.2.1 — The Cantor walks up

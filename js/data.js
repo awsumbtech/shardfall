@@ -22,8 +22,9 @@ SF.XP_NEED = [0, 24, 70, 110];
 SF.WHATS_NEW = [
   "Fights are turn-based. Walk into a foe, or press Fight when one is close.",
   "Act 1 is fought alone. Kestrel and Tamsin join after the act ends.",
-  "The pause button opens the menu: party, skills, items, gear, and save.",
-  "Levels go to 30. Marks are the coins. Old saves keep going."
+  "The sail chart opens after Act 1. Saltmere, Gullrock, the Drift Market, and Lowgate are on it.",
+  "The Holdfast is under Saltmere's west pier. Highspire's gate stays shut until that lamp is lit.",
+  "Chests stay open. Shops buy and sell. A night at an inn brings field enemies back."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

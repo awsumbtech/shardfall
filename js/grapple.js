@@ -518,20 +518,28 @@ SF.drawVoyage = function (ctx, w, h, s) {
     if (SF.blobs) ctx.drawImage(SF.blobs.cloud, x, y, 180, 70);
   }
   ctx.restore();
-  ctx.save();
-  ctx.translate(w * 0.5, h * 0.58);
-  ctx.fillStyle = "#8a5a3a";
-  ctx.fillRect(-28, -6, 56, 10);
-  ctx.fillStyle = "#e7d2b4";
-  ctx.beginPath();
-  ctx.moveTo(0, -6);
-  ctx.lineTo(8, -34);
-  ctx.lineTo(-8, -34);
-  ctx.fill();
-  ctx.restore();
+  var drewSkiff = SF.tryArtSprite && SF.tryArtSprite(ctx, "skiff", w * 0.5, h * 0.58, { scale: 3 });
+  if (!drewSkiff) {
+    ctx.save();
+    ctx.translate(w * 0.5, h * 0.58);
+    ctx.fillStyle = "#8a5a3a";
+    ctx.fillRect(-28, -6, 56, 10);
+    ctx.fillStyle = "#e7d2b4";
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(8, -34);
+    ctx.lineTo(-8, -34);
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.fillStyle = "#ffd37a";
   ctx.font = "600 18px Palatino, Georgia, serif";
   ctx.textAlign = "center";
-  var name = s.voyage && s.voyage.to === "cinderveil" ? "Cinderveil" : "Emberhold";
-  ctx.fillText(name, w / 2, h * 0.28);
+  var destId = s.voyage && s.voyage.to;
+  var dest = destId === "cinderveil" ? "Cinderveil" : (destId === "emberhold" ? "Emberhold" : (destId || ""));
+  if (destId && SF.destinationById) {
+    var row = SF.destinationById(destId);
+    if (row) dest = row.name;
+  }
+  ctx.fillText(dest, w / 2, h * 0.28);
 };

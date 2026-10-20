@@ -31,6 +31,8 @@ SF.exportState = function (s) {
     enemySave: s.enemySave || {},
     picked: s.picked,
     drops: s.drops,
+    voyageCount: s.voyageCount || 0,
+    lastRest: s.lastRest || null,
     flags: s.flags,
     discovered: s.discovered,
     stats: s.stats,
@@ -89,6 +91,10 @@ SF.applySave = function (s, data) {
   s.enemySave = data.enemySave || {};
   s.picked = data.picked || {};
   s.drops = data.drops || {};
+  s.gold = data.gold == null ? 0 : data.gold;
+  s.inventory = data.inventory || {};
+  s.voyageCount = data.voyageCount || 0;
+  s.lastRest = data.lastRest || s.lastRest || null;
   s.flags = Object.assign(s.flags, data.flags || {});
   s.discovered = Object.assign(s.discovered, data.discovered || {});
   if (s.flags.metCantor && (s.flags.heardChoir || s.discovered.hollow)) s.flags.met_cantor = true;

@@ -244,22 +244,13 @@ SF.bindUI = function () {
     if (SF.state && SF.state.mode === "voyage" && SF.finishVoyage) SF.finishVoyage();
     else SF.skipCutscene();
   });
-  document.getElementById("sail-ember").addEventListener("click", function () {
-    SF.emit("ui");
-    SF.startVoyage("emberhold");
-  });
-  document.getElementById("sail-cinder").addEventListener("click", function () {
-    SF.emit("ui");
-    if (!SF.state.flags.sailUnlocked) {
-      SF.pushToast("The hull is not ready for Cinderveil.", 1.8);
-      return;
-    }
-    SF.startVoyage("cinderveil");
-  });
-  document.getElementById("sail-close").addEventListener("click", function () {
-    if (SF.state && SF.state.mode === "sailmenu") SF.state.mode = "play";
-    SF.syncUI();
-  });
+  var sailClose = document.getElementById("sail-close");
+  if (sailClose && !SF.bindWorldUI) {
+    sailClose.addEventListener("click", function () {
+      if (SF.state && SF.state.mode === "sailmenu") SF.state.mode = "play";
+      SF.syncUI();
+    });
+  }
   document.getElementById("hand-close").addEventListener("click", function () {
     SF.closeHand();
     SF.syncUI();
@@ -312,6 +303,7 @@ SF.syncUI = function () {
     document.getElementById("pause-stats").textContent =
       "Lv " + p.level + "  ·  Heart " + Math.ceil(p.hp) + "/" + p.maxHp +
       "  ·  Strike " + p.atk + "  ·  Shards " + s.shardsHeld +
+      "  ·  Marks " + (s.gold || 0) +
       "  ·  " + Math.floor(s.playTime / 60) + "m on the Hush";
     document.getElementById("pause-quest").textContent = SF.questText(s);
     document.getElementById("pause-note").textContent = SF.pauseNote || "";
@@ -337,14 +329,7 @@ SF.syncUI = function () {
   if (showTalk && SF.paintDialogue) SF.paintDialogue();
 
   var sail = document.getElementById("sail");
-  sail.hidden = s.mode !== "sailmenu";
-  if (s.mode === "sailmenu") {
-    document.getElementById("isle-ember").classList.toggle("here", SF.islandId === "emberhold");
-    document.getElementById("isle-cinder").classList.toggle("here", SF.islandId === "cinderveil");
-    document.getElementById("sail-cinder").disabled = !s.flags.sailUnlocked;
-    document.getElementById("sail-ember").disabled = SF.islandId === "emberhold";
-    document.getElementById("sail-cinder").disabled = SF.islandId === "cinderveil" || !s.flags.sailUnlocked;
-  }
+  if (sail) sail.hidden = s.mode !== "sailmenu";
 
   var hand = document.getElementById("hand");
   hand.hidden = s.mode !== "hand";

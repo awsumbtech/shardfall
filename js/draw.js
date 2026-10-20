@@ -108,21 +108,17 @@ SF.traceGroup = function (ctx, circles, grow) {
 
 SF.drawSky = function (ctx, w, h, s) {
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!(s.flags && s.flags.lampLit);
-  var cinder = SF.islandId === "cinderveil";
-  var key = (cinder ? "C" : "E") + (lit ? "L" : "D") + ":" + w + "x" + h;
+  var isle = SF.islandId || "emberhold";
+  var key = isle + (lit ? "L" : "D") + ":" + w + "x" + h;
   if (SF._skyKey !== key) {
+    var skies = SF.SKY || {};
+    var row = skies[isle] || skies.emberhold || { dusk: ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae"], lit: ["#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"] };
+    var stops = (lit && row.lit) ? row.lit : row.dusk;
     var g = ctx.createLinearGradient(0, 0, 0, h);
-    if (cinder) {
-      g.addColorStop(0, lit ? "#3a2418" : "#241812");
-      g.addColorStop(0.42, lit ? "#8a5040" : "#5c4038");
-      g.addColorStop(0.72, lit ? "#e07a48" : "#c46a55");
-      g.addColorStop(1, lit ? "#f0b090" : "#d9a090");
-    } else {
-      g.addColorStop(0, lit ? "#2a1860" : "#1a1038");
-      g.addColorStop(0.42, lit ? "#6a4a86" : "#4c356c");
-      g.addColorStop(0.72, lit ? "#f0b59a" : "#e39a8c");
-      g.addColorStop(1, lit ? "#f8d7b4" : "#f0c6ae");
-    }
+    g.addColorStop(0, stops[0]);
+    g.addColorStop(0.42, stops[1]);
+    g.addColorStop(0.72, stops[2]);
+    g.addColorStop(1, stops[3]);
     SF._skyGrad = g;
     SF._skyKey = key;
   }
@@ -214,6 +210,33 @@ SF.drawClouds = function (ctx, s) {
   SF.blitSheet(ctx, SF._cloudSheet, SF._cloudPpm, left - s.camX * 0.18 - drift, top - s.camY * 0.18, left, top, vw, vh, b.minX, b.minY);
 };
 
+SF.SKY = {
+  emberhold: { dusk: ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae"], lit: ["#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"] },
+  cinderveil: { dusk: ["#241812", "#5c4038", "#c46a55", "#d9a090"], lit: ["#3a2418", "#8a5040", "#e07a48", "#f0b090"] },
+  saltmere: { dusk: ["#102438", "#1e5870", "#e0a898", "#f3d2bc"] },
+  highspire: { dusk: ["#2a160c", "#6a4030", "#e0a060", "#f0d0a0"] },
+  gullrock: { dusk: ["#1a1830", "#4a4868", "#c8b8a8", "#e4d4c4"] },
+  drift: { dusk: ["#241430", "#5a4068", "#d0a0b8", "#f0d0c8"] }
+};
+
+SF.LANDS = {
+  ember: { cliff: "#a15a42", rim: "#d5f0b0", hi: "#d4f0aa", mid: "#5cba78", lo: "#2a704c", lit: { rim: "#e7ffc4", hi: "#e4f8b8", mid: "#6ed184", lo: "#2f8a58" } },
+  perch: { cliff: "#7a5344", rim: "#d8fff4", hi: "#d4fff2", mid: "#73cbb4", lo: "#2f7d78" },
+  cinder: { cliff: "#a15a42", rim: "#fff0c8", hi: "#fff1c4", mid: "#e0b15a", lo: "#8a7a3e" },
+  span: { cliff: "#6e5348", rim: "#f0d2bf", hi: "#ecd3c2", mid: "#b88870", lo: "#7a5a4e" },
+  quay: { cliff: "#4e5c5a", rim: "#9fd4d0", hi: "#c8c2ba", mid: "#8d8680", lo: "#5c5854" },
+  ash: { cliff: "#5a5048", rim: "#f0a070", hi: "#d8cfc6", mid: "#a89890", lo: "#6e625c" },
+  vault: { cliff: "#3a2824", rim: "#ffb15a", hi: "#8a6860", mid: "#6e4038", lo: "#3a2824" },
+  salt: { cliff: "#3e6e78", rim: "#d7fff8", hi: "#c9f6ea", mid: "#5ec4b0", lo: "#2a6e78" },
+  shore: { cliff: "#c4a574", rim: "#fff0c8", hi: "#f3e2b0", mid: "#e0c07a", lo: "#a68448" },
+  wreck: { cliff: "#3a403c", rim: "#b7c0b8", hi: "#8a948c", mid: "#5c6560", lo: "#2e3834" },
+  wyrm: { cliff: "#1a3038", rim: "#7ec8c4", hi: "#3e6e78", mid: "#1e4e58", lo: "#102830" },
+  hs: { cliff: "#6a5348", rim: "#f0e2c8", hi: "#e6d2b0", mid: "#c4a070", lo: "#7a5a40" },
+  road: { cliff: "#6e5348", rim: "#ecd8c0", hi: "#e0c8a8", mid: "#b89070", lo: "#6e5040" },
+  gull: { cliff: "#5a5854", rim: "#e4e0d8", hi: "#d4d0c8", mid: "#a8a49c", lo: "#6a6660" },
+  drift: { cliff: "#4a3a68", rim: "#e6d8ff", hi: "#d4c4f0", mid: "#8a74b0", lo: "#4a3868" }
+};
+
 SF.drawLands = function (ctx, s) {
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!s.flags.lampLit;
   function cliff(group) {
@@ -221,13 +244,8 @@ SF.drawLands = function (ctx, s) {
     ctx.save();
     ctx.translate(0, 14);
     SF.traceGroup(ctx, SF.groups[group], 2);
-    var cliffColor = "#a15a42";
-    if (group === "span") cliffColor = "#6e5348";
-    else if (group === "perch") cliffColor = "#7a5344";
-    else if (group === "quay") cliffColor = "#4e5c5a";
-    else if (group === "ash") cliffColor = "#5a5048";
-    else if (group === "vault") cliffColor = "#3a2824";
-    ctx.fillStyle = cliffColor;
+    var look = (SF.LANDS && SF.LANDS[group]) || { cliff: "#a15a42" };
+    ctx.fillStyle = look.cliff || "#a15a42";
     ctx.fill();
     ctx.restore();
   }
@@ -257,16 +275,12 @@ SF.drawLands = function (ctx, s) {
     ctx.fillRect(anchor.x - 2200, anchor.y - 2200, 4400, 4400);
     ctx.restore();
   }
-  ["ember", "perch", "cinder", "span", "quay", "ash", "vault"].forEach(cliff);
-  top("ember", lit
-    ? { rim: "#e7ffc4", hi: "#e4f8b8", mid: "#6ed184", lo: "#2f8a58" }
-    : { rim: "#d5f0b0", hi: "#d4f0aa", mid: "#5cba78", lo: "#2a704c" });
-  top("perch", { rim: "#d8fff4", hi: "#d4fff2", mid: "#73cbb4", lo: "#2f7d78" });
-  top("cinder", { rim: "#fff0c8", hi: "#fff1c4", mid: "#e0b15a", lo: "#8a7a3e" });
-  top("span", { rim: "#f0d2bf", hi: "#ecd3c2", mid: "#b88870", lo: "#7a5a4e" });
-  top("quay", { rim: "#9fd4d0", hi: "#c8c2ba", mid: "#8d8680", lo: "#5c5854" });
-  top("ash", { rim: "#f0a070", hi: "#d8cfc6", mid: "#a89890", lo: "#6e625c" });
-  top("vault", { rim: "#ffb15a", hi: "#8a6860", mid: "#6e4038", lo: "#3a2824" });
+  Object.keys(SF.groups || {}).forEach(function (name) {
+    cliff(name);
+    var look = (SF.LANDS && SF.LANDS[name]) || SF.LANDS.ember;
+    var colors = (lit && look.lit) ? look.lit : look;
+    top(name, colors);
+  });
 
   var hollow = SF.circle("hollow");
   if (hollow) {
@@ -386,7 +400,7 @@ SF.buildTerrainSheet = function (lit) {
   SF._landGrad = {};
   SF._baking = true;
   var fake = { flags: { lampLit: !!lit, cinderLit: SF.islandId === "cinderveil" && !!lit } };
-  ["ember", "perch", "cinder", "quay", "ash", "vault"].forEach(function (name) {
+  Object.keys(SF.groups || {}).forEach(function (name) {
     (SF.groups[name] || []).forEach(function (c) {
       bctx.drawImage(SF.blobs.shadow, c.x - c.r * 1.15, c.y - c.r * 0.45 + 18, c.r * 2.3, c.r * 1.25);
     });
@@ -621,6 +635,8 @@ SF.drawProp = function (ctx, prop, lit) {
       ctx.arc(0, -12, 2, 0, Math.PI * 2);
       ctx.fill();
     }
+  } else if (SF.drawWorldProp) {
+    SF.drawWorldProp(ctx, prop, lit);
   }
   ctx.restore();
 };
@@ -1033,6 +1049,10 @@ SF.entityList = function (s) {
       y: extra.y,
       draw: function (ctx) {
         ctx.save();
+        if (SF.drawExtra && SF.drawExtra(ctx, extra)) {
+          ctx.restore();
+          return;
+        }
         if (extra.kind === "bench") {
           ctx.fillStyle = "#6a5348";
           ctx.fillRect(extra.x - 14, extra.y - 4, 28, 6);
@@ -1070,12 +1090,15 @@ SF.entityList = function (s) {
       y: ny,
       draw: function (ctx) {
         SF.drawShadow(ctx, nx, ny, 10);
-        if (n.id === "maren") SF.drawMaren(ctx, nx, ny);
-        else if (n.id === "kestrel") SF.drawKestrel(ctx, nx, ny);
-        else if (n.id === "tamsin") SF.drawTamsin(ctx, nx, ny);
-        else if (n.id === "hesk") SF.drawHesk(ctx, nx, ny);
-        else if (n.id === "ilsa") SF.drawIlsa(ctx, nx, ny);
-        else SF.drawCantor(ctx, nx, ny);
+        var drewActor = SF.drawActor && SF.drawActor(ctx, n, nx, ny);
+        if (!drewActor) {
+          if (n.id === "maren") SF.drawMaren(ctx, nx, ny);
+          else if (n.id === "kestrel") SF.drawKestrel(ctx, nx, ny);
+          else if (n.id === "tamsin") SF.drawTamsin(ctx, nx, ny);
+          else if (n.id === "hesk") SF.drawHesk(ctx, nx, ny);
+          else if (n.id === "ilsa") SF.drawIlsa(ctx, nx, ny);
+          else SF.drawCantor(ctx, nx, ny);
+        }
         var walking = n.id === "cantor" && s.approach && s.approach.kind === "cantor";
         if (walking || (s.mode === "play" && SF.dist(s.player.x, s.player.y, nx, ny) < 90)) {
           ctx.save();
@@ -1096,10 +1119,16 @@ SF.entityList = function (s) {
         ctx.save();
         if (e.dying > 0) ctx.globalAlpha = Math.max(0, e.dying / 0.45);
         SF.drawShadow(ctx, e.x, e.y, e.r);
-        if (e.kind === "wisp") SF.drawWisp(ctx, e);
-        else if (e.kind === "brumekin") SF.drawBrume(ctx, e);
-        else if (e.kind === "choirling") SF.drawChoir(ctx, e);
-        else if (SF.drawFoe) SF.drawFoe(ctx, e);
+        var foeSprite = SF.foeSprite ? SF.foeSprite(e) : null;
+        var bigFoe = e.boss || e.kind === "maw" || e.kind === "tidewyrm";
+        var drewFoe = foeSprite && SF.tryArtSprite && SF.tryArtSprite(ctx, foeSprite, e.x, e.y, { scale: bigFoe ? 3 : 2 });
+        if (!drewFoe) {
+          if (e.kind === "wisp") SF.drawWisp(ctx, e);
+          else if (e.kind === "brumekin") SF.drawBrume(ctx, e);
+          else if (e.kind === "choirling") SF.drawChoir(ctx, e);
+          else if (SF.drawWorldFoe && SF.drawWorldFoe(ctx, e)) {}
+          else if (SF.drawFoe) SF.drawFoe(ctx, e);
+        }
         SF.drawHpPips(ctx, e);
         ctx.restore();
       }
@@ -1271,7 +1300,7 @@ SF.drawFx = function (ctx, s) {
 SF.drawVignette = function (ctx, w, h, s) {
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!(s.flags && s.flags.lampLit);
   var cinder = SF.islandId === "cinderveil";
-  var key = (cinder ? "C" : "E") + (lit ? "1" : "0") + ":" + w + "x" + h;
+  var key = (SF.islandId || "emberhold") + (lit ? "1" : "0") + ":" + w + "x" + h;
   if (SF._vigKey !== key) {
     var sheet = document.createElement("canvas");
     sheet.width = Math.max(1, Math.round(w * 0.5));
@@ -1367,7 +1396,15 @@ SF.drawMap = function () {
     span: "#b88870",
     quay: "#8d8680",
     ash: "#a89890",
-    vault: "#6e4038"
+    vault: "#6e4038",
+    salt: "#5ec4b0",
+    shore: "#e0c07a",
+    wreck: "#5c6560",
+    wyrm: "#1e4e58",
+    hs: "#c4a070",
+    road: "#b89070",
+    gull: "#a8a49c",
+    drift: "#8a74b0"
   };
   Object.keys(mapColors).forEach(function (name) {
     var group = SF.groups[name];

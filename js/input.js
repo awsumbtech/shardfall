@@ -172,8 +172,9 @@ SF.bindInput = function () {
       if (e.code === "Escape" && SF.closeFieldMenu) SF.closeFieldMenu();
       return;
     }
-    if (s.mode === "sailmenu") {
-      if (e.code === "Escape") s.mode = "play";
+    if (s.mode === "sailmenu" || s.mode === "shop" || s.mode === "inn" || s.mode === "notice") {
+      if (e.code === "Escape" && SF.closeWorldPanel) SF.closeWorldPanel();
+      else if (e.code === "Escape") s.mode = "play";
       return;
     }
     if (s.mode === "hand") {
