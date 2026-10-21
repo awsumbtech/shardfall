@@ -807,24 +807,34 @@ function drawFoeLabel(ctx, spot, battle) {
   else if (f.revealed && f.weak) tag = weakLabel(f.weak);
   var name = pickFitting(ctx, labelChoices(f, battle, true), Math.max(8, box.w - 2), 14, 11);
   ctx.save();
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.font = "700 " + name.size + "px system-ui, sans-serif";
+  var nameW = ctx.measureText(name.text).width;
+  ctx.font = "700 13px system-ui, sans-serif";
+  var hpW = ctx.measureText(hp).width;
+  var tagW = tag ? ctx.measureText(tag).width : 0;
+  var lineW = hpW + (tag && hpW + 8 + tagW <= box.w - 2 ? 8 + tagW : 0);
+  var plateW = Math.min(box.w, Math.max(nameW, lineW, 36) + 10);
+  var plateX = Math.round(box.x - 4);
+  var plateY = Math.round(box.y - 2);
+  ctx.fillStyle = "rgba(8, 6, 16, 0.78)";
+  ctx.fillRect(plateX, plateY, Math.round(plateW + 6), 40);
   ctx.beginPath();
   ctx.rect(box.x, box.y, box.w, box.h);
   ctx.clip();
-  ctx.textBaseline = "top";
-  ctx.textAlign = "left";
   ctx.fillStyle = "#f6f2ea";
   ctx.font = "700 " + name.size + "px system-ui, sans-serif";
   ctx.fillText(name.text, box.x, box.y + 1);
   ctx.font = "700 13px system-ui, sans-serif";
   ctx.fillStyle = "#ffd5dc";
-  var hpW = ctx.measureText(hp).width;
   ctx.fillText(hp, box.x, box.y + 18);
-  if (tag && hpW + 8 + ctx.measureText(tag).width <= box.w - 2) {
+  if (tag && hpW + 8 + tagW <= box.w - 2) {
     ctx.fillStyle = "#ffd37a";
     ctx.fillText(tag, box.x + hpW + 8, box.y + 18);
   }
   ctx.restore();
-  bar(ctx, box.x, box.y + 33, box.w, 4, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
+  bar(ctx, box.x, box.y + 33, plateW, 4, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
 }
 
 function drawStage(ctx, b, foes, party, stage, canvasH) {

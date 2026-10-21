@@ -58,21 +58,6 @@
 
   // A short ramp between two palette colors. Far is the first stop (lit,
   // often hue-shifted warm) and near is the last (darker, cooler).
-  function shade(from, to, n) {
-    var a = parse(from);
-    var b = parse(to);
-    var out = [];
-    var i, t;
-    for (i = 0; i < n; i++) {
-      t = n === 1 ? 0 : i / (n - 1);
-      out.push("rgb(" +
-        ((a[0] + (b[0] - a[0]) * t) | 0) + "," +
-        ((a[1] + (b[1] - a[1]) * t) | 0) + "," +
-        ((a[2] + (b[2] - a[2]) * t) | 0) + ")");
-    }
-    return out;
-  }
-
   function mixHex(a, b, t) {
     var A = parse(a);
     var B = parse(b);
@@ -103,25 +88,34 @@
     return xs;
   }
 
-  // A cloud sea: wide banks with a lit rim, a body, and a shadowed belly.
-  // Gaps keep the sky from turning into one solid bar.
-  function cloudBank(sc, y, hy, colors, seed) {
-    var x, wave, gap, top, depth, yy;
-    for (x = 0; x < sc.w; x++) {
-      gap = hash(x >> 3, seed);
-      if (gap > 0.78) continue;
-      wave = Math.sin((x + seed * 17) * 0.07) * 2.2 + Math.sin((x + seed * 5) * 0.19) * 1.4;
-      if (hash(x >> 1, seed + 2) > 0.92) wave -= 2;
-      top = Math.round(y + wave);
-      depth = 4 + ((hash(x >> 2, seed + 1) * 3) | 0);
-      if (top < 1) top = 1;
-      if (top + depth >= hy) depth = hy - top - 1;
-      if (depth < 2) continue;
-      sc.rect(x, top, 1, 1, colors.light);
-      for (yy = 1; yy < depth - 1; yy++) {
-        sc.rect(x, top + yy, 1, 1, yy < 2 && gap > 0.45 ? colors.light : colors.mid);
-      }
-      sc.rect(x, top + depth - 1, 1, 1, colors.dark);
+  // One soft puff. The top is an ellipse, so neighboring puffs overlap into a
+  // cloud bank instead of a broken line.
+  function puff(sc, cx, cy, rx, ry, light, mid, dark, clipY) {
+    var y, ny, w, row, col;
+    ry = Math.max(2, ry);
+    rx = Math.max(3, rx);
+    for (y = -ry; y <= ry; y++) {
+      ny = y / ry;
+      w = Math.round(rx * Math.sqrt(Math.max(0, 1 - ny * ny)));
+      if (w < 2) continue;
+      row = cy + y;
+      if (row < 0 || (clipY != null && row >= clipY)) continue;
+      if (y < -Math.round(ry * 0.42)) col = light;
+      else if (y > Math.round(ry * 0.38)) col = dark;
+      else col = mid;
+      sc.rect(cx - w, row, w * 2 + 1, 1, col);
+    }
+  }
+
+  function cloudRow(sc, y, clipY, colors, rx0, ry, overlap) {
+    var x = -Math.round(rx0 * 0.4);
+    var i = 0;
+    var rx;
+    while (x < sc.w + rx0 && i < 28) {
+      rx = rx0 + (i % 3) * 3;
+      puff(sc, x, y - (i % 2), rx, ry, colors.light, colors.mid, colors.dark, clipY);
+      x += Math.max(6, Math.round(rx * overlap));
+      i += 1;
     }
   }
 
@@ -150,25 +144,25 @@
     island(
       sc,
       Math.round(sc.w * 0.22),
-      Math.round(hy * 0.58),
+      Math.round(hy * 0.72),
       Math.round(sc.w * 0.08) + 8,
-      Math.round(hy * 0.16) + 4,
+      Math.round(hy * 0.14) + 4,
       style.top, style.body, style.shade
     );
     island(
       sc,
-      Math.round(sc.w * (wide(sc) ? 0.4 : 0.62)),
-      Math.round(hy * 0.8),
-      Math.round(sc.w * 0.14) + 10,
-      Math.round(hy * 0.2) + 5,
+      Math.round(sc.w * (wide(sc) ? 0.42 : 0.62)),
+      Math.round(hy * 0.86),
+      Math.round(sc.w * 0.13) + 10,
+      Math.round(hy * 0.18) + 5,
       style.top, style.body, style.shade
     );
     island(
       sc,
-      Math.round(sc.w * 0.72),
-      Math.round(hy * 0.64),
-      Math.round(sc.w * 0.07) + 6,
-      Math.round(hy * 0.13) + 3,
+      Math.round(sc.w * 0.74),
+      Math.round(hy * 0.74),
+      Math.round(sc.w * 0.06) + 6,
+      Math.round(hy * 0.12) + 3,
       style.top, style.body, style.shade
     );
   }
@@ -280,31 +274,43 @@
     sc.rect(x - 3, hy - 1, w + 6, 3, hex(C.rock));
   }
 
+  // A furnace mouth: thick stone jambs, an arched opening, a grate, coals.
   function forge(sc, cx, hy) {
-    var r = Math.max(9, Math.round(Math.min(hy * 0.42, sc.w * 0.09)));
-    var cy = hy - 1;
-    var y, x, dx, dy, dist, half, inner;
-    sc.rect(cx - r - 4, cy - r - 3, r * 2 + 8, r + 5, hex(C.void));
-    for (y = cy - r; y <= cy; y++) {
-      dy = cy - y;
-      half = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
-      inner = Math.max(1, half - 2);
-      sc.rect(cx - inner, y, inner * 2, 1, y > cy - 3 ? hex(C.ember) : hex(C.emberH));
-      if (y < cy - 2 && inner > 3) sc.rect(cx - inner + 2, y, Math.max(1, (inner - 2) * 2), 1, hex(C.warm));
+    var aw = Math.max(26, Math.round(sc.w * 0.2));
+    var ah = Math.max(18, Math.round(hy * 0.52));
+    var left = cx - (aw >> 1);
+    var top = hy - ah;
+    var jamb = 5;
+    var y, u, inset, x0, mw, i, by;
+    sc.rect(left - 3, top - 2, aw + 6, ah + 4, hex(C.void));
+    sc.rect(left, top, aw, ah + 2, hex(C.stoneD));
+    sc.rect(left, top, 2, ah, hex(C.stoneL));
+    sc.rect(left + aw - 2, top, 2, ah, hex(C.rock));
+    var mouthT = top + 7;
+    for (y = mouthT; y < hy - 2; y++) {
+      u = (y - mouthT) / Math.max(1, hy - 2 - mouthT);
+      inset = u < 0.42 ? Math.round((0.42 - u) / 0.42 * (aw * 0.28)) : 0;
+      x0 = left + jamb + inset;
+      mw = aw - jamb * 2 - inset * 2;
+      if (mw < 4) continue;
+      if (u < 0.35) sc.rect(x0, y, mw, 1, hex(C.vestD));
+      else if (u < 0.7) sc.rect(x0, y, mw, 1, hex(C.ember));
+      else sc.rect(x0, y, mw, 1, hex(C.emberH));
+      if (u > 0.82) sc.rect(x0 + 2, y, Math.max(1, mw - 4), 1, hex(C.warm));
     }
-    for (y = cy - r - 1; y <= cy + 1; y++) {
-      for (x = cx - r - 2; x <= cx + r + 2; x++) {
-        dx = x - cx;
-        dy = cy - y;
-        if (dy < -1) continue;
-        dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= r + 1.2 && dist >= r - 1.3) {
-          sc.rect(x, y, 1, 1, (x + y) % 3 === 0 ? hex(C.stoneL) : hex(C.stoneD));
-        }
-      }
+    sc.rect(left, mouthT - 2, jamb, hy - mouthT, hex(C.stone));
+    sc.rect(left + aw - jamb, mouthT - 2, jamb, hy - mouthT, hex(C.stoneD));
+    sc.rect(left - 1, top + 1, aw + 2, 3, hex(C.stoneL));
+    sc.rect(left + 2, top + 4, aw - 4, 2, hex(C.stone));
+    for (i = 0; i < 3; i++) {
+      by = mouthT + 3 + Math.round((hy - mouthT - 8) * (0.28 + i * 0.26));
+      sc.rect(left + jamb, by, aw - jamb * 2, 1, hex(C.rock));
     }
-    sc.rect(cx - r + 2, cy - 1, (r - 2) * 2, 2, hex(C.emberH));
-    sc.rect(cx - 2, cy - r - 2, 4, 2, hex(C.stoneL));
+    sc.rect(cx - 4, mouthT + 2, 1, hy - mouthT - 6, hex(C.stoneD));
+    sc.rect(cx + 3, mouthT + 2, 1, hy - mouthT - 6, hex(C.stoneD));
+    sc.rect(left + jamb + 1, hy - 4, aw - jamb * 2 - 2, 2, hex(C.emberH));
+    sc.rect(left - 2, hy - 2, aw + 4, 3, hex(C.stone));
+    sc.rect(left, hy - 2, aw, 1, hex(C.stoneL));
   }
 
   function spire(sc, cx, hy, scale) {
@@ -326,33 +332,76 @@
     sc.rect(cx - maxW - 1, hy - 4, maxW * 2 + 2, 3, hex(C.stoneD));
   }
 
-  // Depth is a short ramp of palette colors, light at the horizon and darker
-  // toward the camera. Patches are a few ragged clumps, not a field of dots.
-  function floorPlane(sc, y0, ramp, hi, lo) {
-    var span = Math.max(1, sc.h - y0);
-    var y, t, idx, i, x, w, k, focus, mid;
+  // Per-row mix so the floor reads as a gradient, not three flat stripes.
+  function floorPlane(sc, y0, from, to) {
+    var a = parse(from);
+    var b = parse(to);
+    var span = Math.max(1, sc.h - y0 - 1);
+    var y, t, u;
     for (y = y0; y < sc.h; y++) {
-      if (y < y0 + 2) {
-        sc.rect(0, y, sc.w, 1, ramp[ramp.length - 1]);
-        continue;
-      }
-      t = (y - y0 - 2) / span;
-      idx = Math.min(ramp.length - 1, Math.floor(t * ramp.length));
-      sc.rect(0, y, sc.w, 1, ramp[idx]);
-    }
-    focus = wide(sc) ? 0.32 : 0.5;
-    for (i = 0; i < 8; i++) {
-      y = y0 + 4 + Math.floor(hash(i, 11) * Math.max(1, span - 6));
-      x = Math.floor(hash(i, 19) * (sc.w - 12));
       t = (y - y0) / span;
-      mid = Math.abs(x / sc.w - focus);
-      if (mid < 0.16 && t > 0.38) continue;
-      w = 7 + Math.floor(hash(i, 29) * 14);
-      for (k = 0; k < w; k++) {
-        if (hash(x + k, y) < 0.28) continue;
-        sc.rect(x + k, y, 1, 1, hash(i, 31) > 0.5 ? hi : lo);
-        if (hash(x + k, y + 3) > 0.62) sc.rect(x + k, y + 1, 1, 1, lo);
-      }
+      u = Math.pow(Math.max(0, Math.min(1, t)), 0.9);
+      sc.rect(0, y, sc.w, 1, "rgb(" +
+        ((a[0] + (b[0] - a[0]) * u) | 0) + "," +
+        ((a[1] + (b[1] - a[1]) * u) | 0) + "," +
+        ((a[2] + (b[2] - a[2]) * u) | 0) + ")");
+    }
+  }
+
+  function inLane(sc, x, y, hy) {
+    var t = (y - hy) / Math.max(1, sc.h - hy);
+    var focus = wide(sc) ? 0.34 : 0.5;
+    return Math.abs(x / sc.w - focus) < 0.22 && t > 0.32;
+  }
+
+  function tuft(sc, x, y, color) {
+    sc.rect(x, y, 1, 2, color);
+    sc.rect(x + 2, y - 1, 1, 2, color);
+    sc.rect(x + 1, y + 1, 2, 1, color);
+  }
+
+  function blossom(sc, x, y, petal) {
+    sc.rect(x, y, 1, 1, hex(C.warm));
+    sc.rect(x - 1, y, 1, 1, petal);
+    sc.rect(x + 1, y, 1, 1, petal);
+    sc.rect(x, y - 1, 1, 1, petal);
+    sc.rect(x, y + 1, 1, 2, hex(C.leafD));
+  }
+
+  function dirtPatch(sc, x, y, w) {
+    var k;
+    sc.rect(x, y, w, 2, hex(C.path));
+    sc.rect(x + 1, y + 2, Math.max(2, w - 2), 1, hex(C.pathD));
+    for (k = 0; k < w; k += 3) sc.rect(x + k, y, 1, 1, hex(C.pathL));
+  }
+
+  function meadowFloor(sc, hy) {
+    floorPlane(sc, hy, mixHex(hex(C.leaf), hex(C.pathL), 0.22), hex(C.grassX));
+    var span = Math.max(1, sc.h - hy);
+    var marks = [
+      [0.04, 0.22, "flower", hex(C.bloom)],
+      [0.9, 0.3, "flower", hex(C.gold)],
+      [0.16, 0.16, "flower", hex(C.gold)],
+      [0.78, 0.18, "flower", hex(C.bloom)],
+      [0.03, 0.62, "dirt"],
+      [0.93, 0.55, "dirt"],
+      [0.08, 0.4, "dirt"]
+    ];
+    var i, x, y, kind;
+    for (i = 0; i < marks.length; i++) {
+      x = Math.round(sc.w * marks[i][0]);
+      y = hy + Math.round(span * marks[i][1]);
+      if (y >= sc.h - 2 || inLane(sc, x, y, hy)) continue;
+      kind = marks[i][2];
+      if (kind === "flower") blossom(sc, x, y, marks[i][3]);
+      else dirtPatch(sc, x, y, 6 + (i % 3));
+    }
+    for (i = 0; i < 14; i++) {
+      x = Math.round(sc.w * (0.02 + (i * 0.07) % 0.96));
+      y = hy + 4 + Math.round(span * (0.12 + (i % 5) * 0.16));
+      if (y >= sc.h - 3) continue;
+      if (inLane(sc, x, y, hy) && i % 2 === 0) continue;
+      tuft(sc, x, y, i % 3 === 0 ? hex(C.leaf) : hex(C.grassD));
     }
   }
 
@@ -392,18 +441,12 @@
     woodL: hex(C.woodL)
   };
   var MEADOW_ISLE = { top: hex(C.grassL), body: hex(C.cliff), shade: hex(C.cliffD) };
-  var GRASS_RAMP = shade(mixHex(hex(C.leaf), hex(C.pathL), 0.4), hex(C.grassX), 5);
-  var ASH_RAMP = shade(hex(C.ash), hex(C.hairD), 5);
-  var STONE_RAMP = shade(mixHex(hex(C.stone), hex(C.ember), 0.22), hex(C.void), 5);
-  var SAND_RAMP = shade(hex(C.sand), hex(C.pathD), 5);
-  var PLANK_RAMP = shade(hex(C.woodL), hex(C.cliffX), 5);
-  var DECK_RAMP = shade(hex(C.wood), hex(C.void), 4);
 
   function openSky(sc, hy, colors, sea, isles) {
     sc.bands(0, hy, colors);
+    cloudRow(sc, Math.round(hy * 0.68), hy, sea.back || HUSH_DEEP, 12, 5, 1.35);
     if (isles) islets(sc, hy, isles);
-    cloudBank(sc, Math.round(hy * 0.62), hy, sea.back || HUSH_DEEP, 4);
-    cloudBank(sc, Math.round(hy * 0.78), hy, sea.front || HUSH, 11);
+    cloudRow(sc, Math.round(hy * 0.86), hy - 1, sea.front || HUSH, 18, 6, 1.12);
   }
 
   function meadow(sc) {
@@ -416,7 +459,7 @@
     oak(sc, xs[xs.length - 1], hy, 26, TREE);
     if (xs.length > 2) pine(sc, xs[1], hy, 16, TREE);
     if (!wide(sc) && xs.length > 3) pine(sc, xs[2], hy, 14, TREE);
-    floorPlane(sc, hy, GRASS_RAMP, hex(C.leaf), hex(C.grassX));
+    meadowFloor(sc, hy);
   }
 
   function scar(sc) {
@@ -438,15 +481,15 @@
     sc.rect(archX + 6, hy - archH, 3, archH + 2, hex(C.stone));
     sc.rect(archX - 9, hy - archH, 18, 2, hex(C.stoneL));
     sc.rect(archX - 7, hy - archH + 2, 14, 1, hex(C.stoneD));
-    floorPlane(sc, hy, shade(hex(C.grassD), hex(C.void), 4), hex(C.grass), hex(C.voidD));
+    floorPlane(sc, hy, hex(C.grassD), hex(C.void));
   }
 
   function ash(sc) {
     var hy = horizonY(sc);
     sc.bands(0, hy, ASH_SKY);
+    cloudRow(sc, Math.round(hy * 0.66), hy, SMOKE, 14, 5, 1.3);
     islets(sc, hy, { top: hex(C.ember), body: hex(C.rock), shade: hex(C.hairD) });
-    cloudBank(sc, Math.round(hy * 0.6), hy, SMOKE, 5);
-    cloudBank(sc, Math.round(hy * 0.78), hy, SMOKE, 13);
+    cloudRow(sc, Math.round(hy * 0.84), hy - 1, SMOKE, 18, 6, 1.12);
     ridge(sc, hy, hex(C.hairD), hex(C.rock));
     var xs = edges(sc);
     snag(sc, xs[0], hy, 24);
@@ -454,14 +497,15 @@
     if (xs.length > 2) snag(sc, xs[1], hy, 15);
     crag(sc, xs[0] + 12, hy, 11, 12, hex(C.rock), hex(C.ash), hex(C.hairD));
     crag(sc, xs[xs.length - 1] - 10, hy, 13, 14, hex(C.cliffD), hex(C.ashD), hex(C.void));
-    floorPlane(sc, hy, ASH_RAMP, hex(C.ash), hex(C.hairD));
+    floorPlane(sc, hy, hex(C.ash), hex(C.hairD));
+    var cracks = [[0.05, 0.2], [0.92, 0.28], [0.08, 0.45]];
     var i, x, y, len;
-    for (i = 0; i < 3; i++) {
-      x = Math.round(sc.w * (i === 1 ? 0.9 : 0.06));
-      y = hy + 3 + i * 3;
-      len = 6 + i * 2;
-      sc.rect(x, y, len, 1, hex(C.ember));
-      sc.rect(x + 1, y, Math.max(2, len - 4), 1, hex(C.emberH));
+    for (i = 0; i < cracks.length; i++) {
+      x = Math.round(sc.w * cracks[i][0]);
+      y = hy + Math.round((sc.h - hy) * cracks[i][1]);
+      len = 5 + i * 2;
+      sc.rect(x, y, len, 2, hex(C.ember));
+      sc.rect(x + 1, y, Math.max(2, len - 3), 1, hex(C.emberH));
     }
   }
 
@@ -472,7 +516,7 @@
     var i;
     for (i = 0; i < xs.length; i++) column(sc, xs[i], hy, 8);
     forge(sc, Math.round(sc.w * (wide(sc) ? 0.38 : 0.5)), hy);
-    floorPlane(sc, hy, STONE_RAMP, hex(C.stoneL), hex(C.void));
+    floorPlane(sc, hy, mixHex(hex(C.stone), hex(C.ember), 0.16), hex(C.void));
     courses(sc, hy, hex(C.void));
     var glow = Math.round(sc.w * (wide(sc) ? 0.38 : 0.5));
     sc.rect(glow - 10, hy, 20, 1, hex(C.ember));
@@ -484,7 +528,7 @@
     var waterTop = Math.round(hy * 0.62);
     sc.bands(0, waterTop + 1, SHORE_SKY);
     islets(sc, waterTop, { top: hex(C.grass), body: hex(C.cliff), shade: hex(C.cliffD) });
-    cloudBank(sc, Math.round(waterTop * 0.78), waterTop, HUSH, 6);
+    cloudRow(sc, Math.round(waterTop * 0.82), waterTop, HUSH, 16, 5, 1.15);
     sc.bands(waterTop, hy, [hex(C.tideD), hex(C.sea), hex(C.tide), hex(C.tideL)]);
     wave(sc, waterTop + Math.round((hy - waterTop) * 0.38), hex(C.tideL));
     wave(sc, waterTop + Math.round((hy - waterTop) * 0.72), hex(C.foam));
@@ -498,7 +542,7 @@
       sc.rect(px - 1, hy - ph, 5, 2, hex(C.wood));
     }
     foam(sc, hy - 1);
-    floorPlane(sc, hy, SAND_RAMP, hex(C.foam), hex(C.pathD));
+    floorPlane(sc, hy, hex(C.sand), hex(C.pathD));
     sc.rect(0, hy, sc.w, 2, hex(C.tideD));
   }
 
@@ -528,7 +572,7 @@
     sc.bands(0, hy, NIGHT_SKY);
     stars(sc, waterTop, 16);
     moon(sc, hy);
-    cloudBank(sc, Math.round(waterTop * 0.7), waterTop, HUSH_DEEP, 8);
+    cloudRow(sc, Math.round(waterTop * 0.78), waterTop, HUSH_DEEP, 16, 5, 1.2);
     sc.bands(waterTop, hy, [hex(C.void), hex(C.tideD), hex(C.sea)]);
     wave(sc, waterTop + 3, hex(C.tide));
     var hull = Math.round(sc.w * (wide(sc) ? 0.28 : 0.36));
@@ -547,7 +591,7 @@
         sc.rect(xx, hy - rh + yy, 2, 1, yy % 4 === 0 ? hex(C.wood) : hex(C.woodD));
       }
     }
-    floorPlane(sc, hy, DECK_RAMP, hex(C.woodL), hex(C.voidD));
+    floorPlane(sc, hy, hex(C.wood), hex(C.void));
     courses(sc, hy, hex(C.voidD));
   }
 
@@ -563,17 +607,16 @@
     var xs = edges(sc);
     var i;
     for (i = 0; i < xs.length; i++) crag(sc, xs[i], hy, 8, 8, hex(C.stoneD), hex(C.stoneL), hex(C.void));
-    floorPlane(sc, hy, shade(hex(C.stone), hex(C.rock), 5), hex(C.stoneL), hex(C.void));
+    floorPlane(sc, hy, hex(C.stoneL), hex(C.rock));
     courses(sc, hy, hex(C.rock));
   }
 
   function deck(sc) {
     var hy = horizonY(sc);
     sc.bands(0, hy, MEADOW_SKY);
-    cloudBank(sc, Math.round(hy * 0.5), hy, HUSH_DEEP, 3);
+    cloudRow(sc, Math.round(hy * 0.55), hy, HUSH_DEEP, 14, 5, 1.3);
     islets(sc, hy, MEADOW_ISLE);
-    cloudBank(sc, Math.round(hy * 0.7), hy, HUSH, 9);
-    cloudBank(sc, Math.round(hy * 0.86), hy, HUSH, 15);
+    cloudRow(sc, Math.round(hy * 0.78), hy - 1, HUSH, 18, 6, 1.12);
     var boat = Math.round(sc.w * (wide(sc) ? 0.18 : 0.66));
     var by = Math.round(hy * 0.6);
     sc.rect(boat, by, 14, 3, hex(C.wood));
@@ -588,7 +631,7 @@
     }
     rope(sc, xs[0], xs[1], hy - 9);
     rope(sc, xs[xs.length - 2], xs[xs.length - 1], hy - 9);
-    floorPlane(sc, hy, PLANK_RAMP, hex(C.pathL), hex(C.void));
+    floorPlane(sc, hy, hex(C.woodL), hex(C.cliffX));
     courses(sc, hy, hex(C.woodD));
   }
 
@@ -650,13 +693,10 @@
     if (id !== "ember_vault") {
       var drift = Math.floor((t || 0) * 4) % (pw + 24);
       var colors = id === "cinderveil_ash" ? SMOKE : HUSH;
-      var i, x, k;
+      var i, x;
       for (i = 0; i < 3; i++) {
-        x = (Math.round(pw * (0.12 + i * 0.3)) - drift + pw * 2) % pw;
-        for (k = 0; k < 18; k++) {
-          if (hash(i + k, 4) > 0.35) sc.rect(x + k, 4 + (i % 2) * 3, 1, 1, colors.light);
-          sc.rect(x + k, 5 + (i % 2) * 3, 1, 2, colors.mid);
-        }
+        x = (Math.round(pw * (0.15 + i * 0.32)) - drift + pw * 2) % pw;
+        puff(sc, x, 8 + (i % 2) * 4, 14, 5, colors.light, colors.mid, colors.dark, Math.round(ph * 0.28));
       }
     }
     if (id === "ember_vault" || id === "cinderveil_ash") {
@@ -688,9 +728,37 @@
     ctx.fillStyle = "#140c28";
     ctx.fillRect(0, 0, w, h);
     Art.blit(ctx, src, 0, 0, w, h);
+    extendFloor(ctx, src, w, h);
     if (!Art.calm()) Art.blit(ctx, motionOverlay(pw, ph, id, t || 0), 0, 0, w, h);
     ctx.restore();
   };
+
+  // Integer scaling can stop a pixel short of the frame. Stretch the floor's
+  // last row into that gap so the bottom is not a dark strip.
+  function extendFloor(ctx, src, w, h) {
+    if (!ctx.getTransform || !src) return;
+    var tr = ctx.getTransform();
+    if (tr.b !== 0 || tr.c !== 0 || !tr.a || !tr.d) return;
+    var sx = Math.max(1, Math.round(Math.abs(tr.a * w) / src.width));
+    var sy = Math.max(1, Math.round(Math.abs(tr.d * h) / src.height));
+    var drawnW = src.width * sx;
+    var drawnH = src.height * sy;
+    var destW = Math.round(Math.abs(tr.a * w));
+    var destH = Math.round(Math.abs(tr.d * h));
+    var ox = Math.round(tr.a * 0 + tr.e);
+    var oy = Math.round(tr.d * 0 + tr.f);
+    if (drawnH >= destH && drawnW >= destW) return;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    if (drawnH < destH) {
+      ctx.drawImage(src, 0, src.height - 1, src.width, 1, ox, oy + drawnH, Math.max(drawnW, destW), destH - drawnH);
+    }
+    if (drawnW < destW) {
+      ctx.drawImage(src, src.width - 1, 0, 1, src.height, ox + drawnW, oy, destW - drawnW, drawnH);
+    }
+    ctx.restore();
+  }
 
   // 9-slice FF window skin, painted once.
   function skin() {
