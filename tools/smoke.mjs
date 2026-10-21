@@ -1414,7 +1414,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.19"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.20"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1648,5 +1648,11 @@ SF.mountIsland("emberhold");
 
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit" });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
+
+const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit" });
+if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
+
+const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit" });
+if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
 console.log("smoke ok");

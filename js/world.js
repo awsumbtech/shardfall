@@ -1481,6 +1481,7 @@ if (SF.syncUI) {
     SF.syncInnUI();
     SF.syncNoticeUI();
     SF.syncChestUI();
+    if (SF.markScrollers) SF.markScrollers();
   };
 }
 

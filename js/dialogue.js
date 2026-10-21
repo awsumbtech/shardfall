@@ -332,6 +332,38 @@ SF.chooseDialogue = function (index) {
   finishNode(choice);
 };
 
+SF.moveChoice = function (dir) {
+  var s = SF.state;
+  var d = s && s.dialogue;
+  if (!d || s.mode !== "dialogue" || d.phase !== "choice" || !d.choices || !d.choices.length) return;
+  var n = d.choices.length;
+  var i = d.choiceIndex || 0;
+  d.choiceIndex = (i + dir + n) % n;
+  if (SF.paintDialogue) SF.paintDialogue();
+};
+
+SF.confirmChoice = function () {
+  var d = SF.state && SF.state.dialogue;
+  if (!d || d.phase !== "choice") return;
+  SF.chooseDialogue(d.choiceIndex || 0);
+};
+
+SF.tickChoicePad = function () {
+  var i = SF.inputState;
+  if (!i) return;
+  var dir = 0;
+  if ((i.padY || 0) > 0.5) dir = 1;
+  else if ((i.padY || 0) < -0.5) dir = -1;
+  else if ((i.padX || 0) > 0.5) dir = 1;
+  else if ((i.padX || 0) < -0.5) dir = -1;
+  if (dir && dir !== SF._padChoiceDir) SF.moveChoice(dir);
+  SF._padChoiceDir = dir;
+  if (i.padAEdge) {
+    i.padAEdge = false;
+    SF.confirmChoice();
+  }
+};
+
 SF.tickDialogue = function (dt) {
   var d = SF.state && SF.state.dialogue;
   if (!d || d.phase === "choice" || d.done) return;
@@ -756,7 +788,9 @@ SF.paintDialogue = function () {
   var choiceKey = d.id + "|" + (d.phase === "choice" ? d.choices.map(function (c) { return c.text; }).join("|") : "");
   if (box.dataset.key !== choiceKey) {
     box.dataset.key = choiceKey;
+    box.dataset.hi = "";
     box.textContent = "";
+    d.choiceIndex = 0;
     if (d.phase === "choice") {
       d.choices.forEach(function (c, i) {
         var b = document.createElement("button");
@@ -771,8 +805,22 @@ SF.paintDialogue = function () {
       });
     }
   }
+  var choiceButtons = box.querySelectorAll("button");
+  var choiceAt = d.choiceIndex || 0;
+  var bi;
+  for (bi = 0; bi < choiceButtons.length; bi++) {
+    var onChoice = d.phase === "choice" && bi === choiceAt;
+    choiceButtons[bi].classList.toggle("is-choice", onChoice);
+    if (onChoice) choiceButtons[bi].setAttribute("aria-current", "true");
+    else choiceButtons[bi].removeAttribute("aria-current");
+  }
+  if (d.phase === "choice" && box.dataset.hi !== String(choiceAt) && choiceButtons[choiceAt]) {
+    box.dataset.hi = String(choiceAt);
+    if (choiceButtons[choiceAt].scrollIntoView) choiceButtons[choiceAt].scrollIntoView({ block: "nearest" });
+  }
   var holding = !!(d.holdForApproach && s.approach && s.approach.t < s.approach.dur);
-  var hintText = holding ? "" : (d.phase === "choice" ? "Tap a reply" : (d.done ? "Tap to continue" : "Tap to finish"));
+  var onTouch = SF.touchPrimary && SF.touchPrimary();
+  var hintText = holding ? "" : (d.phase === "choice" ? (onTouch ? "Tap a reply" : "↑↓ choose · Enter") : (d.done ? "Tap to continue" : "Tap to finish"));
   if (hint.textContent !== hintText) hint.textContent = hintText;
   var portraitKey = (rawLine && typeof rawLine === "object" && rawLine.portrait) || (narrating ? "hush" : d.portrait);
   if (portrait && SF._portraitKey !== portraitKey) {
@@ -825,6 +873,22 @@ if (SF._dialogueUi) {
   document.addEventListener("keydown", function (e) {
     var s = SF.state;
     if (!s || s.mode !== "dialogue" || !s.dialogue || s.dialogue.phase !== "choice") return;
+    var dir = 0;
+    if (e.code === "ArrowDown" || e.code === "ArrowRight") dir = 1;
+    else if (e.code === "ArrowUp" || e.code === "ArrowLeft") dir = -1;
+    if (dir) {
+      e.preventDefault();
+      e.stopPropagation();
+      SF.moveChoice(dir);
+      return;
+    }
+    if (e.repeat) return;
+    if (e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space") {
+      e.preventDefault();
+      e.stopPropagation();
+      SF.confirmChoice();
+      return;
+    }
     var n = -1;
     if (e.code === "Digit1" || e.code === "Numpad1") n = 0;
     else if (e.code === "Digit2" || e.code === "Numpad2") n = 1;
@@ -832,6 +896,7 @@ if (SF._dialogueUi) {
     else if (e.code === "Digit4" || e.code === "Numpad4") n = 3;
     if (n < 0) return;
     e.preventDefault();
+    e.stopPropagation();
     SF.chooseDialogue(n);
   });
 }
