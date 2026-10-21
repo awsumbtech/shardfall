@@ -172,12 +172,9 @@
         fill(s, cx - 4, y + 8, 3, 1, d.skinDeep);
         fill(s, cx + 2, y + 8, 3, 1, d.skinDeep);
       } else {
-        var brow = d.stern ? d.hairD : (d.hair || d.skinDeep);
-        fill(s, cx - 4, y + 7, 3, 1, brow);
-        fill(s, cx + 2, y + 7, 3, 1, brow);
-        if (d.worried) {
-          plot(s, cx - 4, y + 6, d.hair);
-          plot(s, cx + 4, y + 6, d.hair);
+        if (d.stern) {
+          plot(s, cx - 4, y + 7, d.hairD);
+          plot(s, cx + 4, y + 7, d.hairD);
         }
         fill(s, cx - 4, y + 8, 3, 2, C.white);
         fill(s, cx + 2, y + 8, 3, 2, C.white);
@@ -624,7 +621,7 @@
       } else if (eyes === "shut") {
         fill(s, x + 9, y + 7, 3, 1, d.skinDeep);
       } else {
-        fill(s, x + 8, y + 6, 4, 1, d.stern ? d.hairD : d.hair);
+        if (d.stern) plot(s, x + 8, y + 6, d.hairD);
         fill(s, x + 9, y + 7, 3, 2, C.white);
         plot(s, x + 10, y + 8, C.eye);
         plot(s, x + 11, y + 8, C.eye);

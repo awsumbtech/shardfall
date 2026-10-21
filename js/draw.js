@@ -1521,11 +1521,11 @@ SF.drawProp = function (ctx, prop, lit) {
   ctx.restore();
 };
 
-SF.drawShadow = function (ctx, x, y, rx) {
+SF.drawShadow = function (ctx, x, y, rx, drop) {
   ctx.save();
   ctx.fillStyle = "rgba(30, 16, 40, 0.28)";
   ctx.beginPath();
-  ctx.ellipse(x, y + 8, rx, rx * 0.45, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y + (drop == null ? 8 : drop), rx, rx * 0.45, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 };
@@ -2159,7 +2159,7 @@ SF.entityList = function (s) {
     list.push({
       y: ny,
       draw: function (ctx) {
-        SF.drawShadow(ctx, nx, ny, 10);
+        SF.drawShadow(ctx, nx, ny, 10, 1);
         var drewActor = SF.drawActor && SF.drawActor(ctx, n, nx, ny);
         if (!drewActor) {
           if (n.id === "maren") SF.drawMaren(ctx, nx, ny);
@@ -2229,12 +2229,12 @@ SF.entityList = function (s) {
       s.ghosts.forEach(function (g) {
         SF.drawWayfarer(ctx, g.x, g.y, g.fx, g.fy, g.a, p.shardstep);
       });
-      SF.drawShadow(ctx, p.x, p.y, 11);
+      SF.drawShadow(ctx, p.x, p.y, 11, 1);
       ctx.save();
       ctx.strokeStyle = "rgba(185, 248, 255, 0.9)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y + 4, 10, 4, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, p.y + 1, 10, 4, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       SF.drawWayfarer(ctx, p.x, p.y + sink, p.fx, p.fy, alpha, p.shardstep);

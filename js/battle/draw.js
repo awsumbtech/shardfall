@@ -157,12 +157,34 @@ function battleScale(actor, count, stageH, slotW, slotH, labelH) {
   return whole;
 }
 
-// Party fighters land near 80% of the shortest foe. Whole steps are 1, 2,
-// and 3; 1.5 is allowed when that is what sits in the 75–85% band.
+// Height a pair of wisps would stand in this zone. Bosses are far taller;
+// sizing the party off the Maw made the heroes about twice a meadow fight.
+function meadowFoeHeight(zoneW, zoneH) {
+  var srcW = 22;
+  var srcH = 24;
+  if (window.Art && Art.spriteSize) {
+    var sz = Art.spriteSize("wisp", "idle", "right");
+    if (sz && sz.h) {
+      srcH = sz.h;
+      if (sz.w) srcW = sz.w;
+    }
+  }
+  var cellW = Math.max(20, (zoneW - 10) / 2);
+  var target = zoneH >= 260 ? 110 : Math.min(110, Math.round(zoneH * 0.38));
+  var scale = target / srcH;
+  var maxH = Math.max(28, zoneH - 46);
+  var maxW = Math.max(20, cellW - 8);
+  scale = Math.min(scale, maxH / srcH, maxW / srcW);
+  if (!(scale > 0) || !isFinite(scale)) scale = 2;
+  return srcH * (Math.round(scale * 4) / 4);
+}
+
+// Party fighters land near 80% of a normal foe, on a whole scale.
+// A 1.5 step can never resample the sprite.
 function partyBattleScale(srcH, foeH) {
-  var options = [1, 1.5, 2, 3];
-  var target = foeH > 0 ? foeH * 0.8 : srcH * 1.5;
-  var best = 1;
+  var options = [2, 3, 4];
+  var target = foeH > 0 ? foeH * 0.8 : srcH * 3;
+  var best = 3;
   var bestScore = Infinity;
   var i, s, h, ratio, inBand, score;
   for (i = 0; i < options.length; i++) {
@@ -208,51 +230,10 @@ function actorNudge(b, actor) {
   return { x: Math.round(dx), y: Math.round(dy) };
 }
 
-function halfStep(scale) {
-  return Math.abs(scale * 2 - Math.round(scale * 2)) < 1e-6 && Math.abs(scale - Math.round(scale)) > 1e-6;
-}
-
-// 1.5× cannot go through Art.blit, which rounds the device multiplier to a
-// whole number (1.5 becomes 2 at 1×). Draw the destination at the rounded
-// device size with smoothing off so every screen pixel stays whole.
-function drawHalfStepSprite(ctx, id, x, y, scale, pose, facing) {
-  var canvas = Art.frameOf(id, pose, facing, battleFrame(pose));
-  var ax = canvas._ax || 0;
-  var ay = canvas._ay || canvas.height - 1;
-  var lx = x - ax * scale;
-  var ly = y - ay * scale;
-  var dw = canvas.width * scale;
-  var dh = canvas.height * scale;
-  if (ctx.getTransform && ctx.setTransform) {
-    var t = ctx.getTransform();
-    if (t.b === 0 && t.c === 0 && t.a !== 0 && t.d !== 0) {
-      var px = Math.round(t.a * lx + t.e);
-      var py = Math.round(t.d * ly + t.f);
-      var pw = Math.max(1, Math.round(Math.abs(t.a * dw)));
-      var ph = Math.max(1, Math.round(Math.abs(t.d * dh)));
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(canvas, px, py, pw, ph);
-      ctx.restore();
-      return;
-    }
-  }
-  var smooth = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(canvas, lx, ly, dw, dh);
-  ctx.imageSmoothingEnabled = smooth;
-}
-
 function drawSprite(ctx, id, x, y, scale, pose, facing) {
   pose = pose || "idle";
   facing = facing || "right";
-  if (window.Art && halfStep(scale) && typeof Art.frameOf === "function") {
-    try {
-      drawHalfStepSprite(ctx, id, x, y, scale, pose, facing);
-      return;
-    } catch (err) { /* fall through */ }
-  }
+  ctx.imageSmoothingEnabled = false;
   if (window.Art && typeof Art.sprite === "function") {
     try {
       Art.sprite(ctx, id, x, y, {
@@ -509,7 +490,7 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
   var lay = layoutBattle(w, h, b.phase, party.length, listRowCount(b));
-  drawStrip(ctx, b, lay.strip.x, lay.strip.y, lay.strip.w, lay.strip.h);
+  if (b.phase !== "result") drawStrip(ctx, b, lay.strip.x, lay.strip.y, lay.strip.w, lay.strip.h);
   drawStage(ctx, b, foes, party, lay.stage, h);
   if (b.phase === "result") {
     drawResult(ctx, b, lay.result);
@@ -864,16 +845,16 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
   var groundY = Math.round((canvasH || (stage.y + stage.h)) * 0.68);
   var foeSpots = placeActors(foes, foeZone, "foe", groundY);
   var foeCap = 0;
-  var foeIsBoss = false;
+  var smallCap = 0;
   foeSpots.forEach(function (spot) {
     var h = spot.src.h * spot.scale;
-    if (h > 0 && (!foeCap || h < foeCap)) foeCap = h;
-    if (isBoss(spot.actor)) foeIsBoss = true;
+    if (!(h > 0)) return;
+    if (!foeCap || h < foeCap) foeCap = h;
+    if (!isBoss(spot.actor) && (!smallCap || h < smallCap)) smallCap = h;
   });
-  // partyBattleScale aims for ~80% of the foe. Against a boss that would
-  // leave the monster barely taller than a hero. Feed a shorter reference
-  // so the boss lands about 1.7× a party member.
-  var partyRef = foeIsBoss ? Math.max(1, Math.round(foeCap * 0.74)) : foeCap;
+  // Boss-only fights have no wisp to measure. Use the meadow wisp height
+  // so the party keeps the same scale and the same gaps as a normal battle.
+  var partyRef = smallCap || meadowFoeHeight(foeZone.w, foeZone.h);
   var partySpots = placeActors(party, partyZone, "party", groundY, partyRef);
   if (foeSpots.length && partySpots.length) {
     var ground = foeSpots[0].feet;
