@@ -97,40 +97,54 @@
     </div>
 
     <div id="sail" hidden>
-      <div class="card scroll">
+      <div class="card menu-sheet">
         <h2>Sail chart</h2>
-        <p id="sail-note">Pick an island the skiff can reach.</p>
-        <div id="sail-chart">
-          <svg id="sail-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="menu-scroll">
+          <p id="sail-note">Pick an island the skiff can reach.</p>
+          <div id="sail-chart">
+            <svg id="sail-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+          </div>
+          <div id="sail-list"></div>
         </div>
-        <div id="sail-list"></div>
-        <button id="sail-close" type="button" class="ghost" data-sail="close">Stay</button>
+        <div class="menu-foot">
+          <button id="sail-close" type="button" class="ghost" data-sail="close">Stay</button>
+        </div>
       </div>
     </div>
 
     <div id="shop" hidden>
-      <div class="card scroll">
+      <div class="card menu-sheet">
         <h2 id="shop-title">Shop</h2>
         <p id="shop-gold">Marks: 0</p>
-        <div id="shop-list"></div>
-        <button id="shop-close" type="button" class="ghost">Close</button>
+        <div id="shop-list" class="menu-scroll"></div>
+        <div class="menu-foot">
+          <button id="shop-close" type="button" class="ghost">Close</button>
+        </div>
       </div>
     </div>
 
     <div id="inn" hidden>
-      <div class="card scroll">
-        <h2 id="inn-title">Inn</h2>
-        <p id="inn-copy">Rest here?</p>
-        <button id="inn-yes" type="button">Rest</button>
-        <button id="inn-no" type="button" class="ghost">Not now</button>
+      <div class="card menu-sheet">
+        <div class="menu-scroll">
+          <h2 id="inn-title">Inn</h2>
+          <p id="inn-copy">Rest here?</p>
+        </div>
+        <div class="menu-foot">
+          <button id="inn-yes" type="button">Rest</button>
+          <button id="inn-no" type="button" class="ghost">Not now</button>
+        </div>
       </div>
     </div>
 
     <div id="notice" hidden>
-      <div class="card scroll">
-        <h2 id="notice-title">Notice</h2>
-        <p id="notice-copy"></p>
-        <button id="notice-close" type="button">Close</button>
+      <div class="card menu-sheet">
+        <div class="menu-scroll">
+          <h2 id="notice-title">Notice</h2>
+          <p id="notice-copy"></p>
+        </div>
+        <div class="menu-foot">
+          <button id="notice-close" type="button">Close</button>
+        </div>
       </div>
     </div>
 
@@ -144,11 +158,13 @@
     </div>
 
     <div id="hand" hidden>
-      <div class="card scroll">
+      <div class="card menu-sheet">
         <h2>The hand</h2>
         <p id="hand-shards">Spare shards: 0</p>
-        <div id="hand-list"></div>
-        <button id="hand-close" type="button">Close</button>
+        <div id="hand-list" class="menu-scroll"></div>
+        <div class="menu-foot">
+          <button id="hand-close" type="button">Close</button>
+        </div>
       </div>
     </div>
 
@@ -156,7 +172,7 @@
 
     <div id="title">
       <div class="title-card">
-        <p class="eyebrow">v0.4 · Act 1</p>
+        <p class="eyebrow">v0.4.15 · Act 1</p>
         <div class="mark" aria-hidden="true">
           <svg viewBox="0 0 40 40"><path d="M20 2 L33 20 L20 38 L7 20 Z"/></svg>
         </div>
@@ -166,7 +182,7 @@
           <button id="continue" type="button" hidden>Continue</button>
           <button id="newgame" type="button">New Game</button>
           <button id="title-settings" type="button" class="ghost">Settings</button>
-          <button id="title-news" type="button" class="ghost">What's new in v0.4</button>
+          <button id="title-news" type="button" class="ghost">What's new in v0.4.15</button>
           <button id="title-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="title-reset" type="button" class="ghost" hidden>Reset save</button>
         </div>
@@ -175,15 +191,14 @@
     </div>
 
     <div id="pause" hidden>
-      <div class="card scroll">
+      <div class="card menu-sheet">
         <h2>Paused</h2>
         <p id="pause-quest"></p>
         <p id="pause-stats"></p>
         <p id="pause-note"></p>
-        <div id="pause-actions" class="scroll">
-          <button id="resume" type="button">Resume</button>
+        <div id="pause-actions" class="menu-scroll">
           <button id="pause-settings" type="button" class="ghost">Settings</button>
-          <button id="pause-news" type="button" class="ghost">What's new in v0.4</button>
+          <button id="pause-news" type="button" class="ghost">What's new in v0.4.15</button>
           <button id="pause-hand" type="button" class="ghost">The hand</button>
           <button id="pause-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
           <button id="pause-save" type="button" class="ghost">Save</button>
@@ -191,35 +206,44 @@
           <button id="pause-reset" type="button" class="ghost">Reset save</button>
           <button id="pause-title" type="button" class="ghost">Title</button>
         </div>
+        <div class="menu-foot">
+          <button id="resume" type="button">Resume</button>
+        </div>
       </div>
     </div>
 
     <div id="settings" hidden>
-      <div class="card scroll">
+      <div class="card menu-sheet">
         <h2>Settings</h2>
-        <label class="slider" for="music-vol">Music <span id="music-vol-num">75</span></label>
-        <input id="music-vol" type="range" min="0" max="100" value="75" aria-label="Music volume">
-        <label class="slider" for="sfx-vol">Effects <span id="sfx-vol-num">80</span></label>
-        <input id="sfx-vol" type="range" min="0" max="100" value="80" aria-label="Effects volume">
-        <button id="set-haptics" type="button" class="ghost" aria-pressed="true">Haptics: On</button>
-        <button id="set-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
-        <p class="fine" id="enc-label">Encounters</p>
-        <div class="actions" id="enc-rate">
-          <button id="enc-fewer" type="button" class="ghost">Fewer</button>
-          <button id="enc-normal" type="button" class="ghost">Normal</button>
-          <button id="enc-more" type="button" class="ghost">More</button>
+        <div class="menu-scroll">
+          <label class="slider" for="music-vol">Music <span id="music-vol-num">75</span></label>
+          <input id="music-vol" type="range" min="0" max="100" value="75" aria-label="Music volume">
+          <label class="slider" for="sfx-vol">Effects <span id="sfx-vol-num">80</span></label>
+          <input id="sfx-vol" type="range" min="0" max="100" value="80" aria-label="Effects volume">
+          <button id="set-haptics" type="button" class="ghost" aria-pressed="true">Haptics: On</button>
+          <button id="set-calm" type="button" class="ghost" aria-pressed="true">Reduce flashing: On</button>
+          <p class="fine" id="enc-label">Encounters</p>
+          <div class="actions" id="enc-rate">
+            <button id="enc-fewer" type="button" class="ghost">Fewer</button>
+            <button id="enc-normal" type="button" class="ghost">Normal</button>
+            <button id="enc-more" type="button" class="ghost">More</button>
+          </div>
+          <p class="fine">Haptics are a short buzz on a hit, a shard, and the lamp, when the phone allows it.</p>
         </div>
-        <p class="fine">Haptics are a short buzz on a hit, a shard, and the lamp, when the phone allows it.</p>
-        <button id="set-close" type="button">Close</button>
+        <div class="menu-foot">
+          <button id="set-close" type="button">Close</button>
+        </div>
       </div>
     </div>
 
     <div id="modal" hidden>
-      <div class="card scroll">
-        <h2 id="modal-title">What's new in v0.4</h2>
-        <div id="news-body"></div>
-        <p id="modal-copy"></p>
-        <div class="actions">
+      <div class="card menu-sheet">
+        <h2 id="modal-title">What's new in v0.4.15</h2>
+        <div class="menu-scroll">
+          <div id="news-body"></div>
+          <p id="modal-copy"></p>
+        </div>
+        <div class="menu-foot">
           <button id="modal-yes" type="button">Yes</button>
           <button id="modal-no" type="button" class="ghost">Not now</button>
           <button id="modal-close" type="button">Close</button>

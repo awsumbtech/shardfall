@@ -287,6 +287,39 @@ SF.bindUI = function () {
     p.textContent = line;
     news.appendChild(p);
   });
+  var verLabel = "v" + (SF.VERSION || "");
+  var eye = document.querySelector("#title .eyebrow");
+  if (eye) eye.textContent = verLabel + " · Act 1";
+  ["title-news", "pause-news"].forEach(function (id) {
+    var btn = document.getElementById(id);
+    if (btn) btn.textContent = "What's new in " + verLabel;
+  });
+  function bindOutside(id, close) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("pointerdown", function (e) {
+      if (e.target !== el) return;
+      close();
+    });
+  }
+  bindOutside("settings", function () { SF.closeSettings(); });
+  bindOutside("modal", function () { SF.closeModal(); });
+  bindOutside("pause", function () {
+    if (SF.state && SF.state.mode === "pause" && !SF.uiModal && SF.resumeGame) SF.resumeGame();
+    SF.syncUI();
+  });
+  function closePanel() {
+    if (SF.closeWorldPanel) SF.closeWorldPanel();
+    SF.syncUI();
+  }
+  bindOutside("sail", closePanel);
+  bindOutside("shop", closePanel);
+  bindOutside("inn", closePanel);
+  bindOutside("notice", closePanel);
+  bindOutside("hand", function () {
+    if (SF.closeHand) SF.closeHand();
+    SF.syncUI();
+  });
 };
 
 SF.touchPrimary = function () {
@@ -317,9 +350,11 @@ SF.presentCoach = function (line) {
 };
 
 SF.interactLabel = function (s) {
-  if (!s || s.mode !== "play" || !SF.actionFor) return "Talk";
-  var act = SF.actionFor(s, SF.nearestInteract());
-  return (act && act.label) || "Talk";
+  if (!s || s.mode !== "play" || !SF.actionFor || !SF.nearestInteract) return "";
+  var near = SF.nearestInteract();
+  if (!near) return "";
+  var act = SF.actionFor(s, near);
+  return (act && act.label) || "";
 };
 
 function showPlaceBanner(name) {
@@ -355,7 +390,7 @@ SF.syncUI = function () {
   if (s.mode === "pause") {
     var p = s.player;
     document.getElementById("pause-stats").textContent =
-      "Lv " + p.level + "  ·  Heart " + Math.ceil(p.hp) + "/" + p.maxHp +
+      "Lv " + p.level + "  ·  HP " + Math.ceil(p.hp) + "/" + p.maxHp +
       "  ·  Strike " + p.atk + "  ·  Shards " + s.shardsHeld +
       "  ·  Marks " + (s.gold || 0) +
       "  ·  " + Math.floor(s.playTime / 60) + "m on the Hush";
@@ -435,10 +470,14 @@ SF.syncUI = function () {
   if (!s.hints) s.hints = {};
   if (!s.hints.faded) s.hints.faded = {};
   if (coachEl) {
-    if (!coach || s.hints.faded[coach]) {
+    if (!coach) {
       coachEl.hidden = true;
       coachEl.classList.remove("fading");
+      if (s._hintText) s.hints.faded = {};
       s._hintText = "";
+    } else if (s.hints.faded[coach]) {
+      coachEl.hidden = true;
+      coachEl.classList.remove("fading");
     } else {
       if (s._hintText !== coach) {
         s._hintText = coach;
@@ -506,9 +545,11 @@ SF.syncUI = function () {
 
   var talkBtn = document.getElementById("btn-interact");
   var label = SF.interactLabel(s);
+  var nearTalk = s.mode === "play" && !!(SF.nearestInteract && SF.nearestInteract());
   setText("interact-label", label);
-  talkBtn.setAttribute("aria-label", label.replace(/\n/g, " — "));
-  talkBtn.classList.toggle("ready", s.mode === "play" && !!SF.nearestInteract());
+  talkBtn.setAttribute("aria-label", label ? label.replace(/\n/g, " — ") : "Nothing nearby");
+  talkBtn.classList.toggle("ready", nearTalk);
+  talkBtn.classList.toggle("idle", s.mode === "play" && !nearTalk);
   var calmOn = !!SF.reduceFlash;
   ["title-calm", "pause-calm", "set-calm"].forEach(function (id) {
     var el = document.getElementById(id);

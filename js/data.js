@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4";
+SF.VERSION = "0.4.15";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -20,13 +20,12 @@ SF.STRIKE_ARC = 0.28;
 SF.XP_NEED = [0, 24, 70, 110];
 
 SF.WHATS_NEW = [
-  "The road is quiet until a fight finds you. There is no Fight button and nothing hunts the grass.",
-  "Shards stay hidden until Maren shows you the lamp. After that, your hand pulses when one is near.",
-  "Emberhold and Cinderveil are larger. Dash the broken span. Shardstep crosses a wider gap. The hook is wider still.",
-  "Ilsa stands on the Ashfields. You can walk to her. The vault gaps open after she says so.",
-  "A lit lamp makes that island much quieter. Lamp Hill goes still. The Scar does not.",
-  "The screen is a landscape, 640 by 360, drawn in whole pixels. A phone asks you to turn it sideways.",
-  "Act 1 is fought alone. Kestrel and Tamsin join after the act ends."
+  "Chests open when you mean to open them, and you can see what was inside.",
+  "Trees, flowers, rocks, and lamps look new. Cottages, stalls, and ruins were rebuilt.",
+  "You and the townspeople have new looks.",
+  "New enemies are on the road, including a boss.",
+  "Fights have new backgrounds.",
+  "Menus fit your phone screen, with Close always in reach."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
