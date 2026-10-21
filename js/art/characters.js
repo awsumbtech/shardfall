@@ -208,8 +208,8 @@
     "DSWWWiESSS..",
     "DSWWWWESSS..",
     "DSSSSSSSSSS.",
-    "DSSSSP.SSS..",
-    "DSSSSS.PPS..",
+    "DSSSSPSSSS..",
+    "DSSSSSSPPS..",
     "DSSSSSSSS...",
     ".DSSSSSS...."
   ].join("\n"));

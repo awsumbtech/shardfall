@@ -230,6 +230,7 @@ SF.bindInput = function () {
     }
     if (s.mode === "chest") {
       if (e.code === "Escape" || e.code === "Space" || e.code === "Enter" || e.code === "KeyE") {
+        if (SF.chestLocked && SF.chestLocked()) return;
         if (SF.closeChest) SF.closeChest();
         if (SF.syncUI) SF.syncUI();
       }
