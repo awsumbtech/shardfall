@@ -985,7 +985,19 @@ SF.defeatFieldFoe = function (e) {
   e.dying = 0.45;
   e.hp = 0;
   s.stats.foes = (s.stats.foes || 0) + 1;
-  SF.burst && SF.burst(e.x, e.y, "#ffe9a8", 10, 70);
+  if (e.kind === "maw" && SF.spawnParticle) {
+    var spark, bit;
+    for (spark = 0; spark < 7; spark++) {
+      SF.spawnParticle(e.x + (Math.random() - 0.5) * 16, e.y - 10, "#ffe9a8", 28, 0.2 + Math.random() * 0.1, 2);
+      bit = s.particles && s.particles[s.particles.length - 1];
+      if (bit) {
+        bit.px = 1;
+        bit.size = 2;
+        bit.vx = (Math.random() - 0.5) * 28;
+        bit.vy = -12 - Math.random() * 18;
+      }
+    }
+  } else if (SF.burst) SF.burst(e.x, e.y, "#ffe9a8", 10, 70);
   if (e.kind === "maw" && SF.onMawDead) SF.onMawDead();
 };
 

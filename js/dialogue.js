@@ -179,12 +179,8 @@ function showNode(id) {
   var full = fillLine(lines[0], s);
   if (SF.armReveal) SF.armReveal(full);
   if (node.id === "emberhold.wake") SF._duskAmt = 1;
-  if (node.id !== "cinderveil.lamp.relit" && SF.clearLampBanner) SF.clearLampBanner();
-  if (node.id === "cinderveil.lamp.relit") {
-    s.banner = { title: "Cinderveil's lamp", sub: "Orange light pours out across the island.", ttl: 3.2 };
-    s.lampBanner = true;
-    if (SF.beginIlsaApproach) SF.beginIlsaApproach();
-  }
+  if (SF.clearLampBanner) SF.clearLampBanner();
+  if (node.id === "cinderveil.lamp.relit" && SF.beginIlsaApproach) SF.beginIlsaApproach();
   if (node.id === "cinderveil.cantor.confront" && SF.ensureIlsaOnRidge) SF.ensureIlsaOnRidge();
   if ((node.id || id) === "cinderveil.act1.finale" && SF.beginDepart) SF.beginDepart();
   var instant = linesInstant();

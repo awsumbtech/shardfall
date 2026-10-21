@@ -777,21 +777,40 @@ SF.beginIlsaApproach = function () {
   if (!s || !SF.LAMP || SF.islandId !== "cinderveil") return;
   if (s.ilsaAt || s.ilsaWalk) return;
   var stand = SF.ilsaStand();
-  var colX = SF.LAMP.x + 2;
-  var landY = SF.LAMP.y + 45;
+  var lamp = SF.LAMP;
+  var center = lamp.x;
+  var p = s.player;
+  var side = stand.x < center ? -1 : 1;
+  // The cut is only ~32px wide. Pick a side of it before the climb.
+  var climbX = center + side * 12;
+  if (p && Math.abs(p.x - climbX) < 24) {
+    var otherX = center - side * 12;
+    if (Math.abs(p.x - otherX) >= 24) climbX = otherX;
+    else climbX = center + (p.x <= center ? 12 : -12);
+  }
+  // Shoulders stay open beside the upper cliff. The shelf between the
+  // cliffs is the cross below the lamp, clear of whoever stands at the top.
+  var shoulder = side < 0 ? center - 76 : center + 88;
+  if (p && Math.abs(p.x - shoulder) < 28) shoulder += side * 24;
+  var crossY = 248;
+  var below = lamp.y + 56;
   var hh = (SF.viewH || 720) / 2;
-  var fromY = Math.max(landY + 96, (s.camY || landY) + hh + 36);
-  var climb = Math.abs(fromY - landY) + Math.abs(landY - stand.y);
-  var side = Math.abs(stand.x - colX);
+  var fromY = Math.max(crossY + 120, (s.camY || crossY) + hh + 28);
+  var pts = [
+    { x: climbX, y: fromY },
+    { x: climbX, y: crossY },
+    { x: shoulder, y: crossY },
+    { x: shoulder, y: below },
+    { x: stand.x, y: below },
+    { x: stand.x, y: stand.y }
+  ];
+  var length = 0;
+  var i;
+  for (i = 0; i < pts.length - 1; i++) length += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
   s.ilsaWalk = {
     t: 0,
-    dur: Math.max(2.2, Math.min(3.6, (climb + side) / 180)),
-    pts: [
-      { x: colX, y: fromY },
-      { x: colX, y: landY },
-      { x: colX, y: stand.y },
-      { x: stand.x, y: stand.y }
-    ],
+    dur: Math.max(2.4, Math.min(3.6, length / 150)),
+    pts: pts,
     toX: stand.x,
     toY: stand.y,
     face: "up"
@@ -860,7 +879,7 @@ SF.quaySkiff = function () {
   return prop;
 };
 
-SF.SKIFF_DROP = 32;
+SF.SKIFF_DROP = 60;
 
 SF.epiCamera = function () {
   var prop = SF.quaySkiff();
@@ -939,7 +958,8 @@ SF.boatBoard = function () {
   var d = SF._depart;
   var s = SF.state;
   if (!d || !s || !s.dialogue || s.dialogue.id !== "cinderveil.act1.finale") return 0;
-  return 1;
+  var u = Math.max(0, Math.min(1, d.t / 0.3));
+  return u * u * (3 - 2 * u);
 };
 
 SF.boatDeckDelta = function (who) {
