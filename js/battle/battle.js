@@ -376,6 +376,14 @@ function openResult(b, row) {
   b.result = row;
   b.phase = "result";
   b.actorId = null;
+  // Corpses finish fading as the panel opens, and the last damage
+  // numbers come down with them instead of hanging over the trees.
+  b.corpseT = 0.28;
+  if (b.art) {
+    b.art.pops = [];
+    b.art.hurt = [];
+    b.art.element = null;
+  }
   if (row.levels && row.levels.length && window.Sfx) Sfx.play("level");
 }
 
@@ -756,6 +764,10 @@ SF.Battle.update = function (dt) {
   if (b.phase === "readout") {
     b.readoutT -= dt;
     if (b.readoutT <= 0) SF.Battle.afterReadout(b);
+  }
+  if (b.phase === "result" && b.corpseT > 0) {
+    b.corpseT -= dt;
+    if (b.corpseT < 0) b.corpseT = 0;
   }
 };
 

@@ -87,7 +87,6 @@
     sc.crack(Math.floor(sc.h * 0.08));
     sc.stamp("tree", 2, propTop(sc, 36), 1);
     sc.stamp("tree", Math.max(2, sc.w - 26), Math.max(2, propTop(sc, 36) - 4), 1);
-    fitStamp(sc, "lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 28), 28);
     ground(sc, "grass", Math.floor(sc.h * 0.58));
     sc.tileRow("path", Math.floor(sc.h * 0.72), 1);
     sc.stamp("flower", 20, Math.floor(sc.h * 0.7), 1);
@@ -121,7 +120,6 @@
       sc.rect(8 + col * Math.floor(sc.w / 4), 10, 10, Math.floor(sc.h * 0.7), Art.hex(col % 2 ? C.stoneD : C.rock));
     }
     ground(sc, "vault", Math.floor(sc.h * 0.72));
-    fitStamp(sc, "lamp_lit", Math.floor(sc.w * 0.46), propTop(sc, 28), 28);
     sc.rect(sc.w / 2 - 6, Math.floor(sc.h * 0.62), 12, 8, Art.hex(C.ember));
     sc.rect(sc.w / 2 - 3, Math.floor(sc.h * 0.64), 6, 4, Art.hex(C.lite));
   }
