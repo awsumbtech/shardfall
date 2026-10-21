@@ -2,7 +2,8 @@
 
 // startDialogue(id) plays SF.dialogueNodes[id].
 // Node: { id, speaker, portrait?, lines, choices?, next?, onEnd? }
-// Choice: { text, next?, setFlags?, requires? }
+// Choice: { text, next?, setFlags?, requires?, unless? }
+// A line may use requiresAny: [ { flag: value }, ... ] when any one map is enough.
 // onEnd fires, in order, when the conversation closes (after any next nodes).
 // Hook with SF.onDialogueEvent(name, fn), or the window event "sf:dialogue".
 // An unknown id plays one placeholder line and does not throw.
@@ -47,9 +48,29 @@ function lineNarration(line) {
   return !!(line && typeof line === "object" && line.narration);
 }
 
+function mapMatch(map, flags) {
+  if (!map) return true;
+  var k;
+  for (k in map) {
+    if (Object.prototype.hasOwnProperty.call(map, k) && flags[k] !== map[k]) return false;
+  }
+  return true;
+}
+
 function lineAllowed(line, flags) {
   if (!line || typeof line !== "object") return true;
-  if (line.requires && !choiceAllowed({ requires: line.requires }, flags)) return false;
+  if (line.requires && !mapMatch(line.requires, flags)) return false;
+  if (line.requiresAny) {
+    var ok = false;
+    var i;
+    for (i = 0; i < line.requiresAny.length; i++) {
+      if (mapMatch(line.requiresAny[i], flags)) {
+        ok = true;
+        break;
+      }
+    }
+    if (!ok) return false;
+  }
   if (line.unless) {
     var k;
     for (k in line.unless) {
@@ -87,11 +108,13 @@ function renderLine(el, text) {
 }
 
 function choiceAllowed(choice, flags) {
-  var req = choice && choice.requires;
-  if (!req) return true;
-  var k;
-  for (k in req) {
-    if (Object.prototype.hasOwnProperty.call(req, k) && flags[k] !== req[k]) return false;
+  if (!choice) return false;
+  if (choice.requires && !mapMatch(choice.requires, flags)) return false;
+  if (choice.unless) {
+    var k;
+    for (k in choice.unless) {
+      if (Object.prototype.hasOwnProperty.call(choice.unless, k) && flags[k] === choice.unless[k]) return false;
+    }
   }
   return true;
 }
@@ -169,16 +192,45 @@ SF.portraitForSpeaker = function (name) {
   return map[name] || "";
 };
 
+function openChoicesAgain(node) {
+  var s = SF.state;
+  s.dialogue = {
+    id: node.id || "",
+    node: node,
+    speaker: node.speaker || "Someone",
+    portrait: node.portrait || (SF.portraitForSpeaker && SF.portraitForSpeaker(node.speaker)) || "unknown",
+    lines: [],
+    i: 0,
+    full: "",
+    shown: 0,
+    done: true,
+    acc: 0,
+    phase: "line",
+    choices: [],
+    lock: 0,
+    holdForApproach: false
+  };
+  s.mode = "dialogue";
+  SF._portraitKey = null;
+  if (SF.releaseHolds) SF.releaseHolds();
+  if (SF.emit) SF.emit("talk");
+  enterChoice();
+  if (SF.syncUI) SF.syncUI();
+}
+
 function showNode(id) {
   var s = SF.state;
   if (!s) return;
   if (pendingScript(id)) return;
   var node = lookup(id);
   if (pendingScript(node.id)) return;
+  if (node.reopenChoices && (s.flags || {})[node.reopenChoices]) {
+    openChoicesAgain(node);
+    return;
+  }
   var lines = visibleLines(node, (s.flags || {}));
   var full = fillLine(lines[0], s);
   if (SF.armReveal) SF.armReveal(full);
-  if (node.id === "emberhold.wake") SF._duskAmt = 1;
   if (SF.clearLampBanner) SF.clearLampBanner();
   if (node.id === "cinderveil.lamp.relit" && SF.beginIlsaApproach) SF.beginIlsaApproach();
   if (node.id === "cinderveil.cantor.confront" && SF.ensureIlsaOnRidge) SF.ensureIlsaOnRidge();
@@ -221,7 +273,7 @@ function finishNode(choice) {
     s.act1Card = false;
     if (SF.endDepart) SF.endDepart();
   }
-  if (node && node.onEnd) SF._dlgEvents.push(node.onEnd);
+  if (node && node.onEnd && SF._dlgEvents.indexOf(node.onEnd) < 0) SF._dlgEvents.push(node.onEnd);
   var nextId = (choice && choice.next) || (node && node.next) || "";
   if (nextId && pendingScript(nextId)) nextId = "";
   if (nextId) {
@@ -241,6 +293,12 @@ function enterChoice() {
   var d = s.dialogue;
   var node = d.node || {};
   var flags = s.flags || {};
+  if (node.reopenChoices && !flags[node.reopenChoices]) {
+    var mark = {};
+    mark[node.reopenChoices] = true;
+    writeFlags(mark);
+    flags = s.flags || {};
+  }
   var visible = [];
   var list = node.choices || [];
   var i;

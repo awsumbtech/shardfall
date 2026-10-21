@@ -35,7 +35,7 @@
       narr("The skiff slides into a current of moving air. Faint streaks of light run ahead of it.", "ship"),
       "This is a wind lane. Stay in one and you fly. Drift out and you start sinking toward the Hush.",
       "See those lights down there, moving? Hushborn. When a lamp goes out, they rise and follow boats. I lost two friends that way last spring.",
-      "So yes, I sat on the dock. I like being brave. I like being alive more."
+      "That's why I stayed on the dock while the lamp was out. I like being brave. I like being alive more."
     ]
   });
 
@@ -213,7 +213,7 @@
     onEnd: "boss_start",
     lines: [
       narr("The Ember Vault. The island's core, a crystal the size of a house, glows a weak orange. Wrapped around it, chewing, is an enormous shape of grey cloud and live embers.", "maw"),
-      narr("It turns toward you. A bright point of light pulses in the middle of its chest. That's where to hit it.", "maw")
+      narr("It turns toward you. A bright point of light pulses in the middle of its chest.", "maw")
     ]
   });
 
@@ -425,6 +425,15 @@
     portrait: "core",
     lines: [
       "The crystal that holds the island up. Deep bite marks run across its surface."
+    ]
+  });
+
+  add({
+    id: "inspect.cinder_lamp",
+    speaker: "Cinderveil's Lamp",
+    portrait: "lamp",
+    lines: [
+      "Cinderveil's lamp. The glass is cold and dark."
     ]
   });
 

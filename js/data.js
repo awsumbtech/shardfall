@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.20";
+SF.VERSION = "0.4.21";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -30,7 +30,8 @@ SF.WHATS_NEW = [
   "The vault chest opens, the End of Act 1 card closes, and the sail chart shows only the islands you can reach.",
   "Act 1 scenes now match the story: the Maw crumbles to ash, Ilsa walks up to the ridge, and the skiff sails away at the end.",
   "In battle the whole party stands on the ground, lists show more rows, and the Cinder Maw is a fairer fight.",
-  "Menus and the sail chart stay open after you tap, and the stick no longer sticks when you open a menu with a second finger."
+  "Menus and the sail chart stay open after you tap, and the stick no longer sticks when you open a menu with a second finger.",
+  "Act 1 dialogue is clearer: one name for the lamp, side questions return to your choices, and Kestrel always introduces herself."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
