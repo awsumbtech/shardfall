@@ -315,8 +315,83 @@ SF.bindInput = function () {
   function allowScroll(e) {
     if (!e.target || !e.target.closest) return false;
     if (e.target.closest("input, textarea, select")) return true;
-    return !!e.target.closest(".scroll");
+    return !!e.target.closest(".scroll, .menu-scroll");
   }
+  // A menu opened by a tap must ignore that same press and the click it
+  // synthesizes. The next press (pointerdown, then click) is the first one
+  // that can hit a button. Same idea as the chest lock in v0.4.10.
+  SF._pressId = null;
+  SF._fresh = null;
+  SF._overlayKey = "";
+  function overlayOpen(mode, extra) {
+    if (extra) return true;
+    return mode === "sailmenu" || mode === "shop" || mode === "inn" || mode === "notice" ||
+      mode === "hand" || mode === "fieldmenu" || mode === "chest" || mode === "pause" ||
+      mode === "dialogue";
+  }
+  SF.armFreshPress = function () {
+    SF._fresh = { opener: SF._pressId, armed: false };
+  };
+  SF.watchOverlays = function () {
+    var s = SF.state;
+    var settings = document.getElementById("settings");
+    var extra = (SF.uiModal ? "|m" : "") + (settings && !settings.hidden ? "|s" : "");
+    var key = s ? ((s.mode || "") + extra) : "";
+    if (key === SF._overlayKey) return;
+    var prev = SF._overlayKey;
+    SF._overlayKey = key;
+    var prevMode = prev.split("|")[0];
+    var prevExtra = prev.indexOf("|") >= 0;
+    var now = overlayOpen(s && s.mode, extra);
+    var was = overlayOpen(prevMode, prevExtra);
+    if (now && (!was || key !== prev)) SF.armFreshPress();
+  };
+  function releasePress(e) {
+    if (SF._pressId === e.pointerId) SF._pressId = null;
+    if (SF._fresh && SF._fresh.opener === e.pointerId) SF._fresh.opener = null;
+  }
+  function armIfFresh(e) {
+    if (!SF._fresh || SF._fresh.armed) return;
+    if (SF._fresh.opener == null || e.pointerId !== SF._fresh.opener) SF._fresh.armed = true;
+  }
+  function swallowStale(e) {
+    if (!SF._fresh || SF._fresh.armed) return;
+    if (e.type === "click" && !e.detail) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  document.addEventListener("pointerdown", function (e) {
+    SF._pressId = e.pointerId;
+    armIfFresh(e);
+    queueMicrotask(function () {
+      if (SF.watchOverlays) SF.watchOverlays();
+    });
+  }, true);
+  document.addEventListener("pointerup", function (e) {
+    releasePress(e);
+    swallowStale(e);
+  }, true);
+  document.addEventListener("pointercancel", function (e) {
+    releasePress(e);
+    swallowStale(e);
+  }, true);
+  document.addEventListener("click", swallowStale, true);
+  function portraitBlocking() {
+    return !!(document.body && document.body.dataset.portrait === "1" && document.body.dataset.mode !== "chest");
+  }
+  function swallowPortrait(e) {
+    if (!portraitBlocking()) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  ["pointerdown", "pointerup", "pointercancel", "click", "touchstart", "touchend", "touchmove", "contextmenu"].forEach(function (type) {
+    document.addEventListener(type, swallowPortrait, true);
+  });
+  window.addEventListener("keydown", function (e) {
+    if (!portraitBlocking()) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
   document.addEventListener("touchmove", function (e) {
     if (!allowScroll(e)) e.preventDefault();
   }, { passive: false });
