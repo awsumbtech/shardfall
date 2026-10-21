@@ -196,6 +196,7 @@ SF.travelTo = function (island) {
     if (s.mode !== "dialogue" && s.mode !== "pause") s.mode = "play";
     return;
   }
+  var sailed = !!s.voyage;
   SF.snapshotEnemies();
   s.island = island;
   SF.mountIsland(island);
@@ -218,14 +219,14 @@ SF.travelTo = function (island) {
   s.pendingTalk = null;
   var arrival = {
     emberhold: ["Emberhold", "Emberhold, under the old lamp."],
-    cinderveil: ["Cinderveil", "Lowmoor Quay takes the line."],
+    cinderveil: ["Cinderveil", "Lowmoor Quay."],
     saltmere: ["Saltmere", "A stilt town. The lamp is dim."],
     highspire: ["Lowgate", "The road up to the gate."],
     gullrock: ["Gullrock", "A small rock."],
     drift: ["Drift Market", "The Drift Market."]
   };
   var line = arrival[island] || [island, ""];
-  SF.pushBanner(line[0], line[1], 2.4);
+  if (sailed) SF.pushBanner(line[0], line[1], 2.4);
   if (SF.cuePlaceMusic) SF.cuePlaceMusic(s);
   SF.saveGame({ silent: true });
 };
@@ -386,12 +387,13 @@ SF.cinderQuestText = function (s) {
   }
   if (q === "vault") return "Grapple across to the Ember Vault.";
   if (q === "trial") return s.flags.vaultOpen ? "Grapple Ilsa's gap, into the vault." : "Talk to Warden Ilsa.";
-  if (q === "seal") return "Speak to the Cinder Maw.";
+  if (q === "seal") return "Find the Cinder Maw in the Ember Vault.";
   if (q === "maw") return "Face the Cinder Maw.";
   if (q === "relight") {
     var need = SF.CINDER_SHARDS || 3;
     var held = s.shardsHeld || 0;
-    return "Place " + need + " shards on the hurt core (" + held + "/" + need + ").";
+    if (held >= need) return "Light the lamp on the ridge.";
+    return "Find shards for the lamp on the ridge (" + held + "/" + need + ").";
   }
   if (q === "cantor") return "The Cantor is on the ridge. Spare, Listen, or Refuse.";
   return null;
@@ -692,10 +694,10 @@ SF.CINDER_SHARDS = 3;
     if (!s) return;
     s.voyageTalk = false;
     if (s.voyage) s.voyage.talk = false;
-    s.voyage = null;
     var first = !s.flags.metCinderKestrel;
     s.flags.metCinderKestrel = true;
     if (SF.islandId !== "cinderveil" && SF.travelTo) SF.travelTo("cinderveil");
+    s.voyage = null;
     if (first && (s.quest === "hooked" || s.quest === "sail" || s.quest === "road" || s.quest === "stirring")) s.quest = "quay";
     SF.saveGame({ silent: true });
   });
@@ -1068,9 +1070,6 @@ SF.sceneActorNudge = function (who) {
 SF.tickActVisuals = function (dt) {
   var s = SF.state;
   if (!s || !(dt > 0)) return;
-  var wake = s.dialogue && s.dialogue.id === "emberhold.wake";
-  if (wake) SF._duskAmt = 1;
-  else if (SF._duskAmt > 0) SF._duskAmt = Math.max(0, SF._duskAmt - dt / 0.9);
   var veil = SF._veil;
   if (veil) {
     if (veil.hold > 0) veil.hold -= dt;

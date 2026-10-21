@@ -47,7 +47,7 @@
 
 `emberhold.wake`
 
-*Dusk. You wake in a ring of standing stones with no memory of your name. A sliver of glowing blue crystal has grown into your right palm.*
+*You wake in a ring of standing stones with no memory of your name. A sliver of glowing blue crystal has grown into your right palm.*
 
 *Down the hill, smoke rises from a cottage chimney. Up on the ridge, a great lamp flickers weakly.*
 
@@ -81,7 +81,7 @@
 
 **OLD MAREN:** Whatever falls in comes back as Hushborn, made of cloud and hunger. A lit lamp is the only thing they won't cross.
 
-*Continues to `emberhold.maren.intro_go`.*
+*Returns to the choices on `emberhold.maren.intro`, without this question.*
 
 `emberhold.maren.ask_hand`
 
@@ -89,11 +89,11 @@
 
 **OLD MAREN:** While you were asleep, the lamp flared every time your hand twitched. Whatever that is, the lamp knows it.
 
-*Continues to `emberhold.maren.intro_go`.*
+*Returns to the choices on `emberhold.maren.intro`, without this question.*
 
 `emberhold.maren.intro_go`
 
-**OLD MAREN:** Shards glow, so they're easy to spot. Some Hushborn carry them too. Hit the bright spot in the middle and they'll drop them.
+**OLD MAREN:** Shards glow, so they're easy to spot. Some Hushborn carry them too. Beat one and it'll drop what it's carrying.
 
 **OLD MAREN:** Where the path's broken, run and jump. Folk holding a shard can leap farther than they should, and yours is part of you.
 
@@ -211,9 +211,13 @@
 
 `emberhold.kestrel.offer_sail`
 
+**KESTREL VANE** *(if you have not met her)*: Hey, it's the sleeper! Kestrel Vane. And this beauty's the *Quickmercy*, fastest skiff on the wind. Ignore the patches.
+
 **KESTREL VANE:** You did it! I saw that from down here. Looked like a second sunrise.
 
-**KESTREL VANE:** Maren tell you about Cinderveil? I run cargo there. A week dark means they're in real trouble.
+**KESTREL VANE** *(if Maren's lamp talk has played)*: Maren tell you about Cinderveil? I run cargo there. A week dark means they're in real trouble.
+
+**KESTREL VANE** *(otherwise)*: You heard about Cinderveil? Their lamp went dark a week ago. I run cargo there, and a week dark means they're in real trouble.
 
 **KESTREL VANE:** I'll take you. Free this trip, since you lit my lamp. After that I charge like anybody else.
 
@@ -237,7 +241,7 @@
 
 **KESTREL VANE:** They want the sky to finish falling. Whatever they told you, don't buy it.
 
-*When the scene ends (after any reply): `open_sail_menu`.*
+*A side question returns to this choice list, without the question already asked. "Let's go." ends the scene: `open_sail_menu`.*
 
 `emberhold.kestrel.docked`
 
@@ -277,7 +281,7 @@
 
 **KESTREL VANE:** See those lights down there, moving? Hushborn. When a lamp goes out, they rise and follow boats. I lost two friends that way last spring.
 
-**KESTREL VANE:** So yes, I sat on the dock. I like being brave. I like being alive more.
+**KESTREL VANE:** That's why I stayed on the dock while the lamp was out. I like being brave. I like being alive more.
 
 *When the scene ends, the crossing continues.*
 
@@ -423,7 +427,7 @@
 
 *The Ember Vault. The island's core, a crystal the size of a house, glows a weak orange. Wrapped around it, chewing, is an enormous shape of grey cloud and live embers.*
 
-*It turns toward you. A bright point of light pulses in the middle of its chest. That's where to hit it.*
+*It turns toward you. A bright point of light pulses in the middle of its chest.*
 
 Fight the Cinder Maw?
 
@@ -577,6 +581,8 @@ Fight the Cinder Maw?
 `inspect.vault_seal` — **VAULT DOOR:** A heavy iron door stamped with the Lanternwright crest. It's warm to the touch.
 
 `inspect.cinder_core` — **CINDERVEIL'S CORE:** The crystal that holds the island up. Deep bite marks run across its surface.
+
+`inspect.cinder_lamp` — **CINDERVEIL'S LAMP:** Cinderveil's lamp. The glass is cold and dark.
 
 `inspect.maw_tooth` — **MAW TOOTH:** A tooth as long as your arm, made of hardened ash. It crumbles when you touch it.
 
