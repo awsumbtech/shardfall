@@ -3,6 +3,25 @@
 var SF = window.SF || {};
 window.SF = SF;
 
+// Stamp the moment an overlay is first painted. A press that went down
+// before that stamp is not a press on the overlay. Returning to the field
+// does not move the stamp, so a Stay click is not thrown out for being
+// older than the play frame.
+SF.noteOverlayPaint = function () {
+  var key = SF._overlayKey;
+  if (key == null) return;
+  if (key === SF._paintedOverlay) return;
+  var prev = SF._paintedOverlay;
+  SF._paintedOverlay = key;
+  if (prev == null) return;
+  var mode = String(key).split("|")[0];
+  var extra = String(key).indexOf("|") >= 0;
+  if (!extra && mode !== "sailmenu" && mode !== "dialogue" && mode !== "shop" &&
+      mode !== "inn" && mode !== "notice" && mode !== "hand" && mode !== "fieldmenu" &&
+      mode !== "chest" && mode !== "pause") return;
+  SF._overlayPaintAt = performance.now();
+};
+
 SF.boot = function () {
   if (window.Art && Art.wantsGallery && Art.wantsGallery()) {
     Art.openGallery();
@@ -32,6 +51,7 @@ SF.boot = function () {
     if (SF.portraitLock) {
       SF.draw();
       SF.syncUI();
+      if (SF.noteOverlayPaint) SF.noteOverlayPaint();
       requestAnimationFrame(frame);
       return;
     }
@@ -43,6 +63,7 @@ SF.boot = function () {
     if (SF._resizeTick % 30 === 0) SF.resize();
     SF.draw();
     SF.syncUI();
+    if (SF.noteOverlayPaint) SF.noteOverlayPaint();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

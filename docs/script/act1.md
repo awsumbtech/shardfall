@@ -429,7 +429,12 @@
 
 *It turns toward you. A bright point of light pulses in the middle of its chest.*
 
-*When the scene ends: `boss_start`.*
+Fight the Cinder Maw?
+
+- Yes
+- Not yet
+
+*Yes starts the fight (`boss_start`). Not yet leaves the Maw alone.*
 
 `cinderveil.maw.defeated`
 

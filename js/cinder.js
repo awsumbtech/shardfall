@@ -449,7 +449,10 @@ SF.cinderObjective = function (s) {
   }
   if (q === "relight") {
     var needRelight = SF.CINDER_SHARDS || 3;
-    if ((s.shardsHeld || 0) >= needRelight) return { x: SF.LAMP.x, y: SF.LAMP.y };
+    if ((s.shardsHeld || 0) >= needRelight) {
+      if (SF.lampRoutePoint) return SF.lampRoutePoint(s);
+      return { x: SF.LAMP.x, y: SF.LAMP.y };
+    }
     return SF.shardGoal ? SF.shardGoal(s) : null;
   }
   if (q === "cantor") {
@@ -879,6 +882,69 @@ SF.quaySkiff = function () {
     if (!prop && (p.kind === "airship" || p.kind === "skiff")) prop = p;
   });
   return prop;
+};
+
+SF.segmentOpen = function (x0, y0, x1, y1) {
+  var dx = x1 - x0;
+  var dy = y1 - y0;
+  var dist = Math.hypot(dx, dy);
+  var steps = Math.max(1, Math.ceil(dist / 12));
+  var i, u;
+  for (i = 1; i <= steps; i++) {
+    u = i / steps;
+    if (!SF.walkable(x0 + dx * u, y0 + dy * u)) return false;
+  }
+  return true;
+};
+
+SF.lampRoutePoint = function (s) {
+  var lamp = SF.LAMP;
+  if (!lamp) return null;
+  var goal = { x: lamp.x, y: lamp.y };
+  var p = s && s.player;
+  if (!p || SF.islandId !== "cinderveil") return goal;
+  // The lamp tile itself is blocked. Any walkable spot within 1.5 tiles counts as arrived.
+  if (SF.dist(p.x, p.y, goal.x, goal.y) <= (SF.LAMP_NEAR || 24)) return goal;
+  var tile = 16;
+  var marks = [
+    { x: 41 * tile, y: 33 * tile },
+    { x: 41 * tile, y: 24 * tile },
+    { x: 41 * tile, y: 16 * tile },
+    { x: 52 * tile, y: 10 * tile },
+    { x: 75 * tile, y: 12 * tile },
+    { x: 90 * tile, y: 12 * tile },
+    goal
+  ];
+  var i, mark, toLamp, best, bestLamp, dx, dy, dist, steps, u, lx, ly, last, toward;
+  best = null;
+  bestLamp = Infinity;
+  for (i = 0; i < marks.length; i++) {
+    mark = marks[i];
+    if (SF.dist(p.x, p.y, mark.x, mark.y) < 24) continue;
+    if (!SF.segmentOpen(p.x, p.y, mark.x, mark.y)) continue;
+    toLamp = SF.dist(mark.x, mark.y, goal.x, goal.y);
+    if (toLamp < bestLamp) {
+      bestLamp = toLamp;
+      best = mark;
+    }
+  }
+  if (best) return best;
+  toward = SF.dist(p.x, p.y, 41 * tile, 33 * tile) <= SF.dist(p.x, p.y, 90 * tile, 12 * tile)
+    ? { x: 41 * tile, y: 33 * tile }
+    : { x: 90 * tile, y: 12 * tile };
+  dx = toward.x - p.x;
+  dy = toward.y - p.y;
+  dist = Math.hypot(dx, dy) || 1;
+  steps = Math.max(1, Math.ceil(dist / 12));
+  last = { x: p.x, y: p.y };
+  for (i = 1; i <= steps; i++) {
+    u = i / steps;
+    lx = p.x + dx * u;
+    ly = p.y + dy * u;
+    if (!SF.walkable(lx, ly)) break;
+    last = { x: lx, y: ly };
+  }
+  return last;
 };
 
 SF.SKIFF_DROP = 60;

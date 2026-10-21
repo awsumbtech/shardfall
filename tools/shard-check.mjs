@@ -291,8 +291,12 @@ cinderShards.forEach((item) => {
   takeShard(cinder, item);
   if (cinder.shardsHeld >= SF.CINDER_SHARDS) {
     const goal = SF.objectivePoint(cinder);
-    if (!goal || Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y) > 8) {
-      fail("Cinderveil arrow did not turn to the lamp at " + cinder.shardsHeld);
+    const atLamp = goal && Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y) <= 8;
+    const toward = goal
+      && SF.segmentOpen(cinder.player.x, cinder.player.y, goal.x, goal.y)
+      && Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y) < Math.hypot(cinder.player.x - SF.LAMP.x, cinder.player.y - SF.LAMP.y) - 8;
+    if (!atLamp && !toward) {
+      fail("Cinderveil arrow did not turn to the lamp at " + cinder.shardsHeld + " (" + (goal && goal.x) + "," + (goal && goal.y) + ")");
     }
   }
 });

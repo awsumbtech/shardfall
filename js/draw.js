@@ -475,12 +475,13 @@ SF._rockTones = function (t) {
   };
 };
 
-SF._paintElevation = function (data, mask, minX, minY, w, h) {
+SF._paintElevation = function (data, mask, minX, minY, w, h, resume) {
   var list = SF._terraceList();
   var ti, t, tone, reach, x0, y0, x1, y1, x, y, idx, pix, m, cur, col;
   var face, block, lv, top, rd, wx, wy, band, along, stepH, hang, moss, u, shadow, kind, ramp, lip, drop, above;
-  var period, ax, ay, ddx, ddy, sz, reachH, fall;
-  for (ti = 0; ti < list.length; ti++) {
+  var period, ax, ay, ddx, ddy, sz, reachH, fall, yStart, ti0;
+  ti0 = resume && resume.ti != null ? resume.ti : 0;
+  for (ti = ti0; ti < list.length; ti++) {
     t = list[ti];
     tone = SF._rockTones(t);
     face = t.face || t.block || 0;
@@ -494,7 +495,14 @@ SF._paintElevation = function (data, mask, minX, minY, w, h) {
     y0 = Math.max(0, Math.floor(t.y - t.ry * reach - 16 - minY));
     x1 = Math.min(w - 1, Math.ceil(t.x + t.rx * reach + 16 - minX));
     y1 = Math.min(h - 1, Math.ceil(t.y + t.ry * reach + face + shadow + 8 - minY));
-    for (y = y0; y <= y1; y++) {
+    yStart = y0;
+    if (resume && resume.y != null && ti === ti0) yStart = resume.y;
+    for (y = yStart; y <= y1; y++) {
+      if (resume && y !== yStart && ((y - y0) & 7) === 0 && performance.now() >= resume.deadline) {
+        resume.ti = ti;
+        resume.y = y;
+        return false;
+      }
       for (x = x0; x <= x1; x++) {
         idx = y * w + x;
         kind = mask[idx];
@@ -563,7 +571,13 @@ SF._paintElevation = function (data, mask, minX, minY, w, h) {
         }
       }
     }
+    if (resume) resume.y = null;
   }
+  if (resume) {
+    resume.ti = 0;
+    resume.y = null;
+  }
+  return true;
 };
 
 SF.drawTerraceFront = function (ctx, t) {
@@ -831,35 +845,35 @@ SF._isTrail = function (sh) {
 SF._mixAmount = function (best, second) {
   if (!best || !second) return 0;
   var diff = best.depth - second.depth;
-  var band = 0.42;
+  var band = 0.85;
   if (diff >= band) return 0;
   var u = (1 - diff / band) * 0.5;
-  if (u < 0.08) return 0;
-  if (u < 0.18) return 0.16;
-  if (u < 0.28) return 0.28;
-  if (u < 0.4) return 0.4;
-  return 0.5;
+  if (u < 0.04) return 0;
+  return u > 0.5 ? 0.5 : u;
 };
 
 SF._cliffReach = function (ny) {
   return 4 + Math.max(0, ny) * 22;
 };
 
-SF._paintField = function (data, mask, minX, minY, w, h, lit) {
-  var shapes = [];
-  var names = Object.keys(SF.groups || {});
-  var ni, list, i;
-  for (ni = 0; ni < names.length; ni++) {
-    list = SF.groups[names[ni]] || [];
-    for (i = 0; i < list.length; i++) shapes.push(list[i]);
+SF._paintField = function (data, mask, minX, minY, w, h, lit, resume) {
+  var kept = resume && resume.prep;
+  var shapes = kept ? kept.shapes : [];
+  var names, ni, list, i;
+  if (!kept) {
+    names = Object.keys(SF.groups || {});
+    for (ni = 0; ni < names.length; ni++) {
+      list = SF.groups[names[ni]] || [];
+      for (i = 0; i < list.length; i++) shapes.push(list[i]);
+    }
   }
   var n = shapes.length;
-  var looks = new Array(n);
-  var regions = new Array(n);
-  var trails = new Array(n);
-  var foams = new Array(n);
-  var boxes = new Array(n);
-  for (i = 0; i < n; i++) {
+  var looks = kept ? kept.looks : new Array(n);
+  var regions = kept ? kept.regions : new Array(n);
+  var trails = kept ? kept.trails : new Array(n);
+  var foams = kept ? kept.foams : new Array(n);
+  var boxes = kept ? kept.boxes : new Array(n);
+  if (!kept) for (i = 0; i < n; i++) {
     regions[i] = SF._regionOf(shapes[i]);
     looks[i] = SF._terrainLooks[regions[i]] || SF._terrainLooks.meadow;
     trails[i] = SF._isTrail(shapes[i]);
@@ -882,30 +896,38 @@ SF._paintField = function (data, mask, minX, minY, w, h, lit) {
       };
     }
   }
-  var CELL = 64;
-  var cells = new Map();
+  var CELL = kept ? kept.CELL : 64;
+  var cells = kept ? kept.cells : new Map();
   var ci, box, cx0, cy0, cx1, cy1, cx, cy, key, bucket;
-  for (ci = 0; ci < n; ci++) {
-    box = boxes[ci];
-    cx0 = Math.floor((box.x0 - 24) / CELL);
-    cy0 = Math.floor((box.y0 - 8) / CELL);
-    cx1 = Math.floor((box.x1 + 24) / CELL);
-    cy1 = Math.floor((box.y1 + 8) / CELL);
-    for (cy = cy0; cy <= cy1; cy++) {
-      for (cx = cx0; cx <= cx1; cx++) {
-        key = cx + "," + cy;
-        bucket = cells.get(key);
-        if (!bucket) {
-          bucket = [];
-          cells.set(key, bucket);
+  if (!kept) {
+    for (ci = 0; ci < n; ci++) {
+      box = boxes[ci];
+      cx0 = Math.floor((box.x0 - 24) / CELL);
+      cy0 = Math.floor((box.y0 - 8) / CELL);
+      cx1 = Math.floor((box.x1 + 24) / CELL);
+      cy1 = Math.floor((box.y1 + 8) / CELL);
+      for (cy = cy0; cy <= cy1; cy++) {
+        for (cx = cx0; cx <= cx1; cx++) {
+          key = cx + "," + cy;
+          bucket = cells.get(key);
+          if (!bucket) {
+            bucket = [];
+            cells.set(key, bucket);
+          }
+          bucket.push(ci);
         }
-        bucket.push(ci);
       }
     }
+    if (resume) resume.prep = { shapes: shapes, looks: looks, regions: regions, trails: trails, foams: foams, boxes: boxes, cells: cells, CELL: CELL };
   }
   var y, x, wx, wy, m, gap, reach, score, pix, best, second, trailBest, cliff, hit;
   var color, mix, cell;
-  for (y = 0; y < h; y++) {
+  var yStart = resume ? (resume.y || 0) : 0;
+  for (y = yStart; y < h; y++) {
+    if (resume && y > yStart && (y & 15) === 0 && performance.now() >= resume.deadline) {
+      resume.y = y;
+      return false;
+    }
     wy = minY + y;
     cy = Math.floor(wy / CELL);
     for (x = 0; x < w; x++) {
@@ -957,6 +979,10 @@ SF._paintField = function (data, mask, minX, minY, w, h, lit) {
         if (best.deep < 2.6 && (!second || second.deep < 2)) {
           color = best.deep < 1.15 ? looks[best.i].soil : SF._lerpRgb(color, looks[best.i].soil, best.ny > 0.1 ? 0.45 : 0.2);
         }
+        if (!second && best.deep < 16) {
+          var rim = (16 - best.deep) / 16;
+          color = SF._lerpRgb(color, [22, 32, 62], rim * 0.55);
+        }
         SF._writePx(data, pix, color);
         mask[y * w + x] = 1;
       } else if (trailBest) {
@@ -980,22 +1006,33 @@ SF._paintField = function (data, mask, minX, minY, w, h, lit) {
       }
     }
   }
+  if (resume) resume.y = h;
+  return true;
 };
 
-SF._paintDetails = function (data, mask, minX, minY, w, h) {
-  var shapes = [];
-  var names = Object.keys(SF.groups || {});
-  var ni, list, i;
-  for (ni = 0; ni < names.length; ni++) {
-    list = SF.groups[names[ni]] || [];
-    for (i = 0; i < list.length; i++) if (!SF._isTrail(list[i])) shapes.push(list[i]);
+SF._paintDetails = function (data, mask, minX, minY, w, h, resume) {
+  var shapes = resume && resume.shapes;
+  var names, ni, list, i;
+  if (!shapes) {
+    shapes = [];
+    names = Object.keys(SF.groups || {});
+    for (ni = 0; ni < names.length; ni++) {
+      list = SF.groups[names[ni]] || [];
+      for (i = 0; i < list.length; i++) if (!SF._isTrail(list[i])) shapes.push(list[i]);
+    }
+    if (resume) resume.shapes = shapes;
   }
   var x0 = minX >> 4;
   var y0 = minY >> 4;
   var x1 = (minX + w) >> 4;
   var y1 = (minY + h) >> 4;
-  var cx, cy, hsh, wx, wy, idx, look, k, pix;
-  for (cy = y0; cy <= y1; cy++) {
+  var cx, cy, hsh, wx, wy, idx, look, k, pix, cy0;
+  cy0 = resume && resume.cy != null ? resume.cy : y0;
+  for (cy = cy0; cy <= y1; cy++) {
+    if (resume && cy !== cy0 && ((cy - y0) & 3) === 0 && performance.now() >= resume.deadline) {
+      resume.cy = cy;
+      return false;
+    }
     for (cx = x0; cx <= x1; cx++) {
       hsh = SF._thash(cx, cy);
       if (hsh % 7 !== 0) continue;
@@ -1024,6 +1061,8 @@ SF._paintDetails = function (data, mask, minX, minY, w, h) {
       }
     }
   }
+  if (resume) resume.cy = y1 + 1;
+  return true;
 };
 
 SF._pathColors = function (wx, wy) {
@@ -1135,58 +1174,97 @@ SF._meander = function (path) {
   return pts;
 };
 
-SF._paintPaths = function (data, mask, minX, minY, w, h) {
+SF._paintPaths = function (data, mask, minX, minY, w, h, resume) {
   var paths = SF.PATHS || [];
-  if (!paths.length) return;
-  var joints = [];
-  var pi, path, i, raw, used, a, b, cluster, count, weight;
-  for (pi = 0; pi < paths.length; pi++) {
-    path = paths[pi];
-    for (i = 0; i < path.length; i += 2) {
-      weight = (i > 0 && i < path.length - 2) ? 2 : 1;
-      joints.push({ x: path[i], y: path[i + 1], n: weight });
-    }
-  }
-  used = [];
-  for (a = 0; a < joints.length; a++) {
-    if (used[a]) continue;
-    cluster = { x: joints[a].x, y: joints[a].y, n: joints[a].n };
-    count = 1;
-    used[a] = 1;
-    for (b = a + 1; b < joints.length; b++) {
-      if (used[b]) continue;
-      if (Math.hypot(joints[b].x - joints[a].x, joints[b].y - joints[a].y) < 36) {
-        used[b] = 1;
-        cluster.x += joints[b].x;
-        cluster.y += joints[b].y;
-        cluster.n += joints[b].n;
-        count++;
+  if (!paths.length) return true;
+  var state = resume || {};
+  var deadline = resume && resume.deadline != null ? resume.deadline : Infinity;
+  var yielding = !!resume;
+  var pi, path, i, raw, used, a, b, cluster, count, weight, look, blob, phase, steps, s, ang, rad, px, py;
+  var joints, ci, dist, phase2, seg0, x0, y0, x1, y1, len, steps2, t, px2, py2, width, cols;
+  if (!state.clusters) {
+    joints = [];
+    state.clusters = [];
+    for (pi = 0; pi < paths.length; pi++) {
+      path = paths[pi];
+      for (i = 0; i < path.length; i += 2) {
+        weight = (i > 0 && i < path.length - 2) ? 2 : 1;
+        joints.push({ x: path[i], y: path[i + 1], n: weight });
       }
     }
-    cluster.x /= count;
-    cluster.y /= count;
-    if (cluster.n < 2 && count < 2) continue;
-    var look = SF._pathColors(cluster.x, cluster.y);
-    if (!look) continue;
-    var blob = 11 + Math.min(5, cluster.n);
-    var phase = (SF._thash(cluster.x | 0, cluster.y | 0) % 628) / 100;
-    var steps = 8;
-    var s, ang, rad, px, py;
-    for (s = 0; s < steps; s++) {
-      ang = (s / steps) * Math.PI * 2;
-      rad = blob * (0.8 + 0.2 * Math.sin(ang * 3 + phase));
-      px = cluster.x + Math.cos(ang) * rad * 0.4;
-      py = cluster.y + Math.sin(ang) * rad * 0.4;
-      SF._stampPath(px, py, rad * 0.7, look, mask, data, minX, minY, w, h);
+    used = [];
+    for (a = 0; a < joints.length; a++) {
+      if (used[a]) continue;
+      cluster = { x: joints[a].x, y: joints[a].y, n: joints[a].n };
+      count = 1;
+      used[a] = 1;
+      for (b = a + 1; b < joints.length; b++) {
+        if (used[b]) continue;
+        if (Math.hypot(joints[b].x - joints[a].x, joints[b].y - joints[a].y) < 36) {
+          used[b] = 1;
+          cluster.x += joints[b].x;
+          cluster.y += joints[b].y;
+          cluster.n += joints[b].n;
+          count++;
+        }
+      }
+      cluster.x /= count;
+      cluster.y /= count;
+      if (cluster.n < 2 && count < 2) continue;
+      state.clusters.push(cluster);
     }
+    state.ci = 0;
+    state.pi = 0;
   }
-  for (pi = 0; pi < paths.length; pi++) {
-    raw = SF._meander(paths[pi]);
-    if (raw.length < 4) continue;
-    var dist = 0;
-    var phase2 = (SF._thash(raw[0] | 0, raw[1] | 0) % 500) / 80;
-    var x0, y0, x1, y1, len, steps2, t, px2, py2, width, cols;
-    for (i = 0; i < raw.length - 2; i += 2) {
+  ci = state.ci || 0;
+  while (ci < state.clusters.length) {
+    if (yielding && ci !== (state.ci || 0) && performance.now() >= deadline) {
+      state.ci = ci;
+      return false;
+    }
+    cluster = state.clusters[ci];
+    look = SF._pathColors(cluster.x, cluster.y);
+    if (look) {
+      blob = 11 + Math.min(5, cluster.n);
+      phase = (SF._thash(cluster.x | 0, cluster.y | 0) % 628) / 100;
+      steps = 8;
+      for (s = 0; s < steps; s++) {
+        ang = (s / steps) * Math.PI * 2;
+        rad = blob * (0.8 + 0.2 * Math.sin(ang * 3 + phase));
+        px = cluster.x + Math.cos(ang) * rad * 0.4;
+        py = cluster.y + Math.sin(ang) * rad * 0.4;
+        SF._stampPath(px, py, rad * 0.7, look, mask, data, minX, minY, w, h);
+      }
+    }
+    ci++;
+  }
+  state.ci = ci;
+  pi = state.pi || 0;
+  while (pi < paths.length) {
+    if (!state.raw || state.pathN !== pi) {
+      state.raw = SF._meander(paths[pi]);
+      state.pathN = pi;
+      state.seg = 0;
+      state.dist = 0;
+      state.phase2 = state.raw.length ? ((SF._thash(state.raw[0] | 0, state.raw[1] | 0) % 500) / 80) : 0;
+    }
+    raw = state.raw;
+    if (raw.length < 4) {
+      pi++;
+      state.raw = null;
+      state.pi = pi;
+      continue;
+    }
+    dist = state.dist || 0;
+    phase2 = state.phase2;
+    seg0 = state.seg || 0;
+    for (i = seg0; i < raw.length - 2; i += 2) {
+      if (yielding && i !== seg0 && performance.now() >= deadline) {
+        state.pi = pi;
+        state.seg = i;
+        state.dist = dist;
+        return false;
+      }
       x0 = raw[i];
       y0 = raw[i + 1];
       x1 = raw[i + 2];
@@ -1202,7 +1280,13 @@ SF._paintPaths = function (data, mask, minX, minY, w, h) {
         dist += len / steps2;
       }
     }
+    pi++;
+    state.raw = null;
+    state.pi = pi;
+    state.seg = 0;
+    state.dist = 0;
   }
+  return true;
 };
 
 SF.terrainKey = function (lit) {
@@ -1390,7 +1474,15 @@ SF.drawPropArt = function (ctx, prop, lit) {
 };
 
 SF.drawProp = function (ctx, prop, lit) {
-  if (SF.drawPropArt(ctx, prop, lit)) return;
+  if (prop.spin) {
+    ctx.save();
+    ctx.translate(prop.x, prop.y);
+    ctx.rotate(prop.spin);
+    ctx.translate(-prop.x, -prop.y);
+  }
+  var drewArt = SF.drawPropArt(ctx, prop, lit);
+  if (prop.spin) ctx.restore();
+  if (drewArt) return;
   var x = prop.x;
   var y = prop.y;
   var s = prop.s || 1;
@@ -2079,10 +2171,11 @@ SF.drawLampCrystal = function (ctx, lit) {
   }
 };
 
-SF.drawBobber = function (ctx, x, y) {
+SF.drawBobber = function (ctx, x, y, lift) {
   var bob = (SF.calm && SF.calm()) ? 0 : Math.sin(SF.anim * 2) * 2;
+  var rise = lift == null ? 28 : lift;
   ctx.save();
-  ctx.translate(x, y - 28 + bob);
+  ctx.translate(x, y - rise + bob);
   ctx.fillStyle = "#ffd37a";
   ctx.beginPath();
   ctx.moveTo(0, -5);
@@ -2162,22 +2255,9 @@ SF.entityList = function (s) {
   list.push({ y: SF.LAMP.y, draw: function (ctx) { SF.drawLampCrystal(ctx, lit); } });
   SF.NPCS.forEach(function (n) {
     if (SF.npcHidden && SF.npcHidden(n)) return;
-    var nx = n.x;
-    var ny = n.y;
-    if (n.id === "cantor" && SF.cantorWorldPos) {
-      var spot = SF.cantorWorldPos();
-      if (spot) {
-        nx = spot.x;
-        ny = spot.y;
-      }
-    }
-    if (n.id === "ilsa" && SF.ilsaWorldPos) {
-      var ilsaSpot = SF.ilsaWorldPos();
-      if (ilsaSpot) {
-        nx = ilsaSpot.x;
-        ny = ilsaSpot.y;
-      }
-    }
+    var feet = SF.actorFeet ? SF.actorFeet(n) : null;
+    var nx = feet ? feet.x : n.x;
+    var ny = feet ? feet.y : n.y;
     var ilsaWalking = n.id === "ilsa" && SF.ilsaWalking && SF.ilsaWalking();
     list.push({
       y: ny,
@@ -2197,13 +2277,18 @@ SF.entityList = function (s) {
           else SF.drawCantor(ctx, nx, ny);
         }
         var walking = n.id === "cantor" && s.approach && s.approach.kind === "cantor";
-        if (walking || (s.mode === "play" && SF.dist(s.player.x, s.player.y, nx, ny) < 90)) {
-          ctx.save();
-          ctx.font = "600 12px Palatino, Georgia, serif";
-          ctx.textAlign = "center";
-          ctx.fillStyle = "#fff8ee";
-          ctx.fillText(n.name, nx, ny - 34);
-          ctx.restore();
+        var nameDist = SF.dist(s.player.x, s.player.y, nx, ny);
+        if (walking || (s.mode === "play" && nameDist < 90)) {
+          var alpha = SF.markAlpha ? SF.markAlpha(n.id, nameDist) : 1;
+          if (alpha > 0.02) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.font = "600 12px Palatino, Georgia, serif";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#fff8ee";
+            ctx.fillText(n.name, nx, ny - 34);
+            ctx.restore();
+          }
         }
         ctx.restore();
       }
@@ -2273,8 +2358,13 @@ SF.entityList = function (s) {
     });
   });
   var p = s.player;
+  var heroSort = p.y;
+  if (SF.rampFrontY) {
+    var frontY = SF.rampFrontY(p.x, p.y);
+    if (frontY != null && frontY > heroSort) heroSort = frontY + 0.5;
+  }
   list.push({
-    y: p.y + 0.01,
+    y: heroSort + 0.01,
     draw: function (ctx) {
       var ride = SF.sceneActorNudge ? SF.sceneActorNudge("player") : null;
       ctx.save();
@@ -2336,6 +2426,101 @@ SF.goalPrecise = function (goal) {
   return !goal || goal.kind !== "shard" || goal.precise !== false;
 };
 
+SF.GUIDE_NEAR = 18;
+SF.GUIDE_HEAD = 60;
+SF.LAMP_NEAR = 24;
+// Talk range, plus a short margin so the name and diamond clear his sprite
+// and the foot ring. A few pixels of hysteresis keep the edge from flickering.
+SF.MARK_NEAR = (SF.TALK_RANGE || 54) + 18;
+SF.MARK_HYST = 4;
+
+SF.guideActor = function (goal) {
+  var i, n, feet;
+  if (!goal) return null;
+  for (i = 0; i < (SF.NPCS || []).length; i++) {
+    n = SF.NPCS[i];
+    if (SF.npcHidden && SF.npcHidden(n)) continue;
+    feet = SF.actorFeet ? SF.actorFeet(n) : n;
+    if (feet && Math.hypot(feet.x - goal.x, feet.y - goal.y) < 8) {
+      return { x: feet.x, y: feet.y, id: n.id };
+    }
+  }
+  return null;
+};
+
+// One threshold for every NPC name and for the objective diamond.
+// Hidden inside MARK_NEAR. Once hidden, it stays hidden until MARK_NEAR + MARK_HYST.
+SF.markHidden = function (id, dist) {
+  var key = id || "";
+  if (!SF._markHold) SF._markHold = {};
+  var near = SF.MARK_NEAR || 72;
+  var hyst = SF.MARK_HYST || 4;
+  var hidden = !!SF._markHold[key];
+  hidden = hidden ? dist < near + hyst : dist <= near;
+  SF._markHold[key] = hidden;
+  return hidden;
+};
+
+// Ease toward the hold so the tag does not pop. A second call in the same
+// instant does not step again.
+SF.markAlpha = function (id, dist) {
+  var target = SF.markHidden(id, dist) ? 0 : 1;
+  if (!SF._markFade) SF._markFade = {};
+  var key = id || "";
+  var now = performance.now();
+  var rec = SF._markFade[key];
+  if (!rec) {
+    SF._markFade[key] = { a: target, t: now };
+    return target;
+  }
+  var dt = Math.max(0, Math.min(0.05, (now - rec.t) / 1000));
+  rec.t = now;
+  if (dt > 0 && rec.a !== target) {
+    var step = dt / 0.08;
+    if (step > 1) step = 1;
+    rec.a += (target - rec.a) * step;
+    if (Math.abs(rec.a - target) < 0.02) rec.a = target;
+  }
+  return rec.a;
+};
+
+SF.actorMarkHidden = function (goal, hero) {
+  var actor = SF.guideActor(goal);
+  if (!actor || !hero) return false;
+  return SF.markHidden(actor.id, Math.hypot(hero.x - actor.x, hero.y - actor.y));
+};
+
+// Centered on the NPC. Null while the hero is close enough to talk.
+SF.guideMark = function (goal, hero) {
+  var actor = SF.guideActor(goal);
+  if (!actor || SF.actorMarkHidden(goal, hero)) return null;
+  var lift = SF.GUIDE_HEAD || 42;
+  return { x: actor.x, y: actor.y - lift, lift: lift };
+};
+
+SF.guideLift = function (goal, hero) {
+  var mark = SF.guideMark(goal, hero);
+  if (mark) return mark.lift;
+  if (SF.guideActor(goal)) return 0;
+  return 28;
+};
+
+SF.lampClose = function (s) {
+  if (!s || !s.player || !SF.LAMP || SF.islandId !== "cinderveil") return false;
+  return Math.hypot(s.player.x - SF.LAMP.x, s.player.y - SF.LAMP.y) <= (SF.LAMP_NEAR || 24);
+};
+
+SF.goalOnScreen = function (goal, s, w, h) {
+  if (!goal || !s || !w || !h) return false;
+  var zoom = SF.zoom || 1;
+  function hit(x, y) {
+    var sx = (x - s.camX) * zoom + w / 2;
+    var sy = (y - s.camY) * zoom + h / 2;
+    return sx >= 0 && sx <= w && sy >= 0 && sy <= h;
+  }
+  return hit(goal.x, goal.y) || hit(goal.x, goal.y - 32);
+};
+
 SF.drawGuide = function (ctx, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
@@ -2343,32 +2528,58 @@ SF.drawGuide = function (ctx, s) {
   var p = s.player;
   var dx = goal.x - p.x;
   var dy = goal.y - p.y;
-  var d = Math.hypot(dx, dy) || 1;
-  if (d > 70) {
+  var d = Math.hypot(dx, dy);
+  if (d <= (SF.GUIDE_NEAR || 18)) return;
+  if (SF.lampClose && SF.lampClose(s) && SF.LAMP && Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y) <= 8) return;
+  var actor = SF.guideActor(goal);
+  if (d > 96) {
     var ang = Math.atan2(dy, dx);
-    ctx.save();
-    ctx.translate(p.x + Math.cos(ang) * 52, p.y + Math.sin(ang) * 52);
-    ctx.rotate(ang);
-    ctx.fillStyle = "rgba(255, 211, 122, 0.95)";
-    ctx.strokeStyle = "rgba(20, 10, 30, 0.55)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(9, 0);
-    ctx.lineTo(-7, 5);
-    ctx.lineTo(-3, 0);
-    ctx.lineTo(-7, -5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
+    var cx = p.x + Math.cos(ang) * 34;
+    var cy = p.y + Math.sin(ang) * 34 - 22;
+    var onTarget = Math.hypot(cx - goal.x, cy - (goal.y - 20)) < 40;
+    var crowded = SF.actorNear && SF.actorNear(cx, cy + 22, 28);
+    if (!onTarget && !crowded) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(ang);
+      ctx.fillStyle = "rgba(255, 211, 122, 0.95)";
+      ctx.strokeStyle = "rgba(20, 10, 30, 0.55)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(9, 0);
+      ctx.lineTo(-7, 5);
+      ctx.lineTo(-3, 0);
+      ctx.lineTo(-7, -5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
   }
-  if (d > 40) SF.drawBobber(ctx, goal.x, goal.y);
+  if (actor) {
+    var fade = SF.markAlpha(actor.id, Math.hypot(p.x - actor.x, p.y - actor.y));
+    if (fade > 0.02) {
+      ctx.save();
+      ctx.globalAlpha = fade;
+      SF.drawBobber(ctx, actor.x, actor.y, SF.GUIDE_HEAD || 60);
+      ctx.restore();
+    }
+  } else if (d > 40) SF.drawBobber(ctx, goal.x, goal.y, 28);
+};
+
+SF.hideEdgeArrow = function (goal, s, w, h) {
+  if (!goal) return true;
+  if (goal.kind === "shard" && goal.precise === false) return false;
+  var pd = s && s.player ? Math.hypot(goal.x - s.player.x, goal.y - s.player.y) : Infinity;
+  if (pd <= (SF.GUIDE_NEAR || 18)) return true;
+  if (SF.lampClose && SF.lampClose(s) && SF.LAMP && Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y) <= 8) return true;
+  return !!(SF.goalOnScreen && SF.goalOnScreen(goal, s, w, h));
 };
 
 SF.drawEdgeArrow = function (ctx, w, h, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
-  if (!goal) return;
+  if (!goal || SF.hideEdgeArrow(goal, s, w, h)) return;
   var sensed = goal.kind === "shard" && goal.precise === false;
   var zoom = SF.zoom || 1;
   var sx = (goal.x - s.camX) * zoom + w / 2;
@@ -2377,7 +2588,6 @@ SF.drawEdgeArrow = function (ctx, w, h, s) {
   var right = w - 28;
   var top = 88;
   var bottom = h - 150;
-  if (!sensed && sx > left && sx < right && sy > top && sy < bottom) return;
   var cx = w / 2;
   var cy = h / 2;
   var dx = sx - cx;
@@ -2549,6 +2759,10 @@ SF.draw = function () {
   SF.drawEdgeArrow(ctx, w, h, s);
   if (SF.drawSceneWash) SF.drawSceneWash(ctx, w, h);
   SF.drawMap();
+};
+
+SF.flushSheets = function () {
+  if (SF.draw) SF.draw();
 };
 
 SF.drawMawAsh = function (ctx, e, facing) {

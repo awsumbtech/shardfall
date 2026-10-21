@@ -510,11 +510,13 @@ SF.interactRank = function (kind) {
   return 2;
 };
 
+SF.TALK_RANGE = 54;
+
 SF.nearestInteract = function (range) {
   var s = SF.state;
   var p = s.player;
   var best = null;
-  var limit = range || 54;
+  var limit = range || SF.TALK_RANGE || 54;
   function consider(kind, ref, x, y) {
     var d = SF.dist(p.x, p.y, x, y);
     if (d >= limit) return;
@@ -529,14 +531,19 @@ SF.nearestInteract = function (range) {
   }
   SF.NPCS.forEach(function (n) {
     if (SF.npcHidden && SF.npcHidden(n)) return;
-    var nx = n.x;
-    var ny = n.y;
+    var nx = null;
+    var ny = null;
     if (n.id === "cantor" && SF.cantorWorldPos) {
       var spot = SF.cantorWorldPos();
       if (spot) {
         nx = spot.x;
         ny = spot.y;
       }
+    }
+    if (nx == null) {
+      var feet = SF.actorFeet ? SF.actorFeet(n) : null;
+      nx = feet ? feet.x : n.x;
+      ny = feet ? feet.y : n.y;
     }
     consider("npc", n, nx, ny);
   });
@@ -687,8 +694,9 @@ SF.tryInteract = function () {
     else if (SF.startDialogue) SF.startDialogue(near.ref.node || "inspect.tamsin_bench");
     return;
   }
-  if (near.kind === "checkpoint" && SF.setCheckpoint) {
-    SF.setCheckpoint(near.ref.x, near.ref.y);
+  if (near.kind === "checkpoint") {
+    if (SF.restAtPost) SF.restAtPost(near.ref.x, near.ref.y);
+    else if (SF.setCheckpoint) SF.setCheckpoint(near.ref.x, near.ref.y);
     return;
   }
   if (near.kind === "npc") {

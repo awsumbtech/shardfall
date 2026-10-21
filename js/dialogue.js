@@ -2,7 +2,7 @@
 
 // startDialogue(id) plays SF.dialogueNodes[id].
 // Node: { id, speaker, portrait?, lines, choices?, next?, onEnd? }
-// Choice: { text, next?, setFlags?, requires?, unless? }
+// Choice: { text, next?, setFlags?, requires?, unless?, event? }
 // A line may use requiresAny: [ { flag: value }, ... ] when any one map is enough.
 // onEnd fires, in order, when the conversation closes (after any next nodes).
 // Hook with SF.onDialogueEvent(name, fn), or the window event "sf:dialogue".
@@ -274,6 +274,7 @@ function finishNode(choice) {
     if (SF.endDepart) SF.endDepart();
   }
   if (node && node.onEnd && SF._dlgEvents.indexOf(node.onEnd) < 0) SF._dlgEvents.push(node.onEnd);
+  if (choice && choice.event && SF._dlgEvents.indexOf(choice.event) < 0) SF._dlgEvents.push(choice.event);
   var nextId = (choice && choice.next) || (node && node.next) || "";
   if (nextId && pendingScript(nextId)) nextId = "";
   if (nextId) {

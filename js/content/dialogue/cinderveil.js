@@ -210,10 +210,14 @@
     id: "cinderveil.maw.prefight",
     speaker: "Narration",
     portrait: "maw",
-    onEnd: "boss_start",
     lines: [
       narr("The Ember Vault. The island's core, a crystal the size of a house, glows a weak orange. Wrapped around it, chewing, is an enormous shape of grey cloud and live embers.", "maw"),
-      narr("It turns toward you. A bright point of light pulses in the middle of its chest.", "maw")
+      narr("It turns toward you. A bright point of light pulses in the middle of its chest.", "maw"),
+      "Fight the Cinder Maw?"
+    ],
+    choices: [
+      { text: "Yes", event: "boss_start" },
+      { text: "Not yet" }
     ]
   });
 

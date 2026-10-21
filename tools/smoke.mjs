@@ -311,7 +311,7 @@ const required = {
   "cinderveil.tamsin.grapple_gift": "grant_grapple",
   "cinderveil.hesk.rumor": null,
   "cinderveil.ilsa.trial": "vault_open",
-  "cinderveil.maw.prefight": "boss_start",
+  "cinderveil.maw.prefight": null,
   "cinderveil.maw.defeated": null,
   "cinderveil.lamp.relit": "quest_cinder_lamp_done",
   "cinderveil.cantor.confront": "act1_end"
@@ -326,6 +326,22 @@ for (const [id, onEnd] of Object.entries(required)) {
     console.error("onEnd mismatch", id, node.onEnd);
     process.exit(1);
   }
+}
+const mawAsk = SF.dialogueNodes["cinderveil.maw.prefight"];
+const mawLast = SF.lineText(mawAsk.lines[mawAsk.lines.length - 1]);
+if (mawLast !== "Fight the Cinder Maw?") {
+  console.error("maw confirm line", mawLast);
+  process.exit(1);
+}
+const mawNarr = mawAsk.lines.map((line) => SF.lineText(line)).join(" ");
+if (mawNarr.indexOf("That's where to hit it") >= 0 || mawNarr.indexOf("A bright point of light pulses in the middle of its chest.") < 0) {
+  console.error("maw narration", mawNarr);
+  process.exit(1);
+}
+const mawChoices = (mawAsk.choices || []).map((c) => c.text + ":" + (c.event || ""));
+if (mawChoices.join(",") !== "Yes:boss_start,Not yet:" || mawAsk.onEnd) {
+  console.error("maw choices", mawChoices, mawAsk.onEnd);
+  process.exit(1);
 }
 const cantorChoices = SF.dialogueNodes["cinderveil.cantor.confront"].choices.map((c) => c.setFlags.cantor_choice);
 if (cantorChoices.join(",") !== "spare,listen,refuse") {
@@ -1469,7 +1485,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.21"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.22"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));

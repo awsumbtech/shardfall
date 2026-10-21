@@ -67,16 +67,59 @@ SF.healParty = function (fraction) {
 
 SF.respawnFieldEnemies = function () {};
 
+SF.restAtPost = function (x, y) {
+  var s = SF.state;
+  if (!s) return;
+  SF.healParty(1);
+  if (SF.rememberCheckpoint) SF.rememberCheckpoint(x, y, { kind: "post", quiet: true });
+  else s.checkpoint = { x: x, y: y, island: SF.islandId, kind: "post" };
+  SF.pushToast("Rested. HP and SP are full.", 2.2);
+  if (SF.saveGame) SF.saveGame({ silent: true });
+};
+
+SF.defeatPlaceLine = function (spot) {
+  var kind = spot && spot.kind;
+  if (kind === "post") return "Back to the vault stone. The party is at half HP.";
+  if (kind === "wake") return "Back to the waking stones. The party is at half HP.";
+  if (kind === "inn") return "Back to the inn. The party is at half HP.";
+  return "Back to the last lamp. The party is at half HP.";
+};
+
+// Rest remembers a walkable tile in front of the door, never the inn's own tile.
+SF.innDoor = function (spot) {
+  var s = SF.state;
+  var ix = spot && spot.x != null ? spot.x : s.player.x;
+  var iy = spot && spot.y != null ? spot.y : s.player.y;
+  function clearOf(x, y) {
+    if (Math.hypot(x - ix, y - iy) < 16) return false;
+    return !!(SF.walkable(x, y) && !SF.blocksFoot(x, y));
+  }
+  if (clearOf(s.player.x, s.player.y)) return { x: s.player.x, y: s.player.y };
+  var dirs = [
+    [0, 48], [0, 36], [0, 32], [0, 24], [0, 64],
+    [16, 40], [-16, 40], [24, 36], [-24, 36], [32, 32], [-32, 32],
+    [20, 48], [-20, 48], [36, 20], [-36, 20],
+    [48, 16], [-48, 16], [48, 0], [-48, 0],
+    [0, -40], [24, -32], [-24, -32]
+  ];
+  var i, nx, ny;
+  for (i = 0; i < dirs.length; i++) {
+    nx = ix + dirs[i][0];
+    ny = iy + dirs[i][1];
+    if (clearOf(nx, ny)) return { x: nx, y: ny };
+  }
+  return { x: ix, y: iy + 48 };
+};
+
 SF.restAtInn = function (spot) {
   var s = SF.state;
   if (!s) return;
   SF.healParty(1);
   SF.respawnFieldEnemies();
-  var x = spot && spot.x != null ? spot.x : s.player.x;
-  var y = spot && spot.y != null ? spot.y : s.player.y;
-  s.lastRest = { island: SF.islandId, x: x, y: y };
-  if (SF.rememberCheckpoint) SF.rememberCheckpoint(x, y, { kind: "inn", quiet: true, raw: true });
-  else s.checkpoint = { x: x, y: y, island: SF.islandId, kind: "inn" };
+  var stood = SF.innDoor(spot);
+  s.lastRest = { island: SF.islandId, x: stood.x, y: stood.y };
+  if (SF.rememberCheckpoint) SF.rememberCheckpoint(stood.x, stood.y, { kind: "inn", quiet: true, raw: true });
+  else s.checkpoint = { x: stood.x, y: stood.y, island: SF.islandId, kind: "inn" };
   s.mode = "play";
   SF.pushToast("Rested. HP is full. The journey is saved.", 2.2);
   if (SF.saveGame) SF.saveGame();
@@ -583,20 +626,41 @@ SF.drawExtra = function (ctx, extra) {
   return false;
 };
 
+SF.actorFeet = function (n) {
+  if (!n) return null;
+  if (n.id === "cantor" && SF.cantorWorldPos) {
+    var cantor = SF.cantorWorldPos();
+    if (cantor) return { x: cantor.x, y: cantor.y };
+  }
+  if (n.id === "ilsa" && SF.ilsaWorldPos) {
+    var ilsa = SF.ilsaWorldPos();
+    if (ilsa) return { x: ilsa.x, y: ilsa.y };
+  }
+  return { x: n.x, y: n.y };
+};
+
+SF.actorNear = function (x, y, pad) {
+  var i, n, feet, dx, dy, reach;
+  reach = pad == null ? 24 : pad;
+  for (i = 0; i < (SF.NPCS || []).length; i++) {
+    n = SF.NPCS[i];
+    if (SF.npcHidden && SF.npcHidden(n)) continue;
+    feet = SF.actorFeet(n);
+    if (!feet) continue;
+    dx = x - feet.x;
+    dy = y - feet.y;
+    if (dx * dx + dy * dy <= reach * reach) return true;
+  }
+  return false;
+};
+
 SF.solidList = function () {
   var out = [];
   (SF.NPCS || []).forEach(function (n) {
     if (SF.npcHidden && SF.npcHidden(n)) return;
-    var x = n.x;
-    var y = n.y;
-    if (n.id === "cantor" && SF.cantorWorldPos) {
-      var spot = SF.cantorWorldPos();
-      if (spot) {
-        x = spot.x;
-        y = spot.y;
-      }
-    }
-    out.push({ x: x, y: y, r: 22, kind: "npc" });
+    var feet = SF.actorFeet(n);
+    if (!feet) return;
+    out.push({ x: feet.x, y: feet.y, r: 34, kind: "npc" });
   });
   if (SF.LAMP) out.push({ x: SF.LAMP.x, y: SF.LAMP.y, r: 18, kind: "lamp" });
   (SF.HOOKS || []).forEach(function (hook) {
@@ -604,7 +668,7 @@ SF.solidList = function () {
     out.push({ x: hook.x, y: hook.y, r: 14, kind: "post" });
   });
   (SF.EXTRAS || []).forEach(function (extra) {
-    if (extra.kind === "checkpoint") out.push({ x: extra.x, y: extra.y, r: 16, kind: "post" });
+    if (extra.kind === "checkpoint") out.push({ x: extra.x, y: extra.y, r: 22, kind: "post" });
   });
   return out;
 };
@@ -643,7 +707,7 @@ SF.footFree = function (x, y, ox, oy) {
 };
 
 SF.standClear = function (x, y) {
-  var dirs = [[0, 0], [0, 26], [0, -26], [26, 0], [-26, 0], [18, 18], [-18, 18], [18, -18], [-18, -18]];
+  var dirs = [[0, 0], [0, 48], [0, 36], [0, 28], [0, -48], [48, 0], [-48, 0], [36, 36], [-36, 36], [36, -36], [-36, -36]];
   var i, nx, ny;
   for (i = 0; i < dirs.length; i++) {
     nx = x + dirs[i][0];
@@ -938,8 +1002,7 @@ if (SF.dialogueRouters) SF.dialogueRouters.push(SF.worldNode);
       s.checkpoint = spot;
       if (s.banners && s.banners.length > bannerCount) s.banners.length = bannerCount;
       if (s.banner !== priorBanner) s.banner = priorBanner;
-      var nearWake = island === "emberhold" && SF.WAKE && SF.dist(spot.x, spot.y, SF.WAKE.x, SF.WAKE.y) < 72;
-      SF.pushToast(nearWake ? "Back to the waking stones. The party is at half HP." : "Back to the last lamp. The party is at half HP.");
+      SF.pushToast(SF.defeatPlaceLine(spot));
     };
   }
 

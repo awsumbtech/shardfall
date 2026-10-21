@@ -21,6 +21,7 @@ function check(ok, msg) {
 }
 
 async function shot(page, name) {
+  await page.evaluate(() => { if (SF.flushSheets) SF.flushSheets(); });
   const file = path.join(outDir, name);
   await page.screenshot({ path: file });
   console.log("shot " + file);
@@ -426,10 +427,12 @@ await page.evaluate(() => {
   SF.ensureParty(SF.state);
   SF.Battle.applyLoss(SF.state);
   const p = SF.state.player;
-  window.__stone = { x: stone.x, y: stone.y, px: p.x, py: p.y, d: Math.hypot(p.x - stone.x, p.y - stone.y) };
+  const queued = (SF.state.toast && SF.state.toast.text) || (SF.state.toasts && SF.state.toasts[0] && SF.state.toasts[0].text) || "";
+  window.__stone = { x: stone.x, y: stone.y, px: p.x, py: p.y, d: Math.hypot(p.x - stone.x, p.y - stone.y), toast: queued };
 });
 const beside = await page.evaluate(() => window.__stone);
-check(beside.d > 14 && beside.py > beside.y, "vault-stone respawn stands in front of the post");
+check(beside.d >= 40 && beside.py > beside.y, "vault-stone respawn stands in front of the post (" + beside.d.toFixed(1) + ")");
+check(beside.toast === "Back to the vault stone. The party is at half HP.", "vault-stone defeat toast (" + beside.toast + ")");
 await shot(page, "14-defeat-beside-post.png");
 
 await page.evaluate(() => {
@@ -528,48 +531,798 @@ await page.evaluate(() => {
   d.done = true;
   d.lock = 0;
 });
-const dlgBox = await page.locator("#dialogue").boundingBox();
-await session.send("Input.dispatchTouchEvent", {
-  type: "touchStart",
-  touchPoints: [{ x: dlgBox.x + dlgBox.width / 2, y: dlgBox.y + dlgBox.height / 2, id: 1 }]
-});
-await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+async function tapDialogue() {
+  const box = await page.locator("#dialogue").boundingBox();
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height * 0.55, id: 1 }]
+  });
+  await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await page.waitForTimeout(80);
+}
+await tapDialogue();
+await page.waitForFunction(() => SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale", null, { timeout: 3000 });
 const early = await page.evaluate(() => {
+  const d = SF.state.dialogue;
+  d.lock = 0;
+  d.done = true;
+  d.shown = (d.full || "").length;
+  if (SF._depart) SF._depart.t = SF._depart.dur;
+  SF.advanceDialogue();
+  const openedAt = Date.now();
   const el = document.getElementById("endcard");
-  const r = el.getBoundingClientRect();
-  const left = (SF.state.endcardLock || 0) - Date.now();
-  // The finishing tap already armed the lock. Refresh the same 400ms window so the
-  // next CDP tap still lands inside it; a Playwright round trip can outlast the remainder.
-  if (left > 0) SF.state.endcardLock = Date.now() + 1200;
+  function fire(type) {
+    const Ctor = type === "click" ? MouseEvent : PointerEvent;
+    el.dispatchEvent(new Ctor(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: 80,
+      clientY: 80,
+      pointerId: 1,
+      pointerType: "touch"
+    }));
+  }
+  fire("pointerdown");
+  fire("click");
   return {
     finale: !!(SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale"),
     shown: !el.hidden,
-    left,
-    x: r.left + r.width / 2,
-    y: r.top + r.height / 2
+    left: (SF.state.endcardLock || 0) - openedAt,
+    mode: SF.state.mode
   };
 });
-check(early.finale && early.shown && early.left > 0, "the finishing tap shows the end card (" + early.left + "ms lock left)");
-await session.send("Input.dispatchTouchEvent", {
-  type: "touchStart",
-  touchPoints: [{ x: early.x, y: early.y, id: 1 }]
-});
-await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-const held = await page.evaluate(() => ({
-  up: !document.getElementById("endcard").hidden && !!(SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale"),
-  left: (SF.state.endcardLock || 0) - Date.now()
-}));
-check(held.up, "a tap during the lockout does not dismiss the end card (" + held.left + "ms left)");
+check(early.finale && early.shown && early.left > 200, "a tap in the same turn as the end card stays locked (finale=" + early.finale + " shown=" + early.shown + " " + early.left + "ms)");
 await shot(page, "16-endcard-mobile-locked.png");
-await page.evaluate(() => { if (SF.state) SF.state.endcardLock = Date.now() - 1; });
-await session.send("Input.dispatchTouchEvent", {
-  type: "touchStart",
-  touchPoints: [{ x: early.x, y: early.y, id: 1 }]
+const gone = await page.evaluate(() => {
+  if (SF.state) {
+    SF.state.endcardLock = Date.now() - 1;
+    SF.state.endcardHold = false;
+  }
+  const el = document.getElementById("endcard");
+  function fire(type) {
+    const Ctor = type === "click" ? MouseEvent : PointerEvent;
+    el.dispatchEvent(new Ctor(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: 80,
+      clientY: 80,
+      pointerId: 1,
+      pointerType: "touch"
+    }));
+  }
+  fire("pointerdown");
+  fire("click");
+  return document.getElementById("endcard").hidden && SF.state.mode === "play";
 });
-await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-await page.waitForTimeout(80);
-const gone = await page.evaluate(() => document.getElementById("endcard").hidden && SF.state.mode === "play");
 check(gone, "a tap after the lockout dismisses the end card");
+
+await page.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  SF.state.dialogue = null;
+  SF.state.battle = null;
+  SF.ensureParty(SF.state);
+  const stone = (SF.EXTRAS || []).find((ex) => ex.kind === "checkpoint");
+  const way = SF.state.party.members.wayfarer;
+  way.hp = 1;
+  way.sp = 0;
+  SF.state.player.hp = 1;
+  SF.activeParty(SF.state).forEach((id) => {
+    const m = SF.state.party.members[id];
+    if (!m) return;
+    m.hp = 1;
+    m.sp = 0;
+  });
+  SF.state.toast = null;
+  SF.state.toasts = [];
+  window.__stoneRest = { x: stone.x, y: stone.y + 40 };
+});
+const restFrom = await page.evaluate(() => window.__stoneRest);
+await place(page, restFrom.x, restFrom.y, 0, -1);
+await shot(page, "18-rest-before.png");
+await tapSel(page, "#btn-interact");
+await page.waitForTimeout(200);
+const rested = await page.evaluate(() => {
+  const s = SF.state;
+  const rows = SF.activeParty(s).map((id) => {
+    const m = s.party.members[id];
+    const st = SF.memberStats(s, id);
+    return { id, hp: m.hp, maxHp: st.maxHp, sp: m.sp, maxSp: st.maxSp };
+  });
+  return {
+    toast: (s.toast && s.toast.text) || "",
+    rows,
+    mode: s.mode
+  };
+});
+check(rested.mode === "play" && rested.toast === "Rested. HP and SP are full.", "vault rest toast (" + rested.toast + ")");
+check(rested.rows.every((row) => row.hp === row.maxHp && row.sp === row.maxSp), "vault rest fills HP and SP " + JSON.stringify(rested.rows));
+await shot(page, "19-rest-after.png");
+
+for (const who of [
+  { id: "kestrel", quest: "sail" },
+  { id: "tamsin", quest: "quay" },
+  { id: "ilsa", quest: "vault" }
+]) {
+  const spot = await page.evaluate((id) => {
+    SF.mountIsland("cinderveil");
+    SF.state.island = "cinderveil";
+    SF.state.mode = "play";
+    SF.state.dialogue = null;
+    SF.state.quest = id === "kestrel" ? "sail" : id === "tamsin" ? "quay" : "vault";
+    SF.state.flags.vaultOpen = false;
+    const n = SF.NPCS.find((npc) => npc.id === id);
+    const feet = SF.actorFeet(n);
+    return { x: feet.x, y: feet.y, name: n.name };
+  }, who.id);
+  await place(page, spot.x, spot.y + 80, 0, -1);
+  await page.waitForTimeout(80);
+  await shot(page, "20-arrow-" + who.id + ".png");
+  const marker = await page.evaluate(() => {
+    const s = SF.state;
+    const goal = SF.objectivePoint(s);
+    const p = s.player;
+    const list = SF.entityList(s);
+    let heroAt = -1;
+    let npcAt = -1;
+    const n = SF.NPCS.find((npc) => SF.objectivePoint(s) && Math.hypot(SF.actorFeet(npc).x - goal.x, SF.actorFeet(npc).y - goal.y) < 8);
+    list.forEach((ent, i) => {
+      if (Math.abs(ent.y - (p.y + 0.01)) < 0.02) heroAt = i;
+      if (n && Math.abs(ent.y - SF.actorFeet(n).y) < 0.02) npcAt = i;
+    });
+    const feet = n ? SF.actorFeet(n) : null;
+    const lift = goal && feet ? SF.guideLift(goal, p) : 0;
+    const markY = goal ? goal.y - lift : 0;
+    return {
+      goal,
+      heroAt,
+      npcAt,
+      heroSouth: p.y > (feet ? feet.y : p.y),
+      pinned: !!(feet && lift >= 58 && lift <= 64 && lift - 7 >= 46 && Math.abs((goal.y - markY) - lift) < 0.1),
+      onX: !!(feet && Math.abs(goal.x - feet.x) < 2)
+    };
+  });
+  check(marker.pinned && marker.onX && marker.heroSouth && marker.heroAt > marker.npcAt, who.id + " marker sits above the head and the hero sorts in front");
+  const shoveNpc = await shove(who.id, spot.x, spot.y + 48, 0, -1);
+  const gap = Math.hypot(shoveNpc.after.x - spot.x, shoveNpc.after.y - spot.y);
+  check(gap >= 30, who.id + " blocks the hero (" + gap.toFixed(1) + ")");
+  await shot(page, "21-solid-" + who.id + ".png");
+}
+
+await page.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  SF.state.dialogue = null;
+  SF.state.flags.mawDead = true;
+  SF.state.quest = "relight";
+  SF.state.shardsHeld = 3;
+  SF.state.flags.cinderLit = false;
+});
+const stair = await page.evaluate(() => {
+  const x = 41 * 16;
+  const samples = [];
+  for (let y = 128; y <= 520; y += 16) samples.push({ y, ok: SF.walkable(x, y) });
+  const blocked = !SF.walkable(x + 80, 280);
+  const goal = SF.objectivePoint(SF.state);
+  return { samples, blocked, goal, lamp: { x: SF.LAMP.x, y: SF.LAMP.y } };
+});
+check(stair.samples.every((row) => row.ok), "south stair is walkable (" + stair.samples.filter((row) => !row.ok).map((row) => row.y).join(",") + ")");
+check(stair.blocked, "the cliff beside the stair still blocks");
+await place(page, 41 * 16, 36 * 16, 0, -1);
+await page.waitForTimeout(80);
+const stairGoal = await page.evaluate(() => {
+  const goal = SF.objectivePoint(SF.state);
+  const open = SF.segmentOpen(SF.state.player.x, SF.state.player.y, goal.x, goal.y);
+  return { goal, open, lampY: SF.LAMP.y };
+});
+check(stairGoal.open, "lamp arrow follows a walkable line (" + stairGoal.goal.x + "," + stairGoal.goal.y + ")");
+const offsetGoal = await page.evaluate(() => {
+  SF.state.player.x = 520;
+  SF.state.player.y = 560;
+  const goal = SF.objectivePoint(SF.state);
+  return { goal, open: SF.segmentOpen(520, 560, goal.x, goal.y), direct: SF.segmentOpen(520, 560, SF.LAMP.x, SF.LAMP.y) };
+});
+check(!offsetGoal.direct && offsetGoal.open, "offset south approach aims along the stair (" + offsetGoal.goal.x + "," + offsetGoal.goal.y + ")");
+await place(page, 41 * 16, 36 * 16, 0, -1);
+await shot(page, "22-stair-foot.png");
+for (let frame = 0; frame < 4; frame++) {
+  await stick(session, page, 0, -1, 420);
+  await shot(page, "23-stair-step-" + frame + ".png");
+}
+const climbed = await page.evaluate(() => {
+  const p = SF.state.player;
+  const front = SF.rampFrontY(p.x, p.y);
+  const list = SF.entityList(SF.state);
+  let heroAt = -1;
+  let faceAt = -1;
+  list.forEach((ent, i) => {
+    if (Math.abs(ent.y - (p.y + 0.01)) < 0.02 || (front != null && Math.abs(ent.y - (front + 0.5 + 0.01)) < 0.02)) heroAt = i;
+  });
+  (SF.TERRACES.cinderveil || []).forEach((t) => {
+    if (!t.block || t._southBase == null) return;
+    list.forEach((ent, i) => {
+      if (Math.abs(ent.y - t._southBase) < 0.2) faceAt = i;
+    });
+  });
+  return { x: p.x, y: p.y, walk: SF.walkable(p.x, p.y), front, heroAt, faceAt };
+});
+check(climbed.walk && climbed.y < 36 * 16 - 20, "the stick climbs the south stair (" + climbed.y.toFixed(1) + ")");
+check(climbed.front == null || climbed.heroAt > climbed.faceAt, "hero draws in front of the cliff face");
+await shot(page, "24-stair-top.png");
+
+await page.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  SF.state.dialogue = null;
+  SF.state.battle = null;
+  SF.state.flags.vaultOpen = true;
+  SF.state.flags.mawDead = false;
+  SF.state.flags.mawFight = false;
+  SF.state.quest = "seal";
+  const mouth = (SF.TEXTS || []).find((t) => t.id === "maw-mouth");
+  window.__mouth = { x: mouth.x, y: mouth.y + 24 };
+});
+const mouthAt = await page.evaluate(() => window.__mouth);
+await place(page, mouthAt.x, mouthAt.y, 0, -1);
+await tapSel(page, "#btn-interact");
+for (let i = 0; i < 8; i++) {
+  const phase = await page.evaluate(() => SF.state.dialogue && SF.state.dialogue.phase);
+  if (phase === "choice") break;
+  const box = await page.locator("#dialogue").boundingBox();
+  if (!box) break;
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height * 0.7, id: 1 }]
+  });
+  await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await page.waitForTimeout(90);
+  await page.evaluate(() => {
+    const d = SF.state.dialogue;
+    if (!d || d.phase === "choice") return;
+    d.lock = 0;
+    d.done = true;
+    d.shown = (d.full || "").length;
+  });
+}
+await page.waitForFunction(() => SF.state.dialogue && SF.state.dialogue.phase === "choice", null, { timeout: 3000 }).catch(() => {});
+const ask = await page.evaluate(() => {
+  const d = SF.state.dialogue;
+  return {
+    line: d && d.full,
+    choices: d && d.phase === "choice" ? d.choices.map((c) => c.text) : [],
+    fight: !!SF.state.flags.mawFight,
+    mode: SF.state.mode
+  };
+});
+check(ask.line === "Fight the Cinder Maw?" && ask.choices.join("/") === "Yes/Not yet" && !ask.fight, "Maw asks before the fight (" + ask.line + " " + ask.choices.join("/") + ")");
+await shot(page, "25-maw-confirm.png");
+const notYet = page.locator("#dlg-choices button", { hasText: "Not yet" });
+await notYet.tap();
+await page.waitForTimeout(120);
+const declined = await page.evaluate(() => ({
+  mode: SF.state.mode,
+  fight: !!SF.state.flags.mawFight,
+  battle: !!SF.state.battle
+}));
+check(declined.mode === "play" && !declined.fight && !declined.battle, "Not yet leaves the Maw");
+await shot(page, "26-maw-not-yet.png");
+await tapSel(page, "#btn-interact");
+for (let i = 0; i < 8; i++) {
+  const phase = await page.evaluate(() => SF.state.dialogue && SF.state.dialogue.phase);
+  if (phase === "choice") break;
+  await page.evaluate(() => {
+    const d = SF.state.dialogue;
+    if (!d || d.phase === "choice") return;
+    d.lock = 0;
+    d.done = true;
+    d.shown = (d.full || "").length;
+    SF.advanceDialogue();
+  });
+  await page.waitForTimeout(40);
+}
+const yes = page.locator("#dlg-choices button", { hasText: "Yes" });
+await yes.tap();
+await page.waitForTimeout(200);
+const accepted = await page.evaluate(() => ({
+  mode: SF.state.mode,
+  fight: !!SF.state.flags.mawFight,
+  battle: SF.state.battle && SF.state.battle.id
+}));
+check(accepted.fight && accepted.mode === "battle" && accepted.battle === "boss_cinder_maw", "Yes starts the Cinder Maw (" + accepted.mode + " " + accepted.battle + ")");
+await shot(page, "27-maw-yes.png");
+await page.evaluate(() => {
+  SF.state.mode = "play";
+  SF.state.battle = null;
+  SF.state.dialogue = null;
+});
+
+await page.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  const boat = (SF.PROPS || []).find((p) => p.kind === "airship");
+  window.__boat = { x: boat.x, y: boat.y };
+});
+const emberBoat = await page.evaluate(() => window.__boat);
+await place(page, emberBoat.x, emberBoat.y - 90, 0, 1);
+await shot(page, "28-skiff-ember-water.png");
+await page.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  const boat = (SF.PROPS || []).find((p) => p.kind === "airship");
+  const fences = (SF.PROPS || []).filter((p) => p.kind === "fence" || p.kind === "fence_burnt");
+  window.__quay = { x: boat.x, y: boat.y + (SF.SKIFF_DROP || 0), fences: fences.length };
+});
+const quay = await page.evaluate(() => window.__quay);
+check(quay.fences >= 8, "burnt fences stay connected (" + quay.fences + ")");
+await place(page, quay.x, quay.y - 110, 0, 1);
+await shot(page, "29-skiff-cinder-water.png");
+await place(page, 36 * 16, 76 * 16, 0, -1);
+await shot(page, "30-fences-connected.png");
+
+const fenceJoin = await page.evaluate(() => {
+  function loose(list) {
+    let n = 0;
+    list.forEach((p) => {
+      const vertical = p.kind === "fence_up" || p.kind === "fence_burnt_up";
+      let nearest = Infinity;
+      list.forEach((q) => {
+        if (q === p) return;
+        const across = vertical ? Math.abs(q.x - p.x) : Math.abs(q.y - p.y);
+        const along = vertical ? Math.abs(q.y - p.y) : Math.abs(q.x - p.x);
+        if (across <= 6 && along > 0 && along < nearest) nearest = along;
+      });
+      if (!(nearest <= 36)) n += 1;
+    });
+    return n;
+  }
+  const out = {};
+  ["emberhold", "cinderveil"].forEach((id) => {
+    SF.mountIsland(id);
+    const fences = (SF.PROPS || []).filter((p) => String(p.kind).indexOf("fence") === 0);
+    out[id] = {
+      n: fences.length,
+      spin: fences.filter((p) => p.spin).length,
+      loose: loose(fences),
+      up: fences.filter((p) => p.kind === "fence_up" || p.kind === "fence_burnt_up").length
+    };
+  });
+  return out;
+});
+check(fenceJoin.emberhold.n >= 4 && fenceJoin.emberhold.spin === 0 && fenceJoin.emberhold.loose === 0 && fenceJoin.emberhold.up >= 4, "ember fences join (" + JSON.stringify(fenceJoin.emberhold) + ")");
+check(fenceJoin.cinderveil.n >= 8 && fenceJoin.cinderveil.spin === 0 && fenceJoin.cinderveil.loose === 0, "cinder fences join (" + JSON.stringify(fenceJoin.cinderveil) + ")");
+await page.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  const fence = (SF.PROPS || []).find((p) => p.kind === "fence_up");
+  SF.state.player.x = fence.x + 36;
+  SF.state.player.y = fence.y;
+  SF.state.camX = fence.x;
+  SF.state.camY = fence.y;
+});
+await page.waitForTimeout(80);
+await shot(page, "36-fence-vertical.png");
+
+for (const innId of ["ember-hearth", "quay-bunk"]) {
+  const inn = await page.evaluate((id) => {
+    const island = id === "ember-hearth" ? "emberhold" : "cinderveil";
+    SF.mountIsland(island);
+    SF.state.island = island;
+    SF.state.mode = "play";
+    SF.state.dialogue = null;
+    const spot = (SF.EXTRAS || []).find((ex) => ex.id === id);
+    const way = SF.state.party.members.wayfarer;
+    way.hp = 1;
+    SF.state.player.hp = 1;
+    SF.state.player.x = spot.x;
+    SF.state.player.y = spot.y + 40;
+    SF.restAtInn(spot);
+    const here = SF.checkpointHere();
+    return {
+      inn: { x: spot.x, y: spot.y },
+      here,
+      dist: Math.hypot(here.x - spot.x, here.y - spot.y),
+      walk: SF.walkable(here.x, here.y),
+      kind: here.kind,
+      south: here.y > spot.y
+    };
+  }, innId);
+  check(inn.kind === "inn" && inn.dist >= 16 && inn.walk && inn.south, innId + " rest stands in front of the door (" + inn.dist.toFixed(1) + " at " + inn.here.x + "," + inn.here.y + ")");
+  await place(page, inn.here.x, inn.here.y, 0, -1);
+  await shot(page, innId === "ember-hearth" ? "37-inn-ember.png" : "38-inn-cinder.png");
+}
+
+const kestrelMark = await page.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  SF.state.quest = "stirring";
+  SF.state.dialogue = null;
+  SF.state.encounterGrace = 100000;
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const talk = SF.TALK_RANGE || 54;
+  const far = (SF.MARK_NEAR || 72) + (SF.MARK_HYST || 4) + 4;
+  const dirs = {
+    N: [0, -1], NE: [1, -1], E: [1, 0], SE: [1, 1],
+    S: [0, 1], SW: [-1, 1], W: [-1, 0], NW: [-1, -1]
+  };
+  const nearDists = [35, 45, 48, talk - 1];
+  const rows = { talk, far, near: {}, shown: {}, slide: typeof SF.guideAnchor === "function" || typeof SF.nameTag === "function" };
+  function stand(dir, dist) {
+    const mag = Math.hypot(dir[0], dir[1]) || 1;
+    const p = SF.state.player;
+    p.x = feet.x + (dir[0] / mag) * dist;
+    p.y = feet.y + (dir[1] / mag) * dist;
+    const goal = SF.objectivePoint(SF.state);
+    const mark = SF.guideMark(goal, p);
+    return {
+      dist: Math.round(Math.hypot(p.x - feet.x, p.y - feet.y) * 10) / 10,
+      hidden: !mark,
+      x: mark ? Math.round(mark.x * 10) / 10 : null,
+      lift: mark ? mark.lift : 0,
+      centered: !!(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 58 && mark.lift <= 64 && mark.lift - 7 >= 46)
+    };
+  }
+  Object.keys(dirs).forEach((key) => {
+    rows.near[key] = nearDists.map((dist) => stand(dirs[key], dist));
+    rows.shown[key] = stand(dirs[key], far);
+  });
+  const north = stand([0, -1], 35);
+  rows.place = {
+    close: { x: feet.x, y: feet.y - 35 },
+    ne: { x: feet.x + 35 / Math.SQRT2, y: feet.y - 35 / Math.SQRT2 },
+    nw: { x: feet.x - 35 / Math.SQRT2, y: feet.y - 35 / Math.SQRT2 },
+    south: { x: feet.x, y: feet.y + 40 },
+    far: { x: feet.x, y: feet.y - far },
+    north
+  };
+  return rows;
+});
+check(!kestrelMark.slide, "the objective mark is not slid beside the hero");
+Object.keys(kestrelMark.near).forEach((key) => {
+  const bad = kestrelMark.near[key].filter((row) => !row.hidden);
+  check(bad.length === 0, "no Kestrel diamond within talk range from the " + key + " (" + JSON.stringify(kestrelMark.near[key]) + ")");
+});
+Object.keys(kestrelMark.shown).forEach((key) => {
+  const row = kestrelMark.shown[key];
+  check(row && row.centered && row.dist >= 48 && row.dist > kestrelMark.talk,
+    "centered Kestrel diamond from 3 or more tiles, " + key + " (" + JSON.stringify(row) + ")");
+});
+await place(page, kestrelMark.place.close.x, kestrelMark.place.close.y, 0, 1);
+await shot(page, "39-kestrel-north.png");
+await place(page, kestrelMark.place.ne.x, kestrelMark.place.ne.y, -1, 1);
+await shot(page, "42-kestrel-ne.png");
+await place(page, kestrelMark.place.nw.x, kestrelMark.place.nw.y, 1, 1);
+await shot(page, "43-kestrel-nw.png");
+await place(page, kestrelMark.place.south.x, kestrelMark.place.south.y, 0, -1);
+await shot(page, "44-kestrel-south.png");
+await place(page, kestrelMark.place.far.x, kestrelMark.place.far.y, 0, 1);
+await shot(page, "45-kestrel-far.png");
+
+const nameClear = await page.evaluate(() => {
+  SF.state.quest = "stirring";
+  SF.state.mode = "play";
+  SF.state.dialogue = null;
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const ctx = SF.ctx;
+  ctx.font = "600 12px Palatino, Georgia, serif";
+  const measured = ctx.measureText(n.name);
+  const width = measured.width || 66;
+  const ascent = measured.actualBoundingBoxAscent || 11;
+  const descent = measured.actualBoundingBoxDescent || 2;
+  const nameBox = {
+    l: feet.x - width / 2,
+    r: feet.x + width / 2,
+    t: feet.y - 34 - ascent,
+    b: feet.y - 34 + descent
+  };
+  const lift = SF.GUIDE_HEAD || 60;
+  const diamond = { l: feet.x - 4, r: feet.x + 4, t: feet.y - lift - 7, b: feet.y - lift + 7 };
+  function heroParts(hx, hy) {
+    let body = { l: hx - 9, r: hx + 9, t: hy - 28, b: hy + 1 };
+    if (window.Art && Art.spriteSize) {
+      const m = Art.spriteSize("wayfarer", "walk", "down");
+      if (m && m.w) {
+        const ax = m.ax || 0;
+        const ay = m.ay != null ? m.ay : m.h - 1;
+        body = { l: hx - ax, r: hx - ax + m.w, t: hy - ay, b: hy - ay + m.h };
+      }
+    }
+    return [body, { l: hx - 11, r: hx + 11, t: hy + 1 - 5, b: hy + 1 + 5 }];
+  }
+  function hit(a, b) {
+    return a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
+  }
+  const dirs = {
+    n: [0, -1], ne: [1, -1], e: [1, 0], se: [1, 1],
+    s: [0, 1], sw: [-1, 1], w: [-1, 0], nw: [-1, -1]
+  };
+  const bad = [];
+  function walk(order) {
+    Object.keys(dirs).forEach((key) => {
+      SF._markHold = {};
+      const dir = dirs[key];
+      const mag = Math.hypot(dir[0], dir[1]) || 1;
+      const dists = [];
+      for (let dist = 30; dist <= 80; dist += 2) dists.push(dist);
+      if (order === "in") dists.reverse();
+      dists.forEach((dist) => {
+        const hx = feet.x + (dir[0] / mag) * dist;
+        const hy = feet.y + (dir[1] / mag) * dist;
+        const dNow = Math.hypot(hx - feet.x, hy - feet.y);
+        const hidden = SF.markHidden(n.id, dNow);
+        SF.state.player.x = hx;
+        SF.state.player.y = hy;
+        const mark = SF.guideMark(SF.objectivePoint(SF.state), SF.state.player);
+        if (hidden !== !mark) bad.push({ key, dist, order, hidden, mark: !!mark });
+        if (hidden) return;
+        if (!mark || Math.abs(mark.x - feet.x) > 1 || Math.abs((mark.lift || 0) - lift) > 0.1) {
+          bad.push({ key, dist, order, off: true });
+        }
+        heroParts(hx, hy).forEach((part) => {
+          if (hit(nameBox, part)) bad.push({ key, dist, order, what: "name" });
+          if (hit(diamond, part)) bad.push({ key, dist, order, what: "diamond" });
+        });
+      });
+    });
+  }
+  walk("out");
+  walk("in");
+  function still(dist, prior) {
+    SF._markHold = {};
+    if (prior != null) SF._markHold[n.id] = prior;
+    const samples = [];
+    for (let i = 0; i < 6; i++) samples.push(SF.markHidden(n.id, dist));
+    const mark = SF.guideMark(SF.objectivePoint(SF.state), { x: feet.x, y: feet.y - dist });
+    return {
+      samples,
+      stable: samples.every((v) => v === samples[0]),
+      agree: samples[0] === !mark
+    };
+  }
+  SF.state.player.x = feet.x;
+  SF.state.player.y = feet.y - (SF.MARK_NEAR || 72);
+  return {
+    bad: bad.slice(0, 6),
+    badN: bad.length,
+    near: SF.MARK_NEAR,
+    hyst: SF.MARK_HYST,
+    atNear: still(SF.MARK_NEAR || 72, null),
+    atBandHeld: still((SF.MARK_NEAR || 72) + 2, true),
+    atBandOpen: still((SF.MARK_NEAR || 72) + 2, false)
+  };
+});
+check(nameClear.badN === 0, "name and diamond miss the hero from 30 to 80px (" + JSON.stringify(nameClear.bad) + ")");
+check(nameClear.atNear.stable && nameClear.atNear.agree, "standing on the mark threshold does not toggle (" + JSON.stringify(nameClear.atNear) + ")");
+check(nameClear.atBandHeld.stable && nameClear.atBandHeld.agree && nameClear.atBandOpen.stable && nameClear.atBandOpen.agree,
+  "standing inside the hysteresis band does not toggle (" + JSON.stringify({ held: nameClear.atBandHeld, open: nameClear.atBandOpen }) + ")");
+await place(page, kestrelMark.place.close.x, kestrelMark.place.close.y - 7, 0, 1);
+await page.waitForTimeout(400);
+await shot(page, "46-kestrel-n42.png");
+const namePixels = await page.evaluate(() => {
+  SF.draw();
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const hero = SF.state.player;
+  const dpr = SF.dpr || 1;
+  const pxScale = Math.max(1, Math.round(dpr * (SF.zoom || 1)));
+  const ox = Math.round(dpr * (SF.viewW / 2) - Math.round(SF.state.camX) * pxScale);
+  const oy = Math.round(dpr * (SF.viewH / 2) - Math.round(SF.state.camY) * pxScale);
+  function dev(wx, wy) {
+    return { x: Math.round(wx * pxScale + ox), y: Math.round(wy * pxScale + oy) };
+  }
+  const m = window.Art && Art.spriteSize ? Art.spriteSize("wayfarer", "walk", "down") : null;
+  const ax = m && m.ax ? m.ax : 8;
+  const ay = m && m.ay != null ? m.ay : 28;
+  const bw = m && m.w ? m.w : 18;
+  const bh = m && m.h ? m.h : 30;
+  const top = hero.y - ay;
+  const foot = hero.y - ay + bh;
+  const a = dev(hero.x - ax - 14, top - 16);
+  const b = dev(hero.x - ax + bw + 14, foot + 8);
+  const legs = dev(hero.x - ax - 14, foot - 14);
+  const canvas = SF.view;
+  function clip(p, q) {
+    return {
+      x0: Math.max(0, Math.min(p.x, q.x)),
+      y0: Math.max(0, Math.min(p.y, q.y)),
+      x1: Math.min(canvas.width, Math.max(p.x, q.x)),
+      y1: Math.min(canvas.height, Math.max(p.y, q.y))
+    };
+  }
+  function count(rect, pred) {
+    const w = rect.x1 - rect.x0;
+    const h = rect.y1 - rect.y0;
+    if (w < 2 || h < 2) return -1;
+    const img = SF.ctx.getImageData(rect.x0, rect.y0, w, h).data;
+    let n = 0;
+    for (let i = 0; i < img.length; i += 4) if (pred(img[i], img[i + 1], img[i + 2])) n++;
+    return n;
+  }
+  const cream = (r, g, bl) => r > 245 && g > 236 && bl > 220 && r >= g && g + 6 >= bl;
+  const gold = (r, g, bl) => r > 240 && g > 190 && g < 230 && bl > 90 && bl < 150;
+  const body = clip(a, b);
+  const lower = clip(legs, b);
+  return {
+    cream: count(lower, cream),
+    gold: count(body, gold),
+    alpha: SF._markFade && SF._markFade[n.id] ? Math.round(SF._markFade[n.id].a * 100) / 100 : null,
+    hidden: SF.markHidden(n.id, Math.hypot(hero.x - feet.x, hero.y - feet.y)),
+    dist: Math.round(Math.hypot(hero.x - feet.x, hero.y - feet.y))
+  };
+});
+check(namePixels.hidden && namePixels.cream < 8 && namePixels.gold < 8,
+  "a settled north stand draws no name and no diamond on the hero (" + JSON.stringify(namePixels) + ")");
+
+const lampNear = await page.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  SF.state.quest = "relight";
+  SF.state.shardsHeld = 3;
+  SF.state.flags.mawDead = true;
+  SF.state.flags.cinderLit = false;
+  const spots = [[656, 147], [638, 122], [674, 134], [650, 146], [662, 150], [641, 146], [670, 142]];
+  const rows = spots.map(([x, y]) => {
+    SF.state.player.x = x;
+    SF.state.player.y = y;
+    const goal = SF.objectivePoint(SF.state);
+    return {
+      x, y,
+      walk: SF.walkable(x, y) && !SF.blocksFoot(x, y),
+      lamp: Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y),
+      down: goal.y > y + 8
+    };
+  });
+  return { rows, lamp: { x: SF.LAMP.x, y: SF.LAMP.y } };
+});
+const lampBad = lampNear.rows.filter((row) => !row.walk || row.lamp > 8 || row.down);
+check(lampBad.length === 0, "tiles within 1.5 of the lamp count as arrived (" + JSON.stringify(lampBad) + ")");
+await place(page, 656, 147, 0, -1);
+await shot(page, "40-lamp-close.png");
+
+const sense = await page.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  SF.state.quest = "gather";
+  SF.state.flags.shard_sense = true;
+  SF.state.shardsHeld = 0;
+  SF.state.picked = {};
+  const shard = (SF.PICKUPS || []).find((item) => item.kind === "shard" && !item.secret);
+  SF.state.player.x = shard.x - 160;
+  SF.state.player.y = shard.y;
+  SF.state.camX = SF.state.player.x;
+  SF.state.camY = SF.state.player.y;
+  SF.zoom = 1;
+  const goal = SF.objectivePoint(SF.state);
+  const dist = Math.hypot(goal.x - SF.state.player.x, goal.y - SF.state.player.y);
+  const w = SF.viewW || 915;
+  const h = SF.viewH || 412;
+  return {
+    sensed: goal.kind === "shard" && goal.precise === false,
+    dist,
+    onScreen: SF.goalOnScreen(goal, SF.state, w, h),
+    shown: !SF.hideEdgeArrow(goal, SF.state, w, h),
+    x: SF.state.player.x,
+    y: SF.state.player.y
+  };
+});
+check(sense.sensed && sense.dist > 96 && sense.onScreen && sense.shown, "a far shard still on screen keeps the pale sense arrow (" + JSON.stringify(sense) + ")");
+await place(page, sense.x, sense.y, 1, 0);
+await shot(page, "41-sense-arrow.png");
+
+const ground = await page.evaluate(() => {
+  function skyPixel(r, g, b, a) {
+    if (a < 200) return true;
+    return b > g + 20 && b > 100 && r < 160 && g < 150;
+  }
+  function scan(label, cx, cy) {
+    const sheet = SF._terrain;
+    const box = SF._terrainBox;
+    const ppm = SF._terrainPpm || 1;
+    const rows = {};
+    if (!sheet || !box) return { label, missing: true, bad: [{ row: 0, sky: 1, n: 1 }] };
+    const x0 = cx - 112;
+    const y0 = cy - 80;
+    const x1 = cx + 112;
+    const y1 = cy + 80;
+    const sx0 = Math.max(0, Math.floor((x0 - box.minX) * ppm));
+    const sy0 = Math.max(0, Math.floor((y0 - box.minY) * ppm));
+    const sx1 = Math.min(sheet.width, Math.ceil((x1 - box.minX) * ppm));
+    const sy1 = Math.min(sheet.height, Math.ceil((y1 - box.minY) * ppm));
+    const sw = sx1 - sx0;
+    const sh = sy1 - sy0;
+    if (sw < 4 || sh < 4) return { label, missing: true, bad: [{ row: 0, sky: 1, n: 1, sw, sh }] };
+    const img = sheet.getContext("2d").getImageData(sx0, sy0, sw, sh).data;
+    let seen = 0;
+    for (let wy = y0; wy <= y1; wy += 4) {
+      const key = Math.floor(wy / 16);
+      if (!rows[key]) rows[key] = { sky: 0, n: 0, y: wy };
+      for (let wx = x0; wx <= x1; wx += 4) {
+        if (!SF.walkable(wx, wy)) continue;
+        const sx = Math.floor((wx - box.minX) * ppm) - sx0;
+        const sy = Math.floor((wy - box.minY) * ppm) - sy0;
+        if (sx < 0 || sy < 0 || sx >= sw || sy >= sh) continue;
+        const i = (sy * sw + sx) * 4;
+        rows[key].n++;
+        seen++;
+        if (skyPixel(img[i], img[i + 1], img[i + 2], img[i + 3])) rows[key].sky++;
+      }
+    }
+    const bad = Object.keys(rows).map((key) => rows[key]).filter((row) => row.n >= 4 && row.sky * 2 >= row.n);
+    const s = SF.state;
+    s.shake = 0;
+    s.camX = cx;
+    s.camY = cy;
+    s.player.x = cx + 64;
+    s.player.y = cy + 64;
+    SF.draw();
+    const dpr = SF.dpr || 1;
+    const pxScale = Math.max(1, Math.round(dpr * (SF.zoom || 1)));
+    const ox = Math.round(dpr * (SF.viewW / 2) - Math.round(s.camX) * pxScale);
+    const oy = Math.round(dpr * (SF.viewH / 2) - Math.round(s.camY) * pxScale);
+    const offsets = [[0, 0], [28, 20], [-24, 28], [12, 40]];
+    let bestSum = -1;
+    let screen = null;
+    const canvas = SF.view;
+    offsets.forEach((pair) => {
+      const wx = cx + pair[0];
+      const wy = cy + pair[1];
+      const dx = Math.round(wx * pxScale + ox);
+      const dy = Math.round(wy * pxScale + oy);
+      if (dx < 1 || dy < 1 || dx >= canvas.width - 1 || dy >= canvas.height - 1) return;
+      const px = SF.ctx.getImageData(dx, dy, 1, 1).data;
+      const sum = px[0] + px[1] + px[2];
+      if (sum > bestSum) {
+        bestSum = sum;
+        screen = [px[0], px[1], px[2]];
+      }
+    });
+    const black = bestSum >= 0 && bestSum < 48;
+    return {
+      label,
+      seen,
+      bad: bad.slice(0, 4),
+      key: SF._terrainKey,
+      screen,
+      black,
+      cover: SF._landCover || 0
+    };
+  }
+  function bake(island, cx, cy) {
+    SF.mountIsland(island);
+    SF.state.island = island;
+    SF.state.mode = "play";
+    SF.state.dialogue = null;
+    SF.state.voyage = null;
+    SF.state.shake = 0;
+    if (island === "cinderveil") SF.state.flags.mawDead = true;
+    SF._terrain = null;
+    SF._terrainKey = "";
+    SF.draw();
+    return scan(island, cx, cy);
+  }
+  const kes = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(kes);
+  const ember = bake("emberhold", feet.x, feet.y);
+  SF.mountIsland("cinderveil");
+  const lamp = SF.LAMP || { x: 656, y: 140 };
+  const cinder = bake("cinderveil", lamp.x, lamp.y + 28);
+  return { ember, cinder, sliced: !!(SF._sliceUntil || SF._deferHeavy || SF._landCover || SF._pumpTerrain) };
+});
+function groundOk(row) {
+  return row && !row.missing && row.seen > 20 && row.bad.length === 0 && row.key && row.key.indexOf(row.label + ":") === 0 && !row.black && !row.cover;
+}
+check(groundOk(ground.ember) && groundOk(ground.cinder) && !ground.sliced,
+  "walkable ground has no sky row (" + JSON.stringify(ground) + ")");
 
 await phoneCtx.close();
 
@@ -592,16 +1345,119 @@ await keys.evaluate(() => {
 });
 await keys.keyboard.press("Enter");
 await keys.waitForFunction(() => SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale");
-await keys.keyboard.press("Enter");
-await keys.waitForTimeout(30);
-const keyHeld = await keys.evaluate(() => !document.getElementById("endcard").hidden && SF.state.mode === "dialogue");
-check(keyHeld, "Enter during the lockout leaves the end card up");
+await keys.evaluate(() => {
+  const d = SF.state.dialogue;
+  d.lock = 0;
+  d.done = true;
+  d.shown = (d.full || "").length;
+  if (SF._depart) SF._depart.t = SF._depart.dur;
+});
+const keyHeld = await keys.evaluate(() => {
+  SF.advanceDialogue();
+  const openedAt = Date.now();
+  SF.advanceDialogue();
+  const el = document.getElementById("endcard");
+  return {
+    up: !el.hidden && SF.state.mode === "dialogue",
+    left: (SF.state.endcardLock || 0) - openedAt
+  };
+});
+check(keyHeld.up && keyHeld.left > 200, "Enter during the lockout leaves the end card up (" + keyHeld.left + "ms)");
 await shot(keys, "17-endcard-keyboard.png");
-await keys.waitForTimeout(460);
+await keys.evaluate(() => {
+  if (SF.state) SF.state.endcardLock = Date.now() - 1;
+});
 await keys.keyboard.press("KeyE");
-await keys.waitForTimeout(80);
+await keys.waitForFunction(() => document.getElementById("endcard").hidden && SF.state.mode === "play", null, { timeout: 2000 });
 const keyGone = await keys.evaluate(() => document.getElementById("endcard").hidden && SF.state.mode === "play");
 check(keyGone, "E dismisses the end card after the lockout");
+
+await keys.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  SF.state.dialogue = null;
+  SF.state.flags.mawDead = true;
+  SF.state.quest = "relight";
+  SF.state.shardsHeld = 3;
+  SF.state.player.x = 41 * 16;
+  SF.state.player.y = 30 * 16;
+  SF.state.player.safeX = SF.state.player.x;
+  SF.state.player.safeY = SF.state.player.y;
+  SF.state.camX = SF.state.player.x;
+  SF.state.camY = SF.state.player.y;
+});
+await keys.waitForTimeout(120);
+await shot(keys, "31-desk-stair.png");
+await keys.keyboard.down("KeyW");
+await keys.waitForTimeout(500);
+await shot(keys, "32-desk-stair-walk.png");
+await keys.keyboard.up("KeyW");
+await keys.evaluate(() => {
+  SF.state.quest = "quay";
+  const n = SF.NPCS.find((npc) => npc.id === "tamsin");
+  const feet = SF.actorFeet(n);
+  SF.state.player.x = feet.x;
+  SF.state.player.y = feet.y + 70;
+  SF.state.camX = feet.x;
+  SF.state.camY = feet.y;
+});
+await keys.waitForTimeout(80);
+await shot(keys, "33-desk-tamsin-arrow.png");
+await keys.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  const boat = (SF.PROPS || []).find((p) => p.kind === "airship");
+  SF.state.player.x = boat.x;
+  SF.state.player.y = boat.y - 80;
+  SF.state.camX = boat.x;
+  SF.state.camY = boat.y;
+  const fence = (SF.PROPS || []).find((p) => p.kind === "fence_up");
+  window.__deskFence = fence && { x: fence.x, y: fence.y };
+});
+await keys.waitForTimeout(80);
+await shot(keys, "34-desk-skiff.png");
+const deskFence = await keys.evaluate(() => window.__deskFence);
+if (deskFence) {
+  await keys.evaluate((spot) => {
+    SF.state.player.x = spot.x + 40;
+    SF.state.player.y = spot.y + 30;
+    SF.state.camX = spot.x;
+    SF.state.camY = spot.y;
+  }, deskFence);
+  await keys.waitForTimeout(80);
+  await shot(keys, "35-desk-fence.png");
+}
+
+const deskMark = await keys.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  SF.state.quest = "stirring";
+  SF.state.dialogue = null;
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const talk = SF.TALK_RANGE || 54;
+  const far = (SF.MARK_NEAR || 72) + (SF.MARK_HYST || 4) + 4;
+  const dirs = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+  const p = SF.state.player;
+  const near = [];
+  const shown = [];
+  dirs.forEach((dir) => {
+    const mag = Math.hypot(dir[0], dir[1]);
+    [35, 45, talk - 1].forEach((dist) => {
+      p.x = feet.x + (dir[0] / mag) * dist;
+      p.y = feet.y + (dir[1] / mag) * dist;
+      near.push(SF.guideMark(SF.objectivePoint(SF.state), p));
+    });
+    p.x = feet.x + (dir[0] / mag) * far;
+    p.y = feet.y + (dir[1] / mag) * far;
+    const mark = SF.guideMark(SF.objectivePoint(SF.state), p);
+    shown.push(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 58 && mark.lift <= 64 && mark.lift - 7 >= 46);
+  });
+  return { hidden: near.every((mark) => !mark), centered: shown.every(Boolean) };
+});
+check(deskMark.hidden && deskMark.centered, "desktop Kestrel diamond hides in talk range and centers past it (" + JSON.stringify(deskMark) + ")");
 
 await browser.close();
 
