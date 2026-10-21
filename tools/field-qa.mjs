@@ -546,7 +546,7 @@ await page.evaluate(() => {
   d.lock = 0;
   d.done = true;
   d.shown = (d.full || "").length;
-  if (SF._depart) SF._depart.t = 0;
+  if (SF._depart) SF._depart.t = SF._depart.dur;
 });
 await tapDialogue();
 const early = await page.evaluate(() => {
@@ -876,7 +876,7 @@ await keys.evaluate(() => {
   d.lock = 0;
   d.done = true;
   d.shown = (d.full || "").length;
-  if (SF._depart) SF._depart.t = 0;
+  if (SF._depart) SF._depart.t = SF._depart.dur;
 });
 await keys.keyboard.press("Enter");
 await keys.waitForTimeout(120);
