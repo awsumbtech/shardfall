@@ -1007,34 +1007,111 @@ await shot(page, "44-kestrel-south.png");
 await place(page, kestrelMark.place.far.x, kestrelMark.place.far.y, 0, 1);
 await shot(page, "45-kestrel-far.png");
 
-const nameNudge = await page.evaluate(() => {
+const nameClear = await page.evaluate(() => {
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
   const ctx = SF.ctx;
   ctx.font = "600 12px Palatino, Georgia, serif";
-  const contact = 35;
-  const side = contact / Math.SQRT2;
-  function at(dx, dy) {
-    const tag = SF.nameAnchor(ctx, feet.x, feet.y - 34, n.name, { x: feet.x + dx, y: feet.y + dy });
-    return {
-      dx: Math.round((tag.x - feet.x) * 10) / 10,
-      dy: Math.round((tag.y - (feet.y - 34)) * 10) / 10
-    };
+  const dirs = {
+    n: [0, -1], nne: [1, -2], ne: [1, -1], e: [1, 0],
+    se: [1, 1], s: [0, 1], sw: [-1, 1], w: [-1, 0],
+    nw: [-1, -1], nnw: [-1, -2]
+  };
+  function overlap(a, b) {
+    return a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
   }
+  const hits = [];
+  const moved = [];
+  Object.keys(dirs).forEach((key) => {
+    const dir = dirs[key];
+    const mag = Math.hypot(dir[0], dir[1]) || 1;
+    for (let dist = 30; dist <= 60; dist += 2) {
+      const hero = { x: feet.x + (dir[0] / mag) * dist, y: feet.y + (dir[1] / mag) * dist };
+      const tag = SF.nameAnchor(ctx, feet.x, feet.y, n.name, hero, n.id);
+      const heroBox = SF.actorSpriteBox("wayfarer", hero.x, hero.y);
+      if (overlap(tag, heroBox)) {
+        hits.push({ key, dist, dx: Math.round(tag.x - feet.x), dy: Math.round(tag.y - (feet.y - 34)) });
+      }
+      const home = SF.nameAnchor(ctx, feet.x, feet.y, n.name, null, n.id);
+      const homeHit = overlap(home, heroBox);
+      if (!homeHit && (Math.abs(tag.x - home.x) > 0.5 || Math.abs(tag.y - home.y) > 0.5)) {
+        moved.push({ key, dist });
+      }
+    }
+  });
+  function creamInLegs(dx, dy) {
+    const s = SF.state;
+    s.mode = "play";
+    s.dialogue = null;
+    s.shake = 0;
+    s.player.x = feet.x + dx;
+    s.player.y = feet.y + dy;
+    s.player.fx = dx === 0 ? 0 : (dx < 0 ? 1 : -1);
+    s.player.fy = dy < 0 ? 1 : (dy > 0 ? -1 : 0);
+    s.camX = (feet.x + s.player.x) / 2;
+    s.camY = (feet.y + s.player.y) / 2;
+    SF.draw();
+    const box = SF.actorSpriteBox("wayfarer", s.player.x, s.player.y);
+    const dpr = SF.dpr || 1;
+    const pxScale = Math.max(1, Math.round(dpr * (SF.zoom || 1)));
+    const camX = Math.round(s.camX);
+    const camY = Math.round(s.camY);
+    const ox = Math.round(dpr * (SF.viewW / 2) - camX * pxScale);
+    const oy = Math.round(dpr * (SF.viewH / 2) - camY * pxScale);
+    function dev(wx, wy) {
+      return {
+        x: Math.round(wx * pxScale + ox),
+        y: Math.round(wy * pxScale + oy)
+      };
+    }
+    const leg = { l: box.l, r: box.r, t: box.b - 12, b: box.b + 2 };
+    const a = dev(leg.l, leg.t);
+    const b = dev(leg.r, leg.b);
+    const canvas = SF.view;
+    const x0 = Math.max(0, Math.min(a.x, b.x));
+    const y0 = Math.max(0, Math.min(a.y, b.y));
+    const x1 = Math.min(canvas.width, Math.max(a.x, b.x));
+    const y1 = Math.min(canvas.height, Math.max(a.y, b.y));
+    if (x1 - x0 < 2 || y1 - y0 < 2) return { cream: -1, w: 0, h: 0 };
+    const img = SF.ctx.getImageData(x0, y0, x1 - x0, y1 - y0).data;
+    let cream = 0;
+    for (let i = 0; i < img.length; i += 4) {
+      const r = img[i];
+      const g = img[i + 1];
+      const bl = img[i + 2];
+      if (r > 245 && g > 236 && bl > 220 && r >= g && g + 6 >= bl) cream++;
+    }
+    return { cream, w: x1 - x0, h: y1 - y0 };
+  }
+  const gaps = {
+    n42: creamInLegs(0, -42),
+    ne50: creamInLegs(50 / Math.SQRT2, -50 / Math.SQRT2),
+    nw50: creamInLegs(-50 / Math.SQRT2, -50 / Math.SQRT2),
+    nne44: creamInLegs(Math.sin(Math.PI / 8) * 44, -Math.cos(Math.PI / 8) * 44),
+    nnw44: creamInLegs(-Math.sin(Math.PI / 8) * 44, -Math.cos(Math.PI / 8) * 44)
+  };
+  const south = SF.nameAnchor(ctx, feet.x, feet.y, n.name, { x: feet.x, y: feet.y + 40 }, n.id);
+  const east = SF.nameAnchor(ctx, feet.x, feet.y, n.name, { x: feet.x + 40, y: feet.y }, n.id);
+  const far = SF.nameAnchor(ctx, feet.x, feet.y, n.name, { x: feet.x, y: feet.y - 90 }, n.id);
   return {
-    n: at(0, -contact),
-    ne: at(side, -side),
-    nw: at(-side, -side),
-    s: at(0, contact),
-    e: at(contact, 0),
-    far: at(0, -80)
+    hits: hits.slice(0, 8),
+    hitN: hits.length,
+    movedN: moved.length,
+    gaps,
+    still: {
+      s: Math.abs(south.y - (feet.y - 34)) < 0.5 && Math.abs(south.x - feet.x) < 0.5,
+      e: Math.abs(east.y - (feet.y - 34)) < 0.5 && Math.abs(east.x - feet.x) < 0.5,
+      far: Math.abs(far.y - (feet.y - 34)) < 0.5 && Math.abs(far.x - feet.x) < 0.5
+    }
   };
 });
-check(nameNudge.n.dx > 8, "north contact moves Kestrel's name off the hero (" + JSON.stringify(nameNudge.n) + ")");
-check(nameNudge.ne.dx < -8, "northeast contact moves her name away from the hero (" + JSON.stringify(nameNudge.ne) + ")");
-check(nameNudge.nw.dx > 8, "northwest contact moves her name away from the hero (" + JSON.stringify(nameNudge.nw) + ")");
-check(nameNudge.s.dx === 0 && nameNudge.s.dy === 0, "south contact leaves the name tag (" + JSON.stringify(nameNudge.s) + ")");
-check(nameNudge.e.dx === 0 && nameNudge.e.dy === 0 && nameNudge.far.dx === 0 && nameNudge.far.dy === 0, "east and far leave the name tag (" + JSON.stringify(nameNudge) + ")");
+const gapBad = Object.keys(nameClear.gaps).filter((key) => nameClear.gaps[key].cream >= 8);
+check(nameClear.hitN === 0, "Kestrel's name misses the hero sprite from 30 to 60px (" + JSON.stringify(nameClear.hits) + ")");
+check(nameClear.movedN === 0, "a clear name stays on its baseline (" + nameClear.movedN + ")");
+check(nameClear.still.s && nameClear.still.e && nameClear.still.far, "south, east, and far leave the name tag (" + JSON.stringify(nameClear.still) + ")");
+check(gapBad.length === 0, "name pixels stay off the hero's legs (" + JSON.stringify(nameClear.gaps) + ")");
+await place(page, kestrelMark.place.close.x, kestrelMark.place.close.y - 7, 0, 1);
+await shot(page, "46-kestrel-n42.png");
 
 const lampNear = await page.evaluate(() => {
   SF.mountIsland("cinderveil");
@@ -1094,140 +1171,110 @@ check(sense.sensed && sense.dist > 96 && sense.onScreen && sense.shown, "a far s
 await place(page, sense.x, sense.y, 1, 0);
 await shot(page, "41-sense-arrow.png");
 
-const crossings = await page.evaluate(async () => {
-  function screenAt(dx, dy) {
-    const c = SF.view;
-    const x = Math.max(0, Math.min(c.width - 1, Math.floor(c.width / 2 + dx)));
-    const y = Math.max(0, Math.min(c.height - 1, Math.floor(c.height / 2 + dy)));
-    const px = SF.ctx.getImageData(x, y, 1, 1).data;
-    return [px[0], px[1], px[2]];
+const ground = await page.evaluate(() => {
+  function skyPixel(r, g, b, a) {
+    if (a < 200) return true;
+    return b > g + 20 && b > 100 && r < 160 && g < 150;
   }
-  function sheetAt(wx, wy) {
+  function scan(label, cx, cy) {
     const sheet = SF._terrain;
     const box = SF._terrainBox;
     const ppm = SF._terrainPpm || 1;
-    if (!sheet || !box) return null;
-    const sx = Math.floor((wx - box.minX) * ppm);
-    const sy = Math.floor((wy - box.minY) * ppm);
-    if (sx < 1 || sy < 1 || sx >= sheet.width - 1 || sy >= sheet.height - 1) return null;
-    const px = sheet.getContext("2d").getImageData(sx, sy, 1, 1).data;
-    return [px[0], px[1], px[2]];
-  }
-  function close(a, b) {
-    return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) <= 48;
-  }
-  const offsets = [[0, 0], [180, 40], [-160, 80], [40, -180], [-80, -120]];
-  let watch = null;
-  const orig = SF.draw;
-  SF.draw = function () {
-    orig.call(SF);
-    if (!watch) return;
-    const s = SF.state;
-    const mode = s.mode;
-    const island = SF.islandId;
-    const key = SF._terrainKey || "";
-    const cover = SF._landCover || 0;
-    const scale = Math.max(1, Math.round((SF.dpr || 1) * (SF.zoom || 1)));
-    let hits = 0;
+    const rows = {};
+    if (!sheet || !box) return { label, missing: true, bad: [{ row: 0, sky: 1, n: 1 }] };
+    const x0 = cx - 112;
+    const y0 = cy - 80;
+    const x1 = cx + 112;
+    const y1 = cy + 80;
+    const sx0 = Math.max(0, Math.floor((x0 - box.minX) * ppm));
+    const sy0 = Math.max(0, Math.floor((y0 - box.minY) * ppm));
+    const sx1 = Math.min(sheet.width, Math.ceil((x1 - box.minX) * ppm));
+    const sy1 = Math.min(sheet.height, Math.ceil((y1 - box.minY) * ppm));
+    const sw = sx1 - sx0;
+    const sh = sy1 - sy0;
+    if (sw < 4 || sh < 4) return { label, missing: true, bad: [{ row: 0, sky: 1, n: 1, sw, sh }] };
+    const img = sheet.getContext("2d").getImageData(sx0, sy0, sw, sh).data;
     let seen = 0;
-    offsets.forEach((pair) => {
-      const dx = pair[0];
-      const dy = pair[1];
-      const stale = watch.at(s.camX + dx / scale, s.camY + dy / scale);
-      if (!stale) return;
-      seen++;
-      const now = screenAt(dx, dy);
-      const dark = now[0] < 28 && now[1] < 28 && now[2] < 40;
-      if (!dark && close(now, stale)) hits++;
-    });
-    const keyOk = key.indexOf(watch.dest + ":") === 0;
-    const covered = cover >= 0.45 || mode === "voyage" || mode === "title" || mode === "dialogue";
-    const stalePixels = !covered && seen >= 3 && hits >= 3 && !keyOk;
-    const wrongSheet = mode === "play" && cover < 0.45 && key && key.indexOf(island + ":") !== 0;
-    if (stalePixels || wrongSheet) {
-      watch.bad.push({ mode: mode, island: island, key: key, cover: cover, hits: hits, seen: seen, px: screenAt(0, 0) });
-    }
-    watch.frames++;
-    if (mode === "voyage") watch.voyage++;
-    if (mode === "play" && island === watch.dest) watch.landed++;
-  };
-  function arm(dest) {
-    const dock = SF.DOCKS[dest];
-    const scale = Math.max(1, Math.round((SF.dpr || 1) * (SF.zoom || 1)));
-    const frozen = offsets.map((pair) => ({
-      x: dock.x + pair[0] / scale,
-      y: dock.y + pair[1] / scale,
-      px: sheetAt(dock.x + pair[0] / scale, dock.y + pair[1] / scale)
-    }));
-    watch = {
-      dest: dest,
-      frames: 0,
-      voyage: 0,
-      landed: 0,
-      bad: [],
-      at: function (wx, wy) {
-        let best = null;
-        let bestD = 1e9;
-        frozen.forEach((row) => {
-          const d = Math.hypot(wx - row.x, wy - row.y);
-          if (d < bestD) {
-            bestD = d;
-            best = row.px;
-          }
-        });
-        return bestD < 4 ? best : null;
+    for (let wy = y0; wy <= y1; wy += 4) {
+      const key = Math.floor(wy / 16);
+      if (!rows[key]) rows[key] = { sky: 0, n: 0, y: wy };
+      for (let wx = x0; wx <= x1; wx += 4) {
+        if (!SF.walkable(wx, wy)) continue;
+        const sx = Math.floor((wx - box.minX) * ppm) - sx0;
+        const sy = Math.floor((wy - box.minY) * ppm) - sy0;
+        if (sx < 0 || sy < 0 || sx >= sw || sy >= sh) continue;
+        const i = (sy * sw + sx) * 4;
+        rows[key].n++;
+        seen++;
+        if (skyPixel(img[i], img[i + 1], img[i + 2], img[i + 3])) rows[key].sky++;
       }
+    }
+    const bad = Object.keys(rows).map((key) => rows[key]).filter((row) => row.n >= 4 && row.sky * 2 >= row.n);
+    const s = SF.state;
+    s.shake = 0;
+    s.camX = cx;
+    s.camY = cy;
+    s.player.x = cx + 64;
+    s.player.y = cy + 64;
+    SF.draw();
+    const dpr = SF.dpr || 1;
+    const pxScale = Math.max(1, Math.round(dpr * (SF.zoom || 1)));
+    const ox = Math.round(dpr * (SF.viewW / 2) - Math.round(s.camX) * pxScale);
+    const oy = Math.round(dpr * (SF.viewH / 2) - Math.round(s.camY) * pxScale);
+    const offsets = [[0, 0], [28, 20], [-24, 28], [12, 40]];
+    let bestSum = -1;
+    let screen = null;
+    const canvas = SF.view;
+    offsets.forEach((pair) => {
+      const wx = cx + pair[0];
+      const wy = cy + pair[1];
+      const dx = Math.round(wx * pxScale + ox);
+      const dy = Math.round(wy * pxScale + oy);
+      if (dx < 1 || dy < 1 || dx >= canvas.width - 1 || dy >= canvas.height - 1) return;
+      const px = SF.ctx.getImageData(dx, dy, 1, 1).data;
+      const sum = px[0] + px[1] + px[2];
+      if (sum > bestSum) {
+        bestSum = sum;
+        screen = [px[0], px[1], px[2]];
+      }
+    });
+    const black = bestSum >= 0 && bestSum < 48;
+    return {
+      label,
+      seen,
+      bad: bad.slice(0, 4),
+      key: SF._terrainKey,
+      screen,
+      black,
+      cover: SF._landCover || 0
     };
-    return frozen.filter((row) => row.px).length;
   }
-  SF.state.flags.sailUnlocked = true;
-  SF.state.flags.lampLit = true;
-  SF.state.flags.metCinderKestrel = true;
-  SF.state.mode = "play";
-  SF.state.dialogue = null;
-  SF.state.voyage = null;
-  SF.state.voyageTalk = false;
-  const ready = () => SF.islandId === "emberhold" && (SF._landCover || 0) < 0.05 && SF._terrainKey && SF._terrainKey.indexOf("emberhold:") === 0;
-  if (!ready() && SF.islandId !== "emberhold") SF.travelTo("emberhold");
-  const t0 = performance.now();
-  while (!ready() && performance.now() - t0 < 8000) {
-    await new Promise((r) => setTimeout(r, 50));
+  function bake(island, cx, cy) {
+    SF.mountIsland(island);
+    SF.state.island = island;
+    SF.state.mode = "play";
+    SF.state.dialogue = null;
+    SF.state.voyage = null;
+    SF.state.shake = 0;
+    if (island === "cinderveil") SF.state.flags.mawDead = true;
+    SF._terrain = null;
+    SF._terrainKey = "";
+    SF.draw();
+    return scan(island, cx, cy);
   }
-  const primed = ready();
-  const travelKnown = arm("cinderveil");
-  const travelWatch = watch;
-  SF.travelTo("cinderveil");
-  await new Promise((r) => setTimeout(r, 5000));
-  const travel = {
-    frames: travelWatch.frames,
-    badN: travelWatch.bad.length,
-    bad: travelWatch.bad.slice(0, 3),
-    known: travelKnown,
-    primed: primed,
-    landed: travelWatch.landed
-  };
-  const sailKnown = arm("emberhold");
-  const sailWatch = watch;
-  SF.seaFightChance = 0;
-  SF.startVoyage("emberhold");
-  await new Promise((r) => setTimeout(r, 8000));
-  const sail = {
-    frames: sailWatch.frames,
-    voyage: sailWatch.voyage,
-    landed: sailWatch.landed,
-    badN: sailWatch.bad.length,
-    bad: sailWatch.bad.slice(0, 3),
-    known: sailKnown,
-    island: SF.islandId,
-    cover: SF._landCover || 0
-  };
-  SF.draw = orig;
-  return { travel: travel, sail: sail };
+  const kes = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(kes);
+  const ember = bake("emberhold", feet.x, feet.y);
+  SF.mountIsland("cinderveil");
+  const lamp = SF.LAMP || { x: 656, y: 140 };
+  const cinder = bake("cinderveil", lamp.x, lamp.y + 28);
+  return { ember, cinder, sliced: !!(SF._sliceUntil || SF._deferHeavy || SF._landCover || SF._pumpTerrain) };
 });
-check(crossings.travel.primed && crossings.travel.frames > 10 && crossings.travel.landed > 0 && crossings.travel.badN === 0,
-  "Travel shows no previous-island frame (" + JSON.stringify(crossings.travel) + ")");
-check(crossings.sail.voyage > 0 && crossings.sail.landed > 0 && crossings.sail.badN === 0 && crossings.sail.island === "emberhold",
-  "a real sail shows no previous-island frame (" + JSON.stringify(crossings.sail) + ")");
+function groundOk(row) {
+  return row && !row.missing && row.seen > 20 && row.bad.length === 0 && row.key && row.key.indexOf(row.label + ":") === 0 && !row.black && !row.cover;
+}
+check(groundOk(ground.ember) && groundOk(ground.cinder) && !ground.sliced,
+  "walkable ground has no sky row (" + JSON.stringify(ground) + ")");
 
 await phoneCtx.close();
 

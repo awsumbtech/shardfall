@@ -366,6 +366,9 @@ SF.bindInput = function () {
   SF._overlayKey = "";
   SF._actUntil = 0;
   SF._armClick = false;
+  SF._downs = Object.create(null);
+  SF._lastDown = null;
+  SF._overlayPaintAt = 0;
   var ACT_LOCK_MS = 350;
   function overlayOpen(mode, extra) {
     if (extra) return true;
@@ -445,9 +448,51 @@ SF.bindInput = function () {
     if (!SF._fresh || SF._fresh.armed || isPriorFinger(e)) return;
     if (SF._fresh.opener == null || e.pointerId !== SF._fresh.opener) SF._fresh.armed = true;
   }
+  function downRecord(e) {
+    var id = e.pointerId;
+    if (e.type === "click" && (id == null || id === 0)) return SF._lastDown;
+    if (id != null && SF._downs && SF._downs[id]) return SF._downs[id];
+    if (e.type === "click") return SF._lastDown;
+    return null;
+  }
+  // The click Chrome retargets onto a menu is the same gesture that opened
+  // it. Drop that click and pointerup when the finger went down before the
+  // overlay's first paint. The short act lock remains the backup for a
+  // click that arrives before any paint frame.
+  function overlayWaiting() {
+    var key = SF._overlayKey;
+    if (!key || key === SF._paintedOverlay) return false;
+    var mode = String(key).split("|")[0];
+    var extra = String(key).indexOf("|") >= 0;
+    if (extra) return true;
+    return mode === "sailmenu" || mode === "shop" || mode === "inn" || mode === "notice" ||
+      mode === "hand" || mode === "fieldmenu" || mode === "chest" || mode === "pause" ||
+      mode === "dialogue";
+  }
+  function swallowPrePaint(e) {
+    if (isPriorFinger(e) || isAction(e)) return false;
+    var down = downRecord(e);
+    if (!down) return false;
+    var paint = SF._overlayPaintAt || 0;
+    if (!(paint && down.t < paint) && !(overlayWaiting() && down.t <= performance.now())) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }
+  function forgetDown(e) {
+    if (e.type !== "click") return;
+    var id = e.pointerId;
+    if (id != null && SF._downs) delete SF._downs[id];
+    if (SF._lastDown && (id == null || id === 0 || SF._lastDown.id === id)) SF._lastDown = null;
+  }
   function swallowStale(e) {
+    if (swallowPrePaint(e)) {
+      forgetDown(e);
+      return;
+    }
     if (isPriorFinger(e)) return;
     if (e.type === "click") {
+      forgetDown(e);
       if (!e.detail || SF._armClick) return;
       if (!SF.actsLocked()) return;
       e.preventDefault();
@@ -460,6 +505,10 @@ SF.bindInput = function () {
     e.stopPropagation();
   }
   document.addEventListener("pointerdown", function (e) {
+    var rec = { t: performance.now(), id: e.pointerId };
+    if (!SF._downs) SF._downs = Object.create(null);
+    SF._downs[e.pointerId] = rec;
+    SF._lastDown = rec;
     SF._pressId = e.pointerId;
     var prior = isPriorFinger(e);
     if (SF.actsLocked() && !prior && !isAction(e)) SF._armClick = true;

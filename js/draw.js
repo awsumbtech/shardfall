@@ -182,7 +182,7 @@ SF.cloudStamp = function () {
   return clouds.length + ":" + a.x + ":" + a.y + ":" + b.x + ":" + b.y;
 };
 
-SF._openClouds = function () {
+SF.buildCloudSheet = function () {
   var clouds = SF.clouds || [];
   var minX = Infinity;
   var minY = Infinity;
@@ -209,39 +209,13 @@ SF._openClouds = function () {
   var maxDim = 4096;
   if (worldW > maxDim) ppm = maxDim / worldW;
   if (worldH * ppm > maxDim) ppm = Math.min(ppm, maxDim / worldH);
-  var sheetW = Math.max(1, Math.ceil(worldW * ppm));
-  var sheetH = Math.max(1, Math.ceil(worldH * ppm));
-  // One canvas flushes its whole command buffer on the first read (~400ms).
-  // Tiles keep each flush inside a single frame.
-  var tilePx = 1024;
-  var tiles = [];
-  var rx, ry, tw, th, cnv, g, originX, originY;
-  for (ry = 0; ry < sheetH; ry += tilePx) {
-    for (rx = 0; rx < sheetW; rx += tilePx) {
-      tw = Math.min(tilePx, sheetW - rx);
-      th = Math.min(tilePx, sheetH - ry);
-      cnv = document.createElement("canvas");
-      cnv.width = tw;
-      cnv.height = th;
-      g = cnv.getContext("2d");
-      originX = minX + rx / ppm;
-      originY = minY + ry / ppm;
-      g.setTransform(ppm, 0, 0, ppm, -originX * ppm, -originY * ppm);
-      g.imageSmoothingEnabled = true;
-      if ("imageSmoothingQuality" in g) g.imageSmoothingQuality = "high";
-      tiles.push({
-        canvas: cnv,
-        g: g,
-        minX: originX,
-        minY: originY,
-        maxX: originX + tw / ppm,
-        maxY: originY + th / ppm
-      });
-    }
-  }
-  var warm = document.createElement("canvas");
-  warm.width = 8;
-  warm.height = 8;
+  var sheet = document.createElement("canvas");
+  sheet.width = Math.max(1, Math.ceil(worldW * ppm));
+  sheet.height = Math.max(1, Math.ceil(worldH * ppm));
+  var g = sheet.getContext("2d");
+  g.setTransform(ppm, 0, 0, ppm, -minX * ppm, -minY * ppm);
+  g.imageSmoothingEnabled = true;
+  if ("imageSmoothingQuality" in g) g.imageSmoothingQuality = "high";
   function softDisc(inner, mid, edge) {
     var cnv = document.createElement("canvas");
     cnv.width = 256;
@@ -257,90 +231,27 @@ SF._openClouds = function () {
     gg.fillRect(0, 0, 256, 256);
     return cnv;
   }
-  SF._cloudWork = {
-    tiles: tiles,
-    warm: warm,
-    warmCtx: warm.getContext("2d"),
-    warmI: 0,
-    minX: minX,
-    minY: minY,
-    ppm: ppm,
-    stamp: SF.cloudStamp(),
-    i: 0,
-    sea: softDisc("rgba(255,236,244,0.90)", "rgba(236,214,226,0.40)", "rgba(220,198,214,0.08)"),
-    mist: softDisc("rgba(214,226,255,0.75)", "rgba(196,214,244,0.32)", "rgba(186,204,236,0.06)"),
-    dusk: softDisc("rgba(255,214,196,0.70)", "rgba(244,186,170,0.28)", "rgba(232,170,160,0.05)")
-  };
-};
-
-SF._pumpClouds = function () {
-  var job = SF._cloudWork;
-  if (!job) return;
-  if (SF._deferHeavy && SF._deferHeavy()) return;
-  var clouds = SF.clouds || [];
-  var deadline = SF._sliceUntil || (performance.now() + 12);
+  var sea = softDisc("rgba(255,236,244,0.90)", "rgba(236,214,226,0.40)", "rgba(220,198,214,0.08)");
+  var mist = softDisc("rgba(214,226,255,0.75)", "rgba(196,214,244,0.32)", "rgba(186,204,236,0.06)");
+  var dusk = softDisc("rgba(255,214,196,0.70)", "rgba(244,186,170,0.28)", "rgba(232,170,160,0.05)");
   function layer(blob, x, y, rx, ry, alpha) {
-    var i, t, g;
-    for (i = 0; i < job.tiles.length; i++) {
-      t = job.tiles[i];
-      if (x + rx < t.minX || x - rx > t.maxX || y + ry < t.minY || y - ry > t.maxY) continue;
-      g = t.g;
-      g.save();
-      g.globalAlpha = alpha;
-      g.drawImage(blob, x - rx, y - ry, rx * 2, ry * 2);
-      g.restore();
-    }
+    g.save();
+    g.globalAlpha = alpha;
+    g.drawImage(blob, x - rx, y - ry, rx * 2, ry * 2);
+    g.restore();
   }
-  var c, top, tile;
-  while (job.i < clouds.length && performance.now() < deadline) {
-    c = clouds[job.i];
-    top = c.kind === "dusk" ? job.dusk : (c.kind === "mist" ? job.mist : job.sea);
-    layer(job.mist, c.x, c.y + c.s * 0.05, c.s * 1.85, c.s * 0.78, 0.55);
-    layer(job.sea, c.x - c.s * 0.18, c.y - c.s * 0.06, c.s * 1.2, c.s * 0.52, 0.7);
+  for (i = 0; i < clouds.length; i++) {
+    c = clouds[i];
+    var top = c.kind === "dusk" ? dusk : (c.kind === "mist" ? mist : sea);
+    layer(mist, c.x, c.y + c.s * 0.05, c.s * 1.85, c.s * 0.78, 0.55);
+    layer(sea, c.x - c.s * 0.18, c.y - c.s * 0.06, c.s * 1.2, c.s * 0.52, 0.7);
     layer(top, c.x + c.s * 0.16, c.y + c.s * 0.04, c.s * 0.72, c.s * 0.34, 0.8);
-    job.i++;
   }
-  if (job.i < clouds.length) return;
-  while (job.warmI < job.tiles.length && performance.now() < deadline) {
-    tile = job.tiles[job.warmI];
-    job.warmCtx.drawImage(tile.canvas, 0, 0, 8, 8);
-    job.warmI++;
-  }
-  if (job.warmI < job.tiles.length) return;
-  SF._cloudPending = {
-    tiles: job.tiles,
-    minX: job.minX,
-    minY: job.minY,
-    ppm: job.ppm,
-    stamp: job.stamp
-  };
-  SF._cloudWork = null;
-};
-
-SF._deferHeavy = function () {
-  if (SF._sheetBudget > 1000) return false;
-  if (document.body && document.body.dataset.actlock === "1") return true;
-  return !!(SF.actsLocked && SF.actsLocked());
-};
-
-SF._adoptClouds = function () {
-  var pending = SF._cloudPending;
-  if (!pending) return;
-  SF._cloudTiles = pending.tiles;
-  SF._cloudBox = { minX: pending.minX, minY: pending.minY };
-  SF._cloudPpm = pending.ppm;
-  SF._cloudStamp = pending.stamp;
-  SF._cloudSheet = null;
-  SF._cloudPending = null;
-  SF._heavyFrame = true;
-};
-
-SF.buildCloudSheet = function () {
-  SF._openClouds();
-  var prev = SF._sliceUntil;
-  SF._sliceUntil = performance.now() + 1e9;
-  SF._pumpClouds();
-  SF._sliceUntil = prev;
+  g.globalAlpha = 1;
+  SF._cloudSheet = sheet;
+  SF._cloudBox = { minX: minX, minY: minY };
+  SF._cloudPpm = ppm;
+  SF._cloudStamp = SF.cloudStamp();
 };
 
 SF.blitCloudSheet = function (ctx, sheet, ppm, srcLeft, srcTop, destLeft, destTop, vw, vh, originX, originY) {
@@ -385,34 +296,9 @@ SF.blitCloudSheet = function (ctx, sheet, ppm, srcLeft, srcTop, destLeft, destTo
   ctx.imageSmoothingEnabled = smooth;
 };
 
-SF._blitCloudTiles = function (ctx, tiles, ppm, srcLeft, srcTop, destLeft, destTop, vw, vh) {
-  var i, t, left, top, right, bottom, dw, dh;
-  for (i = 0; i < tiles.length; i++) {
-    t = tiles[i];
-    left = Math.max(srcLeft, t.minX);
-    top = Math.max(srcTop, t.minY);
-    right = Math.min(srcLeft + vw, t.maxX);
-    bottom = Math.min(srcTop + vh, t.maxY);
-    dw = right - left;
-    dh = bottom - top;
-    if (dw <= 0 || dh <= 0) continue;
-    SF.blitCloudSheet(ctx, t.canvas, ppm, left, top, destLeft + (left - srcLeft), destTop + (top - srcTop), dw, dh, t.minX, t.minY);
-  }
-};
-
 SF.drawClouds = function (ctx, s) {
   if (!SF.clouds || !SF.clouds.length || !SF.blobs) return;
-  var stamp = SF.cloudStamp();
-  var defer = SF._deferHeavy && SF._deferHeavy();
-  if (SF._cloudPending && SF._cloudPending.stamp !== stamp) SF._cloudPending = null;
-  if (SF._cloudWork && SF._cloudWork.stamp !== stamp) SF._cloudWork = null;
-  if (SF._cloudStamp !== stamp && !SF._cloudPending && !defer) {
-    if (!SF._cloudWork || SF._cloudWork.stamp !== stamp) SF._openClouds();
-    SF._pumpClouds();
-  }
-  if (SF._cloudPending && !defer) SF._adoptClouds();
-  // A sheet from another island stays off screen. The land cover hides the gap.
-  if (SF._cloudStamp !== stamp || !SF._cloudTiles) return;
+  if (!SF._cloudSheet || SF._cloudStamp !== SF.cloudStamp()) SF.buildCloudSheet();
   var z = SF.zoom || 1;
   var pad = 48;
   var left = s.camX - SF.viewW / (2 * z) - pad;
@@ -420,7 +306,8 @@ SF.drawClouds = function (ctx, s) {
   var vw = SF.viewW / z + pad * 2;
   var vh = SF.viewH / z + pad * 2;
   var drift = Math.sin(SF.anim * 0.07) * 18;
-  SF._blitCloudTiles(ctx, SF._cloudTiles, SF._cloudPpm, left - s.camX * 0.12 - drift, top - s.camY * 0.12, left, top, vw, vh);
+  var b = SF._cloudBox;
+  SF.blitCloudSheet(ctx, SF._cloudSheet, SF._cloudPpm, left - s.camX * 0.12 - drift, top - s.camY * 0.12, left, top, vw, vh, b.minX, b.minY);
 };
 
 SF.buildHushLip = function () {
@@ -493,13 +380,7 @@ SF.buildHushLip = function () {
 SF.drawHushLip = function (ctx) {
   if (!SF.groups || !SF.WALK) return;
   var key = SF.islandId || "";
-  if (!SF._hushLip || SF._hushLipKey !== key) {
-    if (SF._terrainWork || SF._cloudWork || SF._terrainPending || SF._cloudPending) return;
-    if (SF._deferHeavy && SF._deferHeavy()) return;
-    if (SF._terrainKey && SF._terrainKey.indexOf(key + ":") !== 0) return;
-    SF.buildHushLip();
-  }
-  if (!SF._hushLip || SF._hushLipKey !== key) return;
+  if (!SF._hushLip || SF._hushLipKey !== key) SF.buildHushLip();
   var b = SF._hushLipBox;
   var s = SF.state;
   if (!s) return;
@@ -1444,7 +1325,7 @@ SF.terrainBounds = function () {
   return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
 };
 
-SF._openTerrain = function (lit, key) {
+SF.buildTerrainSheet = function (lit) {
   var b = SF.terrainBounds();
   var worldW = Math.max(1, b.maxX - b.minX);
   var worldH = Math.max(1, b.maxY - b.minY);
@@ -1457,226 +1338,41 @@ SF._openTerrain = function (lit, key) {
   var bctx = sheet.getContext("2d");
   bctx.imageSmoothingEnabled = false;
   bctx.setTransform(ppm, 0, 0, ppm, -b.minX * ppm, -b.minY * ppm);
-  var bounds = SF.terrainBounds();
-  var minX = Math.floor(bounds.minX);
-  var minY = Math.floor(bounds.minY);
-  var w = Math.max(1, Math.ceil(bounds.maxX) - minX);
-  var h = Math.max(1, Math.ceil(bounds.maxY) - minY);
-  if (w > 4096) w = 4096;
-  if (h > 4096) h = 4096;
-  var ground = document.createElement("canvas");
-  ground.width = w;
-  ground.height = h;
-  var gctx = ground.getContext("2d", { willReadFrequently: true });
-  var img = gctx.createImageData(w, h);
-  SF._terrainWork = {
-    key: key,
-    lit: !!lit,
-    sheet: sheet,
-    bctx: bctx,
-    b: b,
-    ppm: ppm,
-    ground: ground,
-    gctx: gctx,
-    img: img,
-    data: img.data,
-    mask: new Uint8Array(w * h),
-    minX: minX,
-    minY: minY,
-    w: w,
-    h: h,
-    phase: "shadow",
-    shadowNames: Object.keys(SF.groups || {}),
-    shadowName: 0,
-    shadowIndex: 0,
-    fake: { flags: { lampLit: !!lit, cinderLit: SF.islandId === "cinderveil" && !!lit } },
-    field: { y: 0, deadline: 0 }
-  };
-};
-
-SF._pumpTerrain = function () {
-  var job = SF._terrainWork;
-  if (!job) return;
-  if (SF._deferHeavy && SF._deferHeavy()) return;
-  var deadline = SF._sliceUntil || (performance.now() + 12);
-  if (job.phase === "shadow") {
-    var bctx = job.bctx;
-    var names = job.shadowNames;
-    while (job.shadowName < names.length && performance.now() < deadline) {
-      var list = SF.groups[names[job.shadowName]] || [];
-      while (job.shadowIndex < list.length && performance.now() < deadline) {
-        var c = list[job.shadowIndex];
-        job.shadowIndex++;
-        if (c.id && String(c.id).indexOf("trail-") === 0) continue;
-        var f = SF.foot(c);
-        bctx.drawImage(SF.blobs.shadow, f.x - f.rx * 1.15, f.y - f.ry * 0.45 + 22, f.rx * 2.3, f.ry * 1.35);
-      }
-      if (job.shadowIndex >= list.length) {
-        job.shadowName++;
-        job.shadowIndex = 0;
-      }
-    }
-    if (job.shadowName < names.length) return;
-    job.phase = "field";
-  }
-  if (performance.now() >= deadline) return;
-  if (job.phase === "field") {
-    job.field.deadline = deadline;
-    if (!SF._paintField(job.data, job.mask, job.minX, job.minY, job.w, job.h, job.lit, job.field)) return;
-    job.phase = "details";
-  }
-  if (performance.now() >= deadline) return;
-  if (job.phase === "details") {
-    job.details = job.details || {};
-    job.details.deadline = deadline;
-    if (!SF._paintDetails(job.data, job.mask, job.minX, job.minY, job.w, job.h, job.details)) return;
-    job.phase = "paths";
-  }
-  if (performance.now() >= deadline) return;
-  if (job.phase === "paths") {
-    job.paths = job.paths || {};
-    job.paths.deadline = deadline;
-    if (!SF._paintPaths(job.data, job.mask, job.minX, job.minY, job.w, job.h, job.paths)) return;
-    job.phase = "elevation";
-  }
-  if (performance.now() >= deadline) return;
-  if (job.phase === "elevation") {
-    job.elev = job.elev || {};
-    job.elev.deadline = deadline;
-    if (!SF._paintElevation(job.data, job.mask, job.minX, job.minY, job.w, job.h, job.elev)) return;
-    job.phase = "commit";
-  }
-  if (performance.now() >= deadline) return;
-  if (job.phase === "commit") {
-    if (job.commitY == null) job.commitY = 0;
-    var band = 96;
-    var rows;
-    while (job.commitY < job.h && performance.now() < deadline) {
-      rows = Math.min(band, job.h - job.commitY);
-      job.gctx.putImageData(job.img, 0, job.commitY, 0, job.commitY, job.w, rows);
-      job.commitY += rows;
-    }
-    if (job.commitY < job.h) return;
-    if (job.pasteY == null) job.pasteY = 0;
-    if (!job.warmCtx) {
-      var warm = document.createElement("canvas");
-      warm.width = 16;
-      warm.height = 16;
-      job.warmCtx = warm.getContext("2d");
-    }
-    while (job.pasteY < job.h && performance.now() < deadline) {
-      rows = Math.min(band, job.h - job.pasteY);
-      job.bctx.save();
-      job.bctx.imageSmoothingEnabled = false;
-      job.bctx.drawImage(job.ground, 0, job.pasteY, job.w, rows, job.minX, job.minY + job.pasteY, job.w, rows);
-      job.bctx.restore();
-      var sy = Math.max(0, Math.floor(job.pasteY * job.ppm));
-      var room = job.sheet.height - sy;
-      if (room > 0) {
-        var sh = Math.min(room, Math.max(1, Math.ceil(rows * job.ppm)));
-        job.warmCtx.drawImage(job.sheet, 0, sy, job.sheet.width, sh, 0, 0, 16, 16);
-      }
-      job.pasteY += rows;
-    }
-    if (job.pasteY < job.h) return;
-    if (!job.bridged) {
-      if (performance.now() >= deadline) return;
-      SF._landGrad = {};
-      SF._baking = true;
-      SF.drawBridge(job.bctx);
-      SF.drawGround(job.bctx, job.fake);
-      SF._baking = false;
-      job.bridged = true;
-      job.warmCtx.drawImage(job.sheet, 0, 0, 16, 16);
-    }
-    SF._terrainPending = {
-      sheet: job.sheet,
-      box: job.b,
-      ppm: job.ppm,
-      key: job.key
-    };
-    SF._terrainWork = null;
-  }
-};
-
-SF._adoptTerrain = function () {
-  var pending = SF._terrainPending;
-  if (!pending) return;
-  SF._terrain = pending.sheet;
-  SF._terrainBox = pending.box;
-  SF._terrainPpm = pending.ppm;
-  SF._terrainKey = pending.key;
-  SF._terrainPending = null;
-  SF._heavyFrame = true;
-};
-
-SF.buildTerrainSheet = function (lit) {
-  var key = SF.terrainKey(lit);
-  SF._openTerrain(lit, key);
-  var prev = SF._sliceUntil;
-  SF._sliceUntil = performance.now() + 1e9;
-  SF._pumpTerrain();
-  SF._sliceUntil = prev;
+  SF._landGrad = {};
+  SF._baking = true;
+  var fake = { flags: { lampLit: !!lit, cinderLit: SF.islandId === "cinderveil" && !!lit } };
+  Object.keys(SF.groups || {}).forEach(function (name) {
+    (SF.groups[name] || []).forEach(function (c) {
+      if (c.id && String(c.id).indexOf("trail-") === 0) return;
+      var f = SF.foot(c);
+      bctx.drawImage(SF.blobs.shadow, f.x - f.rx * 1.15, f.y - f.ry * 0.45 + 22, f.rx * 2.3, f.ry * 1.35);
+    });
+  });
+  SF.drawLands(bctx, fake);
+  SF.drawBridge(bctx);
+  SF.drawGround(bctx, fake);
+  SF._baking = false;
+  SF._terrain = sheet;
+  SF._terrainBox = b;
+  SF._terrainPpm = ppm;
+  SF._terrainKey = SF.terrainKey(lit);
 };
 
 SF.drawTerrain = function (ctx, s) {
   if (!SF.groups || !SF.specks || !SF.blobs || !SF.WALK) return;
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!(s.flags && s.flags.lampLit);
   var key = SF.terrainKey(lit);
-  var defer = (SF._deferHeavy && SF._deferHeavy()) || (SF._heavyFrame && !(SF._sheetBudget > 1000));
-  if (SF._terrainPending && SF._terrainPending.key !== key) SF._terrainPending = null;
-  if (SF._terrainWork && SF._terrainWork.key !== key) SF._terrainWork = null;
-  if (SF._terrainKey !== key && !SF._terrainPending && !defer) {
-    if (!SF._terrainWork || SF._terrainWork.key !== key) SF._openTerrain(lit, key);
-    SF._pumpTerrain();
-  }
-  if (SF._terrainPending && !defer) SF._adoptTerrain();
+  if (!SF._terrain || SF._terrainKey !== key) SF.buildTerrainSheet(lit);
   var sheet = SF._terrain;
-  var shown = !!(sheet && SF._terrainBox && SF._terrainKey === key);
-  if (shown) {
-    var b = SF._terrainBox;
-    var ppm = SF._terrainPpm;
-    var z = SF.zoom || 1;
-    var pad = 8;
-    var left = s.camX - SF.viewW / (2 * z) - pad;
-    var top = s.camY - SF.viewH / (2 * z) - pad;
-    var vw = SF.viewW / z + pad * 2;
-    var vh = SF.viewH / z + pad * 2;
-    // The first full-view blit of a new sheet is the long frame. Under the
-    // cover, paint it in short bands so that read stays inside one slice.
-    var presenting = SF._terrainPresented !== key && (SF._landCover || 0) > 0.5 && !(SF._sheetBudget > 1000);
-    if (presenting) {
-      if (SF._presentKey !== key || SF._presentY == null || SF._presentY < top) {
-        SF._presentKey = key;
-        SF._presentY = top;
-      }
-      var rows = Math.min(72, top + vh - SF._presentY);
-      if (rows > 1) {
-        SF.blitSheet(ctx, sheet, ppm, left, SF._presentY, left, SF._presentY, vw, rows, b.minX, b.minY);
-        SF._presentY += rows;
-      }
-      if (SF._presentY >= top + vh - 1) SF._terrainPresented = key;
-      SF._landCover = 1;
-    } else {
-      SF.blitSheet(ctx, sheet, ppm, left, top, left, top, vw, vh, b.minX, b.minY);
-      SF._terrainShown = key;
-      SF._terrainPresented = key;
-    }
-  }
-  SF._syncLandCover(key);
-};
-
-// Hold a black cover while the previous island's sheet would still be the one on screen.
-SF._syncLandCover = function (key) {
-  var shown = !!(key && SF._terrainShown === key && SF._terrainKey === key);
-  var stale = !!(SF._terrain && SF._terrainKey && SF._terrainKey !== key);
-  if (!shown && stale) {
-    SF._landCover = 1;
-    return;
-  }
-  if (!shown) return;
-  if (SF._sheetBudget > 1000) SF._landCover = 0;
-  else if (SF._landCover > 0) SF._landCover = Math.max(0, SF._landCover - 0.2);
+  var b = SF._terrainBox;
+  var ppm = SF._terrainPpm;
+  var z = SF.zoom || 1;
+  var pad = 8;
+  var left = s.camX - SF.viewW / (2 * z) - pad;
+  var top = s.camY - SF.viewH / (2 * z) - pad;
+  var vw = SF.viewW / z + pad * 2;
+  var vh = SF.viewH / z + pad * 2;
+  SF.blitSheet(ctx, sheet, ppm, left, top, left, top, vw, vh, b.minX, b.minY);
 };
 
 SF.blitSheet = function (ctx, sheet, ppm, srcLeft, srcTop, destLeft, destTop, vw, vh, originX, originY) {
@@ -2586,7 +2282,8 @@ SF.entityList = function (s) {
           ctx.font = "600 12px Palatino, Georgia, serif";
           ctx.textAlign = "center";
           ctx.fillStyle = "#fff8ee";
-          var tag = SF.nameAnchor(ctx, nx, ny - 34, n.name, s.player);
+          var spriteId = n.sprite || (SF.ACTOR_SPRITE && SF.ACTOR_SPRITE[n.id]) || n.id;
+          var tag = SF.nameAnchor(ctx, nx, ny, n.name, s.player, spriteId);
           ctx.fillText(n.name, tag.x, tag.y);
           ctx.restore();
         }
@@ -2744,29 +2441,70 @@ SF.guideActor = function (goal) {
   return null;
 };
 
-// The name stays on the original baseline unless the hero's body covers it
-// from the north. Then it steps aside, just far enough to clear him.
-SF.nameAnchor = function (ctx, x, y, label, hero) {
-  hero = hero || (SF.state && SF.state.player);
-  if (!hero || !label) return { x: x, y: y };
-  var width = ctx.measureText(label).width;
-  var left = x - width / 2;
-  var right = x + width / 2;
-  var top = y - 12;
-  var bottom = y;
-  var hx0 = hero.x - 9;
-  var hx1 = hero.x + 9;
-  var hy0 = hero.y - 28;
-  var hy1 = hero.y + 1;
-  var ox = Math.min(right, hx1) - Math.max(left, hx0);
-  var oy = Math.min(bottom, hy1) - Math.max(top, hy0);
-  if (ox < 8 || oy < 6 || hero.y > y + 18) return { x: x, y: y };
-  var dir = hero.x - x;
-  if (Math.abs(dir) < 8) dir = 1;
-  else dir = dir > 0 ? -1 : 1;
-  var shift = dir > 0 ? (hx1 - left + 6) : (right - hx0 + 6);
-  if (shift < 8) shift = 8;
-  return { x: x + dir * shift, y: y };
+// Feet-anchored sprite box in world pixels. Walk and stand share a body,
+// and the union covers whichever pose is on screen.
+SF.actorSpriteBox = function (id, x, y) {
+  var scale = (window.Art && Art.fieldScale) ? (Art.fieldScale(id) || 1) : 1;
+  function take(pose) {
+    if (!window.Art || !Art.spriteSize) return null;
+    var m = Art.spriteSize(id, pose, "down");
+    if (!m || !m.w || !m.h) return null;
+    var mw = m.w * scale;
+    var mh = m.h * scale;
+    var ax = m.ax != null ? m.ax * scale : mw / 2;
+    var ay = m.ay != null ? m.ay * scale : mh - 1;
+    return { l: x - ax, r: x - ax + mw, t: y - ay, b: y - ay + mh };
+  }
+  var walk = take("walk");
+  var stand = take("stand");
+  if (walk && stand) {
+    return {
+      l: Math.min(walk.l, stand.l),
+      r: Math.max(walk.r, stand.r),
+      t: Math.min(walk.t, stand.t),
+      b: Math.max(walk.b, stand.b)
+    };
+  }
+  if (walk || stand) return walk || stand;
+  return { l: x - 16 * scale, r: x + 16 * scale, t: y - 31 * scale, b: y + scale };
+};
+
+// The tag sits on the old baseline above the NPC. If that rect touches the
+// hero's sprite, lift it above whichever head is higher, then to the side
+// away from him. Any overlap counts, including a few pixels of boot.
+SF.nameAnchor = function (ctx, feetX, feetY, label, hero, spriteId) {
+  var x = feetX;
+  var y = feetY - 34;
+  var measured = label ? ctx.measureText(label) : null;
+  var width = measured && measured.width ? measured.width : 8;
+  var ascent = measured && measured.actualBoundingBoxAscent ? measured.actualBoundingBoxAscent : 11;
+  var descent = measured && measured.actualBoundingBoxDescent ? measured.actualBoundingBoxDescent : 2;
+  function at(cx, baseline) {
+    return {
+      x: cx,
+      y: baseline,
+      l: cx - width / 2,
+      r: cx + width / 2,
+      t: baseline - ascent,
+      b: baseline + descent
+    };
+  }
+  var home = at(x, y);
+  if (!hero || !label) return home;
+  function hit(a, b) {
+    return a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
+  }
+  var heroBox = SF.actorSpriteBox("wayfarer", hero.x, hero.y);
+  if (!hit(home, heroBox)) return home;
+  var npcBox = SF.actorSpriteBox(spriteId || "kestrel", feetX, feetY);
+  var top = Math.min(heroBox.t, npcBox.t);
+  var lifted = at(x, top - descent - 2);
+  if (!hit(lifted, heroBox)) return lifted;
+  var dir = hero.x >= feetX ? -1 : 1;
+  var cx = dir > 0 ? (heroBox.r + 4 + width / 2) : (heroBox.l - 4 - width / 2);
+  var side = at(cx, y);
+  if (!hit(side, heroBox)) return side;
+  return at(cx, top - descent - 2);
 };
 
 // Standing within talk range already has the Talk prompt. The diamond stays off.
@@ -3027,11 +2765,6 @@ SF.draw = function () {
     Math.round(dpr * (h / 2 + sy) - camY * pxScale)
   );
   ctx.imageSmoothingEnabled = false;
-  SF._heavyFrame = false;
-  // Short slices so a frame cannot run out the 350ms act lock. Nothing bakes
-  // while that lock is up; the clock itself restarts when the overlay paints.
-  if (SF._deferHeavy && SF._deferHeavy()) SF._sliceUntil = performance.now();
-  else SF._sliceUntil = performance.now() + (SF._sheetBudget != null ? SF._sheetBudget : 48);
   SF.drawClouds(ctx, s);
   SF.drawTerrain(ctx, s);
   if (SF.drawHushLip) SF.drawHushLip(ctx);
@@ -3047,16 +2780,8 @@ SF.draw = function () {
   SF.drawMap();
 };
 
-// Screenshots and checks can finish the island sheets. A play frame must not.
 SF.flushSheets = function () {
-  var prev = SF._sheetBudget;
-  SF._sheetBudget = 1e9;
-  try {
-    if (SF.draw) SF.draw();
-  } finally {
-    if (prev == null) delete SF._sheetBudget;
-    else SF._sheetBudget = prev;
-  }
+  if (SF.draw) SF.draw();
 };
 
 SF.drawMawAsh = function (ctx, e, facing) {
@@ -3098,14 +2823,6 @@ SF.drawSceneWash = function (ctx, w, h) {
   if (veil > 0.004) {
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, veil));
-    ctx.fillStyle = "#07060f";
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
-  }
-  var cover = SF._landCover || 0;
-  if (cover > 0.004) {
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, Math.min(1, cover));
     ctx.fillStyle = "#07060f";
     ctx.fillRect(0, 0, w, h);
     ctx.restore();

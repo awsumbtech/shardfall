@@ -3,17 +3,23 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-// The act lock starts when an overlay's mode changes, which can be a long
-// frame before anything is painted. Real time starts after that paint.
+// Stamp the moment an overlay is first painted. A press that went down
+// before that stamp is not a press on the overlay. Returning to the field
+// does not move the stamp, so a Stay click is not thrown out for being
+// older than the play frame.
 SF.noteOverlayPaint = function () {
   var key = SF._overlayKey;
   if (key == null) return;
   if (key === SF._paintedOverlay) return;
-  var first = SF._paintedOverlay == null;
+  var prev = SF._paintedOverlay;
   SF._paintedOverlay = key;
-  if (first) return;
-  if (!document.body || document.body.dataset.actlock !== "1") return;
-  SF._actUntil = Date.now() + 350;
+  if (prev == null) return;
+  var mode = String(key).split("|")[0];
+  var extra = String(key).indexOf("|") >= 0;
+  if (!extra && mode !== "sailmenu" && mode !== "dialogue" && mode !== "shop" &&
+      mode !== "inn" && mode !== "notice" && mode !== "hand" && mode !== "fieldmenu" &&
+      mode !== "chest" && mode !== "pause") return;
+  SF._overlayPaintAt = performance.now();
 };
 
 SF.boot = function () {
