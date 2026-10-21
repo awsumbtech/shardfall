@@ -31,6 +31,7 @@ SF.destinationOpen = function (id) {
   var flags = (SF.state && SF.state.flags) || {};
   if (!d) return !!(SF.ISLANDS && SF.ISLANDS[id] && flags.sailUnlocked);
   if (!flags.sailUnlocked) return false;
+  if (d.unlock === "soon" || d.unlock === "hold") return false;
   if (d.unlock === "act1") return !!flags.act1;
   return true;
 };
@@ -39,6 +40,7 @@ SF.destinationLockText = function (id) {
   var d = SF.destinationById(id);
   var flags = (SF.state && SF.state.flags) || {};
   if (!flags.sailUnlocked) return "The skiff is not ready.";
+  if (d && (d.unlock === "soon" || d.unlock === "hold")) return "Coming soon";
   if (d && d.unlock === "act1" && !flags.act1) return "That island opens after Act 1.";
   return "That route is not open.";
 };
@@ -73,7 +75,8 @@ SF.restAtInn = function (spot) {
   var x = spot && spot.x != null ? spot.x : s.player.x;
   var y = spot && spot.y != null ? spot.y : s.player.y;
   s.lastRest = { island: SF.islandId, x: x, y: y };
-  s.checkpoint = { x: x, y: y, island: SF.islandId };
+  if (SF.rememberCheckpoint) SF.rememberCheckpoint(x, y, { kind: "inn", quiet: true, raw: true });
+  else s.checkpoint = { x: x, y: y, island: SF.islandId, kind: "inn" };
   s.mode = "play";
   SF.pushToast("Rested. HP is full. The journey is saved.", 2.2);
   if (SF.saveGame) SF.saveGame();
@@ -94,6 +97,9 @@ SF.chestRows = function (chest) {
     var desc = info.desc || "";
     var line = "Found: " + info.name + " \u00d7" + n + ".";
     if (desc) line += " " + desc;
+    if (info.users && info.users.indexOf("wayfarer") < 0 && info.users.indexOf("kestrel") >= 0) {
+      line += " Kestrel can use this.";
+    }
     rows.push({
       kind: "item",
       id: it.id,
@@ -575,6 +581,151 @@ SF.drawExtra = function (ctx, extra) {
   return false;
 };
 
+SF.solidList = function () {
+  var out = [];
+  (SF.NPCS || []).forEach(function (n) {
+    if (SF.npcHidden && SF.npcHidden(n)) return;
+    var x = n.x;
+    var y = n.y;
+    if (n.id === "cantor" && SF.cantorWorldPos) {
+      var spot = SF.cantorWorldPos();
+      if (spot) {
+        x = spot.x;
+        y = spot.y;
+      }
+    }
+    out.push({ x: x, y: y, r: 22, kind: "npc" });
+  });
+  if (SF.LAMP) out.push({ x: SF.LAMP.x, y: SF.LAMP.y, r: 18, kind: "lamp" });
+  (SF.HOOKS || []).forEach(function (hook) {
+    if (SF.hookLive && !SF.hookLive(hook)) return;
+    out.push({ x: hook.x, y: hook.y, r: 14, kind: "post" });
+  });
+  (SF.EXTRAS || []).forEach(function (extra) {
+    if (extra.kind === "checkpoint") out.push({ x: extra.x, y: extra.y, r: 16, kind: "post" });
+  });
+  return out;
+};
+
+SF._hitsSolid = function (x, y, ox, oy) {
+  var list = SF.solidList();
+  var i, solid, dx, dy, odx, ody, r;
+  for (i = 0; i < list.length; i++) {
+    solid = list[i];
+    r = solid.r;
+    dx = x - solid.x;
+    dy = y - solid.y;
+    if (dx * dx + dy * dy >= r * r) continue;
+    if (ox != null && oy != null) {
+      odx = ox - solid.x;
+      ody = oy - solid.y;
+      if (odx * odx + ody * ody < r * r) continue;
+    }
+    return true;
+  }
+  return false;
+};
+
+SF.occupied = function (x, y, ox, oy) {
+  return SF._hitsSolid(x, y, ox, oy);
+};
+
+SF.blocksFoot = function (x, y) {
+  return SF._hitsSolid(x, y, null, null);
+};
+
+SF.footFree = function (x, y, ox, oy) {
+  if (!SF.walkable(x, y)) return false;
+  if (SF.occupied(x, y, ox, oy)) return false;
+  return true;
+};
+
+SF.standClear = function (x, y) {
+  var dirs = [[0, 0], [0, 26], [0, -26], [26, 0], [-26, 0], [18, 18], [-18, 18], [18, -18], [-18, -18]];
+  var i, nx, ny;
+  for (i = 0; i < dirs.length; i++) {
+    nx = x + dirs[i][0];
+    ny = y + dirs[i][1];
+    if (SF.walkable(nx, ny) && !SF.blocksFoot(nx, ny)) return { x: nx, y: ny };
+  }
+  return { x: x, y: y };
+};
+
+SF.rememberCheckpoint = function (x, y, opts) {
+  var s = SF.state;
+  if (!s || x == null || y == null) return;
+  opts = opts || {};
+  var island = opts.island || SF.islandId || s.island || "emberhold";
+  var spot = opts.raw ? { x: x, y: y } : SF.standClear(x, y);
+  var rec = { x: spot.x, y: spot.y, island: island, kind: opts.kind || "post" };
+  if (!s.checkpoints) s.checkpoints = {};
+  s.checkpoints[island] = rec;
+  if (island === SF.islandId) s.checkpoint = rec;
+  if (!opts.quiet) {
+    SF.pushToast("Checkpoint. The vault stone has you.", 2.2);
+    if (SF.saveGame) SF.saveGame({ silent: true });
+  }
+};
+
+SF.checkpointHere = function () {
+  var s = SF.state;
+  var island = SF.islandId || (s && s.island) || "emberhold";
+  var rec = s && s.checkpoints && s.checkpoints[island];
+  if (rec && rec.x != null && rec.island === island) {
+    var clear = SF.standClear(rec.x, rec.y);
+    if (clear.x !== rec.x || clear.y !== rec.y) {
+      rec = { x: clear.x, y: clear.y, island: island, kind: rec.kind || "post" };
+      s.checkpoints[island] = rec;
+      if (s.checkpoint && s.checkpoint.island === island) s.checkpoint = rec;
+    }
+    return rec;
+  }
+  if (s && s.checkpoint && s.checkpoint.island === island && s.checkpoint.x != null) {
+    var stood = SF.standClear(s.checkpoint.x, s.checkpoint.y);
+    return { x: stood.x, y: stood.y, island: island, kind: s.checkpoint.kind || "post" };
+  }
+  if (island === "emberhold" && SF.WAKE) return { x: SF.WAKE.x, y: SF.WAKE.y, island: island, kind: "wake" };
+  if (SF.LAMP) {
+    var lamp = SF.standClear(SF.LAMP.x, SF.LAMP.y);
+    return { x: lamp.x, y: lamp.y, island: island, kind: "lamp" };
+  }
+  var dock = SF.DOCKS && SF.DOCKS[island];
+  if (dock) return { x: dock.x, y: dock.y, island: island, kind: "dock" };
+  return { x: s.player.x, y: s.player.y, island: island, kind: "wake" };
+};
+
+SF.placeAtCheckpoint = function (s) {
+  if (!s) return;
+  var spot = SF.checkpointHere();
+  if (!s.checkpoints) s.checkpoints = {};
+  if (s.checkpoint && s.checkpoint.island && s.checkpoint.island !== (spot.island || SF.islandId) && !s.checkpoints[s.checkpoint.island]) {
+    s.checkpoints[s.checkpoint.island] = s.checkpoint;
+  }
+  var p = s.player;
+  p.x = spot.x;
+  p.y = spot.y;
+  p.safeX = spot.x;
+  p.safeY = spot.y;
+  p.px = spot.x;
+  p.py = spot.y;
+  p.fall = 0;
+  p.dashT = 0;
+  p.grappleT = 0;
+  p.hx = 0;
+  p.hy = 0;
+  s.camX = spot.x;
+  s.camY = spot.y;
+  if (!s.checkpoints) s.checkpoints = {};
+  s.checkpoints[spot.island || SF.islandId] = spot;
+  s.checkpoint = spot;
+};
+
+SF.dropToast = function (s, text) {
+  if (!s) return;
+  if (s.toast && s.toast.text === text) s.toast = null;
+  if (s.toasts) s.toasts = s.toasts.filter(function (row) { return row.text !== text; });
+};
+
 SF.worldNode = function (who) {
   var i;
   for (i = 0; i < (SF.NPCS || []).length; i++) {
@@ -757,6 +908,39 @@ if (SF.dialogueRouters) SF.dialogueRouters.push(SF.worldNode);
     if (s.voyage && !s.voyage.talk && s.voyage.t > 3.2 && SF.finishVoyage) SF.finishVoyage();
   };
 
+  if (SF.Battle && SF.Battle.applyLoss && !SF.Battle._lossWrapped) {
+    var baseLoss = SF.Battle.applyLoss;
+    SF.Battle._lossWrapped = true;
+    SF.Battle.applyLoss = function (s) {
+      if (!s) return;
+      var island = SF.islandId;
+      var spot = SF.checkpointHere();
+      s.checkpoint = { x: spot.x, y: spot.y, island: island, kind: spot.kind || "lamp" };
+      var bannerCount = s.banners ? s.banners.length : 0;
+      var priorBanner = s.banner;
+      baseLoss(s);
+      SF.dropToast(s, "Back to the waking stones. The party is at half HP.");
+      SF.dropToast(s, "Back to the last lamp. The party is at half HP.");
+      var p = s.player;
+      p.x = spot.x;
+      p.y = spot.y;
+      p.safeX = spot.x;
+      p.safeY = spot.y;
+      p.px = spot.x;
+      p.py = spot.y;
+      p.fall = 0;
+      s.camX = spot.x;
+      s.camY = spot.y;
+      if (!s.checkpoints) s.checkpoints = {};
+      s.checkpoints[island] = spot;
+      s.checkpoint = spot;
+      if (s.banners && s.banners.length > bannerCount) s.banners.length = bannerCount;
+      if (s.banner !== priorBanner) s.banner = priorBanner;
+      var nearWake = island === "emberhold" && SF.WAKE && SF.dist(spot.x, spot.y, SF.WAKE.x, SF.WAKE.y) < 72;
+      SF.pushToast(nearWake ? "Back to the waking stones. The party is at half HP." : "Back to the last lamp. The party is at half HP.");
+    };
+  }
+
   var baseCoach = SF.coachLine;
   SF.coachLine = function (s) {
     var line = baseCoach ? baseCoach(s) : "";
@@ -827,8 +1011,17 @@ SF.auditWorld = function () {
   if (!gate || gate.lockedText !== "The gate is shut.") issues.push("highspire gate locked text missing");
   ["saltmere", "gullrock", "drift", "highspire"].forEach(function (id) {
     var dest = SF.destinationById(id);
-    if (!dest || dest.unlock !== "act1") issues.push(id + " does not wait for Act 1");
+    if (!dest || dest.unlock !== "soon") issues.push(id + " is not marked coming soon");
   });
+  if (SF.state) {
+    var heldFlags = SF.state.flags;
+    SF.state.flags = Object.assign({}, heldFlags, { sailUnlocked: true, act1: true });
+    ["saltmere", "gullrock", "drift", "highspire"].forEach(function (id) {
+      if (SF.destinationOpen(id)) issues.push(id + " is sailable during the hold");
+      if (SF.destinationLockText(id) !== "Coming soon") issues.push(id + " lock text is not Coming soon");
+    });
+    SF.state.flags = heldFlags;
+  }
   if (SF.walkable(40, -460)) issues.push("past the highspire gate is walkable");
   ["emberhold", "cinderveil"].forEach(function (id) {
     SF.mountIsland(id);
@@ -926,6 +1119,7 @@ SF.syncSailChart = function () {
   root.innerHTML = "";
   list.innerHTML = "";
   if (routes) {
+    root.appendChild(routes);
     var svg = "";
     (SF.SAIL_ROUTES || []).forEach(function (pair) {
       var a = SF.destinationById(pair[0]);
@@ -953,8 +1147,15 @@ SF.syncSailChart = function () {
       pin.appendChild(cv);
     }
     var lab = document.createElement("span");
+    lab.className = "chart-name";
     lab.textContent = d.short || d.name;
     pin.appendChild(lab);
+    if (!open && (d.unlock === "soon" || d.unlock === "hold")) {
+      var soon = document.createElement("span");
+      soon.className = "chart-soon";
+      soon.textContent = "Coming soon";
+      pin.appendChild(soon);
+    }
     pin.disabled = !open || here;
     pin.dataset.sail = d.id;
     root.appendChild(pin);
@@ -962,7 +1163,7 @@ SF.syncSailChart = function () {
     row.type = "button";
     row.dataset.sail = d.id;
     row.disabled = !open || here;
-    var note = here ? "Here" : (open ? "Sail" : (d.unlock === "act1" ? "After Act 1" : "Locked"));
+    var note = here ? "Here" : (open ? "Sail" : ((d.unlock === "soon" || d.unlock === "hold") ? "Coming soon" : (d.unlock === "act1" ? "After Act 1" : "Locked")));
     row.textContent = d.name + " — " + note;
     list.appendChild(row);
   });

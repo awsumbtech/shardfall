@@ -2101,10 +2101,23 @@ SF.entityList = function (s) {
     list.push({ y: prop.y, draw: function (ctx) { SF.drawProp(ctx, prop, lit); } });
   });
   (SF.TEXTS || []).forEach(function (mark) {
+    var id = mark.id || "";
     var sid = "";
-    if (/sign|order/i.test(mark.id) || /sign/i.test(mark.speaker || "")) sid = "sign";
-    else if (/bell/i.test(mark.id)) sid = "bell";
+    if (id === "vault-seal" || id === "maw-mouth") sid = "";
+    else if (id === "sail-patch") sid = "sign";
+    else if (/sign|order/i.test(id) || /sign/i.test(mark.speaker || "")) sid = "sign";
+    else if (/bell/i.test(id)) sid = "bell";
+    else if (/cog/i.test(id)) sid = "cog";
+    else if (/crate/i.test(id)) sid = "crate";
+    else if (/blossom|flower/i.test(id)) sid = "flower";
+    else if (/plank|bridge|hull|span/i.test(id)) sid = "plank";
+    else sid = "stones";
     if (!sid || !window.Art) return;
+    var crowded = false;
+    (SF.PROPS || []).forEach(function (prop) {
+      if (Math.hypot(prop.x - mark.x, prop.y - mark.y) < 12) crowded = true;
+    });
+    if (crowded) return;
     list.push({
       y: mark.y,
       draw: function (ctx) { Art.sprite(ctx, sid, mark.x, mark.y, { scale: 1 }); }
@@ -2218,9 +2231,18 @@ SF.entityList = function (s) {
       }
     });
   });
+  (SF.HOOKS || []).forEach(function (hook) {
+    if (SF.hookLive && !SF.hookLive(hook)) return;
+    list.push({
+      y: hook.y,
+      draw: function (ctx) {
+        if (SF.drawHookPost) SF.drawHookPost(ctx, hook);
+      }
+    });
+  });
   var p = s.player;
   list.push({
-    y: p.y,
+    y: p.y + 0.01,
     draw: function (ctx) {
       var alpha = 1;
       if (p.iFrames > 0 && !(SF.calm && SF.calm())) alpha = 0.84;
@@ -2234,7 +2256,7 @@ SF.entityList = function (s) {
       ctx.strokeStyle = "rgba(185, 248, 255, 0.9)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y + 1, 10, 4, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, p.y + 1, 11, 11 * 0.45, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       SF.drawWayfarer(ctx, p.x, p.y + sink, p.fx, p.fy, alpha, p.shardstep);
@@ -2388,10 +2410,17 @@ SF.drawFx = function (ctx, s) {
   SF.drawGuide(ctx, s);
 
   var near = null;
+  var nx = 0;
+  var ny = 0;
   if (s.mode === "play") near = SF.nearestInteract();
+  if (near && s.player) {
+    nx = near.kind === "lamp" ? SF.LAMP.x : near.ref.x;
+    ny = near.kind === "lamp" ? SF.LAMP.y : near.ref.y;
+    if (Math.hypot(nx - s.player.x, ny - s.player.y) < 22) near = null;
+  }
   if (near) {
-    var nx = near.kind === "lamp" ? SF.LAMP.x : near.ref.x;
-    var ny = near.kind === "lamp" ? SF.LAMP.y : near.ref.y;
+    nx = near.kind === "lamp" ? SF.LAMP.x : near.ref.x;
+    ny = near.kind === "lamp" ? SF.LAMP.y : near.ref.y;
     var calm = SF.calm && SF.calm();
     ctx.save();
     ctx.globalAlpha = 0.85;

@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.16";
+SF.VERSION = "0.4.17";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -26,7 +26,8 @@ SF.WHATS_NEW = [
   "New enemies are on the road, including a boss.",
   "Fights have new backgrounds.",
   "Menus fit your phone screen, with Close always in reach.",
-  "Defend really blocks now, and battle lists scroll and work with keys and a controller."
+  "Defend really blocks now, and battle lists scroll and work with keys and a controller.",
+  "The vault chest opens, the End of Act 1 card closes, and the sail chart shows only the islands you can reach."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

@@ -292,8 +292,12 @@ SF.finishVoyage = function () {
 };
 
 SF.setCheckpoint = function (x, y) {
+  if (SF.rememberCheckpoint) {
+    SF.rememberCheckpoint(x, y, { kind: "post" });
+    return;
+  }
   var s = SF.state;
-  s.checkpoint = { x: x, y: y, island: SF.islandId };
+  s.checkpoint = { x: x, y: y, island: SF.islandId, kind: "post" };
   SF.pushToast("Checkpoint. The vault stone has you.", 2.2);
   SF.saveGame({ silent: true });
 };
@@ -370,7 +374,8 @@ SF.cinderQuestText = function (s) {
     if (here === "cinderveil") return "You made the crossing. Talk to Tamsin Reed.";
     return "Sail to Cinderveil.";
   }
-  if (q === "quay" || q === "cogs" || q === "vault" || q === "trial" || q === "seal" || q === "maw" || q === "relight" || q === "cantor" || q === "act1") {
+  if (q === "act1") return "Act 1 is done. Open the sail chart.";
+  if (q === "quay" || q === "cogs" || q === "vault" || q === "trial" || q === "seal" || q === "maw" || q === "relight" || q === "cantor") {
     if (here !== "cinderveil") return "Sail to Cinderveil. Kestrel has the line.";
   }
   if (q === "quay") return "Talk to Tamsin Reed at Lowmoor Quay.";
@@ -389,7 +394,6 @@ SF.cinderQuestText = function (s) {
     return "Place " + need + " shards on the hurt core (" + held + "/" + need + ").";
   }
   if (q === "cantor") return "The Cantor is on the ridge. Spare, Listen, or Refuse.";
-  if (q === "act1") return "Act 1 is done. Open the sail chart.";
   return null;
 };
 
@@ -645,6 +649,7 @@ SF.CINDER_SHARDS = 3;
     s.shardsHeld = Math.max(0, (s.shardsHeld || 0) - need);
     s.flags.cinderLit = true;
     s.quest = "cantor";
+    if (SF.rememberCheckpoint && SF.LAMP) SF.rememberCheckpoint(SF.LAMP.x, SF.LAMP.y, { quiet: true, kind: "lamp" });
     if (SF.emit) SF.emit("lamp");
     SF.pushBanner("Cinderveil's lamp", "Orange light pours out across the island.", 3.2);
     SF.saveGame({ silent: true });

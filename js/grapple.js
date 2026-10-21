@@ -493,19 +493,20 @@ SF.drawCinderCracks = function (ctx) {
   ctx.restore();
 };
 
-SF.drawGrappleFx = function (ctx, s) {
+SF.drawHookPost = function (ctx, hook) {
+  if (!hook || (SF.hookLive && !SF.hookLive(hook))) return;
   var calm = SF.calm && SF.calm();
-  (SF.HOOKS || []).forEach(function (hook) {
-    if (!SF.hookLive(hook)) return;
-    ctx.save();
-    ctx.fillStyle = "#c4552a";
-    ctx.fillRect(hook.x - 3, hook.y - 14, 6, 18);
-    ctx.fillStyle = calm ? "#ffb15a" : "#ffc48a";
-    ctx.beginPath();
-    ctx.arc(hook.x, hook.y - 16, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  });
+  ctx.save();
+  ctx.fillStyle = "#c4552a";
+  ctx.fillRect(hook.x - 3, hook.y - 14, 6, 18);
+  ctx.fillStyle = calm ? "#ffb15a" : "#ffc48a";
+  ctx.beginPath();
+  ctx.arc(hook.x, hook.y - 16, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+};
+
+SF.drawGrappleFx = function (ctx, s) {
   (s.pools || []).forEach(function (pool) {
     ctx.save();
     ctx.globalAlpha = pool.arm > 0 ? 0.35 : 0.55;

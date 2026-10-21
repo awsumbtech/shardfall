@@ -123,6 +123,16 @@ function lookup(id) {
   return node;
 }
 
+function pendingScript(id) {
+  var node = id && SF.dialogueNodes ? SF.dialogueNodes[id] : null;
+  if (!node || !node.lines || !node.lines.length) return false;
+  var i;
+  for (i = 0; i < node.lines.length; i++) {
+    if (SF.lineText(node.lines[i]) !== "(Script pending)") return false;
+  }
+  return true;
+}
+
 function fireEvent(name) {
   var list = SF._dlgListeners[name] || [];
   var i;
@@ -162,7 +172,9 @@ SF.portraitForSpeaker = function (name) {
 function showNode(id) {
   var s = SF.state;
   if (!s) return;
+  if (pendingScript(id)) return;
   var node = lookup(id);
+  if (pendingScript(node.id)) return;
   var lines = visibleLines(node, (s.flags || {}));
   var full = fillLine(lines[0], s);
   if (SF.armReveal) SF.armReveal(full);
@@ -170,6 +182,7 @@ function showNode(id) {
   var walkingUp = !!(s.approach && s.approach.kind === "cantor" && (node.id === "cinderveil.cantor.confront"));
   var lock = 0.2;
   if (walkingUp) lock = Math.max(lock, (s.approach.dur || 3) - (s.approach.t || 0));
+  if (SF._dialogueUi && (node.id || id) === "cinderveil.act1.finale") s.endcardLock = Date.now() + (SF.ENDCARD_LOCK_MS || 400);
   s.dialogue = {
     id: node.id || String(id || ""),
     node: node,
@@ -201,6 +214,7 @@ function finishNode(choice) {
   if (choice && choice.setFlags) writeFlags(choice.setFlags);
   if (node && node.onEnd) SF._dlgEvents.push(node.onEnd);
   var nextId = (choice && choice.next) || (node && node.next) || "";
+  if (nextId && pendingScript(nextId)) nextId = "";
   if (nextId) {
     showNode(nextId);
     return;
@@ -236,16 +250,24 @@ function enterChoice() {
 
 SF.startDialogue = function (id) {
   if (!SF.state) return;
+  var key = id == null ? "" : String(id);
+  if (pendingScript(key)) {
+    if (SF.pushToast) SF.pushToast("Coming soon", 1.6);
+    return;
+  }
   if (SF.state.dialogue && SF._dlgEvents.length) flushEvents();
-  showNode(id == null ? "" : String(id));
+  showNode(key);
 };
 
 window.startDialogue = SF.startDialogue;
+
+SF.ENDCARD_LOCK_MS = 400;
 
 SF.advanceDialogue = function () {
   var s = SF.state;
   var d = s && s.dialogue;
   if (!d || s.mode !== "dialogue" || d.lock > 0) return;
+  if (d.id === "cinderveil.act1.finale" && s.endcardLock && Date.now() < s.endcardLock) return;
   if (d.phase === "choice") return;
   if (d.holdForApproach && s.approach && s.approach.t < s.approach.dur) {
     if (SF.parkCantor) SF.parkCantor();
@@ -736,7 +758,42 @@ SF.paintDialogue = function () {
   if (endcard) endcard.hidden = !finale;
 };
 
+SF.dismissEndcard = function () {
+  var s = SF.state;
+  var d = s && s.dialogue;
+  if (!d || s.mode !== "dialogue" || d.id !== "cinderveil.act1.finale") return;
+  if (s.endcardLock && Date.now() < s.endcardLock) return;
+  s.endcardLock = 0;
+  s.endcardHold = false;
+  if (d.lock > 0) d.lock = 0;
+  SF.advanceDialogue();
+};
+
 if (SF._dialogueUi) {
+  var endCardEl = document.getElementById("endcard");
+  if (endCardEl) {
+    function onEndcard(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var s = SF.state;
+      var locked = !!(s && s.endcardLock && Date.now() < s.endcardLock);
+      // A press that starts during the lockout also swallows its trailing click,
+      // which Chrome can deliver after the 400ms window.
+      if (e.type === "pointerdown") {
+        if (locked) {
+          s.endcardHold = true;
+          return;
+        }
+        s.endcardHold = false;
+      } else if (s && s.endcardHold) {
+        s.endcardHold = false;
+        return;
+      }
+      SF.dismissEndcard();
+    }
+    endCardEl.addEventListener("pointerdown", onEndcard);
+    endCardEl.addEventListener("click", onEndcard);
+  }
   document.addEventListener("keydown", function (e) {
     var s = SF.state;
     if (!s || s.mode !== "dialogue" || !s.dialogue || s.dialogue.phase !== "choice") return;

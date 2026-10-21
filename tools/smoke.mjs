@@ -1172,28 +1172,25 @@ trip.flags.act1 = true;
 trip.flags.lampLit = true;
 trip.flags.metCinderKestrel = true;
 SF.startVoyage("saltmere");
-if (trip.mode !== "voyage" || !trip.voyage || trip.voyage.to !== "saltmere") fail("the crossing to Saltmere did not start");
-if (trip.flags.party_kestrel || trip.flags.party_tamsin) fail("companions joined on the sail");
-SF.finishVoyage();
-if (SF.islandId !== "saltmere" || !SF.walkable(trip.player.x, trip.player.y)) {
-  fail("Saltmere landing missed the dock " + trip.player.x + "," + trip.player.y);
+if (trip.mode === "voyage" || trip.voyage) fail("Saltmere sailed during the hold");
+if (SF.destinationOpen("gullrock") || SF.destinationOpen("drift") || SF.destinationOpen("saltmere") || SF.destinationOpen("highspire")) {
+  fail("Act 2 islands opened during the hold");
 }
-if (SF.zoneAt(trip.player.x, trip.player.y).name !== "Saltmere") fail("Saltmere did not name the town");
+["gullrock", "drift", "saltmere", "highspire"].forEach((id) => {
+  if (SF.destinationLockText(id) !== "Coming soon") fail(id + " was not marked Coming soon");
+});
+SF.mountIsland("saltmere");
+trip.island = "saltmere";
+if (!SF.walkable(SF.DOCKS.saltmere.x, SF.DOCKS.saltmere.y)) fail("Saltmere dock is not walkable");
+if (SF.zoneAt(SF.DOCKS.saltmere.x, SF.DOCKS.saltmere.y).name !== "Saltmere") fail("Saltmere did not name the town");
 
 const holt = SF.npcById("holt");
 trip.player.x = holt.x;
 trip.player.y = holt.y;
+trip.mode = "play";
 SF.tryInteract();
-if (!trip.dialogue || trip.dialogue.id !== "saltmere.harbormaster" || trip.dialogue.speaker !== "Brenna Holt") {
-  fail("Holt did not use the placeholder node");
-}
-const holtLine = SF.lineText(trip.dialogue.lines[0]);
-if (holtLine !== "(Script pending)" || trip.dialogue.lines.length !== 1) fail("Holt's line was not the placeholder");
+if (trip.dialogue || trip.mode === "dialogue") fail("Holt's pending line was reachable");
 finishTalk(trip);
-
-if (!SF.destinationOpen("gullrock") || !SF.destinationOpen("drift") || !SF.destinationOpen("saltmere")) {
-  fail("Act 1 did not open Saltmere, Gullrock, and the Drift Market");
-}
 
 const worldNpcs = [];
 ["saltmere", "highspire", "drift"].forEach((id) => {
@@ -1310,7 +1307,7 @@ sea.flags.sailUnlocked = true;
 sea.flags.act1 = true;
 sea.flags.metCinderKestrel = true;
 SF.seaFightChance = 1;
-SF.startVoyage("drift");
+SF.startVoyage("cinderveil");
 SF.update(1.2);
 if (!sea.battle || sea.battle.id !== "sea_hush_raiders" || sea.battle.bg !== "hush_deck" || sea.battle.canFlee !== true || sea.battle.boss) {
   fail("sea fight did not call sea_hush_raiders");
@@ -1403,7 +1400,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.16"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.17"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1470,7 +1467,7 @@ const act1Chests = [
   ["emberhold", "chest-orchard", [
     "Found: Tonic \u00d71. Restores 40 HP.",
     "Found: Cloth Wrap \u00d71. Defense +3.",
-    "Found: Knife \u00d71. Attack +5.",
+    "Found: Knife \u00d71. Attack +5. Kestrel can use this.",
     "Found: 20 marks. Spend them in shops."
   ]],
   ["emberhold", "chest-meadow", ["Found: Ether \u00d71. Restores 20 SP."]],
