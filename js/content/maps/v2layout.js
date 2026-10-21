@@ -491,16 +491,18 @@ window.SF = SF;
     });
     (fences || []).forEach(function (f) {
       var len = Math.hypot(f.x1 - f.x0, f.y1 - f.y0);
-      var n = Math.max(2, Math.round(len / 36) + 1);
+      var step = 32;
+      var n = Math.max(2, Math.ceil(len / step) + 1);
       var vertical = Math.abs(f.y1 - f.y0) > Math.abs(f.x1 - f.x0);
-      var i, x, y, u, extra;
+      var kind = f.kind;
+      var i, x, y, u;
+      if (vertical) kind = kind === "fence_burnt" ? "fence_burnt_up" : "fence_up";
       for (i = 0; i < n; i++) {
         u = n === 1 ? 0 : i / (n - 1);
         x = f.x0 + (f.x1 - f.x0) * u;
         y = f.y0 + (f.y1 - f.y0) * u;
         if (!onLand(x, y)) continue;
-        extra = vertical ? { spin: Math.PI / 2 } : null;
-        put(f.kind, x, y, extra);
+        put(kind, x, y, null);
       }
     });
     (pack.props || []).forEach(function (p) {

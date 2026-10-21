@@ -666,36 +666,66 @@
     return { sprite: s, shade: shadow(s, 10, 16, 7, 2, C.grassX) };
   }
 
-  function makeFence(burnt) {
-    var s = spr(42, 26, 21, 23);
+  // Rails run the full span so neighboring panels overlap into one fence.
+  // upright turns that span vertical; the posts stay at the ends of the run.
+  function makeFence(burnt, upright) {
+    var span = 48;
     var post = burnt ? C.void : C.woodD;
     var postL = burnt ? C.ashD : C.wood;
     var rail = burnt ? C.rock : C.woodL;
     var railD = burnt ? C.ashD : C.wood;
-    fill(s, 3, 6, 4, 16, postL);
-    fill(s, 3, 6, 1, 16, post);
-    fill(s, 3, 4, 4, 2, post);
-    plot(s, 4, 3, postL);
-    fill(s, 34, 6, 4, 16, postL);
-    fill(s, 37, 6, 1, 16, post);
-    fill(s, 34, 4, 4, 2, post);
-    plot(s, 35, 3, burnt ? C.ash : C.woodL);
-    fill(s, 6, 8, 29, 3, rail);
-    fill(s, 6, 10, 29, 1, railD);
-    if (burnt) {
-      fill(s, 6, 16, 12, 3, rail);
-      fill(s, 24, 16, 10, 3, rail);
-      plot(s, 18, 17, C.ember);
-      plot(s, 36, 8, C.emberH);
-    } else {
-      fill(s, 6, 16, 29, 3, rail);
-      fill(s, 6, 18, 29, 1, railD);
+    var s;
+    if (!upright) {
+      s = spr(span, 26, 24, 23);
+      fill(s, 0, 8, span, 3, rail);
+      fill(s, 0, 10, span, 1, railD);
+      if (burnt) {
+        fill(s, 0, 16, 18, 3, rail);
+        fill(s, 30, 16, 18, 3, rail);
+        plot(s, 24, 17, C.ember);
+        plot(s, span - 6, 9, C.emberH);
+      } else {
+        fill(s, 0, 16, span, 3, rail);
+        fill(s, 0, 18, span, 1, railD);
+      }
+      fill(s, 2, 3, 4, 18, postL);
+      fill(s, 2, 3, 1, 18, post);
+      fill(s, 2, 2, 4, 2, post);
+      plot(s, 3, 2, postL);
+      fill(s, span - 6, 3, 4, 18, postL);
+      fill(s, span - 3, 3, 1, 18, post);
+      fill(s, span - 6, 2, 4, 2, post);
+      plot(s, span - 5, 2, burnt ? C.ash : C.woodL);
+      plot(s, 6, 9, C.ink);
+      plot(s, span - 7, 9, C.ink);
+      plot(s, 6, 17, C.ink);
+      plot(s, span - 7, 17, C.ink);
+      return { sprite: s, shade: shadow(s, 24, 23, 18, 2, burnt ? C.void : C.grassX) };
     }
-    plot(s, 6, 9, C.ink);
-    plot(s, 33, 9, C.ink);
-    plot(s, 6, 17, C.ink);
-    plot(s, 33, 17, C.ink);
-    return { sprite: s, shade: shadow(s, 21, 23, 16, 2, burnt ? C.void : C.grassX) };
+    s = spr(26, span, 13, 24);
+    fill(s, 8, 0, 3, span, rail);
+    fill(s, 10, 0, 1, span, railD);
+    if (burnt) {
+      fill(s, 16, 0, 3, 18, rail);
+      fill(s, 16, 30, 3, 18, rail);
+      plot(s, 17, 24, C.ember);
+    } else {
+      fill(s, 16, 0, 3, span, rail);
+      fill(s, 18, 0, 1, span, railD);
+    }
+    fill(s, 3, 2, 18, 4, postL);
+    fill(s, 3, 2, 18, 1, post);
+    fill(s, 2, 2, 2, 4, post);
+    plot(s, 2, 3, postL);
+    fill(s, 3, span - 6, 18, 4, postL);
+    fill(s, 3, span - 3, 18, 1, post);
+    fill(s, 2, span - 6, 2, 4, post);
+    plot(s, 2, span - 5, burnt ? C.ash : C.woodL);
+    plot(s, 9, 6, C.ink);
+    plot(s, 9, span - 7, C.ink);
+    plot(s, 17, 6, C.ink);
+    plot(s, 17, span - 7, C.ink);
+    return { sprite: s, shade: shadow(s, 13, span - 4, 8, 2, burnt ? C.void : C.grassX) };
   }
 
   function makeSign() {
@@ -836,8 +866,10 @@
   add("stump", function () { return makeStump(false); });
   add("stump_char", function () { return makeStump(true); });
   add("crate", makeCrate);
-  add("fence", function () { return makeFence(false); });
-  add("fence_burnt", function () { return makeFence(true); });
+  add("fence", function () { return makeFence(false, false); });
+  add("fence_burnt", function () { return makeFence(true, false); });
+  add("fence_up", function () { return makeFence(false, true); });
+  add("fence_burnt_up", function () { return makeFence(true, true); });
   add("signpost", makeSign);
 
   Art.PROP_IDS = [
@@ -850,7 +882,7 @@
     "rock", "rock_b", "basalt", "basalt_b",
     "log", "log_char", "stump", "stump_char",
     "crate", "barrel", "chest", "chest_open",
-    "fence", "fence_burnt", "signpost"
+    "fence", "fence_burnt", "fence_up", "fence_burnt_up", "signpost"
   ];
 
   function mix(x, y, n) {

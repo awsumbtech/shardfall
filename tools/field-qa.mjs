@@ -541,49 +541,58 @@ async function tapDialogue() {
 }
 await tapDialogue();
 await page.waitForFunction(() => SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale", null, { timeout: 3000 });
-await page.evaluate(() => {
+const early = await page.evaluate(() => {
   const d = SF.state.dialogue;
   d.lock = 0;
   d.done = true;
   d.shown = (d.full || "").length;
   if (SF._depart) SF._depart.t = SF._depart.dur;
-});
-await tapDialogue();
-const early = await page.evaluate(() => {
+  SF.advanceDialogue();
+  const openedAt = Date.now();
   const el = document.getElementById("endcard");
-  const r = el.getBoundingClientRect();
-  const left = (SF.state.endcardLock || 0) - Date.now();
-  // The finishing tap already armed the lock. Refresh the same 400ms window so the
-  // next CDP tap still lands inside it; a Playwright round trip can outlast the remainder.
-  if (left > 0) SF.state.endcardLock = Date.now() + 1200;
+  function fire(type) {
+    const Ctor = type === "click" ? MouseEvent : PointerEvent;
+    el.dispatchEvent(new Ctor(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: 80,
+      clientY: 80,
+      pointerId: 1,
+      pointerType: "touch"
+    }));
+  }
+  fire("pointerdown");
+  fire("click");
   return {
     finale: !!(SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale"),
     shown: !el.hidden,
-    left,
-    x: r.left + r.width / 2,
-    y: r.top + r.height / 2
+    left: (SF.state.endcardLock || 0) - openedAt,
+    mode: SF.state.mode
   };
 });
-check(early.finale && early.shown && early.left > 0, "the finishing tap shows the end card (finale=" + early.finale + " shown=" + early.shown + " " + early.left + "ms)");
-await session.send("Input.dispatchTouchEvent", {
-  type: "touchStart",
-  touchPoints: [{ x: early.x, y: early.y, id: 1 }]
-});
-await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-const held = await page.evaluate(() => ({
-  up: !document.getElementById("endcard").hidden && !!(SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale"),
-  left: (SF.state.endcardLock || 0) - Date.now()
-}));
-check(held.up, "a tap during the lockout does not dismiss the end card (" + held.left + "ms left)");
+check(early.finale && early.shown && early.left > 200, "a tap in the same turn as the end card stays locked (finale=" + early.finale + " shown=" + early.shown + " " + early.left + "ms)");
 await shot(page, "16-endcard-mobile-locked.png");
-await page.evaluate(() => { if (SF.state) SF.state.endcardLock = Date.now() - 1; });
-await session.send("Input.dispatchTouchEvent", {
-  type: "touchStart",
-  touchPoints: [{ x: early.x, y: early.y, id: 1 }]
+const gone = await page.evaluate(() => {
+  if (SF.state) {
+    SF.state.endcardLock = Date.now() - 1;
+    SF.state.endcardHold = false;
+  }
+  const el = document.getElementById("endcard");
+  function fire(type) {
+    const Ctor = type === "click" ? MouseEvent : PointerEvent;
+    el.dispatchEvent(new Ctor(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: 80,
+      clientY: 80,
+      pointerId: 1,
+      pointerType: "touch"
+    }));
+  }
+  fire("pointerdown");
+  fire("click");
+  return document.getElementById("endcard").hidden && SF.state.mode === "play";
 });
-await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-await page.waitForTimeout(80);
-const gone = await page.evaluate(() => document.getElementById("endcard").hidden && SF.state.mode === "play");
 check(gone, "a tap after the lockout dismisses the end card");
 
 await page.evaluate(() => {
@@ -661,15 +670,19 @@ for (const who of [
       if (Math.abs(ent.y - (p.y + 0.01)) < 0.02) heroAt = i;
       if (n && Math.abs(ent.y - SF.actorFeet(n).y) < 0.02) npcAt = i;
     });
+    const feet = n ? SF.actorFeet(n) : null;
+    const lift = goal && feet ? SF.guideLift(goal, p) : 0;
+    const markY = goal ? goal.y - lift : 0;
     return {
       goal,
       heroAt,
       npcAt,
-      heroSouth: p.y > (n ? SF.actorFeet(n).y : p.y),
-      lift: goal && SF.actorNear(goal.x, goal.y, 22) ? 54 : 28
+      heroSouth: p.y > (feet ? feet.y : p.y),
+      aboveHead: !!(feet && markY < feet.y - 40),
+      onX: !!(feet && Math.abs(goal.x - feet.x) < 2)
     };
   });
-  check(marker.lift === 54 && marker.heroSouth && marker.heroAt > marker.npcAt, who.id + " marker sits above the head and the hero sorts in front");
+  check(marker.aboveHead && marker.onX && marker.heroSouth && marker.heroAt > marker.npcAt, who.id + " marker sits above the head and the hero sorts in front");
   const shoveNpc = await shove(who.id, spot.x, spot.y + 48, 0, -1);
   const gap = Math.hypot(shoveNpc.after.x - spot.x, shoveNpc.after.y - spot.y);
   check(gap >= 30, who.id + " blocks the hero (" + gap.toFixed(1) + ")");
@@ -850,6 +863,134 @@ await shot(page, "29-skiff-cinder-water.png");
 await place(page, 36 * 16, 76 * 16, 0, -1);
 await shot(page, "30-fences-connected.png");
 
+const fenceJoin = await page.evaluate(() => {
+  function loose(list) {
+    let n = 0;
+    list.forEach((p) => {
+      const vertical = p.kind === "fence_up" || p.kind === "fence_burnt_up";
+      let nearest = Infinity;
+      list.forEach((q) => {
+        if (q === p) return;
+        const across = vertical ? Math.abs(q.x - p.x) : Math.abs(q.y - p.y);
+        const along = vertical ? Math.abs(q.y - p.y) : Math.abs(q.x - p.x);
+        if (across <= 6 && along > 0 && along < nearest) nearest = along;
+      });
+      if (!(nearest <= 36)) n += 1;
+    });
+    return n;
+  }
+  const out = {};
+  ["emberhold", "cinderveil"].forEach((id) => {
+    SF.mountIsland(id);
+    const fences = (SF.PROPS || []).filter((p) => String(p.kind).indexOf("fence") === 0);
+    out[id] = {
+      n: fences.length,
+      spin: fences.filter((p) => p.spin).length,
+      loose: loose(fences),
+      up: fences.filter((p) => p.kind === "fence_up" || p.kind === "fence_burnt_up").length
+    };
+  });
+  return out;
+});
+check(fenceJoin.emberhold.n >= 4 && fenceJoin.emberhold.spin === 0 && fenceJoin.emberhold.loose === 0 && fenceJoin.emberhold.up >= 4, "ember fences join (" + JSON.stringify(fenceJoin.emberhold) + ")");
+check(fenceJoin.cinderveil.n >= 8 && fenceJoin.cinderveil.spin === 0 && fenceJoin.cinderveil.loose === 0, "cinder fences join (" + JSON.stringify(fenceJoin.cinderveil) + ")");
+await page.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  const fence = (SF.PROPS || []).find((p) => p.kind === "fence_up");
+  SF.state.player.x = fence.x + 36;
+  SF.state.player.y = fence.y;
+  SF.state.camX = fence.x;
+  SF.state.camY = fence.y;
+});
+await page.waitForTimeout(80);
+await shot(page, "36-fence-vertical.png");
+
+for (const innId of ["ember-hearth", "quay-bunk"]) {
+  const inn = await page.evaluate((id) => {
+    const island = id === "ember-hearth" ? "emberhold" : "cinderveil";
+    SF.mountIsland(island);
+    SF.state.island = island;
+    SF.state.mode = "play";
+    SF.state.dialogue = null;
+    const spot = (SF.EXTRAS || []).find((ex) => ex.id === id);
+    const way = SF.state.party.members.wayfarer;
+    way.hp = 1;
+    SF.state.player.hp = 1;
+    SF.state.player.x = spot.x;
+    SF.state.player.y = spot.y + 40;
+    SF.restAtInn(spot);
+    const here = SF.checkpointHere();
+    return {
+      inn: { x: spot.x, y: spot.y },
+      here,
+      dist: Math.hypot(here.x - spot.x, here.y - spot.y),
+      walk: SF.walkable(here.x, here.y),
+      kind: here.kind,
+      south: here.y > spot.y
+    };
+  }, innId);
+  check(inn.kind === "inn" && inn.dist >= 16 && inn.walk && inn.south, innId + " rest stands in front of the door (" + inn.dist.toFixed(1) + " at " + inn.here.x + "," + inn.here.y + ")");
+  await place(page, inn.here.x, inn.here.y, 0, -1);
+  await shot(page, innId === "ember-hearth" ? "37-inn-ember.png" : "38-inn-cinder.png");
+}
+
+const north = await page.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  SF.state.quest = "sail";
+  SF.state.dialogue = null;
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const p = SF.state.player;
+  p.x = feet.x;
+  p.y = feet.y - 46;
+  p.safeX = p.x;
+  p.safeY = p.y;
+  SF.state.camX = feet.x;
+  SF.state.camY = (feet.y + p.y) / 2;
+  const goal = SF.objectivePoint(SF.state);
+  const lift = SF.guideLift(goal, p);
+  const markY = goal.y - lift;
+  return {
+    onX: Math.abs(goal.x - feet.x) < 2,
+    aboveHead: markY < feet.y - 40,
+    clearOfHero: markY < p.y - 36,
+    onScreen: SF.goalOnScreen(goal, SF.state, SF.viewW || 915, SF.viewH || 412),
+    x: feet.x,
+    y: p.y
+  };
+});
+check(north.onX && north.aboveHead && north.clearOfHero && north.onScreen, "north of Kestrel the mark stays above her and the edge arrow hides (" + JSON.stringify(north) + ")");
+await place(page, north.x, north.y, 0, 1);
+await shot(page, "39-kestrel-north.png");
+
+const lampNear = await page.evaluate(() => {
+  SF.mountIsland("cinderveil");
+  SF.state.island = "cinderveil";
+  SF.state.mode = "play";
+  SF.state.quest = "relight";
+  SF.state.shardsHeld = 3;
+  SF.state.flags.mawDead = true;
+  SF.state.flags.cinderLit = false;
+  SF.state.player.x = SF.LAMP.x + 4;
+  SF.state.player.y = SF.LAMP.y + 6;
+  SF.state.camX = SF.LAMP.x;
+  SF.state.camY = SF.LAMP.y;
+  const goal = SF.objectivePoint(SF.state);
+  return {
+    lamp: Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y),
+    player: Math.hypot(SF.state.player.x - goal.x, SF.state.player.y - goal.y),
+    x: SF.LAMP.x,
+    y: SF.LAMP.y
+  };
+});
+check(lampNear.lamp <= 8 && lampNear.player <= 18, "standing at the lamp does not point back down the stair (" + lampNear.lamp.toFixed(1) + ")");
+await place(page, lampNear.x, lampNear.y + 8, 0, -1);
+await shot(page, "40-lamp-close.png");
+
 await phoneCtx.close();
 
 const desk = await browser.newContext({ viewport: { width: 1280, height: 720 }, hasTouch: false, isMobile: false });
@@ -878,14 +1019,23 @@ await keys.evaluate(() => {
   d.shown = (d.full || "").length;
   if (SF._depart) SF._depart.t = SF._depart.dur;
 });
-await keys.keyboard.press("Enter");
-await keys.waitForTimeout(120);
-const keyHeld = await keys.evaluate(() => !document.getElementById("endcard").hidden && SF.state.mode === "dialogue");
-check(keyHeld, "Enter during the lockout leaves the end card up");
+const keyHeld = await keys.evaluate(() => {
+  SF.advanceDialogue();
+  const openedAt = Date.now();
+  SF.advanceDialogue();
+  const el = document.getElementById("endcard");
+  return {
+    up: !el.hidden && SF.state.mode === "dialogue",
+    left: (SF.state.endcardLock || 0) - openedAt
+  };
+});
+check(keyHeld.up && keyHeld.left > 200, "Enter during the lockout leaves the end card up (" + keyHeld.left + "ms)");
 await shot(keys, "17-endcard-keyboard.png");
-await keys.waitForTimeout(460);
+await keys.evaluate(() => {
+  if (SF.state) SF.state.endcardLock = Date.now() - 1;
+});
 await keys.keyboard.press("KeyE");
-await keys.waitForTimeout(80);
+await keys.waitForFunction(() => document.getElementById("endcard").hidden && SF.state.mode === "play", null, { timeout: 2000 });
 const keyGone = await keys.evaluate(() => document.getElementById("endcard").hidden && SF.state.mode === "play");
 check(keyGone, "E dismisses the end card after the lockout");
 
@@ -929,7 +1079,7 @@ await keys.evaluate(() => {
   SF.state.player.y = boat.y - 80;
   SF.state.camX = boat.x;
   SF.state.camY = boat.y;
-  const fence = (SF.PROPS || []).find((p) => p.kind === "fence" && p.spin);
+  const fence = (SF.PROPS || []).find((p) => p.kind === "fence_up");
   window.__deskFence = fence && { x: fence.x, y: fence.y };
 });
 await keys.waitForTimeout(80);

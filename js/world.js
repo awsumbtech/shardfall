@@ -85,16 +85,41 @@ SF.defeatPlaceLine = function (spot) {
   return "Back to the last lamp. The party is at half HP.";
 };
 
+// Rest remembers a walkable tile in front of the door, never the inn's own tile.
+SF.innDoor = function (spot) {
+  var s = SF.state;
+  var ix = spot && spot.x != null ? spot.x : s.player.x;
+  var iy = spot && spot.y != null ? spot.y : s.player.y;
+  function clearOf(x, y) {
+    if (Math.hypot(x - ix, y - iy) < 16) return false;
+    return !!(SF.walkable(x, y) && !SF.blocksFoot(x, y));
+  }
+  if (clearOf(s.player.x, s.player.y)) return { x: s.player.x, y: s.player.y };
+  var dirs = [
+    [0, 48], [0, 36], [0, 32], [0, 24], [0, 64],
+    [16, 40], [-16, 40], [24, 36], [-24, 36], [32, 32], [-32, 32],
+    [20, 48], [-20, 48], [36, 20], [-36, 20],
+    [48, 16], [-48, 16], [48, 0], [-48, 0],
+    [0, -40], [24, -32], [-24, -32]
+  ];
+  var i, nx, ny;
+  for (i = 0; i < dirs.length; i++) {
+    nx = ix + dirs[i][0];
+    ny = iy + dirs[i][1];
+    if (clearOf(nx, ny)) return { x: nx, y: ny };
+  }
+  return { x: ix, y: iy + 48 };
+};
+
 SF.restAtInn = function (spot) {
   var s = SF.state;
   if (!s) return;
   SF.healParty(1);
   SF.respawnFieldEnemies();
-  var x = spot && spot.x != null ? spot.x : s.player.x;
-  var y = spot && spot.y != null ? spot.y : s.player.y;
-  s.lastRest = { island: SF.islandId, x: x, y: y };
-  if (SF.rememberCheckpoint) SF.rememberCheckpoint(x, y, { kind: "inn", quiet: true, raw: true });
-  else s.checkpoint = { x: x, y: y, island: SF.islandId, kind: "inn" };
+  var stood = SF.innDoor(spot);
+  s.lastRest = { island: SF.islandId, x: stood.x, y: stood.y };
+  if (SF.rememberCheckpoint) SF.rememberCheckpoint(stood.x, stood.y, { kind: "inn", quiet: true, raw: true });
+  else s.checkpoint = { x: stood.x, y: stood.y, island: SF.islandId, kind: "inn" };
   s.mode = "play";
   SF.pushToast("Rested. HP is full. The journey is saved.", 2.2);
   if (SF.saveGame) SF.saveGame();

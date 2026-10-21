@@ -2337,6 +2337,43 @@ SF.goalPrecise = function (goal) {
   return !goal || goal.kind !== "shard" || goal.precise !== false;
 };
 
+SF.GUIDE_NEAR = 18;
+
+SF.guideActor = function (goal) {
+  var i, n, feet;
+  if (!goal) return null;
+  for (i = 0; i < (SF.NPCS || []).length; i++) {
+    n = SF.NPCS[i];
+    if (SF.npcHidden && SF.npcHidden(n)) continue;
+    feet = SF.actorFeet ? SF.actorFeet(n) : n;
+    if (feet && Math.hypot(feet.x - goal.x, feet.y - goal.y) < 8) return feet;
+  }
+  return null;
+};
+
+// Diamond sits above the target's head. A hero standing due north would
+// otherwise cover that slot, so the mark rises clear of the hero too.
+SF.guideLift = function (goal, p) {
+  var lift = 62;
+  if (!goal || !p) return lift;
+  if (Math.abs(p.x - goal.x) >= 18) return lift;
+  var heroTop = p.y - 36;
+  var markY = goal.y - lift;
+  if (markY > heroTop - 6 && markY < p.y + 8) lift = goal.y - (heroTop - 14);
+  return lift;
+};
+
+SF.goalOnScreen = function (goal, s, w, h) {
+  if (!goal || !s || !w || !h) return false;
+  var zoom = SF.zoom || 1;
+  function hit(x, y) {
+    var sx = (x - s.camX) * zoom + w / 2;
+    var sy = (y - s.camY) * zoom + h / 2;
+    return sx >= 0 && sx <= w && sy >= 0 && sy <= h;
+  }
+  return hit(goal.x, goal.y) || hit(goal.x, goal.y - 32);
+};
+
 SF.drawGuide = function (ctx, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
@@ -2344,38 +2381,43 @@ SF.drawGuide = function (ctx, s) {
   var p = s.player;
   var dx = goal.x - p.x;
   var dy = goal.y - p.y;
-  var d = Math.hypot(dx, dy) || 1;
-  var nearHead = SF.actorNear && SF.actorNear(goal.x, goal.y, 22);
+  var d = Math.hypot(dx, dy);
+  if (d <= (SF.GUIDE_NEAR || 18)) return;
+  var actor = SF.guideActor(goal);
   if (d > 96) {
     var ang = Math.atan2(dy, dx);
     var cx = p.x + Math.cos(ang) * 34;
     var cy = p.y + Math.sin(ang) * 34 - 22;
+    var onTarget = Math.hypot(cx - goal.x, cy - (goal.y - 20)) < 40;
     var crowded = SF.actorNear && SF.actorNear(cx, cy + 22, 28);
-    if (!crowded) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(ang);
-    ctx.fillStyle = "rgba(255, 211, 122, 0.95)";
-    ctx.strokeStyle = "rgba(20, 10, 30, 0.55)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(9, 0);
-    ctx.lineTo(-7, 5);
-    ctx.lineTo(-3, 0);
-    ctx.lineTo(-7, -5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
+    if (!onTarget && !crowded) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(ang);
+      ctx.fillStyle = "rgba(255, 211, 122, 0.95)";
+      ctx.strokeStyle = "rgba(20, 10, 30, 0.55)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(9, 0);
+      ctx.lineTo(-7, 5);
+      ctx.lineTo(-3, 0);
+      ctx.lineTo(-7, -5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
     }
   }
-  if (d > 40) SF.drawBobber(ctx, goal.x, goal.y, nearHead ? 54 : 28);
+  if (actor || d > 40) SF.drawBobber(ctx, goal.x, goal.y, actor ? SF.guideLift(goal, p) : 28);
 };
 
 SF.drawEdgeArrow = function (ctx, w, h, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
   if (!goal) return;
+  var pd = s.player ? Math.hypot(goal.x - s.player.x, goal.y - s.player.y) : Infinity;
+  if (pd <= (SF.GUIDE_NEAR || 18)) return;
+  if (SF.goalOnScreen(goal, s, w, h)) return;
   var sensed = goal.kind === "shard" && goal.precise === false;
   var zoom = SF.zoom || 1;
   var sx = (goal.x - s.camX) * zoom + w / 2;
@@ -2384,7 +2426,6 @@ SF.drawEdgeArrow = function (ctx, w, h, s) {
   var right = w - 28;
   var top = 88;
   var bottom = h - 150;
-  if (!sensed && sx > left && sx < right && sy > top && sy < bottom) return;
   var cx = w / 2;
   var cy = h / 2;
   var dx = sx - cx;
