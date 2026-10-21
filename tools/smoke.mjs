@@ -1641,4 +1641,7 @@ if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit" });
 if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 
+const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit" });
+if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
+
 console.log("smoke ok");

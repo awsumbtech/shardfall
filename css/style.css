@@ -326,15 +326,28 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
   display: none !important;
 }
 
-#toast {
+#notices {
   position: absolute;
   z-index: 6;
-  left: auto;
-  right: calc(108px + env(safe-area-inset-right));
   top: calc(6px + env(safe-area-inset-top));
-  bottom: auto;
-  transform: none;
+  right: calc(108px + env(safe-area-inset-right));
   width: min(280px, calc(100% - 468px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+#chrome[data-stack="1"] #notices {
+  top: calc(96px + env(safe-area-inset-top));
+  left: 50%;
+  right: auto;
+  width: min(440px, calc(100% - 120px));
+  transform: translateX(-50%);
+}
+
+#toast {
+  position: relative;
   text-align: center;
   padding: 8px 12px;
   font-family: var(--serif);
@@ -348,13 +361,7 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
 }
 
 #banner {
-  position: absolute;
-  z-index: 6;
-  left: auto;
-  right: calc(108px + env(safe-area-inset-right));
-  top: calc(58px + env(safe-area-inset-top));
-  transform: none;
-  width: min(280px, calc(100% - 468px));
+  position: relative;
   text-align: center;
   pointer-events: none;
   padding: 6px 12px 8px;
@@ -369,6 +376,7 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
   font-size: 28px;
   color: var(--gold);
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
 }
 
 #banner-sub {
@@ -379,6 +387,7 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
 }
 
 #controls { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+body[data-actlock="1"] #buttons { pointer-events: none; }
 
 #stick-zone {
   pointer-events: auto;
@@ -1157,7 +1166,6 @@ body[data-modal="1"] #corner {
   #btn-dash span, #btn-attack span { font-size: 14px; }
   #btn-interact { width: 120px; height: 48px; min-height: 44px; }
   #btn-attack { width: 72px; height: 64px; }
-  #toast { top: calc(6px + env(safe-area-inset-top)); bottom: auto; }
   #dialogue {
     left: calc(12px + env(safe-area-inset-left));
     right: calc(12px + env(safe-area-inset-right));
@@ -1561,15 +1569,8 @@ body[data-mode="chest"] #rotate { display: none; }
 #enc-rate button { flex: 1 1 0; }
 
 @media (max-width: 700px) {
-  #toast {
+  #notices {
     top: calc(108px + env(safe-area-inset-top));
-    left: 8px;
-    right: 8px;
-    width: auto;
-    transform: none;
-  }
-  #banner {
-    top: calc(168px + env(safe-area-inset-top));
     left: 8px;
     right: 8px;
     width: auto;

@@ -54,8 +54,17 @@ SF.pollGamepad = function () {
 };
 
 SF.readMove = function () {
+  if (SF.watchOverlays) SF.watchOverlays();
   if (SF.pollGamepad) SF.pollGamepad();
   var i = SF.inputState;
+  if (SF.fieldActsLocked && SF.fieldActsLocked()) {
+    i.dashEdge = false;
+    i.interactEdge = false;
+    i.attack = false;
+    i.attackKey = false;
+    i.padAEdge = false;
+    i.padXEdge = false;
+  }
   if (i.padAEdge) {
     i.padAEdge = false;
     var mode = SF.state && SF.state.mode;
@@ -86,16 +95,29 @@ SF.readMove = function () {
 };
 
 SF.consumeDash = function () {
+  if (SF.fieldActsLocked && SF.fieldActsLocked()) {
+    SF.inputState.dashEdge = false;
+    return false;
+  }
   var v = SF.inputState.dashEdge;
   SF.inputState.dashEdge = false;
   return v;
 };
 
 SF.consumeAttack = function () {
+  if (SF.fieldActsLocked && SF.fieldActsLocked()) {
+    SF.inputState.attack = false;
+    SF.inputState.attackKey = false;
+    return false;
+  }
   return SF.inputState.attack || SF.inputState.attackKey;
 };
 
 SF.consumeInteract = function () {
+  if (SF.fieldActsLocked && SF.fieldActsLocked()) {
+    SF.inputState.interactEdge = false;
+    return false;
+  }
   var v = SF.inputState.interactEdge;
   SF.inputState.interactEdge = false;
   return v;
@@ -169,6 +191,7 @@ SF.bindInput = function () {
     el.addEventListener("pointerdown", function (e) {
       e.preventDefault();
       e.stopPropagation();
+      if (SF.actsLocked && SF.actsLocked()) return;
       el.setPointerCapture(e.pointerId);
       SF.sfx.ensure();
       onDown();
@@ -331,13 +354,19 @@ SF.bindInput = function () {
     if (e.target.closest("input, textarea, select")) return true;
     return !!e.target.closest(".scroll, .menu-scroll");
   }
-  // A menu opened by a tap must ignore that same press and the click it
-  // synthesizes. The next press (pointerdown, then click) is the first one
-  // that can hit a button. Same idea as the chest lock in v0.4.10.
+  // A menu opened or closed by a tap must ignore that same press. The chart
+  // and the field often appear after the finger is already up, so the
+  // synthesized click still has to be dropped. For a short window after any
+  // overlay change, or after a battle returns to the field, drop that click
+  // and any tap-to-act. A finger that was already down (the stick) is never
+  // part of this. A new press during the window can still hit a menu button.
   SF._pressId = null;
   SF._held = Object.create(null);
   SF._fresh = null;
   SF._overlayKey = "";
+  SF._actUntil = 0;
+  SF._armClick = false;
+  var ACT_LOCK_MS = 350;
   function overlayOpen(mode, extra) {
     if (extra) return true;
     return mode === "sailmenu" || mode === "shop" || mode === "inn" || mode === "notice" ||
@@ -355,11 +384,43 @@ SF.bindInput = function () {
   function isPriorFinger(e) {
     return !!(SF._fresh && SF._fresh.prior && SF._fresh.prior.indexOf(e.pointerId) >= 0);
   }
-  SF.armFreshPress = function () {
-    var opener = SF._pressId;
-    SF._fresh = { opener: opener, prior: priorFingers(opener), armed: false, swallowClick: false };
+  function isAction(e) {
+    var t = e.target;
+    if (t && t.nodeType === 3) t = t.parentElement;
+    return !!(t && t.closest && t.closest("#buttons"));
+  }
+  SF.actsLocked = function () {
+    return Date.now() < (SF._actUntil || 0);
   };
+  SF.fieldActsLocked = function () {
+    return SF.actsLocked() && SF.state && SF.state.mode === "play";
+  };
+  function lockActs() {
+    SF._actUntil = Date.now() + ACT_LOCK_MS;
+    SF._armClick = false;
+    var opener = SF._pressId;
+    SF._fresh = { opener: opener, prior: priorFingers(opener), armed: false };
+    var i = SF.inputState;
+    if (i) {
+      i.dashEdge = false;
+      i.interactEdge = false;
+      i.attack = false;
+      i.attackKey = false;
+      i.padAEdge = false;
+      i.padXEdge = false;
+    }
+    if (document.body) document.body.dataset.actlock = "1";
+  }
+  SF.armFreshPress = function () {
+    lockActs();
+  };
+  function settleActLock() {
+    if (!document.body || !document.body.dataset.actlock) return;
+    if (Date.now() < SF._actUntil) return;
+    delete document.body.dataset.actlock;
+  }
   SF.watchOverlays = function () {
+    settleActLock();
     var s = SF.state;
     var settings = document.getElementById("settings");
     var extra = (SF.uiModal ? "|m" : "") + (settings && !settings.hidden ? "|s" : "");
@@ -372,7 +433,8 @@ SF.bindInput = function () {
     var prevExtra = prev.indexOf("|") >= 0;
     var now = overlayOpen(s && s.mode, extra);
     var was = overlayOpen(prevMode, prevExtra);
-    if (now && (!was || key !== prev)) SF.armFreshPress();
+    var battleBack = (prevMode === "battle" || prevMode === "results") && s && s.mode === "play";
+    if (now || was || battleBack) lockActs();
   };
   function releasePress(e) {
     delete SF._held[e.pointerId];
@@ -384,21 +446,27 @@ SF.bindInput = function () {
     if (SF._fresh.opener == null || e.pointerId !== SF._fresh.opener) SF._fresh.armed = true;
   }
   function swallowStale(e) {
-    if (!SF._fresh || SF._fresh.armed || isPriorFinger(e)) return;
+    if (isPriorFinger(e)) return;
     if (e.type === "click") {
-      if (!e.detail || !SF._fresh.swallowClick) return;
-      SF._fresh.swallowClick = false;
+      if (!e.detail || SF._armClick) return;
+      if (!SF.actsLocked()) return;
       e.preventDefault();
       e.stopPropagation();
       return;
     }
+    if (!SF._fresh || SF._fresh.armed) return;
     if (SF._fresh.opener == null || e.pointerId !== SF._fresh.opener) return;
-    SF._fresh.swallowClick = true;
     e.preventDefault();
     e.stopPropagation();
   }
   document.addEventListener("pointerdown", function (e) {
     SF._pressId = e.pointerId;
+    var prior = isPriorFinger(e);
+    if (SF.actsLocked() && !prior && !isAction(e)) SF._armClick = true;
+    if (SF.actsLocked() && !prior && isAction(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     armIfFresh(e);
     SF._held[e.pointerId] = true;
     queueMicrotask(function () {
@@ -461,7 +529,7 @@ SF.bindInput = function () {
       }
       if (e.target && e.target.closest && e.target.closest("button, .scroll, #controls")) return;
       var mode = SF.state && SF.state.mode;
-      if (mode !== "play") {
+      if (mode !== "play" || (SF.actsLocked && SF.actsLocked())) {
         SF.inputState.interactEdge = false;
         return;
       }
