@@ -531,7 +531,7 @@ SF.syncUI = function () {
   } else banner.hidden = true;
 
   var endcard = document.getElementById("endcard");
-  if (endcard && !(s.dialogue && s.dialogue.id === "cinderveil.act1.finale" && s.mode === "dialogue")) {
+  if (endcard && !(s.dialogue && s.dialogue.id === "cinderveil.act1.finale" && s.act1Card && s.mode === "dialogue")) {
     endcard.hidden = true;
   }
 

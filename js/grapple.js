@@ -209,6 +209,18 @@ SF.onMawDead = function () {
   s.flags.mawFight = false;
   s.quest = "relight";
   s.pools = [];
+  (s.enemies || []).forEach(function (e) {
+    if (e.kind !== "maw") return;
+    e.alive = false;
+    e.hp = 0;
+    e.dormant = false;
+    e.dying = 99;
+    e.ash = { t: 0, dur: 1.05 };
+    if (SF.spawnAsh) {
+      var i;
+      for (i = 0; i < 22; i++) SF.spawnAsh(e.x + (Math.random() - 0.5) * 34, e.y - 18 + (Math.random() - 0.5) * 24);
+    }
+  });
   SF.pushBanner("The Cinder Maw", "The core is cracked and dim, but whole.");
   if (window.Music) Music.play("cinderveil");
   SF.saveGame({ silent: true });

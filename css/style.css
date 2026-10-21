@@ -1387,7 +1387,9 @@ body[data-mode="chest"] #rotate { display: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
   background: rgba(8, 6, 20, 0.45);
 }
 

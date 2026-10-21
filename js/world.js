@@ -340,11 +340,13 @@ SF.drawVillager = function (ctx, x, y, tunic, skin) {
     if (!sprite) return false;
     var calm = SF.calm && SF.calm();
     var cast = window.Art && Art.fieldCast && Art.fieldCast[sprite];
-    var frame = calm ? 0 : Math.floor((SF.anim || 0) * (cast ? 2 : 4)) % (cast ? 2 : 4);
-    var pose = cast ? "stand" : "walk";
+    var movingPose = !!moving;
+    var frame = calm ? 0 : Math.floor((SF.anim || 0) * (movingPose ? 8 : (cast ? 2 : 4))) % (movingPose ? 4 : (cast ? 2 : 4));
+    var pose = movingPose ? "walk" : (cast ? "stand" : "walk");
     var facing = "down";
     var p = SF.state && SF.state.player;
-    if (p && x != null && y != null) {
+    if (n && n.id === "ilsa" && movingPose) facing = "up";
+    else if (p && x != null && y != null) {
       var dx = p.x - x;
       var dy = p.y - y;
       if (Math.abs(dx) > 18 || Math.abs(dy) > 18) {

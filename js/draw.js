@@ -1367,7 +1367,8 @@ SF.drawPropArt = function (ctx, prop, lit) {
   else if (id === "tuft" && (SF.islandId === "cinderveil")) id = "tuft_dead";
   if (!Art._makers[id]) return false;
   var sc = Art.fieldScale ? Art.fieldScale(id) : 1;
-  Art.sprite(ctx, id, prop.x, prop.y, { scale: sc, frame: 0, facing: "down" });
+  var boat = id === "skiff" && SF.sceneActorNudge ? SF.sceneActorNudge("skiff") : null;
+  Art.sprite(ctx, id, prop.x + (boat ? boat.x : 0), prop.y + (boat ? boat.y : 0), { scale: sc, frame: 0, facing: "down" });
   if (prop.kind === "cottage") {
     var t = SF.reduceMotion ? 0.35 : (SF.anim || 0);
     var sx = prop.x + 30;
@@ -2169,11 +2170,22 @@ SF.entityList = function (s) {
         ny = spot.y;
       }
     }
+    if (n.id === "ilsa" && SF.ilsaWorldPos) {
+      var ilsaSpot = SF.ilsaWorldPos();
+      if (ilsaSpot) {
+        nx = ilsaSpot.x;
+        ny = ilsaSpot.y;
+      }
+    }
+    var ilsaWalking = n.id === "ilsa" && SF.ilsaWalking && SF.ilsaWalking();
     list.push({
       y: ny,
       draw: function (ctx) {
+        var ride = n.id === "kestrel" && SF.sceneActorNudge ? SF.sceneActorNudge("kestrel") : null;
+        ctx.save();
+        if (ride) ctx.translate(ride.x, ride.y);
         SF.drawShadow(ctx, nx, ny, 10, 1);
-        var drewActor = SF.drawActor && SF.drawActor(ctx, n, nx, ny);
+        var drewActor = SF.drawActor && SF.drawActor(ctx, n, nx, ny, null, null, ilsaWalking);
         if (!drewActor) {
           if (n.id === "maren") SF.drawMaren(ctx, nx, ny);
           else if (n.id === "kestrel") SF.drawKestrel(ctx, nx, ny);
@@ -2191,15 +2203,33 @@ SF.entityList = function (s) {
           ctx.fillText(n.name, nx, ny - 34);
           ctx.restore();
         }
+        ctx.restore();
       }
     });
   });
   s.enemies.forEach(function (e) {
-    if (!e.alive && e.dying <= 0) return;
+    if (!e.alive && e.dying <= 0 && !e.ash) return;
     list.push({
       y: e.y,
       draw: function (ctx) {
         ctx.save();
+        if (e.ash && SF.drawMawAsh) {
+          var ashU = e.ash.dur <= 0 ? 1 : Math.max(0, Math.min(1, e.ash.t / e.ash.dur));
+          ctx.globalAlpha = Math.max(0, 1 - ashU);
+          SF.drawShadow(ctx, e.x, e.y, e.r);
+          ctx.globalAlpha = 1;
+          var ashFace = "down";
+          if (s.player) {
+            var adx = s.player.x - e.x;
+            var ady = s.player.y - e.y;
+            if (Math.abs(adx) > 18 || Math.abs(ady) > 18) {
+              ashFace = Math.abs(adx) >= Math.abs(ady) ? (adx < 0 ? "left" : "right") : (ady < 0 ? "up" : "down");
+            }
+          }
+          SF.drawMawAsh(ctx, e, ashFace);
+          ctx.restore();
+          return;
+        }
         if (e.dying > 0) ctx.globalAlpha = Math.max(0, e.dying / 0.45);
         SF.drawShadow(ctx, e.x, e.y, e.r);
         var foeSprite = SF.foeSprite ? SF.foeSprite(e) : null;
@@ -2244,6 +2274,9 @@ SF.entityList = function (s) {
   list.push({
     y: p.y + 0.01,
     draw: function (ctx) {
+      var ride = SF.sceneActorNudge ? SF.sceneActorNudge("player") : null;
+      ctx.save();
+      if (ride) ctx.translate(ride.x, ride.y);
       var alpha = 1;
       if (p.iFrames > 0 && !(SF.calm && SF.calm())) alpha = 0.84;
       if (!SF.walkable(p.x, p.y)) alpha *= 0.7;
@@ -2280,6 +2313,7 @@ SF.entityList = function (s) {
         ctx.stroke();
         ctx.restore();
       }
+      ctx.restore();
     }
   });
   if (SF.TERRACES && SF._terrain) {
@@ -2503,7 +2537,64 @@ SF.draw = function () {
   ctx.imageSmoothingEnabled = true;
   SF.drawVignette(ctx, w, h, s);
   SF.drawEdgeArrow(ctx, w, h, s);
+  if (SF.drawSceneWash) SF.drawSceneWash(ctx, w, h);
   SF.drawMap();
+};
+
+SF.drawMawAsh = function (ctx, e, facing) {
+  var ash = e.ash;
+  var u = !ash || ash.dur <= 0 ? 1 : Math.max(0, Math.min(1, ash.t / ash.dur));
+  if (!window.Art || !Art.frameOf) return false;
+  var canvas = Art.frameOf("cinder_maw", "walk", facing || "down", 0);
+  if (!canvas || !canvas.width) return false;
+  var scale = 1;
+  var ax = canvas._ax || 0;
+  var ay = canvas._ay || canvas.height - 1;
+  var left = e.x - ax * scale;
+  var top = e.y - ay * scale;
+  var strips = 6;
+  var i, sy, sliceH, sh;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  for (i = 0; i < strips; i++) {
+    sh = Math.ceil(canvas.height / strips);
+    sy = i * sh;
+    if (sy >= canvas.height) break;
+    sliceH = Math.min(sh, canvas.height - sy);
+    ctx.globalAlpha = Math.max(0, 1 - u * 0.95);
+    ctx.drawImage(
+      canvas,
+      0, sy, canvas.width, sliceH,
+      left + (i - 2.5) * u * 18,
+      top + sy * scale - u * (8 + i * 6),
+      canvas.width * scale,
+      sliceH * scale
+    );
+  }
+  ctx.restore();
+  return true;
+};
+
+SF.drawSceneWash = function (ctx, w, h) {
+  var dusk = SF._duskAmt || 0;
+  if (dusk > 0.004) {
+    ctx.save();
+    ctx.globalAlpha = 0.4 * dusk;
+    ctx.fillStyle = "#ff7a32";
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 0.16 * dusk;
+    ctx.fillStyle = "#3c1840";
+    ctx.fillRect(0, 0, w, h * 0.38);
+    ctx.restore();
+  }
+  var veil = SF._veil && SF._veil.a;
+  if (veil > 0.004) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, veil));
+    ctx.fillStyle = "#07060f";
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
 };
 
 SF.drawMap = function () {

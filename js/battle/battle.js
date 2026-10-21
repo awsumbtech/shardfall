@@ -1085,7 +1085,7 @@ function installHooks() {
     var s = SF.state;
     if (!s) return;
     if (e.dying > 0) {
-      e.dying -= dt;
+      if (!e.ash) e.dying -= dt;
       return;
     }
     if (!e.alive || e.dormant) return;

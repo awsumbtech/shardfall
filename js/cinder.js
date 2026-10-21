@@ -761,6 +761,145 @@ SF.beginCantorApproach = function () {
   };
 };
 
+SF.ilsaStand = function () {
+  if (!SF.LAMP) return { x: 0, y: 0 };
+  return { x: SF.LAMP.x - 36, y: SF.LAMP.y + 28 };
+};
+
+SF.beginIlsaApproach = function () {
+  var s = SF.state;
+  if (!s || !SF.LAMP || SF.islandId !== "cinderveil") return;
+  if (s.ilsaAt || s.ilsaWalk) return;
+  var stand = SF.ilsaStand();
+  var hh = (SF.viewH || 720) / 2;
+  var fromY = (s.camY || stand.y) + hh + 84;
+  var dist = Math.abs(fromY - stand.y);
+  s.ilsaWalk = {
+    t: 0,
+    dur: Math.max(1.8, Math.min(3.1, dist / 210)),
+    fromX: SF.LAMP.x + 4,
+    fromY: fromY,
+    toX: stand.x,
+    toY: stand.y
+  };
+};
+
+SF.ensureIlsaOnRidge = function () {
+  var s = SF.state;
+  if (!s || !SF.LAMP || SF.islandId !== "cinderveil") return;
+  if (s.ilsaAt || s.ilsaWalk) return;
+  s.ilsaAt = SF.ilsaStand();
+};
+
+SF.parkIlsa = function () {
+  var s = SF.state;
+  if (!s || !s.ilsaWalk) return;
+  s.ilsaAt = { x: s.ilsaWalk.toX, y: s.ilsaWalk.toY };
+  s.ilsaWalk = null;
+};
+
+SF.ilsaWorldPos = function () {
+  var s = SF.state;
+  if (!s) return null;
+  if (s.ilsaWalk) {
+    var a = s.ilsaWalk;
+    var u = a.dur <= 0 ? 1 : Math.max(0, Math.min(1, a.t / a.dur));
+    var k = u * u * (3 - 2 * u);
+    return {
+      x: a.fromX + (a.toX - a.fromX) * k,
+      y: a.fromY + (a.toY - a.fromY) * k
+    };
+  }
+  if (s.ilsaAt) return { x: s.ilsaAt.x, y: s.ilsaAt.y };
+  return null;
+};
+
+SF.ilsaWalking = function () {
+  return !!(SF.state && SF.state.ilsaWalk);
+};
+
+SF.beginDepart = function () {
+  var s = SF.state;
+  if (!s) return;
+  s.act1Card = false;
+  var prop = null;
+  (SF.PROPS || []).forEach(function (p) {
+    if (!prop && (p.kind === "airship" || p.kind === "skiff")) prop = p;
+  });
+  var vh = SF.viewH || 412;
+  var vw = SF.viewW || 915;
+  var camX = prop ? prop.x + vw * 0.18 : s.camX;
+  var camY = prop ? prop.y + vh * 0.18 : s.camY;
+  SF._depart = { t: 0, dur: 1.75, camX: camX, camY: camY };
+  s.camX = camX;
+  s.camY = camY;
+};
+
+SF.showActCard = function () {
+  var s = SF.state;
+  if (!s || s.act1Card) return;
+  s.act1Card = true;
+  if (SF._dialogueUi) s.endcardLock = Date.now() + (SF.ENDCARD_LOCK_MS || 400);
+  if (SF.syncUI) SF.syncUI();
+};
+
+SF.endDepart = function () {
+  SF._depart = null;
+};
+
+SF.sceneActorNudge = function (who) {
+  var d = SF._depart;
+  var s = SF.state;
+  if (!d || !s || !s.dialogue || s.dialogue.id !== "cinderveil.act1.finale") return null;
+  if (who !== "player" && who !== "kestrel" && who !== "skiff") return null;
+  var u = d.dur <= 0 ? 1 : Math.max(0, Math.min(1, d.t / d.dur));
+  var k = u * u * (3 - 2 * u);
+  return { x: 980 * k, y: 72 * k };
+};
+
+SF.tickActVisuals = function (dt) {
+  var s = SF.state;
+  if (!s || !(dt > 0)) return;
+  var wake = s.dialogue && s.dialogue.id === "emberhold.wake";
+  if (wake) SF._duskAmt = 1;
+  else if (SF._duskAmt > 0) SF._duskAmt = Math.max(0, SF._duskAmt - dt / 0.9);
+  var veil = SF._veil;
+  if (veil) {
+    if (veil.hold > 0) veil.hold -= dt;
+    else {
+      var step = (veil.rate || 2) * dt;
+      if (veil.a < veil.to) veil.a = Math.min(veil.to, veil.a + step);
+      else if (veil.a > veil.to) veil.a = Math.max(veil.to, veil.a - step);
+      if (veil.to === 0 && veil.a <= 0.001) SF._veil = null;
+    }
+  }
+  if (s.ilsaWalk) {
+    s.ilsaWalk.t += dt;
+    if (s.ilsaWalk.t >= s.ilsaWalk.dur) SF.parkIlsa();
+  }
+  (s.enemies || []).forEach(function (e) {
+    if (!e.ash) return;
+    e.ash.t += dt;
+    var n = 4;
+    var i;
+    for (i = 0; i < n; i++) {
+      if (SF.spawnAsh) SF.spawnAsh(e.x + (Math.random() - 0.5) * 42, e.y - 14 + (Math.random() - 0.5) * 28);
+    }
+    if (e.ash.t >= e.ash.dur) {
+      e.ash = null;
+      e.dying = 0;
+      e.alive = false;
+    }
+  });
+  if (SF._depart && s.dialogue && s.dialogue.id === "cinderveil.act1.finale") {
+    SF._depart.t += dt;
+    if (SF._depart.t >= SF._depart.dur) {
+      SF._depart.t = SF._depart.dur;
+      if (s.dialogue.done) SF.showActCard();
+    }
+  }
+};
+
 SF.playEpilogue = function () {
   var s = SF.state;
   if (!s || s.flags.epilogueHeard) return;
@@ -772,6 +911,9 @@ SF.playEpilogue = function () {
   s.flags.needsEpilogue = true;
   s.approach = null;
   s.cantorAt = null;
+  s.ilsaWalk = null;
+  s.ilsaAt = null;
+  SF._veil = { a: 1, to: 0, rate: 2.05, hold: 0.12 };
   if (SF.islandId !== "cinderveil" && SF.mountIsland) SF.mountIsland("cinderveil");
   var kestrel = SF.npcById("kestrel");
   var x = kestrel ? kestrel.x + 28 : SF.DOCKS.cinderveil.x;
