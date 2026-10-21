@@ -416,6 +416,10 @@ SF.syncUI = function () {
   var showTalk = s.mode === "dialogue" && s.dialogue;
   dialogue.hidden = !showTalk;
   if (showTalk && SF.paintDialogue) SF.paintDialogue();
+  if (showTalk && s.dialogue.phase === "choice") {
+    if (SF.pollGamepad) SF.pollGamepad();
+    if (SF.tickChoicePad) SF.tickChoicePad();
+  }
 
   var sail = document.getElementById("sail");
   if (sail) sail.hidden = s.mode !== "sailmenu";
@@ -588,7 +592,31 @@ SF.syncUI = function () {
   document.getElementById("btn-mute").setAttribute("aria-pressed", SF.sfx.muted ? "true" : "false");
   var flash = document.getElementById("saved");
   flash.hidden = !(s.savedFlash > 0 && s.mode === "play");
+  if (SF.watchOverlays) SF.watchOverlays();
 };
+
+SF.markScrollers = function () {
+  if (typeof document === "undefined") return;
+  var nodes = document.querySelectorAll(".menu-scroll");
+  var i, el, more, atBottom, atTop;
+  for (i = 0; i < nodes.length; i++) {
+    el = nodes[i];
+    if (!el.getClientRects().length) {
+      el.classList.remove("can-scroll");
+      el.classList.remove("can-scroll-up");
+      continue;
+    }
+    more = el.scrollHeight > el.clientHeight + 2;
+    atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+    atTop = el.scrollTop <= 2;
+    el.classList.toggle("can-scroll", more && !atBottom);
+    el.classList.toggle("can-scroll-up", more && !atTop);
+  }
+};
+
+document.addEventListener("scroll", function () {
+  if (SF.markScrollers) SF.markScrollers();
+}, true);
 
 function setText(id, text) {
   var el = document.getElementById(id);

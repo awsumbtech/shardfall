@@ -107,6 +107,7 @@ SF.resize = function () {
   if (chrome) {
     chrome.style.width = logicalW + "px";
     chrome.style.height = logicalH + "px";
+    chrome.dataset.stack = logicalW < 760 ? "1" : "0";
   }
   var back = scale * dpr;
   var bw = Math.max(1, Math.round(logicalW * back));
