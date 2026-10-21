@@ -58,7 +58,9 @@ SF.readMove = function () {
   var i = SF.inputState;
   if (i.padAEdge) {
     i.padAEdge = false;
-    if (SF.state && SF.state.mode === "play") i.interactEdge = true;
+    var mode = SF.state && SF.state.mode;
+    // Battle confirm reads padA itself. Dialogue and the end card still use A.
+    if (mode === "play" || mode === "dialogue" || mode === "cutscene") i.interactEdge = true;
   }
   if (i.padBEdge) { i.padBEdge = false; }
   if (i.padXEdge) { i.dashEdge = true; i.padXEdge = false; }
