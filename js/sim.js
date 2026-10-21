@@ -528,16 +528,8 @@ SF.nearestInteract = function (range) {
   }
   SF.NPCS.forEach(function (n) {
     if (SF.npcHidden && SF.npcHidden(n)) return;
-    var nx = n.x;
-    var ny = n.y;
-    if (n.id === "cantor" && SF.cantorWorldPos) {
-      var spot = SF.cantorWorldPos();
-      if (spot) {
-        nx = spot.x;
-        ny = spot.y;
-      }
-    }
-    consider("npc", n, nx, ny);
+    var feet = SF.actorFeet ? SF.actorFeet(n) : null;
+    consider("npc", n, feet ? feet.x : n.x, feet ? feet.y : n.y);
   });
   SF.TEXTS.forEach(function (t) { consider("text", t, t.x, t.y); });
   if (SF.EXTRAS) {
@@ -686,8 +678,9 @@ SF.tryInteract = function () {
     else if (SF.startDialogue) SF.startDialogue(near.ref.node || "inspect.tamsin_bench");
     return;
   }
-  if (near.kind === "checkpoint" && SF.setCheckpoint) {
-    SF.setCheckpoint(near.ref.x, near.ref.y);
+  if (near.kind === "checkpoint") {
+    if (SF.restAtPost) SF.restAtPost(near.ref.x, near.ref.y);
+    else if (SF.setCheckpoint) SF.setCheckpoint(near.ref.x, near.ref.y);
     return;
   }
   if (near.kind === "npc") {

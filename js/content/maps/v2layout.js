@@ -234,7 +234,7 @@ window.SF = SF;
   ].forEach(function (row) { stampTrail(cinderCircles, row[0], row[1]); });
   [
     [[90, 12], [75, 12], [52, 10], [41, 8]],
-    [[41, 14], [41, 30]]
+    [[41, 8], [41, 14], [41, 30]]
   ].forEach(function (pts) { stampTrail(cinderCircles, pts, "ridge", { opens: "mawDead" }); });
 
   function placeExtra(pack, id, tx, ty) {
@@ -293,7 +293,7 @@ window.SF = SF;
     { kind: "stones", x: 53 * T, y: 62 * T },
     { kind: "cottage", x: 73 * T, y: 16 * T },
     { kind: "stones", x: 140 * T, y: 9 * T },
-    { kind: "airship", x: 80 * T, y: 100 * T },
+    { kind: "airship", x: 88 * T, y: 107 * T },
     { kind: "tree", x: 48 * T, y: 30 * T },
     { kind: "tree", x: 44 * T, y: 42 * T },
     { kind: "tree", x: 56 * T, y: 36 * T },
@@ -365,12 +365,12 @@ window.SF = SF;
     [[30, 52], [10, 52]],
     [[96, 34], [90, 34]],
     [[90, 12], [75, 12], [52, 10], [41, 8]],
-    [[41, 14], [41, 30]],
+    [[41, 8], [41, 14], [41, 30]],
     [[118, 12], [128, 13]],
     [[34, 86], [84, 90]]
   ]);
   cinder.props = [
-    { kind: "airship", x: 60 * T, y: 105 * T },
+    { kind: "airship", x: 60 * T, y: 106 * T },
     { kind: "cottage", x: 34 * T, y: 86 * T },
     { kind: "hut", x: 72 * T, y: 84 * T },
     { kind: "stall", x: 46 * T, y: 84 * T },
@@ -490,13 +490,17 @@ window.SF = SF;
       }
     });
     (fences || []).forEach(function (f) {
-      var i, x, y, n;
-      n = f.n || 3;
+      var len = Math.hypot(f.x1 - f.x0, f.y1 - f.y0);
+      var n = Math.max(2, Math.round(len / 36) + 1);
+      var vertical = Math.abs(f.y1 - f.y0) > Math.abs(f.x1 - f.x0);
+      var i, x, y, u, extra;
       for (i = 0; i < n; i++) {
-        x = f.x0 + (f.x1 - f.x0) * (n === 1 ? 0 : i / (n - 1));
-        y = f.y0 + (f.y1 - f.y0) * (n === 1 ? 0 : i / (n - 1));
-        if (!clear(x, y, 18)) continue;
-        put(f.kind, x, y, null);
+        u = n === 1 ? 0 : i / (n - 1);
+        x = f.x0 + (f.x1 - f.x0) * u;
+        y = f.y0 + (f.y1 - f.y0) * u;
+        if (!onLand(x, y)) continue;
+        extra = vertical ? { spin: Math.PI / 2 } : null;
+        put(f.kind, x, y, extra);
       }
     });
     (pack.props || []).forEach(function (p) {
@@ -627,6 +631,7 @@ window.SF = SF;
       terrace("ridge-2", 41.2, 8.0, 6.4, 2.7, 40, 54, 2, "rock", 6.2, 0.2)
     ]
   };
+  SF.TERRACES.cinderveil.forEach(function (t) { t.ramp = 46; });
 
   SF.terraceWobble = function (t, ang) {
     var s = t.seed || 1;
@@ -773,6 +778,24 @@ window.SF = SF;
   SF.terraceLipChain = function (t) {
     if (!t._lip) SF.terraceSouthLip(t, t.x);
     return t._chain || [];
+  };
+
+  SF.rampFrontY = function (x, y) {
+    if (SF.islandId !== "cinderveil") return null;
+    var list = (SF.TERRACES && SF.TERRACES.cinderveil) || [];
+    var i, t, lip, drop, front;
+    front = null;
+    for (i = 0; i < list.length; i++) {
+      t = list[i];
+      if (!t.block) continue;
+      if (!SF.nearRoute(x, y, t.ramp || 20)) continue;
+      lip = SF.terraceSouthLip(t, x);
+      if (lip == null) continue;
+      drop = y - lip;
+      if (drop < -6 || drop > t.block + 8) continue;
+      if (front == null || t._southBase > front) front = t._southBase;
+    }
+    return front;
   };
 
   SF.cliffBlocks = function (x, y) {

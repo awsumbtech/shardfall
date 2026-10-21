@@ -284,7 +284,7 @@ const required = {
   "cinderveil.tamsin.grapple_gift": "grant_grapple",
   "cinderveil.hesk.rumor": null,
   "cinderveil.ilsa.trial": "vault_open",
-  "cinderveil.maw.prefight": "boss_start",
+  "cinderveil.maw.prefight": null,
   "cinderveil.maw.defeated": null,
   "cinderveil.lamp.relit": "quest_cinder_lamp_done",
   "cinderveil.cantor.confront": "act1_end"
@@ -299,6 +299,17 @@ for (const [id, onEnd] of Object.entries(required)) {
     console.error("onEnd mismatch", id, node.onEnd);
     process.exit(1);
   }
+}
+const mawAsk = SF.dialogueNodes["cinderveil.maw.prefight"];
+const mawLast = SF.lineText(mawAsk.lines[mawAsk.lines.length - 1]);
+if (mawLast !== "Fight the Cinder Maw?") {
+  console.error("maw confirm line", mawLast);
+  process.exit(1);
+}
+const mawChoices = (mawAsk.choices || []).map((c) => c.text + ":" + (c.event || ""));
+if (mawChoices.join(",") !== "Yes:boss_start,Not yet:" || mawAsk.onEnd) {
+  console.error("maw choices", mawChoices, mawAsk.onEnd);
+  process.exit(1);
 }
 const cantorChoices = SF.dialogueNodes["cinderveil.cantor.confront"].choices.map((c) => c.setFlags.cantor_choice);
 if (cantorChoices.join(",") !== "spare,listen,refuse") {

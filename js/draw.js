@@ -831,14 +831,11 @@ SF._isTrail = function (sh) {
 SF._mixAmount = function (best, second) {
   if (!best || !second) return 0;
   var diff = best.depth - second.depth;
-  var band = 0.42;
+  var band = 0.85;
   if (diff >= band) return 0;
   var u = (1 - diff / band) * 0.5;
-  if (u < 0.08) return 0;
-  if (u < 0.18) return 0.16;
-  if (u < 0.28) return 0.28;
-  if (u < 0.4) return 0.4;
-  return 0.5;
+  if (u < 0.04) return 0;
+  return u > 0.5 ? 0.5 : u;
 };
 
 SF._cliffReach = function (ny) {
@@ -956,6 +953,10 @@ SF._paintField = function (data, mask, minX, minY, w, h, lit) {
         }
         if (best.deep < 2.6 && (!second || second.deep < 2)) {
           color = best.deep < 1.15 ? looks[best.i].soil : SF._lerpRgb(color, looks[best.i].soil, best.ny > 0.1 ? 0.45 : 0.2);
+        }
+        if (!second && best.deep < 16) {
+          var rim = (16 - best.deep) / 16;
+          color = SF._lerpRgb(color, [22, 32, 62], rim * 0.55);
         }
         SF._writePx(data, pix, color);
         mask[y * w + x] = 1;
@@ -1390,7 +1391,15 @@ SF.drawPropArt = function (ctx, prop, lit) {
 };
 
 SF.drawProp = function (ctx, prop, lit) {
-  if (SF.drawPropArt(ctx, prop, lit)) return;
+  if (prop.spin) {
+    ctx.save();
+    ctx.translate(prop.x, prop.y);
+    ctx.rotate(prop.spin);
+    ctx.translate(-prop.x, -prop.y);
+  }
+  var drewArt = SF.drawPropArt(ctx, prop, lit);
+  if (prop.spin) ctx.restore();
+  if (drewArt) return;
   var x = prop.x;
   var y = prop.y;
   var s = prop.s || 1;
@@ -2079,10 +2088,10 @@ SF.drawLampCrystal = function (ctx, lit) {
   }
 };
 
-SF.drawBobber = function (ctx, x, y) {
+SF.drawBobber = function (ctx, x, y, lift) {
   var bob = (SF.calm && SF.calm()) ? 0 : Math.sin(SF.anim * 2) * 2;
   ctx.save();
-  ctx.translate(x, y - 28 + bob);
+  ctx.translate(x, y - (lift || 28) + bob);
   ctx.fillStyle = "#ffd37a";
   ctx.beginPath();
   ctx.moveTo(0, -5);
@@ -2162,22 +2171,9 @@ SF.entityList = function (s) {
   list.push({ y: SF.LAMP.y, draw: function (ctx) { SF.drawLampCrystal(ctx, lit); } });
   SF.NPCS.forEach(function (n) {
     if (SF.npcHidden && SF.npcHidden(n)) return;
-    var nx = n.x;
-    var ny = n.y;
-    if (n.id === "cantor" && SF.cantorWorldPos) {
-      var spot = SF.cantorWorldPos();
-      if (spot) {
-        nx = spot.x;
-        ny = spot.y;
-      }
-    }
-    if (n.id === "ilsa" && SF.ilsaWorldPos) {
-      var ilsaSpot = SF.ilsaWorldPos();
-      if (ilsaSpot) {
-        nx = ilsaSpot.x;
-        ny = ilsaSpot.y;
-      }
-    }
+    var feet = SF.actorFeet ? SF.actorFeet(n) : null;
+    var nx = feet ? feet.x : n.x;
+    var ny = feet ? feet.y : n.y;
     var ilsaWalking = n.id === "ilsa" && SF.ilsaWalking && SF.ilsaWalking();
     list.push({
       y: ny,
@@ -2273,8 +2269,13 @@ SF.entityList = function (s) {
     });
   });
   var p = s.player;
+  var heroSort = p.y;
+  if (SF.rampFrontY) {
+    var frontY = SF.rampFrontY(p.x, p.y);
+    if (frontY != null && frontY > heroSort) heroSort = frontY + 0.5;
+  }
   list.push({
-    y: p.y + 0.01,
+    y: heroSort + 0.01,
     draw: function (ctx) {
       var ride = SF.sceneActorNudge ? SF.sceneActorNudge("player") : null;
       ctx.save();
@@ -2344,10 +2345,15 @@ SF.drawGuide = function (ctx, s) {
   var dx = goal.x - p.x;
   var dy = goal.y - p.y;
   var d = Math.hypot(dx, dy) || 1;
-  if (d > 70) {
+  var nearHead = SF.actorNear && SF.actorNear(goal.x, goal.y, 22);
+  if (d > 96) {
     var ang = Math.atan2(dy, dx);
+    var cx = p.x + Math.cos(ang) * 34;
+    var cy = p.y + Math.sin(ang) * 34 - 22;
+    var crowded = SF.actorNear && SF.actorNear(cx, cy + 22, 28);
+    if (!crowded) {
     ctx.save();
-    ctx.translate(p.x + Math.cos(ang) * 52, p.y + Math.sin(ang) * 52);
+    ctx.translate(cx, cy);
     ctx.rotate(ang);
     ctx.fillStyle = "rgba(255, 211, 122, 0.95)";
     ctx.strokeStyle = "rgba(20, 10, 30, 0.55)";
@@ -2361,8 +2367,9 @@ SF.drawGuide = function (ctx, s) {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
+    }
   }
-  if (d > 40) SF.drawBobber(ctx, goal.x, goal.y);
+  if (d > 40) SF.drawBobber(ctx, goal.x, goal.y, nearHead ? 54 : 28);
 };
 
 SF.drawEdgeArrow = function (ctx, w, h, s) {
