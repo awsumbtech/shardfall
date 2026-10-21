@@ -75,7 +75,7 @@ SF.restAtInn = function (spot) {
   s.lastRest = { island: SF.islandId, x: x, y: y };
   s.checkpoint = { x: x, y: y, island: SF.islandId };
   s.mode = "play";
-  SF.pushToast("Rested. Heart is full. The journey is saved.", 2.2);
+  SF.pushToast("Rested. HP is full. The journey is saved.", 2.2);
   if (SF.saveGame) SF.saveGame();
 };
 
@@ -996,8 +996,14 @@ SF.syncShopUI = function () {
     var info = SF.itemInfo(id);
     var btn = document.createElement("button");
     btn.type = "button";
-    btn.textContent = "Buy " + info.name + " — " + info.price + " marks";
-    btn.disabled = (s.gold || 0) < info.price;
+    var poor = (s.gold || 0) < info.price;
+    btn.classList.toggle("unaffordable", poor);
+    btn.disabled = poor;
+    btn.appendChild(document.createTextNode("Buy " + info.name + " — "));
+    var price = document.createElement("span");
+    price.className = poor ? "price poor" : "price";
+    price.textContent = info.price + " marks";
+    btn.appendChild(price);
     btn.addEventListener("click", function () { SF.buyFromShop(id); SF.syncShopUI(); });
     list.appendChild(btn);
   });
@@ -1026,7 +1032,8 @@ SF.syncInnUI = function () {
   if (!s || s.mode !== "inn" || !s.inn) return;
   document.getElementById("inn-title").textContent = s.inn.title || "Inn";
   SF.paintKeeper(SF.ensureKeeper(panel, "inn-face"), SF.keeperPortrait(s.inn.name || s.inn.title));
-  document.getElementById("inn-copy").textContent = s.inn.blurb || "Rest here?";
+  var blurb = s.inn.blurb || "Rest here?";
+  document.getElementById("inn-copy").textContent = String(blurb).replace(/\bHeart\b/g, "HP");
 };
 
 SF.syncNoticeUI = function () {

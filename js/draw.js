@@ -2288,7 +2288,7 @@ SF.drawGuide = function (ctx, s) {
   if (d > 70) {
     var ang = Math.atan2(dy, dx);
     ctx.save();
-    ctx.translate(p.x + Math.cos(ang) * 28, p.y + Math.sin(ang) * 28);
+    ctx.translate(p.x + Math.cos(ang) * 52, p.y + Math.sin(ang) * 52);
     ctx.rotate(ang);
     ctx.fillStyle = "rgba(255, 211, 122, 0.95)";
     ctx.strokeStyle = "rgba(20, 10, 30, 0.55)";
