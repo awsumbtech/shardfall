@@ -2198,7 +2198,9 @@ SF.entityList = function (s) {
           ctx.font = "600 12px Palatino, Georgia, serif";
           ctx.textAlign = "center";
           ctx.fillStyle = "#fff8ee";
-          ctx.fillText(n.name, nx, ny - 34);
+          var wide = ctx.measureText(n.name).width;
+          var tag = SF.nameTag ? SF.nameTag(nx, ny, n.name, s.player, wide) : { x: nx, y: ny - 34 };
+          ctx.fillText(n.name, tag.x, tag.y);
           ctx.restore();
         }
         ctx.restore();
@@ -2338,6 +2340,8 @@ SF.goalPrecise = function (goal) {
 };
 
 SF.GUIDE_NEAR = 18;
+SF.GUIDE_HEAD = 42;
+SF.LAMP_NEAR = 24;
 
 SF.guideActor = function (goal) {
   var i, n, feet;
@@ -2351,16 +2355,39 @@ SF.guideActor = function (goal) {
   return null;
 };
 
-// Diamond sits above the target's head. A hero standing due north would
-// otherwise cover that slot, so the mark rises clear of the hero too.
-SF.guideLift = function (goal, p) {
-  var lift = 62;
-  if (!goal || !p) return lift;
-  if (Math.abs(p.x - goal.x) >= 18) return lift;
-  var heroTop = p.y - 36;
-  var markY = goal.y - lift;
-  if (markY > heroTop - 6 && markY < p.y + 8) lift = goal.y - (heroTop - 14);
-  return lift;
+// Fixed world offset above the target's feet. Not shifted for the camera or the hero.
+SF.guideLift = function () {
+  return SF.GUIDE_HEAD || 42;
+};
+
+// The overhead name moves aside when the hero is standing in that slot.
+SF.nameTag = function (nx, ny, text, hero, wide) {
+  var x = nx;
+  var y = ny - 34;
+  wide = wide || Math.ceil(String(text || "").length * 6.4);
+  if (!hero) return { x: x, y: y };
+  function hits(tx, ty) {
+    var left = tx - wide / 2;
+    var right = tx + wide / 2;
+    var top = ty - 12;
+    var bot = ty + 2;
+    var hLeft = hero.x - 16;
+    var hRight = hero.x + 16;
+    var hTop = hero.y - 34;
+    var hBot = hero.y + 2;
+    return right > hLeft && left < hRight && bot > hTop && top < hBot;
+  }
+  if (!hits(x, y)) return { x: x, y: y };
+  var side = hero.x > nx + 8 ? -1 : 1;
+  var beside = ny - 22;
+  var shifted = nx + side * (wide / 2 + 14);
+  if (!hits(shifted, beside)) return { x: shifted, y: beside };
+  return { x: nx - side * (wide / 2 + 14), y: beside };
+};
+
+SF.lampClose = function (s) {
+  if (!s || !s.player || !SF.LAMP || SF.islandId !== "cinderveil") return false;
+  return Math.hypot(s.player.x - SF.LAMP.x, s.player.y - SF.LAMP.y) <= (SF.LAMP_NEAR || 24);
 };
 
 SF.goalOnScreen = function (goal, s, w, h) {
@@ -2383,6 +2410,7 @@ SF.drawGuide = function (ctx, s) {
   var dy = goal.y - p.y;
   var d = Math.hypot(dx, dy);
   if (d <= (SF.GUIDE_NEAR || 18)) return;
+  if (SF.lampClose && SF.lampClose(s) && SF.LAMP && Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y) <= 8) return;
   var actor = SF.guideActor(goal);
   if (d > 96) {
     var ang = Math.atan2(dy, dx);
@@ -2411,13 +2439,19 @@ SF.drawGuide = function (ctx, s) {
   if (actor || d > 40) SF.drawBobber(ctx, goal.x, goal.y, actor ? SF.guideLift(goal, p) : 28);
 };
 
+SF.hideEdgeArrow = function (goal, s, w, h) {
+  if (!goal) return true;
+  if (goal.kind === "shard" && goal.precise === false) return false;
+  var pd = s && s.player ? Math.hypot(goal.x - s.player.x, goal.y - s.player.y) : Infinity;
+  if (pd <= (SF.GUIDE_NEAR || 18)) return true;
+  if (SF.lampClose && SF.lampClose(s) && SF.LAMP && Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y) <= 8) return true;
+  return !!(SF.goalOnScreen && SF.goalOnScreen(goal, s, w, h));
+};
+
 SF.drawEdgeArrow = function (ctx, w, h, s) {
   if (!s || s.mode !== "play" || !SF.objectivePoint) return;
   var goal = SF.objectivePoint(s);
-  if (!goal) return;
-  var pd = s.player ? Math.hypot(goal.x - s.player.x, goal.y - s.player.y) : Infinity;
-  if (pd <= (SF.GUIDE_NEAR || 18)) return;
-  if (SF.goalOnScreen(goal, s, w, h)) return;
+  if (!goal || SF.hideEdgeArrow(goal, s, w, h)) return;
   var sensed = goal.kind === "shard" && goal.precise === false;
   var zoom = SF.zoom || 1;
   var sx = (goal.x - s.camX) * zoom + w / 2;

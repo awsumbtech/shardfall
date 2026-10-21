@@ -901,8 +901,8 @@ SF.lampRoutePoint = function (s) {
   var goal = { x: lamp.x, y: lamp.y };
   var p = s && s.player;
   if (!p || SF.islandId !== "cinderveil") return goal;
-  // Standing on the lamp used to skip it and aim back down the stair.
-  if (SF.dist(p.x, p.y, goal.x, goal.y) <= (SF.GUIDE_NEAR || 18)) return goal;
+  // The lamp tile itself is blocked. Any walkable spot within 1.5 tiles counts as arrived.
+  if (SF.dist(p.x, p.y, goal.x, goal.y) <= (SF.LAMP_NEAR || 24)) return goal;
   var tile = 16;
   var marks = [
     { x: 41 * tile, y: 33 * tile },

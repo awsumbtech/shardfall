@@ -678,11 +678,11 @@ for (const who of [
       heroAt,
       npcAt,
       heroSouth: p.y > (feet ? feet.y : p.y),
-      aboveHead: !!(feet && markY < feet.y - 40),
+      pinned: !!(feet && lift >= 40 && lift <= 56 && Math.abs((goal.y - markY) - lift) < 0.1),
       onX: !!(feet && Math.abs(goal.x - feet.x) < 2)
     };
   });
-  check(marker.aboveHead && marker.onX && marker.heroSouth && marker.heroAt > marker.npcAt, who.id + " marker sits above the head and the hero sorts in front");
+  check(marker.pinned && marker.onX && marker.heroSouth && marker.heroAt > marker.npcAt, who.id + " marker sits above the head and the hero sorts in front");
   const shoveNpc = await shove(who.id, spot.x, spot.y + 48, 0, -1);
   const gap = Math.hypot(shoveNpc.after.x - spot.x, shoveNpc.after.y - spot.y);
   check(gap >= 30, who.id + " blocks the hero (" + gap.toFixed(1) + ")");
@@ -946,7 +946,7 @@ const north = await page.evaluate(() => {
   const feet = SF.actorFeet(n);
   const p = SF.state.player;
   p.x = feet.x;
-  p.y = feet.y - 46;
+  p.y = feet.y - 45;
   p.safeX = p.x;
   p.safeY = p.y;
   SF.state.camX = feet.x;
@@ -954,16 +954,21 @@ const north = await page.evaluate(() => {
   const goal = SF.objectivePoint(SF.state);
   const lift = SF.guideLift(goal, p);
   const markY = goal.y - lift;
+  const tag = SF.nameTag(feet.x, feet.y, n.name, p);
+  const wide = Math.ceil(n.name.length * 6.4);
+  const nameHitsHero = (tag.x + wide / 2 > p.x - 16) && (tag.x - wide / 2 < p.x + 16) && (tag.y + 2 > p.y - 34) && (tag.y - 12 < p.y + 2);
   return {
     onX: Math.abs(goal.x - feet.x) < 2,
-    aboveHead: markY < feet.y - 40,
-    clearOfHero: markY < p.y - 36,
-    onScreen: SF.goalOnScreen(goal, SF.state, SF.viewW || 915, SF.viewH || 412),
+    pinned: lift >= 40 && lift <= 56 && markY > feet.y - 60 && markY < feet.y - 36,
+    nameClear: !nameHitsHero,
+    edgeHidden: SF.hideEdgeArrow(goal, SF.state, SF.viewW || 915, SF.viewH || 412),
     x: feet.x,
-    y: p.y
+    y: p.y,
+    lift,
+    tag
   };
 });
-check(north.onX && north.aboveHead && north.clearOfHero && north.onScreen, "north of Kestrel the mark stays above her and the edge arrow hides (" + JSON.stringify(north) + ")");
+check(north.onX && north.pinned && north.nameClear && north.edgeHidden, "north of Kestrel the diamond stays on her head and the name clears the hero (" + JSON.stringify(north) + ")");
 await place(page, north.x, north.y, 0, 1);
 await shot(page, "39-kestrel-north.png");
 
@@ -975,21 +980,55 @@ const lampNear = await page.evaluate(() => {
   SF.state.shardsHeld = 3;
   SF.state.flags.mawDead = true;
   SF.state.flags.cinderLit = false;
-  SF.state.player.x = SF.LAMP.x + 4;
-  SF.state.player.y = SF.LAMP.y + 6;
-  SF.state.camX = SF.LAMP.x;
-  SF.state.camY = SF.LAMP.y;
+  const spots = [[656, 147], [638, 122], [674, 134], [650, 146], [662, 150], [641, 146], [670, 142]];
+  const rows = spots.map(([x, y]) => {
+    SF.state.player.x = x;
+    SF.state.player.y = y;
+    const goal = SF.objectivePoint(SF.state);
+    return {
+      x, y,
+      walk: SF.walkable(x, y) && !SF.blocksFoot(x, y),
+      lamp: Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y),
+      down: goal.y > y + 8
+    };
+  });
+  return { rows, lamp: { x: SF.LAMP.x, y: SF.LAMP.y } };
+});
+const lampBad = lampNear.rows.filter((row) => !row.walk || row.lamp > 8 || row.down);
+check(lampBad.length === 0, "tiles within 1.5 of the lamp count as arrived (" + JSON.stringify(lampBad) + ")");
+await place(page, 656, 147, 0, -1);
+await shot(page, "40-lamp-close.png");
+
+const sense = await page.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  SF.state.quest = "gather";
+  SF.state.flags.shard_sense = true;
+  SF.state.shardsHeld = 0;
+  SF.state.picked = {};
+  const shard = (SF.PICKUPS || []).find((item) => item.kind === "shard" && !item.secret);
+  SF.state.player.x = shard.x - 160;
+  SF.state.player.y = shard.y;
+  SF.state.camX = SF.state.player.x;
+  SF.state.camY = SF.state.player.y;
+  SF.zoom = 1;
   const goal = SF.objectivePoint(SF.state);
+  const dist = Math.hypot(goal.x - SF.state.player.x, goal.y - SF.state.player.y);
+  const w = SF.viewW || 915;
+  const h = SF.viewH || 412;
   return {
-    lamp: Math.hypot(goal.x - SF.LAMP.x, goal.y - SF.LAMP.y),
-    player: Math.hypot(SF.state.player.x - goal.x, SF.state.player.y - goal.y),
-    x: SF.LAMP.x,
-    y: SF.LAMP.y
+    sensed: goal.kind === "shard" && goal.precise === false,
+    dist,
+    onScreen: SF.goalOnScreen(goal, SF.state, w, h),
+    shown: !SF.hideEdgeArrow(goal, SF.state, w, h),
+    x: SF.state.player.x,
+    y: SF.state.player.y
   };
 });
-check(lampNear.lamp <= 8 && lampNear.player <= 18, "standing at the lamp does not point back down the stair (" + lampNear.lamp.toFixed(1) + ")");
-await place(page, lampNear.x, lampNear.y + 8, 0, -1);
-await shot(page, "40-lamp-close.png");
+check(sense.sensed && sense.dist > 96 && sense.onScreen && sense.shown, "a far shard still on screen keeps the pale sense arrow (" + JSON.stringify(sense) + ")");
+await place(page, sense.x, sense.y, 1, 0);
+await shot(page, "41-sense-arrow.png");
 
 await phoneCtx.close();
 
