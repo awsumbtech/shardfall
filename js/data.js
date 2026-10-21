@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.21";
+SF.VERSION = "0.4.22";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -31,7 +31,8 @@ SF.WHATS_NEW = [
   "Act 1 scenes now match the story: the Maw crumbles to ash, Ilsa walks up to the ridge, and the skiff sails away at the end.",
   "In battle the whole party stands on the ground, lists show more rows, and the Cinder Maw is a fairer fight.",
   "Menus and the sail chart stay open after you tap, and the stick no longer sticks when you open a menu with a second finger.",
-  "Act 1 dialogue is clearer: one name for the lamp, side questions return to your choices, and Kestrel always introduces herself."
+  "Act 1 dialogue is clearer: one name for the lamp, side questions return to your choices, and Kestrel always introduces herself.",
+  "Resting heals you fully, a loss sends you back in front of the last stop, people are solid, fences connect, and the Cinder Maw asks before the fight."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
