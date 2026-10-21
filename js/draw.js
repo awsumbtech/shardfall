@@ -1357,7 +1357,7 @@ SF.drawPropArt = function (ctx, prop, lit) {
   else if (id === "stake") id = lit ? "lamp_lit" : "lamp_cold";
   else if (id === "flower") {
     var c = prop.c || "";
-    id = (c.indexOf("9af") !== -1 || c.indexOf("c8be") !== -1) ? "flower_tide" : (c.indexOf("ffb") !== -1 || c.indexOf("ffe") !== -1 || c.indexOf("e7a") !== -1 ? "flower_gold" : "flower");
+    id = (c.indexOf("9af") !== -1 || c.indexOf("c8be") !== -1) ? "flower_tide" : (c.indexOf("ffb") !== -1 || c.indexOf("ffe") !== -1 || c.indexOf("e7a") !== -1 ? "flower_gold" : ((c.indexOf("c6b6") !== -1 || c.indexOf("d8c6") !== -1) ? "blossom" : "flower"));
   } else if (Art.fieldProp) {
     id = Art.fieldProp(prop, SF.islandId);
     if (!id) return true;
@@ -2015,7 +2015,7 @@ SF.palmPoint = function (p) {
 SF.drawLampCrystal = function (ctx, lit) {
   var x = SF.LAMP.x;
   var y = SF.LAMP.y;
-  var crystalY = y - 126;
+  var crystalY = y - ((window.Art && Art.lampCrystalDy) || 34);
   var flare = SF.lampFlareAmt ? SF.lampFlareAmt(SF.state) : 0;
   var showLit = lit || flare > 0.35;
   if (window.Art && Art.sprite) {
