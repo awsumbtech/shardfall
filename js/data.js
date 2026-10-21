@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.15";
+SF.VERSION = "0.4.16";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -25,7 +25,8 @@ SF.WHATS_NEW = [
   "You and the townspeople have new looks.",
   "New enemies are on the road, including a boss.",
   "Fights have new backgrounds.",
-  "Menus fit your phone screen, with Close always in reach."
+  "Menus fit your phone screen, with Close always in reach.",
+  "Defend really blocks now, and battle lists scroll and work with keys and a controller."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
