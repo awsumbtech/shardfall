@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.14";
+SF.VERSION = "0.4.15";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -24,7 +24,8 @@ SF.WHATS_NEW = [
   "Trees, flowers, rocks, and lamps look new. Cottages, stalls, and ruins were rebuilt.",
   "You and the townspeople have new looks.",
   "New enemies are on the road, including a boss.",
-  "Fights have new backgrounds."
+  "Fights have new backgrounds.",
+  "Menus fit your phone screen, with Close always in reach."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
