@@ -291,21 +291,35 @@ SF.bindInput = function () {
     }
   });
 
+  SF.releaseMove = function () {
+    var i = SF.inputState;
+    if (!i) return;
+    i.stickX = 0;
+    i.stickY = 0;
+    i.stickId = null;
+    i.keysX = 0;
+    i.keysY = 0;
+    i.padX = 0;
+    i.padY = 0;
+    ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].forEach(function (code) {
+      i.keys.delete(code);
+    });
+    var knobEl = document.getElementById("knob");
+    if (knobEl) knobEl.style.transform = "translate(0px,0px)";
+  };
+
   window.addEventListener("blur", function () {
     SF.inputState.attack = false;
     SF.inputState.attackKey = false;
     SF.inputState.grappleHold = false;
-    SF.inputState.stickX = 0;
-    SF.inputState.stickY = 0;
-    SF.inputState.stickId = null;
-    var knobEl = document.getElementById("knob");
-    if (knobEl) knobEl.style.transform = "translate(0px,0px)";
+    if (SF.releaseMove) SF.releaseMove();
     if (SF.state && (SF.state.mode === "play" || SF.state.mode === "dialogue" || SF.state.mode === "cutscene")) {
       SF.pauseGame();
     }
   });
 
   document.addEventListener("visibilitychange", function () {
+    if (SF.releaseMove) SF.releaseMove();
     if (document.hidden && SF.state && SF.state.mode !== "title" && SF.state.mode !== "pause") {
       SF.saveGame({ silent: true });
       SF.pauseGame();
@@ -321,6 +335,7 @@ SF.bindInput = function () {
   // synthesizes. The next press (pointerdown, then click) is the first one
   // that can hit a button. Same idea as the chest lock in v0.4.10.
   SF._pressId = null;
+  SF._held = Object.create(null);
   SF._fresh = null;
   SF._overlayKey = "";
   function overlayOpen(mode, extra) {
@@ -329,8 +344,20 @@ SF.bindInput = function () {
       mode === "hand" || mode === "fieldmenu" || mode === "chest" || mode === "pause" ||
       mode === "dialogue";
   }
+  function priorFingers(exceptId) {
+    var ids = [];
+    var key;
+    for (key in SF._held) {
+      if (Number(key) !== exceptId) ids.push(Number(key));
+    }
+    return ids;
+  }
+  function isPriorFinger(e) {
+    return !!(SF._fresh && SF._fresh.prior && SF._fresh.prior.indexOf(e.pointerId) >= 0);
+  }
   SF.armFreshPress = function () {
-    SF._fresh = { opener: SF._pressId, armed: false };
+    var opener = SF._pressId;
+    SF._fresh = { opener: opener, prior: priorFingers(opener), armed: false, swallowClick: false };
   };
   SF.watchOverlays = function () {
     var s = SF.state;
@@ -340,6 +367,7 @@ SF.bindInput = function () {
     if (key === SF._overlayKey) return;
     var prev = SF._overlayKey;
     SF._overlayKey = key;
+    if (SF.releaseMove) SF.releaseMove();
     var prevMode = prev.split("|")[0];
     var prevExtra = prev.indexOf("|") >= 0;
     var now = overlayOpen(s && s.mode, extra);
@@ -347,33 +375,47 @@ SF.bindInput = function () {
     if (now && (!was || key !== prev)) SF.armFreshPress();
   };
   function releasePress(e) {
+    delete SF._held[e.pointerId];
     if (SF._pressId === e.pointerId) SF._pressId = null;
     if (SF._fresh && SF._fresh.opener === e.pointerId) SF._fresh.opener = null;
   }
   function armIfFresh(e) {
-    if (!SF._fresh || SF._fresh.armed) return;
+    if (!SF._fresh || SF._fresh.armed || isPriorFinger(e)) return;
     if (SF._fresh.opener == null || e.pointerId !== SF._fresh.opener) SF._fresh.armed = true;
   }
   function swallowStale(e) {
-    if (!SF._fresh || SF._fresh.armed) return;
-    if (e.type === "click" && !e.detail) return;
+    if (!SF._fresh || SF._fresh.armed || isPriorFinger(e)) return;
+    if (e.type === "click") {
+      if (!e.detail || !SF._fresh.swallowClick) return;
+      SF._fresh.swallowClick = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (SF._fresh.opener == null || e.pointerId !== SF._fresh.opener) return;
+    SF._fresh.swallowClick = true;
     e.preventDefault();
     e.stopPropagation();
   }
   document.addEventListener("pointerdown", function (e) {
     SF._pressId = e.pointerId;
     armIfFresh(e);
+    SF._held[e.pointerId] = true;
     queueMicrotask(function () {
       if (SF.watchOverlays) SF.watchOverlays();
     });
   }, true);
   document.addEventListener("pointerup", function (e) {
-    releasePress(e);
     swallowStale(e);
+    releasePress(e);
   }, true);
   document.addEventListener("pointercancel", function (e) {
-    releasePress(e);
+    if (SF.releaseMove) SF.releaseMove();
     swallowStale(e);
+    releasePress(e);
+  }, true);
+  document.addEventListener("touchcancel", function () {
+    if (SF.releaseMove) SF.releaseMove();
   }, true);
   document.addEventListener("click", swallowStale, true);
   function portraitBlocking() {

@@ -1638,4 +1638,7 @@ SF.mountIsland("emberhold");
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit" });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
+const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit" });
+if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
+
 console.log("smoke ok");
