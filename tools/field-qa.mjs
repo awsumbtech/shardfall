@@ -21,6 +21,7 @@ function check(ok, msg) {
 }
 
 async function shot(page, name) {
+  await page.evaluate(() => { if (SF.flushSheets) SF.flushSheets(); });
   const file = path.join(outDir, name);
   await page.screenshot({ path: file });
   console.log("shot " + file);
@@ -936,81 +937,75 @@ for (const innId of ["ember-hearth", "quay-bunk"]) {
   await shot(page, innId === "ember-hearth" ? "37-inn-ember.png" : "38-inn-cinder.png");
 }
 
-const northStops = await page.evaluate(() => {
+const kestrelMark = await page.evaluate(() => {
   SF.mountIsland("emberhold");
   SF.state.island = "emberhold";
   SF.state.mode = "play";
   SF.state.quest = "stirring";
   SF.state.dialogue = null;
   SF.state.encounterGrace = 100000;
-  if (SF.watchOverlays) SF.watchOverlays();
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  ctx.font = "600 12px Palatino, Georgia, serif";
-  const wide = ctx.measureText(n.name).width;
-  const dirs = { N: [0, 1], NE: [-1, 1], NW: [1, 1] };
-  const rows = {};
-  Object.keys(dirs).forEach((key) => {
-    const dir = dirs[key];
-    const mag = Math.hypot(dir[0], dir[1]);
-    const nx = dir[0] / mag;
-    const ny = dir[1] / mag;
+  const talk = SF.TALK_RANGE || 54;
+  // 3 tiles (48) is still inside talk range, so the diamond stays hidden there.
+  // The centered mark is checked outside talk range, which is still 3 or more tiles.
+  const far = Math.max(4 * 16, talk + 8);
+  const dirs = {
+    N: [0, -1], NE: [1, -1], E: [1, 0], SE: [1, 1],
+    S: [0, 1], SW: [-1, 1], W: [-1, 0], NW: [-1, -1]
+  };
+  const nearDists = [35, 45, 48, talk - 1];
+  const rows = { talk, far, near: {}, shown: {}, slide: typeof SF.guideAnchor === "function" || typeof SF.nameTag === "function" };
+  function stand(dir, dist) {
+    const mag = Math.hypot(dir[0], dir[1]) || 1;
     const p = SF.state.player;
-    p.x = feet.x - nx * 48;
-    p.y = feet.y - ny * 48;
-    p.px = p.x;
-    p.py = p.y;
-    p.safeX = p.x;
-    p.safeY = p.y;
-    p.hx = 0;
-    p.hy = 0;
-    p.dashT = 0;
-    if (SF.watchOverlays) SF.watchOverlays();
-    SF.inputState.keysX = nx;
-    SF.inputState.keysY = ny;
-    SF.inputState.stickX = 0;
-    SF.inputState.stickY = 0;
-    let i;
-    for (i = 0; i < 80; i++) SF.updatePlayer(1 / 60);
-    SF.inputState.keysX = 0;
-    SF.inputState.keysY = 0;
+    p.x = feet.x + (dir[0] / mag) * dist;
+    p.y = feet.y + (dir[1] / mag) * dist;
     const goal = SF.objectivePoint(SF.state);
-    const anchor = SF.guideAnchor(goal, p);
-    const mark = SF.markBox(anchor.x, anchor.y);
-    const hero = SF.spriteBox("wayfarer", p.x, p.y);
-    const target = SF.spriteBox("kestrel", feet.x, feet.y);
-    const crownX = (target.left + target.right) / 2;
-    const crownY = target.top;
-    const heroX = (hero.left + hero.right) / 2;
-    const heroY = (hero.top + hero.bottom) / 2;
-    const tag = SF.nameTag(feet.x, feet.y, n.name, p, wide);
-    const nameBox = { left: tag.x - wide / 2, top: tag.y - 12, right: tag.x + wide / 2, bottom: tag.y + 2 };
-    rows[key] = {
-      x: Math.round(p.x * 10) / 10,
-      y: Math.round(p.y * 10) / 10,
+    const mark = SF.guideMark(goal, p);
+    return {
       dist: Math.round(Math.hypot(p.x - feet.x, p.y - feet.y) * 10) / 10,
-      overlap: SF.boxesOverlap(mark, hero),
-      nameOverlap: SF.boxesOverlap(nameBox, hero),
-      above: mark.bottom <= target.top + 2 || (anchor.y <= target.top + 8 && (anchor.x < target.left || anchor.x > target.right)),
-      closer: Math.hypot(anchor.x - crownX, anchor.y - crownY) < Math.hypot(anchor.x - heroX, anchor.y - heroY),
-      anchor
+      hidden: !mark,
+      x: mark ? Math.round(mark.x * 10) / 10 : null,
+      lift: mark ? mark.lift : 0,
+      centered: !!(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 40 && mark.lift <= 56)
     };
+  }
+  Object.keys(dirs).forEach((key) => {
+    rows.near[key] = nearDists.map((dist) => stand(dirs[key], dist));
+    rows.shown[key] = stand(dirs[key], far);
   });
+  const north = stand([0, -1], 35);
+  rows.place = {
+    close: { x: feet.x, y: feet.y - 35 },
+    ne: { x: feet.x + 35 / Math.SQRT2, y: feet.y - 35 / Math.SQRT2 },
+    nw: { x: feet.x - 35 / Math.SQRT2, y: feet.y - 35 / Math.SQRT2 },
+    south: { x: feet.x, y: feet.y + 40 },
+    far: { x: feet.x, y: feet.y - far },
+    north
+  };
   return rows;
 });
-["N", "NE", "NW"].forEach((key) => {
-  const row = northStops[key];
-  check(row && row.dist >= 34 && row.dist <= 40 && !row.overlap && !row.nameOverlap && row.above && row.closer,
-    "Kestrel mark from the " + key + " stops clear of the hero (" + JSON.stringify(row) + ")");
+check(!kestrelMark.slide, "the objective mark is not slid beside the hero");
+Object.keys(kestrelMark.near).forEach((key) => {
+  const bad = kestrelMark.near[key].filter((row) => !row.hidden);
+  check(bad.length === 0, "no Kestrel diamond within talk range from the " + key + " (" + JSON.stringify(kestrelMark.near[key]) + ")");
 });
-await place(page, northStops.N.x, northStops.N.y, 0, 1);
+Object.keys(kestrelMark.shown).forEach((key) => {
+  const row = kestrelMark.shown[key];
+  check(row && row.centered && row.dist >= 48 && row.dist > kestrelMark.talk,
+    "centered Kestrel diamond from 3 or more tiles, " + key + " (" + JSON.stringify(row) + ")");
+});
+await place(page, kestrelMark.place.close.x, kestrelMark.place.close.y, 0, 1);
 await shot(page, "39-kestrel-north.png");
-await place(page, northStops.NE.x, northStops.NE.y, -1, 1);
+await place(page, kestrelMark.place.ne.x, kestrelMark.place.ne.y, -1, 1);
 await shot(page, "42-kestrel-ne.png");
-await place(page, northStops.NW.x, northStops.NW.y, 1, 1);
+await place(page, kestrelMark.place.nw.x, kestrelMark.place.nw.y, 1, 1);
 await shot(page, "43-kestrel-nw.png");
+await place(page, kestrelMark.place.south.x, kestrelMark.place.south.y, 0, -1);
+await shot(page, "44-kestrel-south.png");
+await place(page, kestrelMark.place.far.x, kestrelMark.place.far.y, 0, 1);
+await shot(page, "45-kestrel-far.png");
 
 const lampNear = await page.evaluate(() => {
   SF.mountIsland("cinderveil");
@@ -1174,6 +1169,36 @@ if (deskFence) {
   await keys.waitForTimeout(80);
   await shot(keys, "35-desk-fence.png");
 }
+
+const deskMark = await keys.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
+  SF.state.mode = "play";
+  SF.state.quest = "stirring";
+  SF.state.dialogue = null;
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const talk = SF.TALK_RANGE || 54;
+  const far = Math.max(4 * 16, talk + 8);
+  const dirs = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+  const p = SF.state.player;
+  const near = [];
+  const shown = [];
+  dirs.forEach((dir) => {
+    const mag = Math.hypot(dir[0], dir[1]);
+    [35, 45, talk - 1].forEach((dist) => {
+      p.x = feet.x + (dir[0] / mag) * dist;
+      p.y = feet.y + (dir[1] / mag) * dist;
+      near.push(SF.guideMark(SF.objectivePoint(SF.state), p));
+    });
+    p.x = feet.x + (dir[0] / mag) * far;
+    p.y = feet.y + (dir[1] / mag) * far;
+    const mark = SF.guideMark(SF.objectivePoint(SF.state), p);
+    shown.push(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 40 && mark.lift <= 56);
+  });
+  return { hidden: near.every((mark) => !mark), centered: shown.every(Boolean) };
+});
+check(deskMark.hidden && deskMark.centered, "desktop Kestrel diamond hides in talk range and centers past it (" + JSON.stringify(deskMark) + ")");
 
 await browser.close();
 

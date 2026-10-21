@@ -509,11 +509,13 @@ SF.interactRank = function (kind) {
   return 2;
 };
 
+SF.TALK_RANGE = 54;
+
 SF.nearestInteract = function (range) {
   var s = SF.state;
   var p = s.player;
   var best = null;
-  var limit = range || 54;
+  var limit = range || SF.TALK_RANGE || 54;
   function consider(kind, ref, x, y) {
     var d = SF.dist(p.x, p.y, x, y);
     if (d >= limit) return;
