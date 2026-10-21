@@ -1958,58 +1958,125 @@ function eBake(part, pose, frame, ax) {
     return eOut(p, { s: MAT.stone, a: MAT.armor, m: MAT.metal, g: MAT.gold }, 16, true, true);
   }
 
-  function buildMawBody(frame, pose, field) {
-    var w = field ? 52 : 90;
-    var h = field ? 42 : 96;
-    var sc = field ? 0.5 : 1;
-    var p = new ePair(w, h);
-    var m = p.m;
-    var open = pose === "hurt" ? 0 : (pose === "attack" ? (frame ? 16 : 10) : (frame ? 12 : 8));
-    if (field) open = Math.max(4, (open / 2) | 0);
-    var ox = field ? 6 : 8;
-    var oy = field ? 4 : 8;
-    var jy = (field ? 24 : 48) + (open > 6 ? 2 : 0);
-    m.tri(ox + 18, oy + 16, ox + 24, oy + 2, ox + 32, oy + 16, "r");
-    m.tri(ox + 34, oy + 18, ox + 46, oy, ox + 52, oy + 18, "r");
-    m.tri(ox + 8, oy + 20, ox + 4, oy + 8, ox + 16, oy + 20, "r");
-    m.disc(ox + 30, oy + 24, field ? 16 : 28, field ? 12 : 16, "r");
-    m.fill(ox + 10, oy + 18, field ? 28 : 48, field ? 10 : 16, "r");
-    m.fill(ox + 16, jy, field ? 26 : 46, field ? 8 : 14, "r");
-    m.disc(ox + 36, jy + (field ? 6 : 10), field ? 12 : 22, field ? 5 : 9, "r");
-    m.fill(ox + 22, oy + 28, field ? 18 : 36, Math.max(4, (field ? open : open)), "k");
-    var tooth = field ? 3 : 5;
-    var i;
-    for (i = 0; i < tooth; i++) {
-      var tx = ox + 24 + i * (field ? 4 : 6);
-      var th = (field ? 3 : 5) + (i % 2 ? 2 : 0);
-      if (pose === "hurt") th = field ? 2 : 3;
-      m.fill(tx, oy + 28, 2, th, "t");
-      m.fill(tx, jy + (field ? 4 : 8) - (i % 2), 2, field ? 2 : 3, "t");
+// Stamp a thick ribbon so coils and limbs read as one mass, not separate blobs.
+function eRibbon(grid, pts, r, ch) {
+  var i, a, b, dist, steps, s, t, x, y;
+  if (!pts.length) return;
+  for (i = 0; i < pts.length; i++) grid.disc(pts[i][0], pts[i][1], r, Math.max(2, r - 1), ch);
+  for (i = 0; i < pts.length - 1; i++) {
+    a = pts[i];
+    b = pts[i + 1];
+    dist = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+    steps = Math.max(1, dist);
+    for (s = 0; s <= steps; s++) {
+      t = s / steps;
+      x = Math.round(a[0] + (b[0] - a[0]) * t);
+      y = Math.round(a[1] + (b[1] - a[1]) * t);
+      grid.disc(x, y, r, Math.max(2, r - 1), ch);
     }
-    var cr = field ? 3 : 7;
-    m.disc(ox + 32, oy + 32 + ((open / 4) | 0), cr, cr, "e");
-    m.fill(ox + 14, h - (field ? 10 : 16), field ? 8 : 12, field ? 7 : 12, "r");
-    m.fill(ox + 30, h - (field ? 9 : 14), field ? 8 : 14, field ? 6 : 11, "r");
-    m.fill(ox + 14, h - 4, field ? 7 : 10, 2, "d");
-    m.fill(ox + 32, h - 4, field ? 7 : 12, 2, "d");
-    var eyeX = ox + (field ? 34 : 58);
-    var eyeY = oy + (field ? 16 : 26);
-    if (pose === "hurt") eShut(p.d, eyeX, eyeY, field ? 4 : 7);
-    else eEye(p.d, eyeX, eyeY, field ? 5 : 8, field ? 3 : 5, field ? 3 : 5);
-    eBrows(p.d, eyeX - 1, eyeY - 2, field ? 7 : 10, true);
-    p.d.plot(ox + 32, oy + 32, "w");
-    p.d.plot(ox + 31, oy + 31, "y");
-    p.d.line(ox + 18, oy + 22, ox + 28, oy + 34, "o");
-    p.d.line(ox + 40, oy + 20, ox + 48, oy + 30, "r");
-    p.d.plot(ox + 26, oy + 30, "b");
-    p.d.plot(ox + 44, jy + 2, "w");
-    if (pose === "cast" || (pose === "idle" && frame)) p.d.plot(ox + 33, oy + 32, "l");
-    if (pose === "attack" && !field) {
-      p.d.fill(w - 8, oy + 36, 4, 3, "o");
-      p.d.plot(w - 4, oy + 36, "y");
-    }
-    return eOut(p, { r: MAT.rock, k: MAT.voidm, t: MAT.bone, e: MAT.ember, d: MAT.ash }, field ? 26 : 40, true, true);
   }
+}
+
+// One hulking molten-rock beast. Every limb is buried in the torso so the
+// outline is a single silhouette: head, chest, belly, and planted legs.
+function buildMawBody(frame, pose, field) {
+  if (field) return buildMawField(frame, pose);
+  var p = new ePair(64, 96);
+  var m = p.m;
+  var bite = pose === "attack" ? (frame ? 5 : 3) : (pose === "hurt" ? 0 : 1);
+  // Torso first. Later pieces overlap this block.
+  m.disc(26, 50, 16, 18, "r");
+  m.disc(40, 46, 15, 16, "r");
+  m.fill(12, 38, 36, 32, "r");
+  m.fill(18, 34, 22, 10, "r");
+  // Neck and head, overlapping the shoulders.
+  m.fill(34, 24, 16, 22, "r");
+  m.disc(46, 26, 12, 11, "r");
+  m.fill(40, 16, 14, 16, "r");
+  // Snout and jaw stay attached to the head.
+  m.fill(52, 20, 9, 10, "r");
+  m.fill(50, 28, 11, 6 + bite, "r");
+  m.tri(40, 18, 36, 6, 46, 18, "r");
+  m.tri(50, 16, 54, 4, 58, 18, "r");
+  // Ear sits on the back of the skull. A fill, so the tip cannot detach.
+  m.fill(32, 16, 8, 10, "r");
+  m.fill(30, 12, 4, 6, "r");
+  // Tail buried in the haunch.
+  m.fill(4, 42, 12, 8, "r");
+  m.fill(2, 38, 6, 6, "r");
+  // Three thick legs grown out of the belly, paws on the ground line.
+  m.fill(14, 58, 12, 34, "r");
+  m.fill(12, 86, 16, 8, "r");
+  m.fill(28, 60, 10, 32, "r");
+  m.fill(26, 88, 14, 6, "r");
+  m.fill(40, 54, 12, 38, "r");
+  m.fill(38, 86, 16, 8, "r");
+  // Darker rock on the belly and the inner legs. Still inside the silhouette.
+  m.fill(18, 56, 22, 14, "a");
+  m.fill(16, 70, 8, 16, "a");
+  m.fill(30, 72, 6, 14, "a");
+  m.fill(42, 70, 8, 16, "a");
+  // Ember core set into the chest, plus lava cracks across the hide.
+  m.disc(38, 48, 6, 5, "e");
+  m.disc(38, 48, 3, 3, "e");
+  p.d.disc(38, 48, 2, 2, frame ? "w" : "y");
+  p.d.plot(37, 47, "l");
+  p.d.line(20, 42, 32, 50, "o");
+  p.d.line(32, 50, 46, 42, "y");
+  p.d.line(16, 54, 24, 64, "o");
+  p.d.line(44, 56, 48, 74, "o");
+  p.d.line(18, 72, 20, 88, "y");
+  p.d.line(44, 74, 46, 90, "o");
+  p.d.line(34, 18, 40, 28, "o");
+  if (pose === "hurt") eShut(p.d, 48, 22, 6);
+  else eEye(p.d, 48, 20, 6, 4, 4);
+  eBrows(p.d, 46, 18, 8, true);
+  p.d.fill(54, 30, 7, 1 + Math.min(bite, 2), "n");
+  p.d.plot(55, 30, "t");
+  p.d.plot(57, 30, "t");
+  p.d.plot(59, 30, "b");
+  if (bite > 2) {
+    p.d.plot(55, 32, "t");
+    p.d.plot(58, 32, "t");
+  }
+  if (pose === "attack") {
+    p.d.fill(60, 26, 3, 3, "y");
+    p.d.plot(62, 25, "w");
+    p.d.plot(61, 29, "o");
+  }
+  if (pose === "cast") {
+    p.d.plot(38, 40, "w");
+    p.d.plot(34, 44, "y");
+    p.d.plot(42, 44, "o");
+  }
+  // Feet stay planted. The core pulses instead of the whole body hopping.
+  return eOut(p, { r: MAT.rock, a: MAT.ash, e: MAT.ember }, 32, false, true);
+}
+
+function buildMawField(frame, pose) {
+  var p = new ePair(44, 34);
+  var m = p.m;
+  m.disc(18, 16, 10, 8, "r");
+  m.disc(26, 15, 8, 7, "r");
+  m.fill(10, 12, 20, 10, "r");
+  m.fill(24, 8, 10, 12, "r");
+  m.disc(30, 12, 7, 6, "r");
+  m.fill(32, 10, 8, 6, "r");
+  m.fill(4, 14, 8, 5, "r");
+  m.fill(10, 18, 7, 12, "r");
+  m.fill(18, 20, 6, 10, "r");
+  m.fill(26, 18, 7, 12, "r");
+  m.fill(8, 28, 10, 4, "r");
+  m.fill(24, 28, 11, 4, "r");
+  m.tri(26, 8, 24, 3, 30, 8, "r");
+  m.disc(24, 16, 3, 3, "e");
+  if (pose === "hurt") eShut(p.d, 32, 10, 3);
+  else eEye(p.d, 31, 9, 4, 2, 2);
+  p.d.plot(24, 16, frame ? "w" : "y");
+  p.d.line(14, 14, 22, 18, "o");
+  p.d.fill(36, 13, 4, 1, "n");
+  return eOut(p, { r: MAT.rock, e: MAT.ember }, 20, false, true);
+}
 
   function buildWyrm(view, frame, pose) {
     return buildWyrmBody(frame, pose, false);
@@ -2023,52 +2090,66 @@ function eBake(part, pose, frame, ax) {
     var phase = frame ? 1 : 0;
     var coils, i, c, y, fin;
     if (field) {
-      coils = [[8, 22, 5], [18, 16, 5], [28, 24, 5], [38, 15, 5], [48, 22, 6]];
+      coils = [[8, 20], [18, 14], [28, 22], [38, 14], [50, 16]];
       for (i = 0; i < coils.length; i++) {
-        c = coils[i];
-        y = c[1] + ((i + phase) % 2 ? -2 : 2);
-        m.disc(c[0], y, c[2], c[2] - 1, i % 2 ? "t" : "s");
-        m.tri(c[0], y - c[2], c[0] - 2, y - c[2] + 2, c[0] + 2, y - c[2] + 2, "f");
+        coils[i][1] += (i + phase) % 2 ? -1 : 1;
       }
-      m.disc(56, 16, 6, 5, "s");
-      m.tri(58, 10, 62, 6, 64, 12, "f");
-      m.fill(58, 16, 4, 2, "k");
-      m.fill(58, 16, 3, 2, "t");
-      if (pose === "hurt") eShut(p.d, 54, 14, 3);
-      else eEye(p.d, 53, 13, 3, 2, 2);
+      eRibbon(m, coils, 5, "s");
+      m.disc(54, 14, 6, 5, "s");
+      m.tri(56, 8, 62, 4, 60, 12, "f");
+      m.fill(56, 14, 5, 3, "k");
+      m.fill(56, 14, 4, 2, "t");
+      for (i = 0; i < coils.length; i += 2) {
+        m.tri(coils[i][0], coils[i][1] - 4, coils[i][0] - 2, coils[i][1] - 7, coils[i][0] + 2, coils[i][1] - 4, "f");
+      }
+      if (pose === "hurt") eShut(p.d, 52, 12, 3);
+      else eEye(p.d, 51, 11, 3, 2, 2);
       p.d.plot(28, 18, "w");
       p.d.plot(27, 17, "l");
     } else {
-      coils = [[22, 84, 11], [36, 70, 11], [20, 56, 10], [38, 42, 10], [24, 28, 9]];
+      var sway = pose === "hurt" ? 2 : (phase ? 2 : 0);
+      coils = [
+        [20, 86 + sway],
+        [40, 74 - sway],
+        [22, 60 + sway],
+        [42, 46 - sway],
+        [26, 32 + sway],
+        [44, 20]
+      ];
+      eRibbon(m, coils, 11, "s");
+      // A second pass of tide along the spine keeps the belly one color family
+      // and fills any pinch between bends.
+      eRibbon(m, coils, 7, "t");
       for (i = 0; i < coils.length; i++) {
         c = coils[i];
-        y = c[1] + (pose === "hurt" ? 2 : ((i + phase) % 2 ? -2 : 1));
-        m.disc(c[0], y, c[2], c[2] - 1, i % 2 ? "t" : "s");
-        fin = c[0] + (i % 2 ? c[2] : -c[2]);
-        m.tri(fin, y - 2, fin + (i % 2 ? 4 : -4), y - 8, fin, y + 2, "f");
-        p.d.plot(c[0] - 3, y - 3, "l");
+        fin = c[0] + (i % 2 ? 12 : -12);
+        m.tri(c[0], c[1] - 2, fin, c[1] - 8, c[0], c[1] + 3, "f");
+        p.d.plot(c[0] - 4, c[1] - 3, "l");
       }
-      m.disc(40, 16, 9, 8, "s");
-      m.tri(36, 12, 30, 2, 42, 10, "f");
-      m.tri(46, 10, 54, 4, 50, 14, "f");
-      m.fill(46, 16, 6, 3, "k");
-      m.fill(46, 16, 4, 2, "t");
-      m.fill(48, 18, 2, 3, "t");
-      m.disc(28, 56, 4, 4, "p");
-      if (pose === "hurt") eShut(p.d, 38, 14, 5);
-      else eEye(p.d, 36, 12, 5, 4, 3);
-      p.d.plot(28, 56, "w");
-      p.d.plot(27, 55, "l");
-      p.d.plot(50, 17, "w");
+      // Head overlaps the last bend. Crest, jaw, and eye stay on that mass.
+      m.disc(48, 16, 12, 10, "s");
+      m.fill(46, 12, 16, 10, "s");
+      m.tri(40, 14, 34, 4, 48, 14, "f");
+      m.tri(52, 12, 60, 4, 58, 16, "f");
+      m.fill(56, 16, 10, 5, "s");
+      m.fill(58, 18, 8, 3, "k");
+      m.fill(58, 18, 6, 2, "t");
+      m.disc(30, 58, 5, 5, "p");
+      if (pose === "hurt") eShut(p.d, 48, 14, 6);
+      else eEye(p.d, 46, 12, 6, 4, 4);
+      eBrows(p.d, 45, 10, 8, true);
+      p.d.plot(30, 58, "w");
+      p.d.plot(29, 57, "l");
+      p.d.plot(62, 19, "w");
       if (pose === "attack") {
-        m.fill(54, 14, 8, 4, "s");
-        m.fill(60, 15, 4, 2, "t");
-        p.d.plot(64, 15, "w");
+        m.fill(64, 14, 6, 6, "s");
+        m.fill(66, 16, 4, 3, "t");
+        p.d.plot(68, 15, "w");
       }
       if (pose === "cast") {
-        p.d.plot(30, 48, "w");
-        p.d.plot(24, 52, "u");
-        p.d.plot(34, 50, "l");
+        p.d.plot(32, 50, "w");
+        p.d.plot(26, 54, "u");
+        p.d.plot(36, 52, "l");
       }
     }
     return eOut(p, { t: MAT.tide, s: MAT.sea, f: MAT.foam, k: MAT.voidm, p: MAT.foam, b: MAT.bone }, field ? 32 : 30, false, true);
@@ -2155,8 +2236,8 @@ function eBake(part, pose, frame, ax) {
   ePortrait("stormgull", C.stoneD, { x: 26, y: 16 });
   ePortrait("sentinel", C.stoneD, { x: 16, y: 14 });
   ePortrait("sootwing", C.rock, { x: 18, y: 14 });
-  ePortrait("cinder_maw", C.rock, { x: 48, y: 40 });
-  ePortrait("tidewyrm", C.sea, { x: 40, y: 20 });
+  ePortrait("cinder_maw", C.rock, { x: 48, y: 24 });
+  ePortrait("tidewyrm", C.sea, { x: 50, y: 16 });
   Art.addPortrait("maw", function () { return Art._portraits.cinder_maw(); });
 
   function badge(bg, draw) {

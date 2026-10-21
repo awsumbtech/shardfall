@@ -244,23 +244,6 @@ function drawHalfStepSprite(ctx, id, x, y, scale, pose, facing) {
   ctx.imageSmoothingEnabled = smooth;
 }
 
-var FLOATER = { wisp: 1, saltwisp: 1, choirling: 1, stormgull: 1, sootwing: 1 };
-
-function drawFoeShadow(ctx, x, feet, sw, floating) {
-  var rx = Math.max(8, Math.round(sw * (floating ? 0.26 : 0.32)));
-  var ry = Math.max(3, Math.round(rx * 0.28));
-  ctx.save();
-  ctx.fillStyle = floating ? "rgba(16, 10, 24, 0.30)" : "rgba(12, 8, 18, 0.42)";
-  ctx.beginPath();
-  ctx.ellipse(Math.round(x), Math.round(feet) - 1, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(12, 8, 18, 0.18)";
-  ctx.beginPath();
-  ctx.ellipse(Math.round(x), Math.round(feet) - 1, Math.max(4, Math.round(rx * 0.55)), Math.max(2, ry - 1), 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
 function drawSprite(ctx, id, x, y, scale, pose, facing) {
   pose = pose || "idle";
   facing = facing || "right";
@@ -814,19 +797,22 @@ function placeActors(actors, zone, side, groundY, foeCap) {
 // A soft ground shadow pins every fighter to the battle floor. It stays on
 // the floor line even when the sprite lunges, hops, or recoils.
 function drawGroundShadow(ctx, spot, dx, alpha) {
-  // Stepped (pixel-art) ellipse: three flat bands, no anti-aliased edge.
-  var w = Math.max(12, Math.round(spot.hit.w * 0.62));
-  var band = 3;
+  // Stepped (pixel-art) ellipse: flat bands, no anti-aliased edge.
+  // A boss plants a wider, heavier shadow so the bulk reads as weight.
+  var boss = spot.actor && (spot.actor.boss || spot.actor.sprite === "cinder_maw" || spot.actor.sprite === "tidewyrm");
+  var w = Math.max(12, Math.round(spot.hit.w * (boss ? 0.92 : 0.62)));
+  var band = boss ? 4 : 3;
+  var rows = boss ? [0.48, 0.74, 1, 0.74, 0.48] : [0.62, 1, 0.62];
   var cx = Math.round(spot.x + dx);
   var cy = Math.round(spot.feet);
   ctx.save();
   ctx.globalAlpha = alpha == null ? 1 : alpha;
-  ctx.fillStyle = "rgba(10, 6, 24, 0.30)";
-  var rows = [0.62, 1, 0.62];
-  var i, rw;
+  ctx.fillStyle = boss ? "rgba(8, 4, 16, 0.42)" : "rgba(10, 6, 24, 0.30)";
+  var i, rw, top;
+  top = cy - Math.floor(rows.length / 2) * band;
   for (i = 0; i < rows.length; i++) {
     rw = Math.round(w * rows[i] / 2) * 2;
-    ctx.fillRect(cx - rw / 2, cy - band * 2 + i * band + 1, rw, band);
+    ctx.fillRect(cx - rw / 2, top + i * band, rw, band);
   }
   ctx.restore();
 }
@@ -878,11 +864,17 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
   var groundY = Math.round((canvasH || (stage.y + stage.h)) * 0.68);
   var foeSpots = placeActors(foes, foeZone, "foe", groundY);
   var foeCap = 0;
+  var foeIsBoss = false;
   foeSpots.forEach(function (spot) {
     var h = spot.src.h * spot.scale;
     if (h > 0 && (!foeCap || h < foeCap)) foeCap = h;
+    if (isBoss(spot.actor)) foeIsBoss = true;
   });
-  var partySpots = placeActors(party, partyZone, "party", groundY, foeCap);
+  // partyBattleScale aims for ~80% of the foe. Against a boss that would
+  // leave the monster barely taller than a hero. Feed a shorter reference
+  // so the boss lands about 1.7× a party member.
+  var partyRef = foeIsBoss ? Math.max(1, Math.round(foeCap * 0.74)) : foeCap;
+  var partySpots = placeActors(party, partyZone, "party", groundY, partyRef);
   if (foeSpots.length && partySpots.length) {
     var ground = foeSpots[0].feet;
     var pi;
@@ -902,14 +894,12 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     var nudge = actorNudge(b, f);
     var pose = battlePose(b, f);
     var canTap = aimFoe && f.alive;
-    var floating = FLOATER[f.sprite];
     if (!f.alive && b.phase === "result") {
       var fade = b.corpseT || 0;
       if (fade <= 0) return;
-      drawGroundShadow(ctx, spot, nudge.x, Math.max(0, fade / 0.28));
+      drawGroundShadow(ctx, spot, nudge.x, Math.max(0, fade / 0.5));
       ctx.save();
       ctx.globalAlpha = Math.max(0, fade / 0.5);
-      drawFoeShadow(ctx, spot.x + nudge.x, spot.feet + nudge.y, spot.src.w * spot.scale, floating);
       drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
       ctx.restore();
       return;
@@ -918,7 +908,6 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     ctx.save();
     if (!f.alive) ctx.globalAlpha = 0.35;
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
-    drawFoeShadow(ctx, spot.x + nudge.x, spot.feet + nudge.y, spot.src.w * spot.scale, floating);
     drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
     ctx.restore();
     drawFoeLabel(ctx, spot, b);
