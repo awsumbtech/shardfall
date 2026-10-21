@@ -832,6 +832,39 @@ if (battle.player.xp < 1) fail("xp was not shared");
 if (battle.gold < goldBefore) fail("marks were not awarded");
 if (battle.mode === "battle") fail("battle did not return to the field");
 
+const guardTest = freshPlay();
+SF.Battle.instant = true;
+SF.Battle.start("cv_ash1");
+const g = guardTest.battle;
+const guardHero = g.actors.find((a) => a.side === "party");
+const ash = g.actors.find((a) => a.side === "foe");
+guardHero.hp = guardHero.maxHp;
+guardHero.alive = true;
+ash.hp = ash.maxHp;
+ash.alive = true;
+guardHero.guard = false;
+SF.Battle.applyAction(g, ash, { type: "skill", skillId: "attack", targetId: guardHero.id });
+const fullHit = guardHero.maxHp - guardHero.hp;
+guardHero.hp = guardHero.maxHp;
+guardHero.alive = true;
+SF.Battle.applyAction(g, guardHero, { type: "defend" });
+if (!guardHero.guard) fail("defend cleared guard before damage");
+const guardedBefore = guardHero.hp;
+SF.Battle.applyAction(g, ash, { type: "skill", skillId: "attack", targetId: guardHero.id });
+const halfHit = guardedBefore - guardHero.hp;
+if (!(fullHit > 0) || !(halfHit > 0) || Math.abs(halfHit * 2 - fullHit) > 1) {
+  fail("guard damage " + halfHit + " vs full " + fullHit);
+}
+if (!guardHero.guard) fail("guard dropped when the hit landed");
+guardHero.ct = 1000;
+ash.ct = 0;
+g.phase = "readout";
+g.readoutT = 0;
+SF.Battle.afterReadout(g);
+if (g.actorId !== guardHero.id) fail("defender did not take the next turn");
+if (guardHero.guard) fail("guard lasted into the defender's next turn");
+console.log("defend halves " + fullHit + " to " + halfHit);
+
 const loss = freshPlay();
 loss.gold = 40;
 SF.giveItem("ether", 1);
@@ -874,6 +907,10 @@ const winLv = SF.Battle.autoResolve(40);
 if (winLv !== "win") fail("level-up fight did not win");
 if (levels.party.members.wayfarer.level < 2) fail("did not level up");
 if (!SF._lastResult.levels.length || SF._lastResult.levels[0].name !== "Wayfarer") fail("level-up result missing");
+const lvRow = SF._lastResult.levels[0];
+["hp", "sp", "atk", "def", "mag", "spd"].forEach((key) => {
+  if (!lvRow[key] || lvRow[key].length !== 2) fail("level-up omitted " + key);
+});
 if (!SF.skillsAt("wayfarer", levels.party.members.wayfarer.level).includes("scan") && levels.party.members.wayfarer.level < 2) {
   fail("scan learn check broke");
 }

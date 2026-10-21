@@ -283,6 +283,10 @@ function finishBattle(win) {
   s.encounterGrace = 10;
   s.stepAcc = 0;
   s.mode = "play";
+  if (SF.inputState) {
+    SF.inputState.interactEdge = false;
+    SF.inputState.padAEdge = false;
+  }
   if (!win && b.id === "boss_cinder_maw") {
     s.flags.mawFight = false;
     (s.enemies || []).forEach(function (e) {
@@ -455,7 +459,6 @@ function checkEnd(b) {
 }
 
 function spendTurn(actor, kind) {
-  actor.guard = false;
   if (actor.mods.def > 0) actor.mods.def -= 1;
   if (actor.mods.spd > 0) actor.mods.spd -= 1;
   actor.ct = kind === "defend" ? 320 : 0;
@@ -682,6 +685,9 @@ function beginActorTurn(b) {
     return;
   }
   b.actorId = actor.id;
+  actor.guard = false;
+  b.sel = 0;
+  b.listScroll = 0;
   b.order = SF.Battle.forecast(b, 8);
   if (actor.side === "foe") {
     var action = SF.Battle.foeAction(b, actor);
@@ -761,6 +767,7 @@ SF.Battle.update = function (dt) {
   var b = SF.state && SF.state.battle;
   if (!b) return;
   b.t += dt;
+  if (SF.Battle.readPad) SF.Battle.readPad(b);
   if (b.phase === "readout") {
     b.readoutT -= dt;
     if (b.readoutT <= 0) SF.Battle.afterReadout(b);
@@ -895,6 +902,8 @@ SF.Battle.start = function (encounterId, opts) {
     actors: [],
     log: [],
     phase: "menu",
+    sel: 0,
+    listScroll: 0,
     actorId: null,
     order: [],
     t: 0,
