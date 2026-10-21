@@ -1368,7 +1368,8 @@ SF.drawPropArt = function (ctx, prop, lit) {
   if (!Art._makers[id]) return false;
   var sc = Art.fieldScale ? Art.fieldScale(id) : 1;
   var boat = id === "skiff" && SF.sceneActorNudge ? SF.sceneActorNudge("skiff") : null;
-  Art.sprite(ctx, id, prop.x + (boat ? boat.x : 0), prop.y + (boat ? boat.y : 0), { scale: sc, frame: 0, facing: "down" });
+  var water = id === "skiff" && SF.islandId === "cinderveil" ? (SF.SKIFF_DROP || 32) : 0;
+  Art.sprite(ctx, id, prop.x + (boat ? boat.x : 0), prop.y + water + (boat ? boat.y : 0), { scale: sc, frame: 0, facing: "down" });
   if (prop.kind === "cottage") {
     var t = SF.reduceMotion ? 0.35 : (SF.anim || 0);
     var sx = prop.x + 30;
@@ -2184,7 +2185,8 @@ SF.entityList = function (s) {
         var ride = n.id === "kestrel" && SF.sceneActorNudge ? SF.sceneActorNudge("kestrel") : null;
         ctx.save();
         if (ride) ctx.translate(ride.x, ride.y);
-        SF.drawShadow(ctx, nx, ny, 10, 1);
+        var aboard = n.id === "kestrel" && SF.boatBoard && SF.boatBoard() > 0.45;
+        SF.drawShadow(ctx, nx, ny, aboard ? 5 : 10, aboard ? 0 : 1);
         var drewActor = SF.drawActor && SF.drawActor(ctx, n, nx, ny, null, null, ilsaWalking);
         if (!drewActor) {
           if (n.id === "maren") SF.drawMaren(ctx, nx, ny);
@@ -2216,7 +2218,7 @@ SF.entityList = function (s) {
         if (e.ash && SF.drawMawAsh) {
           var ashU = e.ash.dur <= 0 ? 1 : Math.max(0, Math.min(1, e.ash.t / e.ash.dur));
           ctx.globalAlpha = Math.max(0, 1 - ashU);
-          SF.drawShadow(ctx, e.x, e.y, e.r);
+          SF.drawShadow(ctx, e.x, e.y, e.kind === "maw" ? 13 : e.r);
           ctx.globalAlpha = 1;
           var ashFace = "down";
           if (s.player) {
@@ -2231,7 +2233,7 @@ SF.entityList = function (s) {
           return;
         }
         if (e.dying > 0) ctx.globalAlpha = Math.max(0, e.dying / 0.45);
-        SF.drawShadow(ctx, e.x, e.y, e.r);
+        SF.drawShadow(ctx, e.x, e.y, e.kind === "maw" ? 13 : e.r);
         var foeSprite = SF.foeSprite ? SF.foeSprite(e) : null;
         var foeScale = (window.Art && Art.fieldScale) ? Art.fieldScale(foeSprite || "wayfarer") : 1;
         var foeFrame = (SF.calm && SF.calm()) ? 0 : Math.floor((SF.anim || 0) * 4) % 4;
@@ -2284,7 +2286,8 @@ SF.entityList = function (s) {
       s.ghosts.forEach(function (g) {
         SF.drawWayfarer(ctx, g.x, g.y, g.fx, g.fy, g.a, p.shardstep);
       });
-      SF.drawShadow(ctx, p.x, p.y, 11, 1);
+      var aboardHero = SF.boatBoard && SF.boatBoard() > 0.45;
+      SF.drawShadow(ctx, p.x, p.y, aboardHero ? 5 : 11, aboardHero ? 0 : 1);
       ctx.save();
       ctx.strokeStyle = "rgba(185, 248, 255, 0.9)";
       ctx.lineWidth = 2;
@@ -2413,11 +2416,18 @@ SF.drawFx = function (ctx, s) {
     ctx.fill();
   });
   s.particles.forEach(function (part) {
-    ctx.globalAlpha = Math.max(0, part.life / part.max);
+    var fade = Math.max(0, part.life / part.max);
     ctx.fillStyle = part.color;
-    ctx.beginPath();
-    ctx.arc(part.x, part.y, part.size, 0, Math.PI * 2);
-    ctx.fill();
+    if (part.px) {
+      ctx.globalAlpha = fade > 0.66 ? 1 : (fade > 0.33 ? 0.65 : 0.35);
+      var sz = Math.max(1, Math.min(3, part.size | 0));
+      ctx.fillRect(Math.round(part.x), Math.round(part.y), sz, sz);
+    } else {
+      ctx.globalAlpha = fade;
+      ctx.beginPath();
+      ctx.arc(part.x, part.y, part.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
   });
   ctx.globalAlpha = 1;
   if (s.ring) {
@@ -2582,9 +2592,13 @@ SF.drawSceneWash = function (ctx, w, h) {
     ctx.globalAlpha = 0.4 * dusk;
     ctx.fillStyle = "#ff7a32";
     ctx.fillRect(0, 0, w, h);
-    ctx.globalAlpha = 0.16 * dusk;
-    ctx.fillStyle = "#3c1840";
-    ctx.fillRect(0, 0, w, h * 0.38);
+    ctx.globalAlpha = 1;
+    var sky = ctx.createLinearGradient(0, 0, 0, h * 0.62);
+    sky.addColorStop(0, "rgba(60, 24, 64, " + (0.34 * dusk).toFixed(3) + ")");
+    sky.addColorStop(0.45, "rgba(60, 24, 64, " + (0.12 * dusk).toFixed(3) + ")");
+    sky.addColorStop(1, "rgba(60, 24, 64, 0)");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h * 0.62);
     ctx.restore();
   }
   var veil = SF._veil && SF._veil.a;

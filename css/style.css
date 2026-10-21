@@ -1053,6 +1053,10 @@ body[data-modal="1"] #corner {
   display: none;
 }
 
+body[data-mode="dialogue"] #banner.lamp-live {
+  display: block;
+}
+
 #fieldmenu {
   position: absolute;
   inset: 0;

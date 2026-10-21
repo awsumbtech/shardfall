@@ -215,11 +215,7 @@ SF.onMawDead = function () {
     e.hp = 0;
     e.dormant = false;
     e.dying = 99;
-    e.ash = { t: 0, dur: 1.05 };
-    if (SF.spawnAsh) {
-      var i;
-      for (i = 0; i < 22; i++) SF.spawnAsh(e.x + (Math.random() - 0.5) * 34, e.y - 18 + (Math.random() - 0.5) * 24);
-    }
+    e.ash = { t: 0, dur: 1.05, acc: 0 };
   });
   SF.pushBanner("The Cinder Maw", "The core is cracked and dim, but whole.");
   if (window.Music) Music.play("cinderveil");

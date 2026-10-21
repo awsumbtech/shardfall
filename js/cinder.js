@@ -651,7 +651,6 @@ SF.CINDER_SHARDS = 3;
     s.quest = "cantor";
     if (SF.rememberCheckpoint && SF.LAMP) SF.rememberCheckpoint(SF.LAMP.x, SF.LAMP.y, { quiet: true, kind: "lamp" });
     if (SF.emit) SF.emit("lamp");
-    SF.pushBanner("Cinderveil's lamp", "Orange light pours out across the island.", 3.2);
     SF.saveGame({ silent: true });
     if (!s.flags.cantor_choice && !s.flags.act1) {
       SF.beginCantorApproach();
@@ -762,8 +761,15 @@ SF.beginCantorApproach = function () {
 };
 
 SF.ilsaStand = function () {
-  if (!SF.LAMP) return { x: 0, y: 0 };
-  return { x: SF.LAMP.x - 36, y: SF.LAMP.y + 28 };
+  var lamp = SF.LAMP;
+  if (!lamp) return { x: 0, y: 0 };
+  var p = SF.state && SF.state.player;
+  var baseX = lamp.x + 2;
+  var y = lamp.y + 8;
+  var side = p && p.x > baseX ? -1 : 1;
+  var x = baseX + side * 84;
+  if (p && Math.hypot(p.x - x, p.y - y) < 36) x = baseX - side * 80;
+  return { x: x, y: y };
 };
 
 SF.beginIlsaApproach = function () {
@@ -771,16 +777,24 @@ SF.beginIlsaApproach = function () {
   if (!s || !SF.LAMP || SF.islandId !== "cinderveil") return;
   if (s.ilsaAt || s.ilsaWalk) return;
   var stand = SF.ilsaStand();
+  var colX = SF.LAMP.x + 2;
+  var landY = SF.LAMP.y + 45;
   var hh = (SF.viewH || 720) / 2;
-  var fromY = (s.camY || stand.y) + hh + 84;
-  var dist = Math.abs(fromY - stand.y);
+  var fromY = Math.max(landY + 96, (s.camY || landY) + hh + 36);
+  var climb = Math.abs(fromY - landY) + Math.abs(landY - stand.y);
+  var side = Math.abs(stand.x - colX);
   s.ilsaWalk = {
     t: 0,
-    dur: Math.max(1.8, Math.min(3.1, dist / 210)),
-    fromX: SF.LAMP.x + 4,
-    fromY: fromY,
+    dur: Math.max(2.2, Math.min(3.6, (climb + side) / 180)),
+    pts: [
+      { x: colX, y: fromY },
+      { x: colX, y: landY },
+      { x: colX, y: stand.y },
+      { x: stand.x, y: stand.y }
+    ],
     toX: stand.x,
-    toY: stand.y
+    toY: stand.y,
+    face: "up"
   };
 };
 
@@ -801,38 +815,112 @@ SF.parkIlsa = function () {
 SF.ilsaWorldPos = function () {
   var s = SF.state;
   if (!s) return null;
-  if (s.ilsaWalk) {
-    var a = s.ilsaWalk;
+  var a = s.ilsaWalk;
+  if (a && a.pts && a.pts.length > 1) {
+    var pts = a.pts;
+    var lens = [];
+    var total = 0;
+    var i, len;
+    for (i = 0; i < pts.length - 1; i++) {
+      len = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+      lens.push(len);
+      total += len;
+    }
     var u = a.dur <= 0 ? 1 : Math.max(0, Math.min(1, a.t / a.dur));
-    var k = u * u * (3 - 2 * u);
-    return {
-      x: a.fromX + (a.toX - a.fromX) * k,
-      y: a.fromY + (a.toY - a.fromY) * k
-    };
+    var remain = u * total;
+    for (i = 0; i < lens.length; i++) {
+      if (remain <= lens[i] || i === lens.length - 1) {
+        var k = lens[i] ? Math.max(0, Math.min(1, remain / lens[i])) : 1;
+        var dx = pts[i + 1].x - pts[i].x;
+        var dy = pts[i + 1].y - pts[i].y;
+        a.face = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
+        return { x: pts[i].x + dx * k, y: pts[i].y + dy * k };
+      }
+      remain -= lens[i];
+    }
   }
   if (s.ilsaAt) return { x: s.ilsaAt.x, y: s.ilsaAt.y };
   return null;
+};
+
+SF.ilsaFace = function () {
+  var a = SF.state && SF.state.ilsaWalk;
+  return (a && a.face) || "up";
 };
 
 SF.ilsaWalking = function () {
   return !!(SF.state && SF.state.ilsaWalk);
 };
 
-SF.beginDepart = function () {
-  var s = SF.state;
-  if (!s) return;
-  s.act1Card = false;
+SF.quaySkiff = function () {
   var prop = null;
   (SF.PROPS || []).forEach(function (p) {
     if (!prop && (p.kind === "airship" || p.kind === "skiff")) prop = p;
   });
+  return prop;
+};
+
+SF.SKIFF_DROP = 32;
+
+SF.epiCamera = function () {
+  var prop = SF.quaySkiff();
+  var kestrel = SF.npcById && SF.npcById("kestrel");
+  var boatX = prop ? prop.x : (kestrel ? kestrel.x : 960);
+  var boatY = prop ? prop.y + SF.SKIFF_DROP : (kestrel ? kestrel.y + 46 : 1710);
+  var peopleX = kestrel ? kestrel.x + 14 : boatX;
   var vh = SF.viewH || 412;
-  var vw = SF.viewW || 915;
-  var camX = prop ? prop.x + vw * 0.18 : s.camX;
-  var camY = prop ? prop.y + vh * 0.18 : s.camY;
-  SF._depart = { t: 0, dur: 1.75, camX: camX, camY: camY };
-  s.camX = camX;
-  s.camY = camY;
+  var screenY = vh * 0.42;
+  return { x: (peopleX + boatX) * 0.5, y: boatY - screenY + vh / 2 };
+};
+
+SF.arriveQuay = function () {
+  var s = SF.state;
+  if (!s || SF._quayArrived) return;
+  SF._quayArrived = true;
+  var kestrel = SF.npcById("kestrel");
+  var x = kestrel ? kestrel.x + 28 : SF.DOCKS.cinderveil.x;
+  var y = kestrel ? kestrel.y - 8 : SF.DOCKS.cinderveil.y;
+  if (!SF.walkable(x, y)) {
+    x = SF.DOCKS.cinderveil.x;
+    y = SF.DOCKS.cinderveil.y;
+  }
+  s.player.x = x;
+  s.player.y = y;
+  s.player.safeX = x;
+  s.player.safeY = y;
+  s.player.px = x;
+  s.player.py = y;
+  s.player.fall = 0;
+  s.island = "cinderveil";
+  var cam = SF.epiCamera();
+  SF._epiCam = cam;
+  s.camX = cam.x;
+  s.camY = cam.y;
+};
+
+SF.beginDepart = function () {
+  var s = SF.state;
+  if (!s) return;
+  s.act1Card = false;
+  if (!SF._quayArrived && SF.arriveQuay) SF.arriveQuay();
+  if (SF._veil && SF._veil.phase === "out") {
+    SF._veil = { a: 1, to: 0, rate: 2.15, hold: 0.06, phase: "in" };
+  }
+  var fromX = SF._epiCam ? SF._epiCam.x : s.camX;
+  var fromY = SF._epiCam ? SF._epiCam.y : s.camY;
+  var drift = Math.min(90, (SF.viewW || 640) * 0.08);
+  SF._depart = {
+    t: 0,
+    dur: 1.75,
+    panDur: 0.85,
+    fromX: fromX,
+    fromY: fromY,
+    camX: fromX + drift,
+    camY: fromY + 12,
+    lineT: 0,
+    acked: false
+  };
+  SF._epiCam = null;
 };
 
 SF.showActCard = function () {
@@ -847,6 +935,30 @@ SF.endDepart = function () {
   SF._depart = null;
 };
 
+SF.boatBoard = function () {
+  var d = SF._depart;
+  var s = SF.state;
+  if (!d || !s || !s.dialogue || s.dialogue.id !== "cinderveil.act1.finale") return 0;
+  return 1;
+};
+
+SF.boatDeckDelta = function (who) {
+  var prop = SF.quaySkiff && SF.quaySkiff();
+  var s = SF.state;
+  if (!prop || !s) return null;
+  var deckX = prop.x;
+  var deckY = prop.y + (SF.SKIFF_DROP || 32) - 10;
+  if (who === "kestrel") {
+    var kestrel = SF.npcById("kestrel");
+    if (!kestrel) return null;
+    return { x: deckX - 8 - kestrel.x, y: deckY - kestrel.y };
+  }
+  if (who === "player") {
+    return { x: deckX + 12 - s.player.x, y: deckY - s.player.y };
+  }
+  return null;
+};
+
 SF.sceneActorNudge = function (who) {
   var d = SF._depart;
   var s = SF.state;
@@ -854,7 +966,17 @@ SF.sceneActorNudge = function (who) {
   if (who !== "player" && who !== "kestrel" && who !== "skiff") return null;
   var u = d.dur <= 0 ? 1 : Math.max(0, Math.min(1, d.t / d.dur));
   var k = u * u * (3 - 2 * u);
-  return { x: 980 * k, y: 72 * k };
+  var x = 980 * k;
+  var y = 72 * k;
+  if (who !== "skiff") {
+    var deck = SF.boatDeckDelta(who);
+    var board = SF.boatBoard();
+    if (deck) {
+      x += deck.x * board;
+      y += deck.y * board;
+    }
+  }
+  return { x: x, y: y };
 };
 
 SF.tickActVisuals = function (dt) {
@@ -870,7 +992,10 @@ SF.tickActVisuals = function (dt) {
       var step = (veil.rate || 2) * dt;
       if (veil.a < veil.to) veil.a = Math.min(veil.to, veil.a + step);
       else if (veil.a > veil.to) veil.a = Math.max(veil.to, veil.a - step);
-      if (veil.to === 0 && veil.a <= 0.001) SF._veil = null;
+      if (veil.phase === "out" && veil.a >= 0.985) {
+        if (SF.arriveQuay) SF.arriveQuay();
+        SF._veil = { a: 1, to: 0, rate: 2.15, hold: 0.08, phase: "in" };
+      } else if (veil.to === 0 && veil.a <= 0.001) SF._veil = null;
     }
   }
   if (s.ilsaWalk) {
@@ -880,10 +1005,13 @@ SF.tickActVisuals = function (dt) {
   (s.enemies || []).forEach(function (e) {
     if (!e.ash) return;
     e.ash.t += dt;
-    var n = 4;
-    var i;
-    for (i = 0; i < n; i++) {
-      if (SF.spawnAsh) SF.spawnAsh(e.x + (Math.random() - 0.5) * 42, e.y - 14 + (Math.random() - 0.5) * 28);
+    if (e.ash.t > 0.18 && SF.spawnAsh) {
+      e.ash.acc = (e.ash.acc || 0) + dt;
+      while (e.ash.acc >= 0.05) {
+        e.ash.acc -= 0.05;
+        SF.spawnAsh(e.x + (Math.random() - 0.5) * 28, e.y - 16 + (Math.random() - 0.5) * 18);
+        if (Math.random() < 0.45) SF.spawnAsh(e.x + (Math.random() - 0.5) * 22, e.y - 10 + (Math.random() - 0.5) * 14);
+      }
     }
     if (e.ash.t >= e.ash.dur) {
       e.ash = null;
@@ -893,10 +1021,22 @@ SF.tickActVisuals = function (dt) {
   });
   if (SF._depart && s.dialogue && s.dialogue.id === "cinderveil.act1.finale") {
     SF._depart.t += dt;
+    SF._depart.lineT = (SF._depart.lineT || 0) + dt;
     if (SF._depart.t >= SF._depart.dur) {
       SF._depart.t = SF._depart.dur;
-      if (s.dialogue.done) SF.showActCard();
+      var read = SF._depart.acked || SF._depart.lineT >= 4.5;
+      if (read && s.dialogue.done) SF.showActCard();
     }
+  }
+};
+
+SF.clearLampBanner = function () {
+  var s = SF.state;
+  if (!s) return;
+  s.lampBanner = false;
+  if (s.banner && s.banner.title === "Cinderveil's lamp") s.banner = null;
+  if (s.banners) {
+    s.banners = s.banners.filter(function (b) { return b.title !== "Cinderveil's lamp"; });
   }
 };
 
@@ -913,25 +1053,12 @@ SF.playEpilogue = function () {
   s.cantorAt = null;
   s.ilsaWalk = null;
   s.ilsaAt = null;
-  SF._veil = { a: 1, to: 0, rate: 2.05, hold: 0.12 };
+  s.act1Card = false;
+  SF._quayArrived = false;
+  SF._epiCam = null;
+  SF._depart = null;
+  SF._veil = { a: 0, to: 1, rate: 2.7, hold: 0, phase: "out" };
   if (SF.islandId !== "cinderveil" && SF.mountIsland) SF.mountIsland("cinderveil");
-  var kestrel = SF.npcById("kestrel");
-  var x = kestrel ? kestrel.x + 28 : SF.DOCKS.cinderveil.x;
-  var y = kestrel ? kestrel.y - 8 : SF.DOCKS.cinderveil.y;
-  if (!SF.walkable(x, y)) {
-    x = SF.DOCKS.cinderveil.x;
-    y = SF.DOCKS.cinderveil.y;
-  }
-  s.player.x = x;
-  s.player.y = y;
-  s.player.safeX = x;
-  s.player.safeY = y;
-  s.player.px = x;
-  s.player.py = y;
-  s.player.fall = 0;
-  s.camX = x;
-  s.camY = y;
-  s.island = "cinderveil";
   if (SF.startDialogue) SF.startDialogue("cinderveil.kestrel.epilogue_" + choice);
 };
 

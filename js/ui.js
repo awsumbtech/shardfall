@@ -524,11 +524,16 @@ SF.syncUI = function () {
   } else toast.hidden = true;
 
   var banner = document.getElementById("banner");
-  if (s.banner && fieldChrome && s.mode !== "pause") {
+  var lampTalk = !!(s.lampBanner && s.banner && s.dialogue && s.dialogue.id === "cinderveil.lamp.relit");
+  if (s.banner && (fieldChrome || lampTalk) && s.mode !== "pause") {
     banner.hidden = false;
+    if (banner.classList) banner.classList.toggle("lamp-live", lampTalk);
     setText("banner-title", s.banner.title);
     setText("banner-sub", s.banner.sub || "");
-  } else banner.hidden = true;
+  } else if (banner) {
+    banner.hidden = true;
+    if (banner.classList) banner.classList.remove("lamp-live");
+  }
 
   var endcard = document.getElementById("endcard");
   if (endcard && !(s.dialogue && s.dialogue.id === "cinderveil.act1.finale" && s.act1Card && s.mode === "dialogue")) {

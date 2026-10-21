@@ -345,7 +345,7 @@ SF.drawVillager = function (ctx, x, y, tunic, skin) {
     var pose = movingPose ? "walk" : (cast ? "stand" : "walk");
     var facing = "down";
     var p = SF.state && SF.state.player;
-    if (n && n.id === "ilsa" && movingPose) facing = "up";
+    if (n && n.id === "ilsa" && movingPose) facing = (SF.ilsaFace && SF.ilsaFace()) || "up";
     else if (p && x != null && y != null) {
       var dx = p.x - x;
       var dy = p.y - y;
