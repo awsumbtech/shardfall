@@ -2277,15 +2277,18 @@ SF.entityList = function (s) {
           else SF.drawCantor(ctx, nx, ny);
         }
         var walking = n.id === "cantor" && s.approach && s.approach.kind === "cantor";
-        if (walking || (s.mode === "play" && SF.dist(s.player.x, s.player.y, nx, ny) < 90)) {
-          ctx.save();
-          ctx.font = "600 12px Palatino, Georgia, serif";
-          ctx.textAlign = "center";
-          ctx.fillStyle = "#fff8ee";
-          var spriteId = n.sprite || (SF.ACTOR_SPRITE && SF.ACTOR_SPRITE[n.id]) || n.id;
-          var tag = SF.nameAnchor(ctx, nx, ny, n.name, s.player, spriteId);
-          ctx.fillText(n.name, tag.x, tag.y);
-          ctx.restore();
+        var nameDist = SF.dist(s.player.x, s.player.y, nx, ny);
+        if (walking || (s.mode === "play" && nameDist < 90)) {
+          var alpha = SF.markAlpha ? SF.markAlpha(n.id, nameDist) : 1;
+          if (alpha > 0.02) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.font = "600 12px Palatino, Georgia, serif";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#fff8ee";
+            ctx.fillText(n.name, nx, ny - 34);
+            ctx.restore();
+          }
         }
         ctx.restore();
       }
@@ -2426,6 +2429,10 @@ SF.goalPrecise = function (goal) {
 SF.GUIDE_NEAR = 18;
 SF.GUIDE_HEAD = 60;
 SF.LAMP_NEAR = 24;
+// Talk range, plus a short margin so the name and diamond clear his sprite
+// and the foot ring. A few pixels of hysteresis keep the edge from flickering.
+SF.MARK_NEAR = (SF.TALK_RANGE || 54) + 18;
+SF.MARK_HYST = 4;
 
 SF.guideActor = function (goal) {
   var i, n, feet;
@@ -2441,77 +2448,46 @@ SF.guideActor = function (goal) {
   return null;
 };
 
-// Feet-anchored sprite box in world pixels. Walk and stand share a body,
-// and the union covers whichever pose is on screen.
-SF.actorSpriteBox = function (id, x, y) {
-  var scale = (window.Art && Art.fieldScale) ? (Art.fieldScale(id) || 1) : 1;
-  function take(pose) {
-    if (!window.Art || !Art.spriteSize) return null;
-    var m = Art.spriteSize(id, pose, "down");
-    if (!m || !m.w || !m.h) return null;
-    var mw = m.w * scale;
-    var mh = m.h * scale;
-    var ax = m.ax != null ? m.ax * scale : mw / 2;
-    var ay = m.ay != null ? m.ay * scale : mh - 1;
-    return { l: x - ax, r: x - ax + mw, t: y - ay, b: y - ay + mh };
-  }
-  var walk = take("walk");
-  var stand = take("stand");
-  if (walk && stand) {
-    return {
-      l: Math.min(walk.l, stand.l),
-      r: Math.max(walk.r, stand.r),
-      t: Math.min(walk.t, stand.t),
-      b: Math.max(walk.b, stand.b)
-    };
-  }
-  if (walk || stand) return walk || stand;
-  return { l: x - 16 * scale, r: x + 16 * scale, t: y - 31 * scale, b: y + scale };
+// One threshold for every NPC name and for the objective diamond.
+// Hidden inside MARK_NEAR. Once hidden, it stays hidden until MARK_NEAR + MARK_HYST.
+SF.markHidden = function (id, dist) {
+  var key = id || "";
+  if (!SF._markHold) SF._markHold = {};
+  var near = SF.MARK_NEAR || 72;
+  var hyst = SF.MARK_HYST || 4;
+  var hidden = !!SF._markHold[key];
+  hidden = hidden ? dist < near + hyst : dist <= near;
+  SF._markHold[key] = hidden;
+  return hidden;
 };
 
-// The tag sits on the old baseline above the NPC. If that rect touches the
-// hero's sprite, lift it above whichever head is higher, then to the side
-// away from him. Any overlap counts, including a few pixels of boot.
-SF.nameAnchor = function (ctx, feetX, feetY, label, hero, spriteId) {
-  var x = feetX;
-  var y = feetY - 34;
-  var measured = label ? ctx.measureText(label) : null;
-  var width = measured && measured.width ? measured.width : 8;
-  var ascent = measured && measured.actualBoundingBoxAscent ? measured.actualBoundingBoxAscent : 11;
-  var descent = measured && measured.actualBoundingBoxDescent ? measured.actualBoundingBoxDescent : 2;
-  function at(cx, baseline) {
-    return {
-      x: cx,
-      y: baseline,
-      l: cx - width / 2,
-      r: cx + width / 2,
-      t: baseline - ascent,
-      b: baseline + descent
-    };
+// Ease toward the hold so the tag does not pop. A second call in the same
+// instant does not step again.
+SF.markAlpha = function (id, dist) {
+  var target = SF.markHidden(id, dist) ? 0 : 1;
+  if (!SF._markFade) SF._markFade = {};
+  var key = id || "";
+  var now = performance.now();
+  var rec = SF._markFade[key];
+  if (!rec) {
+    SF._markFade[key] = { a: target, t: now };
+    return target;
   }
-  var home = at(x, y);
-  if (!hero || !label) return home;
-  function hit(a, b) {
-    return a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
+  var dt = Math.max(0, Math.min(0.05, (now - rec.t) / 1000));
+  rec.t = now;
+  if (dt > 0 && rec.a !== target) {
+    var step = dt / 0.08;
+    if (step > 1) step = 1;
+    rec.a += (target - rec.a) * step;
+    if (Math.abs(rec.a - target) < 0.02) rec.a = target;
   }
-  var heroBox = SF.actorSpriteBox("wayfarer", hero.x, hero.y);
-  if (!hit(home, heroBox)) return home;
-  var npcBox = SF.actorSpriteBox(spriteId || "kestrel", feetX, feetY);
-  var top = Math.min(heroBox.t, npcBox.t);
-  var lifted = at(x, top - descent - 2);
-  if (!hit(lifted, heroBox)) return lifted;
-  var dir = hero.x >= feetX ? -1 : 1;
-  var cx = dir > 0 ? (heroBox.r + 4 + width / 2) : (heroBox.l - 4 - width / 2);
-  var side = at(cx, y);
-  if (!hit(side, heroBox)) return side;
-  return at(cx, top - descent - 2);
+  return rec.a;
 };
 
-// Standing within talk range already has the Talk prompt. The diamond stays off.
 SF.actorMarkHidden = function (goal, hero) {
   var actor = SF.guideActor(goal);
   if (!actor || !hero) return false;
-  return Math.hypot(hero.x - actor.x, hero.y - actor.y) <= (SF.TALK_RANGE || 54);
+  return SF.markHidden(actor.id, Math.hypot(hero.x - actor.x, hero.y - actor.y));
 };
 
 // Centered on the NPC. Null while the hero is close enough to talk.
@@ -2581,8 +2557,13 @@ SF.drawGuide = function (ctx, s) {
     }
   }
   if (actor) {
-    var mark = SF.guideMark(goal, p);
-    if (mark) SF.drawBobber(ctx, actor.x, actor.y, mark.lift);
+    var fade = SF.markAlpha(actor.id, Math.hypot(p.x - actor.x, p.y - actor.y));
+    if (fade > 0.02) {
+      ctx.save();
+      ctx.globalAlpha = fade;
+      SF.drawBobber(ctx, actor.x, actor.y, SF.GUIDE_HEAD || 60);
+      ctx.restore();
+    }
   } else if (d > 40) SF.drawBobber(ctx, goal.x, goal.y, 28);
 };
 

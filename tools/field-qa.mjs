@@ -947,9 +947,7 @@ const kestrelMark = await page.evaluate(() => {
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
   const talk = SF.TALK_RANGE || 54;
-  // 3 tiles (48) is still inside talk range, so the diamond stays hidden there.
-  // The centered mark is checked outside talk range, which is still 3 or more tiles.
-  const far = Math.max(4 * 16, talk + 8);
+  const far = (SF.MARK_NEAR || 72) + (SF.MARK_HYST || 4) + 4;
   const dirs = {
     N: [0, -1], NE: [1, -1], E: [1, 0], SE: [1, 1],
     S: [0, 1], SW: [-1, 1], W: [-1, 0], NW: [-1, -1]
@@ -1008,110 +1006,160 @@ await place(page, kestrelMark.place.far.x, kestrelMark.place.far.y, 0, 1);
 await shot(page, "45-kestrel-far.png");
 
 const nameClear = await page.evaluate(() => {
+  SF.state.quest = "stirring";
+  SF.state.mode = "play";
+  SF.state.dialogue = null;
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
   const ctx = SF.ctx;
   ctx.font = "600 12px Palatino, Georgia, serif";
-  const dirs = {
-    n: [0, -1], nne: [1, -2], ne: [1, -1], e: [1, 0],
-    se: [1, 1], s: [0, 1], sw: [-1, 1], w: [-1, 0],
-    nw: [-1, -1], nnw: [-1, -2]
+  const measured = ctx.measureText(n.name);
+  const width = measured.width || 66;
+  const ascent = measured.actualBoundingBoxAscent || 11;
+  const descent = measured.actualBoundingBoxDescent || 2;
+  const nameBox = {
+    l: feet.x - width / 2,
+    r: feet.x + width / 2,
+    t: feet.y - 34 - ascent,
+    b: feet.y - 34 + descent
   };
-  function overlap(a, b) {
+  const lift = SF.GUIDE_HEAD || 60;
+  const diamond = { l: feet.x - 4, r: feet.x + 4, t: feet.y - lift - 7, b: feet.y - lift + 7 };
+  function heroParts(hx, hy) {
+    let body = { l: hx - 9, r: hx + 9, t: hy - 28, b: hy + 1 };
+    if (window.Art && Art.spriteSize) {
+      const m = Art.spriteSize("wayfarer", "walk", "down");
+      if (m && m.w) {
+        const ax = m.ax || 0;
+        const ay = m.ay != null ? m.ay : m.h - 1;
+        body = { l: hx - ax, r: hx - ax + m.w, t: hy - ay, b: hy - ay + m.h };
+      }
+    }
+    return [body, { l: hx - 11, r: hx + 11, t: hy + 1 - 5, b: hy + 1 + 5 }];
+  }
+  function hit(a, b) {
     return a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
   }
-  const hits = [];
-  const moved = [];
-  Object.keys(dirs).forEach((key) => {
-    const dir = dirs[key];
-    const mag = Math.hypot(dir[0], dir[1]) || 1;
-    for (let dist = 30; dist <= 60; dist += 2) {
-      const hero = { x: feet.x + (dir[0] / mag) * dist, y: feet.y + (dir[1] / mag) * dist };
-      const tag = SF.nameAnchor(ctx, feet.x, feet.y, n.name, hero, n.id);
-      const heroBox = SF.actorSpriteBox("wayfarer", hero.x, hero.y);
-      if (overlap(tag, heroBox)) {
-        hits.push({ key, dist, dx: Math.round(tag.x - feet.x), dy: Math.round(tag.y - (feet.y - 34)) });
-      }
-      const home = SF.nameAnchor(ctx, feet.x, feet.y, n.name, null, n.id);
-      const homeHit = overlap(home, heroBox);
-      if (!homeHit && (Math.abs(tag.x - home.x) > 0.5 || Math.abs(tag.y - home.y) > 0.5)) {
-        moved.push({ key, dist });
-      }
-    }
-  });
-  function creamInLegs(dx, dy) {
-    const s = SF.state;
-    s.mode = "play";
-    s.dialogue = null;
-    s.shake = 0;
-    s.player.x = feet.x + dx;
-    s.player.y = feet.y + dy;
-    s.player.fx = dx === 0 ? 0 : (dx < 0 ? 1 : -1);
-    s.player.fy = dy < 0 ? 1 : (dy > 0 ? -1 : 0);
-    s.camX = (feet.x + s.player.x) / 2;
-    s.camY = (feet.y + s.player.y) / 2;
-    SF.draw();
-    const box = SF.actorSpriteBox("wayfarer", s.player.x, s.player.y);
-    const dpr = SF.dpr || 1;
-    const pxScale = Math.max(1, Math.round(dpr * (SF.zoom || 1)));
-    const camX = Math.round(s.camX);
-    const camY = Math.round(s.camY);
-    const ox = Math.round(dpr * (SF.viewW / 2) - camX * pxScale);
-    const oy = Math.round(dpr * (SF.viewH / 2) - camY * pxScale);
-    function dev(wx, wy) {
-      return {
-        x: Math.round(wx * pxScale + ox),
-        y: Math.round(wy * pxScale + oy)
-      };
-    }
-    const leg = { l: box.l, r: box.r, t: box.b - 12, b: box.b + 2 };
-    const a = dev(leg.l, leg.t);
-    const b = dev(leg.r, leg.b);
-    const canvas = SF.view;
-    const x0 = Math.max(0, Math.min(a.x, b.x));
-    const y0 = Math.max(0, Math.min(a.y, b.y));
-    const x1 = Math.min(canvas.width, Math.max(a.x, b.x));
-    const y1 = Math.min(canvas.height, Math.max(a.y, b.y));
-    if (x1 - x0 < 2 || y1 - y0 < 2) return { cream: -1, w: 0, h: 0 };
-    const img = SF.ctx.getImageData(x0, y0, x1 - x0, y1 - y0).data;
-    let cream = 0;
-    for (let i = 0; i < img.length; i += 4) {
-      const r = img[i];
-      const g = img[i + 1];
-      const bl = img[i + 2];
-      if (r > 245 && g > 236 && bl > 220 && r >= g && g + 6 >= bl) cream++;
-    }
-    return { cream, w: x1 - x0, h: y1 - y0 };
-  }
-  const gaps = {
-    n42: creamInLegs(0, -42),
-    ne50: creamInLegs(50 / Math.SQRT2, -50 / Math.SQRT2),
-    nw50: creamInLegs(-50 / Math.SQRT2, -50 / Math.SQRT2),
-    nne44: creamInLegs(Math.sin(Math.PI / 8) * 44, -Math.cos(Math.PI / 8) * 44),
-    nnw44: creamInLegs(-Math.sin(Math.PI / 8) * 44, -Math.cos(Math.PI / 8) * 44)
+  const dirs = {
+    n: [0, -1], ne: [1, -1], e: [1, 0], se: [1, 1],
+    s: [0, 1], sw: [-1, 1], w: [-1, 0], nw: [-1, -1]
   };
-  const south = SF.nameAnchor(ctx, feet.x, feet.y, n.name, { x: feet.x, y: feet.y + 40 }, n.id);
-  const east = SF.nameAnchor(ctx, feet.x, feet.y, n.name, { x: feet.x + 40, y: feet.y }, n.id);
-  const far = SF.nameAnchor(ctx, feet.x, feet.y, n.name, { x: feet.x, y: feet.y - 90 }, n.id);
+  const bad = [];
+  function walk(order) {
+    Object.keys(dirs).forEach((key) => {
+      SF._markHold = {};
+      const dir = dirs[key];
+      const mag = Math.hypot(dir[0], dir[1]) || 1;
+      const dists = [];
+      for (let dist = 30; dist <= 80; dist += 2) dists.push(dist);
+      if (order === "in") dists.reverse();
+      dists.forEach((dist) => {
+        const hx = feet.x + (dir[0] / mag) * dist;
+        const hy = feet.y + (dir[1] / mag) * dist;
+        const dNow = Math.hypot(hx - feet.x, hy - feet.y);
+        const hidden = SF.markHidden(n.id, dNow);
+        SF.state.player.x = hx;
+        SF.state.player.y = hy;
+        const mark = SF.guideMark(SF.objectivePoint(SF.state), SF.state.player);
+        if (hidden !== !mark) bad.push({ key, dist, order, hidden, mark: !!mark });
+        if (hidden) return;
+        if (!mark || Math.abs(mark.x - feet.x) > 1 || Math.abs((mark.lift || 0) - lift) > 0.1) {
+          bad.push({ key, dist, order, off: true });
+        }
+        heroParts(hx, hy).forEach((part) => {
+          if (hit(nameBox, part)) bad.push({ key, dist, order, what: "name" });
+          if (hit(diamond, part)) bad.push({ key, dist, order, what: "diamond" });
+        });
+      });
+    });
+  }
+  walk("out");
+  walk("in");
+  function still(dist, prior) {
+    SF._markHold = {};
+    if (prior != null) SF._markHold[n.id] = prior;
+    const samples = [];
+    for (let i = 0; i < 6; i++) samples.push(SF.markHidden(n.id, dist));
+    const mark = SF.guideMark(SF.objectivePoint(SF.state), { x: feet.x, y: feet.y - dist });
+    return {
+      samples,
+      stable: samples.every((v) => v === samples[0]),
+      agree: samples[0] === !mark
+    };
+  }
+  SF.state.player.x = feet.x;
+  SF.state.player.y = feet.y - (SF.MARK_NEAR || 72);
   return {
-    hits: hits.slice(0, 8),
-    hitN: hits.length,
-    movedN: moved.length,
-    gaps,
-    still: {
-      s: Math.abs(south.y - (feet.y - 34)) < 0.5 && Math.abs(south.x - feet.x) < 0.5,
-      e: Math.abs(east.y - (feet.y - 34)) < 0.5 && Math.abs(east.x - feet.x) < 0.5,
-      far: Math.abs(far.y - (feet.y - 34)) < 0.5 && Math.abs(far.x - feet.x) < 0.5
-    }
+    bad: bad.slice(0, 6),
+    badN: bad.length,
+    near: SF.MARK_NEAR,
+    hyst: SF.MARK_HYST,
+    atNear: still(SF.MARK_NEAR || 72, null),
+    atBandHeld: still((SF.MARK_NEAR || 72) + 2, true),
+    atBandOpen: still((SF.MARK_NEAR || 72) + 2, false)
   };
 });
-const gapBad = Object.keys(nameClear.gaps).filter((key) => nameClear.gaps[key].cream >= 8);
-check(nameClear.hitN === 0, "Kestrel's name misses the hero sprite from 30 to 60px (" + JSON.stringify(nameClear.hits) + ")");
-check(nameClear.movedN === 0, "a clear name stays on its baseline (" + nameClear.movedN + ")");
-check(nameClear.still.s && nameClear.still.e && nameClear.still.far, "south, east, and far leave the name tag (" + JSON.stringify(nameClear.still) + ")");
-check(gapBad.length === 0, "name pixels stay off the hero's legs (" + JSON.stringify(nameClear.gaps) + ")");
+check(nameClear.badN === 0, "name and diamond miss the hero from 30 to 80px (" + JSON.stringify(nameClear.bad) + ")");
+check(nameClear.atNear.stable && nameClear.atNear.agree, "standing on the mark threshold does not toggle (" + JSON.stringify(nameClear.atNear) + ")");
+check(nameClear.atBandHeld.stable && nameClear.atBandHeld.agree && nameClear.atBandOpen.stable && nameClear.atBandOpen.agree,
+  "standing inside the hysteresis band does not toggle (" + JSON.stringify({ held: nameClear.atBandHeld, open: nameClear.atBandOpen }) + ")");
 await place(page, kestrelMark.place.close.x, kestrelMark.place.close.y - 7, 0, 1);
+await page.waitForTimeout(400);
 await shot(page, "46-kestrel-n42.png");
+const namePixels = await page.evaluate(() => {
+  SF.draw();
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const hero = SF.state.player;
+  const dpr = SF.dpr || 1;
+  const pxScale = Math.max(1, Math.round(dpr * (SF.zoom || 1)));
+  const ox = Math.round(dpr * (SF.viewW / 2) - Math.round(SF.state.camX) * pxScale);
+  const oy = Math.round(dpr * (SF.viewH / 2) - Math.round(SF.state.camY) * pxScale);
+  function dev(wx, wy) {
+    return { x: Math.round(wx * pxScale + ox), y: Math.round(wy * pxScale + oy) };
+  }
+  const m = window.Art && Art.spriteSize ? Art.spriteSize("wayfarer", "walk", "down") : null;
+  const ax = m && m.ax ? m.ax : 8;
+  const ay = m && m.ay != null ? m.ay : 28;
+  const bw = m && m.w ? m.w : 18;
+  const bh = m && m.h ? m.h : 30;
+  const top = hero.y - ay;
+  const foot = hero.y - ay + bh;
+  const a = dev(hero.x - ax - 14, top - 16);
+  const b = dev(hero.x - ax + bw + 14, foot + 8);
+  const legs = dev(hero.x - ax - 14, foot - 14);
+  const canvas = SF.view;
+  function clip(p, q) {
+    return {
+      x0: Math.max(0, Math.min(p.x, q.x)),
+      y0: Math.max(0, Math.min(p.y, q.y)),
+      x1: Math.min(canvas.width, Math.max(p.x, q.x)),
+      y1: Math.min(canvas.height, Math.max(p.y, q.y))
+    };
+  }
+  function count(rect, pred) {
+    const w = rect.x1 - rect.x0;
+    const h = rect.y1 - rect.y0;
+    if (w < 2 || h < 2) return -1;
+    const img = SF.ctx.getImageData(rect.x0, rect.y0, w, h).data;
+    let n = 0;
+    for (let i = 0; i < img.length; i += 4) if (pred(img[i], img[i + 1], img[i + 2])) n++;
+    return n;
+  }
+  const cream = (r, g, bl) => r > 245 && g > 236 && bl > 220 && r >= g && g + 6 >= bl;
+  const gold = (r, g, bl) => r > 240 && g > 190 && g < 230 && bl > 90 && bl < 150;
+  const body = clip(a, b);
+  const lower = clip(legs, b);
+  return {
+    cream: count(lower, cream),
+    gold: count(body, gold),
+    alpha: SF._markFade && SF._markFade[n.id] ? Math.round(SF._markFade[n.id].a * 100) / 100 : null,
+    hidden: SF.markHidden(n.id, Math.hypot(hero.x - feet.x, hero.y - feet.y)),
+    dist: Math.round(Math.hypot(hero.x - feet.x, hero.y - feet.y))
+  };
+});
+check(namePixels.hidden && namePixels.cream < 8 && namePixels.gold < 8,
+  "a settled north stand draws no name and no diamond on the hero (" + JSON.stringify(namePixels) + ")");
 
 const lampNear = await page.evaluate(() => {
   SF.mountIsland("cinderveil");
@@ -1390,7 +1438,7 @@ const deskMark = await keys.evaluate(() => {
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
   const talk = SF.TALK_RANGE || 54;
-  const far = Math.max(4 * 16, talk + 8);
+  const far = (SF.MARK_NEAR || 72) + (SF.MARK_HYST || 4) + 4;
   const dirs = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
   const p = SF.state.player;
   const near = [];
