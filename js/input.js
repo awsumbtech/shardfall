@@ -336,6 +336,12 @@ SF.bindInput = function () {
         return;
       }
       if (e.button !== 0) return;
+      var stTap = SF.state;
+      if (stTap && stTap.mode === "dialogue" && stTap.act1Card && SF.dismissEndcard) {
+        SF.dismissEndcard();
+        e.preventDefault();
+        return;
+      }
       if (e.target && e.target.closest && e.target.closest("button, .scroll, #controls")) return;
       var mode = SF.state && SF.state.mode;
       if (mode !== "play") {

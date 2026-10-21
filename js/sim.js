@@ -210,6 +210,19 @@ SF.spawnParticle = function (x, y, color, speed, life, size) {
   });
 };
 
+SF.spawnAsh = function (x, y) {
+  var colors = ["#efe6dc", "#c8beb4", "#8d847c", "#5e5854", "#e07a3a"];
+  SF.spawnParticle(x, y, colors[(Math.random() * colors.length) | 0], 16, 0.75 + Math.random() * 0.45, 1.2 + Math.random() * 1.6);
+  var s = SF.state;
+  var part = s && s.particles[s.particles.length - 1];
+  if (!part) return;
+  part.drift = 1;
+  part.px = 1;
+  part.size = 1 + ((Math.random() * 3) | 0);
+  part.vx = (Math.random() - 0.5) * 22;
+  part.vy = -14 - Math.random() * 28;
+};
+
 SF.burst = function (x, y, color, n, speed) {
   var i;
   for (i = 0; i < n; i++) SF.spawnParticle(x, y, color, speed || 70, 0.35 + Math.random() * 0.35, 2 + Math.random() * 3);
@@ -994,7 +1007,10 @@ SF.updateFx = function (dt) {
     part.life -= dt;
     part.x += part.vx * dt;
     part.y += part.vy * dt;
-    part.vy += 12 * dt;
+    if (part.drift) {
+      part.vy -= 8 * dt;
+      part.vx *= 1 - Math.min(1, 0.35 * dt);
+    } else part.vy += 12 * dt;
   });
   s.particles = s.particles.filter(function (part) { return part.life > 0; });
   s.floaters.forEach(function (f) {
@@ -1149,6 +1165,15 @@ SF.updateCamera = function (dt) {
   } else if (SF.debugCam) {
     targetX = SF.debugCam.x;
     targetY = SF.debugCam.y;
+  } else if (SF._depart && s.dialogue && s.dialogue.id === "cinderveil.act1.finale") {
+    var dep = SF._depart;
+    var pu = dep.panDur <= 0 ? 1 : Math.max(0, Math.min(1, dep.t / dep.panDur));
+    var pk = pu * pu * (3 - 2 * pu);
+    targetX = dep.fromX + (dep.camX - dep.fromX) * pk;
+    targetY = dep.fromY + (dep.camY - dep.fromY) * pk;
+  } else if (SF._epiCam && s.dialogue && s.dialogue.id && s.dialogue.id.indexOf("cinderveil.kestrel.epilogue_") === 0) {
+    targetX = SF._epiCam.x;
+    targetY = SF._epiCam.y;
   } else if (s.approach && s.approach.kind === "cantor" && SF.cantorWorldPos) {
     var spot = SF.cantorWorldPos();
     targetX = spot ? (s.player.x + spot.x) * 0.5 : s.player.x;
@@ -1157,7 +1182,9 @@ SF.updateCamera = function (dt) {
     targetX = s.player.x + s.player.fx * 26;
     targetY = s.player.y + s.player.fy * 18;
   }
-  if (SF.bounds && s.mode !== "title" && !SF.debugOverview) {
+  var departHold = SF._depart && s.dialogue && s.dialogue.id === "cinderveil.act1.finale";
+  var epiHold = SF._epiCam && s.dialogue && s.dialogue.id && s.dialogue.id.indexOf("cinderveil.kestrel.epilogue_") === 0;
+  if (SF.bounds && s.mode !== "title" && !SF.debugOverview && !departHold && !epiHold) {
     var hw = (SF.viewW || 640) / 2;
     var hh = (SF.viewH || 360) / 2;
     var b = SF.bounds;
@@ -1172,13 +1199,20 @@ SF.updateCamera = function (dt) {
 
 SF.pumpMessages = function (dt) {
   var s = SF.state;
+  if (s.lampBanner && s.banner) {
+    s.banner.ttl -= dt;
+    if (s.banner.ttl <= 0) {
+      s.banner = null;
+      s.lampBanner = false;
+    }
+  }
   if (s.mode === "dialogue" || s.mode === "cutscene" || s.revealPan) return;
   if (s.toast) {
     s.toast.ttl -= dt;
     if (s.toast.ttl <= 0) s.toast = null;
   }
   if (!s.toast && s.toasts.length) s.toast = s.toasts.shift();
-  if (s.banner) {
+  if (s.banner && !s.lampBanner) {
     s.banner.ttl -= dt;
     if (s.banner.ttl <= 0) s.banner = null;
   }
@@ -1190,6 +1224,7 @@ SF.update = function (dt) {
   var s = SF.state;
   if (!s) return;
   SF.anim = (SF.anim || 0) + dt;
+  if (s.mode !== "title" && s.mode !== "pause" && SF.tickActVisuals) SF.tickActVisuals(dt);
   if (s.mode !== "pause" && s.mode !== "chest") SF.pumpMessages(dt);
   if (s.mode === "title") {
     SF.updateCamera(dt);

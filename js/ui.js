@@ -528,10 +528,10 @@ SF.syncUI = function () {
     banner.hidden = false;
     setText("banner-title", s.banner.title);
     setText("banner-sub", s.banner.sub || "");
-  } else banner.hidden = true;
+  } else if (banner) banner.hidden = true;
 
   var endcard = document.getElementById("endcard");
-  if (endcard && !(s.dialogue && s.dialogue.id === "cinderveil.act1.finale" && s.mode === "dialogue")) {
+  if (endcard && !(s.dialogue && s.dialogue.id === "cinderveil.act1.finale" && s.act1Card && s.mode === "dialogue")) {
     endcard.hidden = true;
   }
 

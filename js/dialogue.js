@@ -178,11 +178,15 @@ function showNode(id) {
   var lines = visibleLines(node, (s.flags || {}));
   var full = fillLine(lines[0], s);
   if (SF.armReveal) SF.armReveal(full);
+  if (node.id === "emberhold.wake") SF._duskAmt = 1;
+  if (SF.clearLampBanner) SF.clearLampBanner();
+  if (node.id === "cinderveil.lamp.relit" && SF.beginIlsaApproach) SF.beginIlsaApproach();
+  if (node.id === "cinderveil.cantor.confront" && SF.ensureIlsaOnRidge) SF.ensureIlsaOnRidge();
+  if ((node.id || id) === "cinderveil.act1.finale" && SF.beginDepart) SF.beginDepart();
   var instant = linesInstant();
   var walkingUp = !!(s.approach && s.approach.kind === "cantor" && (node.id === "cinderveil.cantor.confront"));
   var lock = 0.2;
   if (walkingUp) lock = Math.max(lock, (s.approach.dur || 3) - (s.approach.t || 0));
-  if (SF._dialogueUi && (node.id || id) === "cinderveil.act1.finale") s.endcardLock = Date.now() + (SF.ENDCARD_LOCK_MS || 400);
   s.dialogue = {
     id: node.id || String(id || ""),
     node: node,
@@ -212,6 +216,11 @@ function finishNode(choice) {
   if (!d) return;
   var node = d.node;
   if (choice && choice.setFlags) writeFlags(choice.setFlags);
+  if (d.id === "cinderveil.lamp.relit" && SF.clearLampBanner) SF.clearLampBanner();
+  if (d.id === "cinderveil.act1.finale") {
+    s.act1Card = false;
+    if (SF.endDepart) SF.endDepart();
+  }
   if (node && node.onEnd) SF._dlgEvents.push(node.onEnd);
   var nextId = (choice && choice.next) || (node && node.next) || "";
   if (nextId && pendingScript(nextId)) nextId = "";
@@ -267,8 +276,24 @@ SF.advanceDialogue = function () {
   var s = SF.state;
   var d = s && s.dialogue;
   if (!d || s.mode !== "dialogue" || d.lock > 0) return;
-  if (d.id === "cinderveil.act1.finale" && s.endcardLock && Date.now() < s.endcardLock) return;
   if (d.phase === "choice") return;
+  if (d.id === "cinderveil.act1.finale" && s.act1Card) {
+    if (s.endcardLock && Date.now() < s.endcardLock) return;
+    d.shown = d.full.length;
+    d.done = true;
+  } else if (d.id === "cinderveil.act1.finale") {
+    if (!d.done) {
+      d.shown = d.full.length;
+      d.done = true;
+      d.acc = 0;
+      return;
+    }
+    if (SF._depart) SF._depart.acked = true;
+    if (SF._depart && SF._depart.t > 0 && SF._depart.t < SF._depart.dur) return;
+    if (SF._depart) SF._depart.t = SF._depart.dur;
+    if (SF.showActCard) SF.showActCard();
+    return;
+  }
   if (d.holdForApproach && s.approach && s.approach.t < s.approach.dur) {
     if (SF.parkCantor) SF.parkCantor();
     else s.approach = null;
@@ -280,6 +305,7 @@ SF.advanceDialogue = function () {
     d.acc = 0;
     return;
   }
+  if (d.id === "cinderveil.lamp.relit" && d.i === 1 && s.ilsaWalk && SF.parkIlsa) SF.parkIlsa();
   if (d.i < d.lines.length - 1) {
     d.i += 1;
     d.full = fillLine(d.lines[d.i], s);
@@ -754,8 +780,9 @@ SF.paintDialogue = function () {
   }
   var endcard = document.getElementById("endcard");
   var finale = d.id === "cinderveil.act1.finale";
-  if (finale) root.hidden = true;
-  if (endcard) endcard.hidden = !finale;
+  var card = finale && s.act1Card;
+  if (card) root.hidden = true;
+  if (endcard) endcard.hidden = !card;
 };
 
 SF.dismissEndcard = function () {
