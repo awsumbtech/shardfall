@@ -305,14 +305,17 @@ function addHit(id, x, y, w, h) {
 
 function button(ctx, x, y, w, h, label, on, dim) {
   ctx.save();
-  if (dim) ctx.globalAlpha = 0.55;
   artWindow(ctx, x, y, w, h);
-  if (on) {
+  if (dim) {
+    ctx.fillStyle = "rgba(8, 12, 28, 0.72)";
+    ctx.fillRect(x + 4, y + 4, Math.max(1, w - 8), Math.max(1, h - 8));
+  }
+  if (on && !dim) {
     ctx.strokeStyle = "#ffd37a";
     ctx.lineWidth = 2;
     ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
   }
-  ctx.fillStyle = "#f4f7ff";
+  ctx.fillStyle = dim ? "#8d97ad" : "#f4f7ff";
   var size = 18;
   ctx.font = "700 " + size + "px system-ui, sans-serif";
   while (size > 13 && ctx.measureText(label).width > w - 16) {
@@ -344,15 +347,7 @@ function listRowCount(b) {
     skills.forEach(function (id) { if (SF.SKILLS && SF.SKILLS[id]) n += 1; });
     return n;
   }
-  if (b.phase === "items") {
-    var count = 0;
-    var inv = (SF.state && SF.state.inventory) || {};
-    Object.keys(inv).forEach(function (id) {
-      var it = SF.ITEMS && SF.ITEMS[id];
-      if (it && it.kind === "item" && inv[id] > 0) count += 1;
-    });
-    return count;
-  }
+  if (b.phase === "items") return battleItems(b).length;
   return 0;
 }
 
@@ -706,8 +701,12 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     var shared = partyBattleScale(tallSrc, foeCap || 0);
     tallest = 0;
     for (i = 0; i < specs.length; i++) {
-      specs[i].scale = shared;
-      specs[i].sh = specs[i].src.h * shared;
+      var fit = shared;
+      var cellW = Math.max(16, specs[i].cell.w - 8);
+      var cellH = Math.max(16, specs[i].cell.h - 8);
+      while (fit > 1 && (fit * specs[i].src.w > cellW || fit * specs[i].src.h > cellH)) fit -= 1;
+      specs[i].scale = fit;
+      specs[i].sh = specs[i].src.h * fit;
       if (specs[i].sh > tallest) tallest = specs[i].sh;
     }
   }
@@ -727,9 +726,18 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     cx = cell.x + cell.w / 2;
     if (cx - ax < cell.x + 2) cx = cell.x + 2 + ax;
     if (cx - ax + sw > cell.x + cell.w - 2) cx = cell.x + cell.w - 2 - (sw - ax);
+    var multiRow = side === "party" && Math.ceil(n / 2) > 1;
     feet = feetLine;
     top = feet - ay;
-    if (labelH && top - labelH < zone.y + 2) {
+    if (multiRow) {
+      feet = cell.y + cell.h - 4;
+      top = feet - ay;
+      if (top < cell.y + 2) {
+        var lift = cell.y + 2 - top;
+        feet += lift;
+        top += lift;
+      }
+    } else if (labelH && top - labelH < zone.y + 2) {
       var shift = zone.y + 2 - (top - labelH);
       feet += shift;
       top += shift;
@@ -746,7 +754,7 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     });
   }
   var guard = 0;
-  while (side !== "party" && guard < 5) {
+  while (guard < 8) {
     var overlap = false;
     for (i = 0; i < placed.length; i++) {
       var j;
@@ -868,14 +876,30 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
   var partySpots = placeActors(party, partyZone, "party", groundY, partyRef);
   if (foeSpots.length && partySpots.length) {
     var ground = foeSpots[0].feet;
+    var partyGround = partySpots[0].feet;
     var pi;
     for (pi = 1; pi < foeSpots.length; pi++) if (foeSpots[pi].feet > ground) ground = foeSpots[pi].feet;
+    for (pi = 1; pi < partySpots.length; pi++) if (partySpots[pi].feet > partyGround) partyGround = partySpots[pi].feet;
+    var delta = ground - partyGround;
+    var topMost = partySpots[0].hit.y;
+    var lowFeet = partyGround;
+    for (pi = 1; pi < partySpots.length; pi++) {
+      if (partySpots[pi].hit.y < topMost) topMost = partySpots[pi].hit.y;
+      if (partySpots[pi].feet > lowFeet) lowFeet = partySpots[pi].feet;
+    }
+    var minTop = stage.y + 4;
+    var maxFeet = stage.y + stage.h - 4;
+    if (topMost + delta < minTop) delta = minTop - topMost;
+    if (lowFeet + delta > maxFeet) delta = maxFeet - lowFeet;
+    if (topMost + delta < minTop) delta = minTop - topMost;
     partySpots.forEach(function (spot) {
-      var delta = ground - spot.feet;
       spot.feet += delta;
       spot.hit.y += delta;
     });
   }
+  SF.Battle.partyBoxes = partySpots.map(function (spot) {
+    return { id: spot.actor.id, alive: spot.actor.alive, x: spot.hit.x, y: spot.hit.y, w: spot.hit.w, h: spot.hit.h };
+  });
   var aiming = b.phase === "target";
   var aimFoe = aiming && b.aim !== "ally";
   var aimAlly = aiming && b.aim === "ally";
@@ -885,16 +909,7 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     var nudge = actorNudge(b, f);
     var pose = battlePose(b, f);
     var canTap = aimFoe && f.alive;
-    if (!f.alive && b.phase === "result") {
-      var fade = b.corpseT || 0;
-      if (fade <= 0) return;
-      drawGroundShadow(ctx, spot, nudge.x, Math.max(0, fade / 0.5));
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, fade / 0.5);
-      drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
-      ctx.restore();
-      return;
-    }
+    if (!f.alive && b.phase === "result") return;
     drawGroundShadow(ctx, spot, nudge.x, !f.alive ? 0.35 : (aiming && !canTap ? 0.4 : 1));
     ctx.save();
     if (!f.alive) ctx.globalAlpha = 0.35;
@@ -903,9 +918,12 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     ctx.restore();
     drawFoeLabel(ctx, spot, b);
     if (canTap) {
+      var foePick = 0;
+      foes.forEach(function (other) { if (other.alive && other !== f && foes.indexOf(other) < foes.indexOf(f)) foePick += 1; });
+      var foeOn = foePick === (b.sel || 0);
       ctx.save();
-      ctx.strokeStyle = "#ffd37a";
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = foeOn ? "#ffd37a" : "rgba(255, 211, 122, 0.45)";
+      ctx.lineWidth = foeOn ? 4 : 2;
       ctx.strokeRect(Math.round(spot.hit.x) - 2, Math.round(spot.hit.y) - 2, Math.round(spot.hit.w) + 4, Math.round(spot.hit.h) + 4);
       ctx.restore();
       addHit("foe:" + f.id, spot.hit.x, spot.hit.y, spot.hit.w, spot.hit.h);
@@ -929,9 +947,14 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     drawSprite(ctx, a.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "left");
     ctx.restore();
     if (aimAlly && a.alive) {
+      var allyPick = 0;
+      party.forEach(function (other) {
+        if (other.alive && party.indexOf(other) < party.indexOf(a)) allyPick += 1;
+      });
+      var allyOn = allyPick === (b.sel || 0);
       ctx.save();
-      ctx.strokeStyle = "#ffd37a";
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = allyOn ? "#ffd37a" : "rgba(255, 211, 122, 0.45)";
+      ctx.lineWidth = allyOn ? 4 : 2;
       ctx.strokeRect(Math.round(spot.hit.x) - 2, Math.round(spot.hit.y) - 2, Math.round(spot.hit.w) + 4, Math.round(spot.hit.h) + 4);
       ctx.restore();
       addHit("ally:" + a.id, spot.hit.x, spot.hit.y, spot.hit.w, spot.hit.h);
@@ -977,9 +1000,10 @@ function drawElement(ctx, element, x, y, p, calm) {
 function drawBattleFx(ctx, b, spots) {
   var art = b.art;
   if (!art || !spots) return;
-  var p = b.phase === "result" ? 0.62 : animP(b);
+  if (b.phase === "result") return;
+  var p = animP(b);
   if (!p) return;
-  var calm = (SF.calm && SF.calm()) || b.phase === "result";
+  var calm = SF.calm && SF.calm();
   var byId = {};
   spots.forEach(function (spot) { byId[spot.actor.id] = spot; });
   function bodyY(spot) {
@@ -1010,12 +1034,12 @@ function drawBattleFx(ctx, b, spots) {
   });
 }
 
-function drawStatRow(ctx, tag, cur, max, x, y, w, rowH, fill) {
+function drawStatRow(ctx, tag, cur, max, x, y, w, rowH, fill, labelColor) {
   var size = Math.min(12, Math.max(9, rowH - 3));
   var text = tag + " " + cur + "/" + max;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#d7e6ff";
+  ctx.fillStyle = labelColor || "#d7e6ff";
   var mid = Math.round(y + rowH / 2);
   ctx.font = "700 " + size + "px system-ui, sans-serif";
   while (size > 9 && ctx.measureText(text).width > w - 20) {
@@ -1054,9 +1078,10 @@ function drawPartyCards(ctx, b, party, x, y, w, h) {
       var barW = Math.max(36, cx + bw - 12 - textX);
       var labelW = Math.min(78, Math.round(barW * 0.46));
       ctx.font = "700 13px system-ui, sans-serif";
-      ctx.fillStyle = "#d7e6ff";
+      ctx.fillStyle = "#ffd5dc";
       ctx.fillText("HP " + a.hp + "/" + a.maxHp, textX, y + 22);
       bar(ctx, textX + labelW, y + 24, Math.max(20, barW - labelW), 6, a.maxHp ? a.hp / a.maxHp : 0, "#ef6d7a");
+      ctx.fillStyle = "#7eb6ff";
       ctx.fillText("SP " + a.sp + "/" + a.maxSp, textX, y + 42);
       bar(ctx, textX + labelW, y + 44, Math.max(20, barW - labelW), 6, a.maxSp ? a.sp / a.maxSp : 0, "#7eb6ff");
     } else {
@@ -1074,8 +1099,8 @@ function drawPartyCards(ctx, b, party, x, y, w, h) {
       ctx.fillText(name.text, nameX, y + pad + face / 2);
       var statTop = y + pad + face + 2;
       var statH = Math.max(11, Math.floor((y + h - pad - statTop) / 2));
-      drawStatRow(ctx, "HP", a.hp, a.maxHp, cx + pad, statTop, bw - pad * 2, statH, "#ef6d7a");
-      drawStatRow(ctx, "SP", a.sp, a.maxSp, cx + pad, statTop + statH, bw - pad * 2, statH, "#7eb6ff");
+      drawStatRow(ctx, "HP", a.hp, a.maxHp, cx + pad, statTop, bw - pad * 2, statH, "#ef6d7a", "#ffd5dc");
+      drawStatRow(ctx, "SP", a.sp, a.maxSp, cx + pad, statTop + statH, bw - pad * 2, statH, "#7eb6ff", "#7eb6ff");
     }
     ctx.restore();
     if (b.phase === "target" && b.aim === "ally" && a.alive) {
@@ -1114,6 +1139,15 @@ function drawLog(ctx, b, x, y, w, h) {
   ctx.restore();
 }
 
+function aimPrompt(b) {
+  var touch = false;
+  if (SF.touchPrimary && SF.touchPrimary()) touch = true;
+  else if (typeof document !== "undefined" && document.body && document.body.dataset.touch === "1") touch = true;
+  if (b && b.aim === "ally") return touch ? "Tap an ally." : "Choose an ally.";
+  return touch ? "Tap a foe." : "Choose a target.";
+}
+SF.Battle.aimLine = aimPrompt;
+
 function drawAimLine(ctx, b, rect) {
   if (!rect || rect.h < 8) return;
   ctx.save();
@@ -1126,7 +1160,7 @@ function drawAimLine(ctx, b, rect) {
   ctx.font = "700 14px system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(b.aim === "ally" ? "Tap an ally." : "Tap a foe.", rect.x + rect.w / 2, rect.y + rect.h / 2);
+  ctx.fillText(aimPrompt(b), rect.x + rect.w / 2, rect.y + rect.h / 2);
   ctx.restore();
 }
 
@@ -1151,34 +1185,88 @@ function drawCommands(ctx, b, box) {
     button(ctx, box.x, cy, box.w, box.btnH, "Cancel", true, false);
     addHit("cancel", box.x, cy, box.w, box.btnH);
   } else {
-    button(ctx, box.x, cy, box.w, box.btnH, b.canFlee ? "Flee" : "Cannot flee", b.sel === 4, false);
-    addHit("cmd:flee", box.x, cy, box.w, box.btnH);
+    button(ctx, box.x, cy, box.w, box.btnH, b.canFlee ? "Flee" : "Cannot flee", b.canFlee && b.sel === 4, !b.canFlee);
+    if (b.canFlee) addHit("cmd:flee", box.x, cy, box.w, box.btnH);
   }
 }
 
-function drawListPanel(ctx, dock, rows, emptyText, idOf, labelOf) {
-  var btnH = 48;
+function fitLine(ctx, text, maxW) {
+  var t = text || "";
+  if (ctx.measureText(t).width <= maxW) return t;
+  while (t.length > 1 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+  return t ? t + "…" : "";
+}
+
+function drawListPanel(ctx, b, dock, rows, emptyText, idOf, labelOf, rowDim, descOf) {
+  var btnH = dock.h < 220 ? 40 : 44;
   var gap = 6;
-  var backH = 48;
+  var backH = 44;
   var x = dock.x;
   var btnW = dock.w;
-  var y = dock.y;
-  var body = rows.length ? rows.length * (btnH + gap) - gap : 36;
-  var backY = y + body + gap;
-  if (backY + backH > dock.y + dock.h) backY = dock.y + dock.h - backH;
+  var showDesc = typeof descOf === "function" && rows.length > 0;
+  var descH = showDesc ? 26 : 0;
+  var backY = dock.y + dock.h - backH;
+  var descY = backY - descH;
+  var listTop = dock.y;
+  var listBottom = (showDesc ? descY : backY) - 4;
+  var listH = Math.max(btnH, listBottom - listTop);
+  var stride = btnH + gap;
+  var visible = Math.max(1, Math.floor((listH + gap) / stride));
+  var maxScroll = Math.max(0, rows.length - visible);
+  var sel = b.sel || 0;
+  if (sel < 0) sel = 0;
+  if (rows.length && sel > rows.length - 1) sel = rows.length - 1;
+  b.sel = sel;
+  var scroll = b.listScroll || 0;
+  if (b._followSel) {
+    if (rows.length && sel < scroll) scroll = sel;
+    if (rows.length && sel >= scroll + visible) scroll = sel - visible + 1;
+    b._followSel = false;
+  }
+  if (scroll < 0) scroll = 0;
+  if (scroll > maxScroll) scroll = maxScroll;
+  b.listScroll = scroll;
+  b._visible = visible;
+  b._rows = rows.map(idOf);
+  b._stride = stride;
+  b._listBox = { x: x, y: listTop, w: btnW, h: listH };
+  b._empty = rows.length ? "" : emptyText;
+  b._desc = "";
+  artWindow(ctx, x, listTop, btnW, Math.max(36, listBottom - listTop));
   if (!rows.length) {
+    ctx.save();
     ctx.fillStyle = "#f4f7ff";
     ctx.font = "700 16px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(emptyText, x + btnW / 2, y + 18);
+    ctx.fillText(emptyText, x + btnW / 2, listTop + Math.max(18, listH / 2));
+    ctx.restore();
   }
-  rows.forEach(function (row, i) {
-    var cy = y + i * (btnH + gap);
-    if (cy + btnH > backY - 4) return;
-    button(ctx, x, cy, btnW, btnH, labelOf(row), false, false);
-    addHit(idOf(row), x, cy, btnW, btnH);
-  });
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, listTop, btnW, listH);
+  ctx.clip();
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    if (i < scroll || i >= scroll + visible) continue;
+    var cy = listTop + (i - scroll) * stride;
+    var dim = rowDim ? !!rowDim(rows[i]) : false;
+    button(ctx, x + 4, cy, btnW - 8, btnH, labelOf(rows[i]), i === sel, dim);
+    addHit(idOf(rows[i]), x + 4, cy, btnW - 8, btnH);
+  }
+  ctx.restore();
+  if (showDesc) {
+    var picked = rows[sel];
+    var desc = picked ? (descOf(picked) || "") : "";
+    b._desc = desc;
+    ctx.save();
+    ctx.fillStyle = "#d7e6ff";
+    ctx.font = "700 13px system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(fitLine(ctx, desc, btnW - 16), x + 8, descY + descH / 2);
+    ctx.restore();
+  }
   button(ctx, x, backY, btnW, backH, "Back", false, false);
   addHit("back", x, backY, btnW, backH);
 }
@@ -1186,21 +1274,33 @@ function drawListPanel(ctx, dock, rows, emptyText, idOf, labelOf) {
 function drawSkillList(ctx, b, dock) {
   var actor = actorOf(b, b.actorId);
   var skills = (actor ? actor.skills : []).map(function (id) { return SF.SKILLS[id]; }).filter(Boolean);
-  drawListPanel(ctx, dock, skills, "No skills.", function (sk) { return "skill:" + sk.id; }, function (sk) {
+  drawListPanel(ctx, b, dock, skills, "No skills.", function (sk) { return "skill:" + sk.id; }, function (sk) {
     return sk.name + "  " + sk.sp + " SP";
+  }, function (sk) {
+    return !!(sk.sp && actor && actor.sp < sk.sp);
+  }, function (sk) {
+    return sk.desc || "";
   });
 }
 
-function drawItemList(ctx, b, dock) {
+function battleItems(b) {
   var rows = [];
   var inv = (SF.state && SF.state.inventory) || {};
+  var hideFlee = !!(b && (b.boss || b.canFlee === false));
   Object.keys(inv).forEach(function (id) {
     var it = SF.ITEMS[id];
-    if (it && it.kind === "item" && inv[id] > 0) rows.push(it);
+    if (!it || it.kind !== "item" || !(inv[id] > 0)) return;
+    if (hideFlee && it.flee) return;
+    rows.push(it);
   });
-  drawListPanel(ctx, dock, rows, "No items.", function (it) { return "item:" + it.id; }, function (it) {
+  return rows;
+}
+
+function drawItemList(ctx, b, dock) {
+  var rows = battleItems(b);
+  drawListPanel(ctx, b, dock, rows, "No items.", function (it) { return "item:" + it.id; }, function (it) {
     return it.name + " x" + (SF.state.inventory[it.id] || 0);
-  });
+  }, null, null);
 }
 
 function drawResult(ctx, b, panel) {
@@ -1218,10 +1318,11 @@ function drawResult(ctx, b, panel) {
   ctx.clip();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  var compact = panelH < 210;
-  var titleSize = compact ? 22 : 26;
-  var bodySize = compact ? 15 : 16;
-  var step = compact ? 18 : 22;
+  var many = row.levels && row.levels.length;
+  var compact = panelH < 260 || !!many;
+  var titleSize = compact ? 20 : 26;
+  var bodySize = many ? 13 : (compact ? 14 : 16);
+  var step = many ? 13 : (compact ? 18 : 22);
   ctx.fillStyle = "#ffd37a";
   ctx.font = "700 " + titleSize + "px system-ui, sans-serif";
   var title = row.fled ? "Fled." : (row.win ? "Victory." : "Defeat.");
@@ -1235,7 +1336,7 @@ function drawResult(ctx, b, panel) {
     ly += gapAfter;
     return true;
   }
-  line(title, "#ffd37a", titleSize, titleSize + 8);
+  line(title, "#ffd37a", titleSize, many ? titleSize + 2 : titleSize + 8);
   if (row.win && !row.fled) {
     line("XP +" + (row.xp || 0), "#f4f7ff", bodySize, step);
     line("Marks +" + (row.gold || 0), "#f4f7ff", bodySize, step);
@@ -1245,8 +1346,11 @@ function drawResult(ctx, b, panel) {
     if (!line("Level up!", "#ffd37a", bodySize, step)) return;
     line(lv.name + " is level " + lv.level + ".", "#f4f7ff", bodySize, step);
     line("HP " + lv.hp[0] + " to " + lv.hp[1], "#f4f7ff", bodySize, step);
+    if (lv.sp) line("SP " + lv.sp[0] + " to " + lv.sp[1], "#7eb6ff", bodySize, step);
     line("Attack " + lv.atk[0] + " to " + lv.atk[1], "#f4f7ff", bodySize, step);
+    if (lv.def) line("Defense " + lv.def[0] + " to " + lv.def[1], "#f4f7ff", bodySize, step);
     line("Magic " + lv.mag[0] + " to " + lv.mag[1], "#f4f7ff", bodySize, step);
+    if (lv.spd) line("Speed " + lv.spd[0] + " to " + lv.spd[1], "#f4f7ff", bodySize, step);
     if (lv.skill) line("Learned " + lv.skill + ".", "#f4f7ff", bodySize, step);
   });
   if (!row.win) line("The party is at half HP.", "#f4f7ff", bodySize, step);
@@ -1271,12 +1375,100 @@ function currentActor(b) {
   return null;
 }
 
-SF.Battle.onPointer = function (x, y) {
+function menuCount(b) {
+  return b && b.canFlee ? 5 : 4;
+}
+
+function livingTargets(b) {
+  var side = b && b.aim === "ally" ? "party" : "foe";
+  var out = [];
+  if (!b) return out;
+  b.actors.forEach(function (a) {
+    if (a.side === side && a.alive) out.push(a);
+  });
+  return out;
+}
+
+function listIds(b) {
+  if (!b) return [];
+  if (b.phase === "skills") {
+    var actor = actorOf(b, b.actorId);
+    return (actor ? actor.skills : []).filter(function (id) { return SF.SKILLS[id]; }).map(function (id) {
+      return "skill:" + id;
+    });
+  }
+  if (b.phase === "items") return battleItems(b).map(function (it) { return "item:" + it.id; });
+  return [];
+}
+
+SF.Battle.moveSel = function (dir) {
+  var b = SF.state && SF.state.battle;
+  if (!b || b.phase === "readout" || b.phase === "result" || b.phase === "done") return;
+  var n = 0;
+  if (b.phase === "menu") n = menuCount(b);
+  else if (b.phase === "skills" || b.phase === "items") n = listIds(b).length;
+  else if (b.phase === "target") n = livingTargets(b).length;
+  if (n < 1) return;
+  var sel = (b.sel || 0) + dir;
+  sel = ((sel % n) + n) % n;
+  b.sel = sel;
+  b._followSel = true;
+};
+
+SF.Battle.confirm = function () {
+  var b = SF.state && SF.state.battle;
+  if (!b) return;
+  if (b.phase === "readout") {
+    SF.Battle.skipReadout();
+    return;
+  }
+  if (b.phase === "result") {
+    SF.Battle.confirmResult();
+    return;
+  }
+  if (b.phase === "menu") {
+    var cmds = ["attack", "skill", "item", "defend", "flee"];
+    var i = b.sel || 0;
+    if (i < 0 || i >= menuCount(b)) return;
+    var hits = SF.Battle.hits || [];
+    var want = "cmd:" + cmds[i];
+    var found = null;
+    hits.forEach(function (h) { if (h.id === want) found = h; });
+    if (found) SF.Battle.onPointer(found.x + 4, found.y + 4);
+    else SF.Battle.activate(want);
+    return;
+  }
+  if (b.phase === "skills" || b.phase === "items") {
+    var rows = listIds(b);
+    var sel = b.sel || 0;
+    if (sel < 0 || sel >= rows.length) return;
+    SF.Battle.activate(rows[sel]);
+    return;
+  }
+  if (b.phase === "target") {
+    var list = livingTargets(b);
+    var t = list[b.sel || 0];
+    if (!t) return;
+    SF.Battle.activate((b.aim === "ally" ? "ally:" : "foe:") + t.id);
+  }
+};
+
+SF.Battle.cancel = function () {
+  var b = SF.state && SF.state.battle;
+  if (!b) return;
+  if (b.phase === "skills" || b.phase === "items" || b.phase === "target") {
+    b.phase = "menu";
+    b.pending = null;
+    b.sel = 0;
+    b.listScroll = 0;
+  }
+};
+
+SF.Battle.activate = function (id) {
   var s = SF.state;
   var b = s && s.battle;
-  if (!b) return;
+  if (!b || !id) return;
   if (window.Sfx) Sfx.play("ui");
-  var id = pick(x, y);
   if (b.phase === "readout") {
     SF.Battle.skipReadout();
     return;
@@ -1286,8 +1478,7 @@ SF.Battle.onPointer = function (x, y) {
     return;
   }
   if (id === "back" || id === "cancel") {
-    b.phase = "menu";
-    b.pending = null;
+    SF.Battle.cancel();
     return;
   }
   if (b.phase === "menu" && id.indexOf("cmd:") === 0) {
@@ -1296,10 +1487,17 @@ SF.Battle.onPointer = function (x, y) {
       b.pending = { type: "skill", skillId: "attack" };
       b.aim = "foe";
       b.phase = "target";
-    } else if (cmd === "skill") b.phase = "skills";
-    else if (cmd === "item") b.phase = "items";
-    else if (cmd === "defend") SF.Battle.playerAct({ type: "defend" });
-    else if (cmd === "flee") SF.Battle.playerAct({ type: "flee" });
+      b.sel = 0;
+    } else if (cmd === "skill") {
+      b.phase = "skills";
+      b.sel = 0;
+      b.listScroll = 0;
+    } else if (cmd === "item") {
+      b.phase = "items";
+      b.sel = 0;
+      b.listScroll = 0;
+    } else if (cmd === "defend") SF.Battle.playerAct({ type: "defend" });
+    else if (cmd === "flee" && b.canFlee) SF.Battle.playerAct({ type: "flee" });
     return;
   }
   if (b.phase === "skills" && id.indexOf("skill:") === 0) {
@@ -1318,6 +1516,7 @@ SF.Battle.onPointer = function (x, y) {
     }
     b.aim = skill.target === "ally" ? "ally" : "foe";
     b.phase = "target";
+    b.sel = 0;
     return;
   }
   if (b.phase === "items" && id.indexOf("item:") === 0) {
@@ -1330,6 +1529,7 @@ SF.Battle.onPointer = function (x, y) {
     }
     b.aim = item.target === "foe" ? "foe" : "ally";
     b.phase = "target";
+    b.sel = 0;
     return;
   }
   if (b.phase === "target") {
@@ -1348,47 +1548,119 @@ SF.Battle.onPointer = function (x, y) {
   }
 };
 
+SF.Battle.onPointer = function (x, y) {
+  var s = SF.state;
+  var b = s && s.battle;
+  if (!b) return;
+  var id = pick(x, y);
+  if (b.phase === "readout") {
+    if (window.Sfx) Sfx.play("ui");
+    SF.Battle.skipReadout();
+    return;
+  }
+  if (!id) return;
+  SF.Battle.activate(id);
+};
+
+SF.Battle.readPad = function (b) {
+  if (!b || !SF.pollGamepad || !SF.inputState) return;
+  var mode = SF.state && SF.state.mode;
+  if (mode !== "battle" && mode !== "results") return;
+  SF.pollGamepad();
+  var i = SF.inputState;
+  var ax = i.padX || 0;
+  var ay = i.padY || 0;
+  var vert = ay < -0.45 ? -1 : (ay > 0.45 ? 1 : 0);
+  var horiz = ax < -0.45 ? -1 : (ax > 0.45 ? 1 : 0);
+  if (vert && vert !== b._padV) SF.Battle.moveSel(vert);
+  if (horiz && horiz !== b._padH) SF.Battle.moveSel(horiz);
+  b._padV = vert;
+  b._padH = horiz;
+  if (i.padAEdge) {
+    i.padAEdge = false;
+    SF.Battle.confirm();
+  }
+  if (i.padBEdge || i.padXEdge) {
+    i.padBEdge = false;
+    i.padXEdge = false;
+    SF.Battle.cancel();
+  }
+};
+
+SF.Battle.itemRows = battleItems;
+
 function bindBattlePointer() {
   if (typeof document === "undefined") return;
   var view = document.getElementById("view");
   if (!view || view.dataset.battleBound) return;
   view.dataset.battleBound = "1";
-  view.addEventListener("pointerdown", function (e) {
-    var s = SF.state;
-    if (!s || (s.mode !== "battle" && s.mode !== "results")) return;
+  var drag = null;
+  function toView(e) {
     var rect = view.getBoundingClientRect();
     var sx = rect.width ? (SF.viewW || rect.width) / rect.width : 1;
     var sy = rect.height ? (SF.viewH || rect.height) / rect.height : 1;
-    SF.Battle.onPointer((e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy);
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  }
+  view.addEventListener("pointerdown", function (e) {
+    var s = SF.state;
+    if (!s || (s.mode !== "battle" && s.mode !== "results")) return;
+    if (e.button != null && e.button !== 0) return;
+    var pt = toView(e);
+    var b = s.battle;
+    var box = b && b._listBox;
+    drag = {
+      x: pt.x,
+      y: pt.y,
+      pointerId: e.pointerId,
+      scroll: b ? (b.listScroll || 0) : 0,
+      list: !!(box && pt.x >= box.x && pt.y >= box.y && pt.x <= box.x + box.w && pt.y <= box.y + box.h),
+      moved: false
+    };
+    try { view.setPointerCapture(e.pointerId); } catch (err) { /* canvas may already own it */ }
     e.preventDefault();
   });
+  view.addEventListener("pointermove", function (e) {
+    if (!drag || e.pointerId !== drag.pointerId || !drag.list) return;
+    var s = SF.state;
+    var b = s && s.battle;
+    if (!b) return;
+    var pt = toView(e);
+    var dy = pt.y - drag.y;
+    if (Math.abs(dy) > 8 || Math.abs(pt.x - drag.x) > 8) drag.moved = true;
+    var stride = b._stride || 48;
+    var next = drag.scroll - Math.round(dy / stride);
+    if (next < 0) next = 0;
+    b.listScroll = next;
+    b._followSel = false;
+    e.preventDefault();
+  });
+  function endDrag(e) {
+    if (!drag || (e && drag.pointerId != null && e.pointerId !== drag.pointerId)) return;
+    var start = drag;
+    drag = null;
+    var s = SF.state;
+    if (!s || (s.mode !== "battle" && s.mode !== "results") || !e) return;
+    var pt = toView(e);
+    var moved = start.moved || Math.abs(pt.y - start.y) > 10 || Math.abs(pt.x - start.x) > 10;
+    if (moved) return;
+    SF.Battle.onPointer(pt.x, pt.y);
+  }
+  view.addEventListener("pointerup", endDrag);
+  view.addEventListener("pointercancel", function () { drag = null; });
   window.addEventListener("keydown", function (e) {
     var s = SF.state;
     if (!s || (s.mode !== "battle" && s.mode !== "results") || !s.battle) return;
-    if (e.code === "Enter" || e.code === "Space" || e.code === "Escape" || e.code.indexOf("Digit") === 0) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    var b = s.battle;
-    if (e.code === "Enter" || e.code === "Space") {
-      if (b.phase === "readout") SF.Battle.skipReadout();
-      else if (b.phase === "result") SF.Battle.confirmResult();
-      else if (b.phase === "menu") {
-        var cmds = ["attack", "skill", "item", "defend", "flee"];
-        SF.Battle.onPointer = SF.Battle.onPointer;
-        var fake = { attack: "cmd:attack", skill: "cmd:skill", item: "cmd:item", defend: "cmd:defend", flee: "cmd:flee" };
-        b._key = fake[cmds[b.sel || 0]];
-        var hits = SF.Battle.hits || [];
-        var found = null;
-        hits.forEach(function (h) { if (h.id === b._key) found = h; });
-        if (found) SF.Battle.onPointer(found.x + 4, found.y + 4);
-      }
-    }
-    if (e.code === "Escape") {
-      if (b.phase === "skills" || b.phase === "items" || b.phase === "target") b.phase = "menu";
-    }
-    if (e.code === "ArrowDown" || e.code === "ArrowRight") b.sel = ((b.sel || 0) + 1) % 5;
-    if (e.code === "ArrowUp" || e.code === "ArrowLeft") b.sel = ((b.sel || 0) + 4) % 5;
+    var code = e.code;
+    var confirm = code === "Enter" || code === "Space" || code === "KeyE" || code === "KeyZ";
+    var cancel = code === "Escape" || code === "KeyX";
+    var arrow = code === "ArrowUp" || code === "ArrowDown" || code === "ArrowLeft" || code === "ArrowRight";
+    if (!confirm && !cancel && !arrow && code.indexOf("Digit") !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.repeat && !arrow) return;
+    if (arrow) SF.Battle.moveSel(code === "ArrowUp" || code === "ArrowLeft" ? -1 : 1);
+    else if (confirm) SF.Battle.confirm();
+    else if (cancel) SF.Battle.cancel();
   }, true);
 }
 
@@ -1434,7 +1706,8 @@ SF.Battle.resolve = function (b, actor, action) {
     b.readoutT = dur;
     b.readoutDur = dur;
   }
-  if (b) b.art = { id: actor && actor.id, pose: pose, hurt: hurt, element: element, pops: pops };
+  if (b && b.phase === "result") b.art = { id: actor && actor.id, pose: "idle", hurt: [], element: "", pops: [] };
+  else if (b) b.art = { id: actor && actor.id, pose: pose, hurt: hurt, element: element, pops: pops };
 };
 
 bindBattlePointer();

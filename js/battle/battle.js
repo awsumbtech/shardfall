@@ -130,7 +130,7 @@ function primeCt(actors) {
 
 SF.Battle.forecast = function (b, count) {
   var sim = b.actors.map(function (a) {
-    return { id: a.id, ct: a.ct, spd: effSpd(a), alive: a.alive };
+    return { id: a.id, ct: a.ct, spd: effSpd(a), alive: a.alive, side: a.side };
   });
   var out = [];
   var guard = 0;
@@ -138,7 +138,9 @@ SF.Battle.forecast = function (b, count) {
   if (b.actorId) {
     out.push(b.actorId);
     sim.forEach(function (a) { if (a.id === b.actorId) current = a; });
-    if (current) current.ct -= GAUGE;
+    // A full gauge means this turn has not been spent yet. Readout already
+    // stored the post-action ct, so subtracting again would lie about the queue.
+    if (current && current.ct > GAUGE - 1) current.ct -= GAUGE;
   }
   while (out.length < count && guard < 500) {
     guard += 1;
@@ -155,7 +157,11 @@ SF.Battle.forecast = function (b, count) {
       alive.forEach(function (a) { a.ct += a.spd * step; });
       continue;
     }
-    ready.sort(function (a, c) { return c.ct - a.ct || c.spd - a.spd; });
+    ready.sort(function (a, c) {
+      if (c.ct !== a.ct) return c.ct - a.ct;
+      if (a.side !== c.side) return a.side === "party" ? -1 : 1;
+      return c.spd - a.spd;
+    });
     out.push(ready[0].id);
     ready[0].ct -= GAUGE;
   }
@@ -283,6 +289,10 @@ function finishBattle(win) {
   s.encounterGrace = 10;
   s.stepAcc = 0;
   s.mode = "play";
+  if (SF.inputState) {
+    SF.inputState.interactEdge = false;
+    SF.inputState.padAEdge = false;
+  }
   if (!win && b.id === "boss_cinder_maw") {
     s.flags.mawFight = false;
     (s.enemies || []).forEach(function (e) {
@@ -454,11 +464,25 @@ function checkEnd(b) {
   return false;
 }
 
-function spendTurn(actor, kind) {
-  actor.guard = false;
+function spendTurn(actor) {
   if (actor.mods.def > 0) actor.mods.def -= 1;
   if (actor.mods.spd > 0) actor.mods.spd -= 1;
-  actor.ct = kind === "defend" ? 320 : 0;
+  actor.ct = 0;
+}
+
+// No head start. ct stays at 0 unless that would still lap a living foe,
+// in which case the defender waits until that foe's gauge fills first.
+function defendCt(b, actor) {
+  var spd = effSpd(actor);
+  var wait = 0;
+  living(b, "foe").forEach(function (f) {
+    var t = (GAUGE - f.ct) / effSpd(f);
+    if (t > wait) wait = t;
+  });
+  if (!(wait > 0)) return 0;
+  var ct = Math.floor(GAUGE - wait * spd - 1);
+  if (!(ct < 0)) return 0;
+  return ct;
 }
 
 function hitLog(actor, target, hit, skill) {
@@ -482,7 +506,8 @@ SF.Battle.applyAction = function (b, actor, action) {
     actor.guard = true;
     actor.sp = Math.min(actor.maxSp, actor.sp + 3);
     lines.push(actor.name + " defends.");
-    spendTurn(actor, "defend");
+    spendTurn(actor);
+    actor.ct = defendCt(b, actor);
     return lines;
   }
   if (action.type === "flee") {
@@ -682,6 +707,9 @@ function beginActorTurn(b) {
     return;
   }
   b.actorId = actor.id;
+  actor.guard = false;
+  b.sel = 0;
+  b.listScroll = 0;
   b.order = SF.Battle.forecast(b, 8);
   if (actor.side === "foe") {
     var action = SF.Battle.foeAction(b, actor);
@@ -761,6 +789,7 @@ SF.Battle.update = function (dt) {
   var b = SF.state && SF.state.battle;
   if (!b) return;
   b.t += dt;
+  if (SF.Battle.readPad) SF.Battle.readPad(b);
   if (b.phase === "readout") {
     b.readoutT -= dt;
     if (b.readoutT <= 0) SF.Battle.afterReadout(b);
@@ -895,6 +924,8 @@ SF.Battle.start = function (encounterId, opts) {
     actors: [],
     log: [],
     phase: "menu",
+    sel: 0,
+    listScroll: 0,
     actorId: null,
     order: [],
     t: 0,

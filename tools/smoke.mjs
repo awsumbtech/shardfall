@@ -832,6 +832,150 @@ if (battle.player.xp < 1) fail("xp was not shared");
 if (battle.gold < goldBefore) fail("marks were not awarded");
 if (battle.mode === "battle") fail("battle did not return to the field");
 
+const guardTest = freshPlay();
+SF.Battle.instant = true;
+SF.Battle.start("cv_ash1");
+const g = guardTest.battle;
+const guardHero = g.actors.find((a) => a.side === "party");
+const ash = g.actors.find((a) => a.side === "foe");
+guardHero.hp = guardHero.maxHp;
+guardHero.alive = true;
+ash.hp = ash.maxHp;
+ash.alive = true;
+guardHero.guard = false;
+SF.Battle.applyAction(g, ash, { type: "skill", skillId: "attack", targetId: guardHero.id });
+const fullHit = guardHero.maxHp - guardHero.hp;
+guardHero.hp = guardHero.maxHp;
+guardHero.alive = true;
+SF.Battle.applyAction(g, guardHero, { type: "defend" });
+if (!guardHero.guard) fail("defend cleared guard before damage");
+const guardedBefore = guardHero.hp;
+SF.Battle.applyAction(g, ash, { type: "skill", skillId: "attack", targetId: guardHero.id });
+const halfHit = guardedBefore - guardHero.hp;
+if (!(fullHit > 0) || !(halfHit > 0) || Math.abs(halfHit * 2 - fullHit) > 1) {
+  fail("guard damage " + halfHit + " vs full " + fullHit);
+}
+if (!guardHero.guard) fail("guard dropped when the hit landed");
+guardHero.ct = 1000;
+ash.ct = 0;
+g.phase = "readout";
+g.readoutT = 0;
+SF.Battle.afterReadout(g);
+if (g.actorId !== guardHero.id) fail("defender did not take the next turn");
+if (guardHero.guard) fail("guard lasted into the defender's next turn");
+console.log("defend halves " + fullHit + " to " + halfHit);
+
+const turn = freshPlay();
+SF.Battle.instant = false;
+SF.Battle.start("em_wisps");
+let spins = 0;
+while (turn.battle && turn.battle.phase !== "menu") {
+  if (turn.battle.phase !== "readout") fail("wisps did not reach a menu, phase " + turn.battle.phase);
+  SF.Battle.skipReadout();
+  if (++spins > 12) fail("hero turn never started");
+}
+const turnHero = turn.battle.actors.find((a) => a.side === "party");
+const turnFoes = turn.battle.actors.filter((a) => a.side === "foe" && a.alive);
+if (turn.battle.actorId !== turnHero.id) fail("defend test was not the hero's turn");
+const openingHits = turn.battle.log.map((line) => {
+  const hit = /takes (\d+) damage/.exec(line);
+  return hit ? Number(hit[1]) : 0;
+}).filter((n) => n > 0);
+if (!openingHits.length) fail("wisps never hit before the hero's turn");
+const unguarded = openingHits[0];
+function queueFrom(heroCt) {
+  const rows = turn.battle.actors.map((a) => ({
+    name: a.name,
+    ct: a.id === turnHero.id ? heroCt : a.ct,
+    spd: a.spd,
+    alive: a.alive
+  }));
+  let steps = 0;
+  while (steps++ < 40) {
+    const ready = rows.filter((r) => r.alive && r.ct >= 1000);
+    if (ready.length) {
+      ready.sort((a, c) => c.ct - a.ct);
+      return ready[0].name + " @ " + rows.map((r) => r.name + " " + Math.round(r.ct)).join(", ");
+    }
+    let step = Infinity;
+    rows.forEach((r) => {
+      if (!r.alive) return;
+      const need = (1000 - r.ct) / r.spd;
+      if (need < step) step = need;
+    });
+    rows.forEach((r) => { if (r.alive) r.ct += r.spd * step; });
+  }
+  return "none";
+}
+const beforeQueue = queueFrom(320);
+const afterPlan = queueFrom(0);
+if (!SF.Battle.playerAct({ type: "defend" })) fail("defend did not spend the turn");
+if (!turnHero.guard) fail("defend did not raise guard");
+if (turnHero.ct > 0) fail("defend gave a head start " + turnHero.ct);
+const ctAfterDefend = turnHero.ct;
+const barIds = (turn.battle.order || []).slice();
+const barNames = barIds.map((id) => {
+  const who = turn.battle.actors.find((a) => a.id === id);
+  return who ? who.name : id;
+});
+const future = barIds.slice(1);
+const heroAgain = future.indexOf(turnHero.id);
+turnFoes.forEach((foe) => {
+  const at = future.indexOf(foe.id);
+  if (at < 0 || (heroAgain >= 0 && at > heroAgain)) {
+    fail("turn bar after defend is " + barNames.join(" > "));
+  }
+});
+const ctLine = turn.battle.actors.map((a) => a.name + " " + Math.round(a.ct)).join(", ");
+const guardedHits = [];
+const predicted = future.filter((id) => turnFoes.some((foe) => foe.id === id)).slice(0, turnFoes.length);
+predicted.forEach((id) => {
+  const foe = turnFoes.find((a) => a.id === id);
+  if (!turnHero.guard) fail("guard dropped before " + foe.name + " acted");
+  const hpBefore = turnHero.hp;
+  if (turn.battle.phase !== "readout") fail("expected a readout before " + foe.name);
+  SF.Battle.skipReadout();
+  const dealt = hpBefore - turnHero.hp;
+  if (turn.battle.actorId !== foe.id) fail("bar promised " + foe.name + " but " + turn.battle.actorId + " acted");
+  if (!(dealt > 0)) fail(foe.name + " did not hit through guard");
+  if (Math.abs(dealt * 2 - unguarded) > 1) fail(foe.name + " hit for " + dealt + " instead of half of " + unguarded);
+  if (!turnHero.guard) fail("guard cleared when " + foe.name + " attacked");
+  guardedHits.push(foe.name + " " + dealt);
+});
+if (turn.battle.phase !== "readout") fail("hero turn did not wait for a readout");
+SF.Battle.skipReadout();
+if (turn.battle.phase !== "menu" || turn.battle.actorId !== turnHero.id) {
+  fail("defender's next turn was " + turn.battle.phase + " " + turn.battle.actorId);
+}
+if (turnHero.guard) fail("guard stayed up into the defender's next turn");
+console.log("defend queue before (ct 320): " + beforeQueue);
+console.log("defend queue after (ct " + ctAfterDefend + ", " + ctLine + "): " + afterPlan);
+console.log("defend bar: " + barNames.join(" > "));
+console.log("defend hits: unguarded " + unguarded + ", guarded " + guardedHits.join(", "));
+
+const slow = freshPlay();
+SF.Battle.instant = false;
+SF.Battle.start("em_brumekin");
+spins = 0;
+while (slow.battle && slow.battle.phase !== "menu") {
+  if (slow.battle.phase !== "readout") fail("brumekin did not reach a menu");
+  SF.Battle.skipReadout();
+  if (++spins > 8) fail("brumekin hero turn never started");
+}
+const slowHero = slow.battle.actors.find((a) => a.side === "party");
+const slowFoe = slow.battle.actors.find((a) => a.side === "foe");
+slowFoe.ct = 0;
+if (!SF.Battle.playerAct({ type: "defend" })) fail("slow-foe defend failed");
+if (!(slowHero.ct < 0)) fail("a faster defender still stood at ct " + slowHero.ct + " ahead of a foe at 0");
+const slowCt = slowHero.ct;
+if (!slowHero.guard) fail("slow-foe defend dropped guard");
+const slowHp = slowHero.hp;
+SF.Battle.skipReadout();
+const slowDealt = slowHp - slowHero.hp;
+if (slow.battle.actorId !== slowFoe.id) fail("slow foe did not act before the defender");
+if (!(slowDealt > 0) || !slowHero.guard) fail("slow foe hit without guard " + slowDealt);
+console.log("defend waits at ct " + slowCt + " so Brumekin hits for " + slowDealt + " while guard is up");
+
 const loss = freshPlay();
 loss.gold = 40;
 SF.giveItem("ether", 1);
@@ -874,6 +1018,10 @@ const winLv = SF.Battle.autoResolve(40);
 if (winLv !== "win") fail("level-up fight did not win");
 if (levels.party.members.wayfarer.level < 2) fail("did not level up");
 if (!SF._lastResult.levels.length || SF._lastResult.levels[0].name !== "Wayfarer") fail("level-up result missing");
+const lvRow = SF._lastResult.levels[0];
+["hp", "sp", "atk", "def", "mag", "spd"].forEach((key) => {
+  if (!lvRow[key] || lvRow[key].length !== 2) fail("level-up omitted " + key);
+});
 if (!SF.skillsAt("wayfarer", levels.party.members.wayfarer.level).includes("scan") && levels.party.members.wayfarer.level < 2) {
   fail("scan learn check broke");
 }
@@ -1255,7 +1403,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.15"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.16"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));

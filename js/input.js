@@ -56,7 +56,10 @@ SF.pollGamepad = function () {
 SF.readMove = function () {
   if (SF.pollGamepad) SF.pollGamepad();
   var i = SF.inputState;
-  if (i.padAEdge) { i.interactEdge = true; i.padAEdge = false; }
+  if (i.padAEdge) {
+    i.padAEdge = false;
+    if (SF.state && SF.state.mode === "play") i.interactEdge = true;
+  }
   if (i.padBEdge) { i.padBEdge = false; }
   if (i.padXEdge) { i.dashEdge = true; i.padXEdge = false; }
   if (i.padRB && !i.padRBWas) i.grappleHold = true;
@@ -332,8 +335,13 @@ SF.bindInput = function () {
       }
       if (e.button !== 0) return;
       if (e.target && e.target.closest && e.target.closest("button, .scroll, #controls")) return;
+      var mode = SF.state && SF.state.mode;
+      if (mode !== "play") {
+        SF.inputState.interactEdge = false;
+        return;
+      }
       SF.inputState.interactEdge = true;
-    });
+    }, true);
     view.addEventListener("pointerup", function (e) {
       if (e.button === 2 && SF.inputState.grappleHold) {
         SF.inputState.grappleHold = false;
@@ -344,5 +352,21 @@ SF.bindInput = function () {
   document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   document.addEventListener("selectstart", function (e) {
     if (!allowScroll(e)) e.preventDefault();
+  });
+  function clearPendingInteract() {
+    SF.inputState.interactEdge = false;
+    SF.inputState.padAEdge = false;
+  }
+  SF.clearInteract = clearPendingInteract;
+  ["closeFieldMenu", "closeWorldPanel", "resumeGame", "closeChest", "closeHand", "closeSettings"].forEach(function (name) {
+    var fn = SF[name];
+    if (typeof fn !== "function" || fn._clearsInteract) return;
+    var wrapped = function () {
+      var out = fn.apply(this, arguments);
+      clearPendingInteract();
+      return out;
+    };
+    wrapped._clearsInteract = true;
+    SF[name] = wrapped;
   });
 };
