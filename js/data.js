@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.18";
+SF.VERSION = "0.4.19";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -28,7 +28,8 @@ SF.WHATS_NEW = [
   "Menus fit your phone screen, with Close always in reach.",
   "Defend really blocks now, and battle lists scroll and work with keys and a controller.",
   "The vault chest opens, the End of Act 1 card closes, and the sail chart shows only the islands you can reach.",
-  "Act 1 scenes now match the story: the Maw crumbles to ash, Ilsa walks up to the ridge, and the skiff sails away at the end."
+  "Act 1 scenes now match the story: the Maw crumbles to ash, Ilsa walks up to the ridge, and the skiff sails away at the end.",
+  "In battle the whole party stands on the ground, lists show more rows, and the Cinder Maw is a fairer fight."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

@@ -12,7 +12,9 @@ SF.FOES = {
   cinderhound: { id: "cinderhound", name: "Cinderhound", sprite: "cinderhound", hp: 74, atk: 15, def: 8, mag: 6, spd: 10, weak: "tide", resist: "ember", steal: "hi_tonic", skills: ["ember_bite"] },
   cinder_maw: {
     id: "cinder_maw", name: "Cinder Maw", sprite: "cinder_maw", boss: true, core: true,
-    hp: 420, atk: 18, def: 12, mag: 14, spd: 8, weak: "shard", resist: "ember", steal: "hi_tonic",
+    // Lv3–4 with Kestrel and Tamsin is the fair fight. Solo Lv2 wins with Shard Bolt
+    // and tonics. Six Lv6 Shard Bolts leave the core standing.
+    hp: 620, atk: 12, def: 13, mag: 11, spd: 8, weak: "shard", resist: "ember", steal: "hi_tonic",
     skills: ["cinder_bite", "ash_spit", "core_pulse"],
     phases: [
       { at: 0.6, log: "The core flares.", def: 0.72, atk: 1.1 },

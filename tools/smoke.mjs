@@ -600,6 +600,9 @@ if (!road.flags.mawFight || !maw || maw.dormant || road.quest !== "maw") fail("t
 if (context.Music.current() !== "boss") fail("the Maw did not take the boss theme");
 needMarker("maw");
 if (!road.battle || road.battle.id !== "boss_cinder_maw" || road.battle.canFlee) fail("the Maw talk did not start a locked fight");
+if (SF.FOES.cinder_maw.hp !== 620 || SF.FOES.cinder_maw.atk !== 12 || SF.FOES.cinder_maw.mag !== 11 || SF.FOES.cinder_maw.def !== 13) {
+  fail("Cinder Maw stats drifted from the Act 1 tune");
+}
 SF.Battle.instant = true;
 const storyMaw = SF.Battle.autoResolve(120);
 if (storyMaw !== "win") fail("the Maw did not fall (" + storyMaw + ")");
@@ -1400,7 +1403,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.18"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.19"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1540,6 +1543,97 @@ act1Chests.forEach((spec, index) => {
   if ((box.gold || 0) !== (chest.marks || 0)) fail(id + " paid marks twice");
 });
 SF.mountIsland("emberhold");
+
+{
+  const layout = {};
+  layout.window = layout;
+  layout.console = console;
+  layout.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  layout.document = {
+    readyState: "complete",
+    getElementById: () => null,
+    addEventListener() {},
+    createElement() { return { getContext: () => null, width: 0, height: 0 }; }
+  };
+  layout.Art = { battleBg() {}, calm() { return true; } };
+  vm.createContext(layout);
+  for (const file of [
+    "js/data.js", "js/data/skills.js", "js/data/items.js", "js/data/party.js",
+    "js/data/enemies.js", "js/data/encounters.js", "js/dialogue.js",
+    "js/audio.js", "js/music.js", "js/sfx.js", "js/save.js", "js/sim.js",
+    "js/battle/battle.js", "js/battle/draw.js"
+  ]) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), layout, { filename: file });
+  }
+  const L = layout.SF;
+  const fake = {
+    setTransform() {}, save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {},
+    arcTo() {}, closePath() {}, fill() {}, stroke() {}, rect() {}, clip() {},
+    fillRect() {}, strokeRect() {}, fillText() {}, translate() {}, ellipse() {}, arc() {},
+    measureText(t) { return { width: String(t || "").length * 7 }; },
+    imageSmoothingEnabled: false
+  };
+  const play = L.fresh();
+  play.mode = "play";
+  L.state = play;
+  L.ensureParty(play);
+  play.flags.party_kestrel = true;
+  play.flags.party_tamsin = true;
+  ["wayfarer", "kestrel", "tamsin"].forEach((id) => {
+    play.party.members[id].level = 1;
+    play.party.members[id].xp = L.xpForLevel(4);
+    L.levelMemberToXp(play, id);
+    const st = L.memberStats(play, id);
+    play.party.members[id].hp = st.maxHp;
+    play.party.members[id].sp = st.maxSp;
+  });
+  play.inventory = { tonic: 4, ether: 2, hi_tonic: 1, ember_salt: 1, tide_vial: 1, gale_powder: 1, phoenix_shard: 1 };
+  L.syncFieldVitals(play);
+  L.Battle.instant = true;
+  if (!L.Battle.start("em_wisps")) fail("layout battle did not start");
+  const views = [[915, 412], [412, 915], [640, 360]];
+  const bgs = ["emberhold_meadow", "cinderveil_ash", "ember_vault", "saltmere_shore", "highspire_road", "hush_deck"];
+  views.forEach(([w, h]) => {
+    bgs.forEach((bg) => {
+      play.battle.bg = bg;
+      play.battle.phase = "menu";
+      L.drawBattle(fake, w, h, 1);
+      const boxes = L.Battle.partyBoxes || [];
+      const stand = L.Battle.stand || {};
+      if (boxes.length !== 3) fail("party stand count " + boxes.length + " at " + w + "x" + h);
+      const feet = boxes.map((box) => box.feet);
+      if (feet.some((f) => f !== feet[0])) fail("party feet split at " + w + "x" + h + " " + bg + " " + feet.join(","));
+      if (!(feet[0] > stand.horizon)) fail("party stands above the floor at " + w + "x" + h + " " + bg);
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i];
+          const b = boxes[j];
+          const hit = a.x < b.x + b.w - 0.5 && a.x + a.w > b.x + 0.5 && a.y < b.y + b.h - 0.5 && a.y + a.h > b.y + 0.5;
+          if (hit) fail("party sprites overlap at " + w + "x" + h + " " + bg);
+        }
+      }
+    });
+  });
+  L.drawBattle(fake, 915, 412, 1);
+  if (!(L.Battle.stripFace >= 44)) fail("turn icons still tiny at phone width (" + L.Battle.stripFace + ")");
+  const kes = play.battle.actors.find((a) => a.key === "kestrel");
+  play.battle.phase = "skills";
+  play.battle.actorId = kes.id;
+  play.battle.sel = 0;
+  play.battle.listScroll = 0;
+  L.drawBattle(fake, 915, 412, 1);
+  if (!play.battle._rows || play.battle._rows.indexOf("skill:steal") < 0) fail("Kestrel's Steal is missing");
+  if (play.battle._rows.indexOf("skill:steal") >= play.battle._visible && !play.battle._moreBelow) {
+    fail("Steal is hidden with no scroll hint");
+  }
+  if (!(play.battle._visible >= 2)) fail("skill list shows " + play.battle._visible);
+  if (!play.battle._descBox) fail("skill description has no panel");
+  play.battle.phase = "items";
+  play.battle.listScroll = 0;
+  L.drawBattle(fake, 915, 412, 1);
+  if (!(play.battle._visible >= 4)) fail("item list only shows " + play.battle._visible);
+  if (play.battle._rows.length > play.battle._visible && !play.battle._moreBelow) fail("item list hides rows with no hint");
+}
 
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit" });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);

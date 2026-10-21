@@ -328,41 +328,23 @@ function button(ctx, x, y, w, h, label, on, dim) {
   ctx.restore();
 }
 
-function contentDockH(rows, maxH) {
-  var btnH = 48;
-  var gap = 6;
-  var backH = 48;
-  var body = rows > 0 ? rows * (btnH + gap) - gap : 36;
-  var h = body + gap + backH;
-  if (maxH > 0 && h > maxH) h = maxH;
-  return Math.max(backH, h);
+function stripHeight(w, h) {
+  if (w >= 700) return 78;
+  if (h <= 400) return 60;
+  return 72;
 }
 
-function listRowCount(b) {
-  if (!b) return 0;
-  if (b.phase === "skills") {
-    var actor = actorOf(b, b.actorId);
-    var skills = actor && actor.skills ? actor.skills : [];
-    var n = 0;
-    skills.forEach(function (id) { if (SF.SKILLS && SF.SKILLS[id]) n += 1; });
-    return n;
-  }
-  if (b.phase === "items") return battleItems(b).length;
-  return 0;
-}
-
-function layoutBattle(w, h, phase, nParty, listRows) {
+function layoutBattle(w, h, phase, nParty) {
   var land = w > h;
   var short = h <= 400;
   var margin = short ? 6 : 8;
   var gap = short ? 4 : 6;
-  var stripH = short ? 50 : 64;
+  var stripH = stripHeight(w, h);
   var btnH = short ? 44 : 48;
   var promptH = phase === "target" ? (short ? 20 : 28) : 0;
   var cardH = short ? 72 : (nParty > 1 ? 78 : 84);
   var logH = short ? 36 : 52;
   var cmdH = btnH * 3 + gap * 2;
-  listRows = listRows || 0;
   var strip = { x: margin, y: margin, w: w - margin * 2, h: stripH };
   var y0 = strip.y + stripH + gap;
 
@@ -410,9 +392,8 @@ function layoutBattle(w, h, phase, nParty, listRows) {
     var bottom = h - margin;
     var card = { x: rx, y: y0, w: rw, h: cardH };
     if (submenu) {
-      var maxDock = bottom - (card.y + cardH + gap);
-      var dockH = contentDockH(listRows, maxDock);
-      var dock = { x: rx, y: card.y + cardH + gap, w: rw, h: dockH };
+      var maxDock = Math.max(96, bottom - (card.y + cardH + gap));
+      var dock = { x: rx, y: card.y + cardH + gap, w: rw, h: maxDock };
       return { land: true, strip: strip, stage: stage, card: card, dock: dock, log: null, prompt: null, commands: null };
     }
     var log = { x: rx, y: card.y + cardH + gap, w: rw, h: logH };
@@ -442,9 +423,8 @@ function layoutBattle(w, h, phase, nParty, listRows) {
   if (submenu) {
     var room = h - margin - y0 - cardH - gap * 2;
     var stageMin = 120;
-    var maxDock = Math.max(96, room - stageMin);
-    var dockH = contentDockH(listRows, maxDock);
-    var dockP = { x: margin, y: h - margin - dockH, w: w - margin * 2, h: dockH };
+    var maxDock = Math.max(120, room - stageMin);
+    var dockP = { x: margin, y: h - margin - maxDock, w: w - margin * 2, h: maxDock };
     var cardP = { x: margin, y: dockP.y - gap - cardH, w: w - margin * 2, h: cardH };
     var stageP = { x: 0, y: y0, w: w, h: Math.max(80, cardP.y - gap - y0) };
     return { land: false, strip: strip, stage: stageP, card: cardP, dock: dockP, log: null, prompt: null, commands: null };
@@ -484,9 +464,9 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   paintBg(ctx, b.bg, w, h, b.t || 0);
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
-  var lay = layoutBattle(w, h, b.phase, party.length, listRowCount(b));
+  var lay = layoutBattle(w, h, b.phase, party.length);
   if (b.phase !== "result") drawStrip(ctx, b, lay.strip.x, lay.strip.y, lay.strip.w, lay.strip.h);
-  drawStage(ctx, b, foes, party, lay.stage, h);
+  drawStage(ctx, b, foes, party, lay.stage, w, h);
   if (b.phase === "result") {
     drawResult(ctx, b, lay.result);
     return;
@@ -608,8 +588,11 @@ function drawStrip(ctx, b, x, y, w, h) {
   var n = Math.min(8, order.length || 1);
   var inset = 8;
   var slot = Math.floor((w - inset * 2) / n);
-  var nameH = 13;
-  var face = Math.max(16, Math.min(26, slot - 6, h - nameH - 8));
+  var nameH = 15;
+  var faceCap = w >= 700 ? 52 : 40;
+  var faceRoom = h - nameH - 12;
+  var face = Math.max(22, Math.min(faceCap, slot - 4, faceRoom));
+  SF.Battle.stripFace = face;
   var i, id, actor, ox, label, gx, box;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
@@ -625,7 +608,7 @@ function drawStrip(ctx, b, x, y, w, h) {
       gx = ox - 1;
     }
     if (gx + box > x + w - 6) box = Math.max(face, x + w - 6 - gx);
-    var portraitY = y + 4;
+    var portraitY = y + 6;
     if (i === 0) {
       ctx.strokeStyle = "#ffd37a";
       ctx.lineWidth = 2;
@@ -637,12 +620,13 @@ function drawStrip(ctx, b, x, y, w, h) {
     if (!label.text) continue;
     ctx.fillStyle = i === 0 ? "#ffd37a" : "#d5def2";
     ctx.font = "700 " + label.size + "px system-ui, sans-serif";
-    ctx.fillText(label.text, slotX + slot / 2, portraitY + face + 14);
+    ctx.fillText(label.text, slotX + slot / 2, portraitY + face + nameH - 1);
   }
 }
 
-function formationCells(n, zone) {
-  var cols = n <= 1 ? 1 : 2;
+function formationCells(n, zone, cols) {
+  if (!(cols > 0)) cols = n <= 1 ? 1 : 2;
+  cols = Math.max(1, Math.min(n, cols));
   var rows = Math.ceil(n / cols);
   var gapX = n > 1 ? 10 : 0;
   var gapY = rows > 1 ? 8 : 0;
@@ -681,7 +665,7 @@ function placeActors(actors, zone, side, groundY, foeCap) {
   var n = actors.length;
   if (!n || !zone || zone.w < 8 || zone.h < 8) return [];
   var labelH = side === "foe" ? 40 : 0;
-  var cells = formationCells(n, zone);
+  var cells = formationCells(n, zone, side === "party" ? n : 0);
   var placed = [];
   var i, actor, cell, scale, src, sw, sh, ax, ay, cx, feet, top, hit;
   var tallest = 0;
@@ -699,14 +683,18 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     var tallSrc = specs[0].src.h;
     for (i = 1; i < specs.length; i++) if (specs[i].src.h > tallSrc) tallSrc = specs[i].src.h;
     var shared = partyBattleScale(tallSrc, foeCap || 0);
+    var fitAll = shared;
+    for (i = 0; i < specs.length; i++) {
+      var cellW = Math.max(16, specs[i].cell.w - 4);
+      var cellH = Math.max(16, specs[i].cell.h - 4);
+      var fit = fitAll;
+      while (fit > 1 && (fit * specs[i].src.w > cellW || fit * specs[i].src.h > cellH)) fit -= 1;
+      if (fit < fitAll) fitAll = fit;
+    }
     tallest = 0;
     for (i = 0; i < specs.length; i++) {
-      var fit = shared;
-      var cellW = Math.max(16, specs[i].cell.w - 8);
-      var cellH = Math.max(16, specs[i].cell.h - 8);
-      while (fit > 1 && (fit * specs[i].src.w > cellW || fit * specs[i].src.h > cellH)) fit -= 1;
-      specs[i].scale = fit;
-      specs[i].sh = specs[i].src.h * fit;
+      specs[i].scale = fitAll;
+      specs[i].sh = specs[i].src.h * fitAll;
       if (specs[i].sh > tallest) tallest = specs[i].sh;
     }
   }
@@ -726,18 +714,9 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     cx = cell.x + cell.w / 2;
     if (cx - ax < cell.x + 2) cx = cell.x + 2 + ax;
     if (cx - ax + sw > cell.x + cell.w - 2) cx = cell.x + cell.w - 2 - (sw - ax);
-    var multiRow = side === "party" && Math.ceil(n / 2) > 1;
     feet = feetLine;
     top = feet - ay;
-    if (multiRow) {
-      feet = cell.y + cell.h - 4;
-      top = feet - ay;
-      if (top < cell.y + 2) {
-        var lift = cell.y + 2 - top;
-        feet += lift;
-        top += lift;
-      }
-    } else if (labelH && top - labelH < zone.y + 2) {
+    if (labelH && top - labelH < zone.y + 2) {
       var shift = zone.y + 2 - (top - labelH);
       feet += shift;
       top += shift;
@@ -845,7 +824,55 @@ function drawFoeLabel(ctx, spot, battle) {
   bar(ctx, box.x, box.y + 33, plateW, 4, f.maxHp ? f.hp / f.maxHp : 0, f.alive ? "#e15b6a" : "#665");
 }
 
-function drawStage(ctx, b, foes, party, stage, canvasH) {
+// The battle plate paints its floor from the same horizon as scenes.js.
+// Feet go on the near floor, below that seam, and never up in the sky band.
+function backdropFloor(canvasW, canvasH, stage) {
+  var portrait = canvasH > canvasW;
+  var horizon = Math.round(canvasH * (portrait ? 0.47 : 0.46));
+  var span = Math.max(1, canvasH - horizon);
+  var near = horizon + Math.round(span * 0.62);
+  var low = stage.y + stage.h - 8;
+  var feet = Math.min(near, low);
+  if (feet <= horizon && low > horizon + 8) feet = low;
+  feet = Math.max(stage.y + 16, Math.min(low, feet));
+  return { horizon: horizon, feet: Math.round(feet) };
+}
+
+function fitStandingHeight(spots, minTop) {
+  var i, spot, src, scale, ay, top;
+  for (i = 0; i < spots.length; i++) {
+    spot = spots[i];
+    src = spot.src;
+    scale = spot.scale;
+    while (scale > 1 && spot.feet - src.ay * scale < minTop) scale -= 1;
+    ay = src.ay * scale;
+    top = spot.feet - ay;
+    spot.scale = scale;
+    spot.hit.x = spot.x - src.ax * scale;
+    spot.hit.y = top;
+    spot.hit.w = src.w * scale;
+    spot.hit.h = src.h * scale;
+  }
+}
+
+function plantFeet(spots, feet) {
+  var i, spot, src, scale, ax, ay;
+  for (i = 0; i < spots.length; i++) {
+    spot = spots[i];
+    src = spot.src;
+    scale = spot.scale;
+    ax = src.ax * scale;
+    ay = src.ay * scale;
+    spot.feet = feet;
+    spot.hit.x = spot.x - ax;
+    spot.hit.y = feet - ay;
+    spot.hit.w = src.w * scale;
+    spot.hit.h = src.h * scale;
+    if (spot.label && spot.label.h) spot.label.y = spot.hit.y - spot.label.h;
+  }
+}
+
+function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
   if (!stage) return;
   var split = party.length > 1 ? 0.56 : 0.62;
   var foeZone = {
@@ -860,7 +887,8 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     w: Math.max(40, stage.x + stage.w - (foeZone.x + foeZone.w + 12)),
     h: foeZone.h
   };
-  var groundY = Math.round((canvasH || (stage.y + stage.h)) * 0.68);
+  var floor = backdropFloor(canvasW || stage.w, canvasH || (stage.y + stage.h), stage);
+  var groundY = floor.feet;
   var foeSpots = placeActors(foes, foeZone, "foe", groundY);
   var foeCap = 0;
   var smallCap = 0;
@@ -874,32 +902,26 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
   // so the party keeps the same scale and the same gaps as a normal battle.
   var partyRef = smallCap || meadowFoeHeight(foeZone.w, foeZone.h);
   var partySpots = placeActors(party, partyZone, "party", groundY, partyRef);
-  if (foeSpots.length && partySpots.length) {
-    var ground = foeSpots[0].feet;
-    var partyGround = partySpots[0].feet;
-    var pi;
-    for (pi = 1; pi < foeSpots.length; pi++) if (foeSpots[pi].feet > ground) ground = foeSpots[pi].feet;
-    for (pi = 1; pi < partySpots.length; pi++) if (partySpots[pi].feet > partyGround) partyGround = partySpots[pi].feet;
-    var delta = ground - partyGround;
-    var topMost = partySpots[0].hit.y;
-    var lowFeet = partyGround;
-    for (pi = 1; pi < partySpots.length; pi++) {
-      if (partySpots[pi].hit.y < topMost) topMost = partySpots[pi].hit.y;
-      if (partySpots[pi].feet > lowFeet) lowFeet = partySpots[pi].feet;
-    }
-    var minTop = stage.y + 4;
-    var maxFeet = stage.y + stage.h - 4;
-    if (topMost + delta < minTop) delta = minTop - topMost;
-    if (lowFeet + delta > maxFeet) delta = maxFeet - lowFeet;
-    if (topMost + delta < minTop) delta = minTop - topMost;
-    partySpots.forEach(function (spot) {
-      spot.feet += delta;
-      spot.hit.y += delta;
-    });
-  }
+  plantFeet(foeSpots, groundY);
+  plantFeet(partySpots, groundY);
+  fitStandingHeight(partySpots, stage.y + 4);
   SF.Battle.partyBoxes = partySpots.map(function (spot) {
-    return { id: spot.actor.id, alive: spot.actor.alive, x: spot.hit.x, y: spot.hit.y, w: spot.hit.w, h: spot.hit.h };
+    return {
+      id: spot.actor.id,
+      alive: spot.actor.alive,
+      x: spot.hit.x,
+      y: spot.hit.y,
+      w: spot.hit.w,
+      h: spot.hit.h,
+      feet: spot.feet
+    };
   });
+  SF.Battle.stand = {
+    horizon: floor.horizon,
+    floor: groundY,
+    feet: partySpots.map(function (spot) { return spot.feet; }),
+    bg: b.bg
+  };
   var aiming = b.phase === "target";
   var aimFoe = aiming && b.aim !== "ally";
   var aimAlly = aiming && b.aim === "ally";
@@ -1197,21 +1219,64 @@ function fitLine(ctx, text, maxW) {
   return t ? t + "…" : "";
 }
 
+function chevron(ctx, cx, cy, dir) {
+  ctx.beginPath();
+  if (dir > 0) {
+    ctx.moveTo(cx - 10, cy - 4);
+    ctx.lineTo(cx + 10, cy - 4);
+    ctx.lineTo(cx, cy + 7);
+  } else {
+    ctx.moveTo(cx - 10, cy + 4);
+    ctx.lineTo(cx + 10, cy + 4);
+    ctx.lineTo(cx, cy - 7);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawScrollCue(ctx, box, up, down) {
+  var cx = Math.round(box.x + box.w / 2);
+  ctx.save();
+  if (up) {
+    ctx.fillStyle = "rgba(8, 16, 40, 0.82)";
+    ctx.fillRect(box.x + 6, box.y + 4, box.w - 12, 18);
+    ctx.fillStyle = "#ffd37a";
+    chevron(ctx, cx, box.y + 13, -1);
+  }
+  if (down) {
+    ctx.fillStyle = "rgba(8, 16, 40, 0.86)";
+    ctx.fillRect(box.x + 6, box.y + box.h - 22, box.w - 12, 18);
+    ctx.fillStyle = "#ffd37a";
+    chevron(ctx, cx, box.y + box.h - 13, 1);
+  }
+  ctx.restore();
+}
+
 function drawListPanel(ctx, b, dock, rows, emptyText, idOf, labelOf, rowDim, descOf) {
-  var btnH = dock.h < 220 ? 40 : 44;
-  var gap = 6;
-  var backH = 44;
+  var gap = 4;
+  var backH = 42;
   var x = dock.x;
   var btnW = dock.w;
   var showDesc = typeof descOf === "function" && rows.length > 0;
-  var descH = showDesc ? 26 : 0;
+  var descH = showDesc ? 34 : 0;
   var backY = dock.y + dock.h - backH;
-  var descY = backY - descH;
+  var plateBottom = backY - gap;
+  var descY = showDesc ? plateBottom - descH : plateBottom;
   var listTop = dock.y;
-  var listBottom = (showDesc ? descY : backY) - 4;
-  var listH = Math.max(btnH, listBottom - listTop);
+  var listH = Math.max(36, (showDesc ? descY : plateBottom) - listTop);
+  var minBtn = 32;
+  var maxBtn = 46;
+  var btnH = minBtn;
+  if (rows.length) {
+    var fitAtMin = Math.max(1, Math.floor((listH + gap) / (minBtn + gap)));
+    if (rows.length <= fitAtMin) {
+      var roomy = Math.floor((listH - gap * Math.max(0, rows.length - 1)) / rows.length);
+      btnH = Math.max(minBtn, Math.min(maxBtn, roomy));
+    }
+  }
   var stride = btnH + gap;
   var visible = Math.max(1, Math.floor((listH + gap) / stride));
+  if (rows.length) visible = Math.min(visible, rows.length);
   var maxScroll = Math.max(0, rows.length - visible);
   var sel = b.sel || 0;
   if (sel < 0) sel = 0;
@@ -1230,9 +1295,12 @@ function drawListPanel(ctx, b, dock, rows, emptyText, idOf, labelOf, rowDim, des
   b._rows = rows.map(idOf);
   b._stride = stride;
   b._listBox = { x: x, y: listTop, w: btnW, h: listH };
+  b._moreAbove = scroll > 0;
+  b._moreBelow = scroll + visible < rows.length;
   b._empty = rows.length ? "" : emptyText;
   b._desc = "";
-  artWindow(ctx, x, listTop, btnW, Math.max(36, listBottom - listTop));
+  var plateH = Math.max(36, plateBottom - listTop);
+  artWindow(ctx, x, listTop, btnW, plateH);
   if (!rows.length) {
     ctx.save();
     ctx.fillStyle = "#f4f7ff";
@@ -1244,27 +1312,35 @@ function drawListPanel(ctx, b, dock, rows, emptyText, idOf, labelOf, rowDim, des
   }
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x, listTop, btnW, listH);
+  ctx.rect(x + 4, listTop + 4, Math.max(8, btnW - 8), Math.max(8, listH - 8));
   ctx.clip();
   var i;
   for (i = 0; i < rows.length; i++) {
     if (i < scroll || i >= scroll + visible) continue;
     var cy = listTop + (i - scroll) * stride;
     var dim = rowDim ? !!rowDim(rows[i]) : false;
-    button(ctx, x + 4, cy, btnW - 8, btnH, labelOf(rows[i]), i === sel, dim);
-    addHit(idOf(rows[i]), x + 4, cy, btnW - 8, btnH);
+    button(ctx, x + 8, cy + 2, btnW - 16, Math.max(28, btnH - 2), labelOf(rows[i]), i === sel, dim);
+    addHit(idOf(rows[i]), x + 8, cy + 2, btnW - 16, Math.max(28, btnH - 2));
   }
   ctx.restore();
+  if (b._moreAbove || b._moreBelow) drawScrollCue(ctx, b._listBox, b._moreAbove, b._moreBelow);
   if (showDesc) {
     var picked = rows[sel];
     var desc = picked ? (descOf(picked) || "") : "";
     b._desc = desc;
+    b._descBox = { x: x, y: descY, w: btnW, h: descH };
     ctx.save();
+    ctx.strokeStyle = "rgba(196, 220, 255, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 12, descY);
+    ctx.lineTo(x + btnW - 12, descY);
+    ctx.stroke();
     ctx.fillStyle = "#d7e6ff";
     ctx.font = "700 13px system-ui, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(fitLine(ctx, desc, btnW - 16), x + 8, descY + descH / 2);
+    ctx.fillText(fitLine(ctx, desc, btnW - 24), x + 12, descY + descH / 2);
     ctx.restore();
   }
   button(ctx, x, backY, btnW, backH, "Back", false, false);
