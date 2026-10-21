@@ -151,7 +151,30 @@ function battleScale(actor, count, stageH, slotW, slotH, labelH) {
   var maxW = Math.max(20, (slotW || 160) - 8);
   scale = Math.min(scale, maxH / src.h, maxW / src.w);
   if (!(scale > 0) || !isFinite(scale)) scale = 2;
+  if (actor.side === "party") return partyBattleScale(src.h, 0);
   return Math.round(scale * 4) / 4;
+}
+
+// Party fighters land near 80% of the shortest foe. Whole steps are 1, 2,
+// and 3; 1.5 is allowed when that is what sits in the 75–85% band.
+function partyBattleScale(srcH, foeH) {
+  var options = [1, 1.5, 2, 3];
+  var target = foeH > 0 ? foeH * 0.8 : srcH * 1.5;
+  var best = 1;
+  var bestScore = Infinity;
+  var i, s, h, ratio, inBand, score;
+  for (i = 0; i < options.length; i++) {
+    s = options[i];
+    h = srcH * s;
+    ratio = foeH > 0 ? h / foeH : 1;
+    inBand = foeH > 0 && ratio >= 0.75 && ratio <= 0.85;
+    score = Math.abs(h - target) + (inBand ? 0 : 1000);
+    if (score < bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+  return best;
 }
 
 function animP(b) {
@@ -183,9 +206,51 @@ function actorNudge(b, actor) {
   return { x: Math.round(dx), y: Math.round(dy) };
 }
 
+function halfStep(scale) {
+  return Math.abs(scale * 2 - Math.round(scale * 2)) < 1e-6 && Math.abs(scale - Math.round(scale)) > 1e-6;
+}
+
+// 1.5× cannot go through Art.blit, which rounds the device multiplier to a
+// whole number (1.5 becomes 2 at 1×). Draw the destination at the rounded
+// device size with smoothing off so every screen pixel stays whole.
+function drawHalfStepSprite(ctx, id, x, y, scale, pose, facing) {
+  var canvas = Art.frameOf(id, pose, facing, battleFrame(pose));
+  var ax = canvas._ax || 0;
+  var ay = canvas._ay || canvas.height - 1;
+  var lx = x - ax * scale;
+  var ly = y - ay * scale;
+  var dw = canvas.width * scale;
+  var dh = canvas.height * scale;
+  if (ctx.getTransform && ctx.setTransform) {
+    var t = ctx.getTransform();
+    if (t.b === 0 && t.c === 0 && t.a !== 0 && t.d !== 0) {
+      var px = Math.round(t.a * lx + t.e);
+      var py = Math.round(t.d * ly + t.f);
+      var pw = Math.max(1, Math.round(Math.abs(t.a * dw)));
+      var ph = Math.max(1, Math.round(Math.abs(t.d * dh)));
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(canvas, px, py, pw, ph);
+      ctx.restore();
+      return;
+    }
+  }
+  var smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, lx, ly, dw, dh);
+  ctx.imageSmoothingEnabled = smooth;
+}
+
 function drawSprite(ctx, id, x, y, scale, pose, facing) {
   pose = pose || "idle";
   facing = facing || "right";
+  if (window.Art && halfStep(scale) && typeof Art.frameOf === "function") {
+    try {
+      drawHalfStepSprite(ctx, id, x, y, scale, pose, facing);
+      return;
+    } catch (err) { /* fall through */ }
+  }
   if (window.Art && typeof Art.sprite === "function") {
     try {
       Art.sprite(ctx, id, x, y, {
@@ -634,7 +699,7 @@ function labelBox(cell, cx, top, labelH) {
   return { x: labelX, y: top - labelH, w: labelW, h: labelH };
 }
 
-function placeActors(actors, zone, side, groundY) {
+function placeActors(actors, zone, side, groundY, foeCap) {
   var n = actors.length;
   if (!n || !zone || zone.w < 8 || zone.h < 8) return [];
   var labelH = side === "foe" ? 40 : 0;
@@ -652,11 +717,10 @@ function placeActors(actors, zone, side, groundY) {
     if (sh > tallest) tallest = sh;
     specs.push({ actor: actor, cell: cell, scale: scale, src: src, sh: sh });
   }
-  // Party sprites share one scale. A slightly wider frame (Kestrel) used to
-  // round down a quarter-step and draw at about half the others' size.
-  if (side === "party" && specs.length > 1) {
-    var shared = specs[0].scale;
-    for (i = 1; i < specs.length; i++) if (specs[i].scale > shared) shared = specs[i].scale;
+  if (side === "party" && specs.length) {
+    var tallSrc = specs[0].src.h;
+    for (i = 1; i < specs.length; i++) if (specs[i].src.h > tallSrc) tallSrc = specs[i].src.h;
+    var shared = partyBattleScale(tallSrc, foeCap || 0);
     tallest = 0;
     for (i = 0; i < specs.length; i++) {
       specs[i].scale = shared;
@@ -699,7 +763,7 @@ function placeActors(actors, zone, side, groundY) {
     });
   }
   var guard = 0;
-  while (guard < 5) {
+  while (side !== "party" && guard < 5) {
     var overlap = false;
     for (i = 0; i < placed.length; i++) {
       var j;
@@ -772,7 +836,12 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
   };
   var groundY = Math.round((canvasH || (stage.y + stage.h)) * 0.68);
   var foeSpots = placeActors(foes, foeZone, "foe", groundY);
-  var partySpots = placeActors(party, partyZone, "party", groundY);
+  var foeCap = 0;
+  foeSpots.forEach(function (spot) {
+    var h = spot.src.h * spot.scale;
+    if (h > 0 && (!foeCap || h < foeCap)) foeCap = h;
+  });
+  var partySpots = placeActors(party, partyZone, "party", groundY, foeCap);
   if (foeSpots.length && partySpots.length) {
     var ground = foeSpots[0].feet;
     var pi;
@@ -792,6 +861,15 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     var nudge = actorNudge(b, f);
     var pose = battlePose(b, f);
     var canTap = aimFoe && f.alive;
+    if (!f.alive && b.phase === "result") {
+      var fade = b.corpseT || 0;
+      if (fade <= 0) return;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, fade / 0.28);
+      drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
+      ctx.restore();
+      return;
+    }
     ctx.save();
     if (!f.alive) ctx.globalAlpha = 0.35;
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
@@ -886,6 +964,7 @@ function drawBattleFx(ctx, b, spots) {
       if (spot) drawElement(ctx, art.element, spot.x, bodyY(spot), p, calm);
     });
   }
+  if (b.phase === "result") return;
   (art.pops || []).forEach(function (pop) {
     var spot = byId[pop.id];
     if (!spot) return;

@@ -1139,6 +1139,8 @@
     return doubled;
   }
 
+  // The field side pose faces right. Battle stands the party on the right,
+  // so a left-facing fighter is that picture mirrored toward the foes.
   function battle(id, pose, facing, frame) {
     var face = facing === "left" ? "left" : "right";
     var f = frame ? 1 : 0;
