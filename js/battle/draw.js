@@ -152,7 +152,9 @@ function battleScale(actor, count, stageH, slotW, slotH, labelH) {
   scale = Math.min(scale, maxH / src.h, maxW / src.w);
   if (!(scale > 0) || !isFinite(scale)) scale = 2;
   if (actor.side === "party") return partyBattleScale(src.h, 0);
-  return Math.round(scale * 4) / 4;
+  var whole = Math.max(1, Math.round(scale));
+  while (whole > 1 && (whole * src.h > maxH + 0.01 || whole * src.w > maxW + 0.01)) whole -= 1;
+  return whole;
 }
 
 // Height a pair of wisps would stand in this zone. Bosses are far taller;
@@ -755,7 +757,9 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     if (!overlap) break;
     guard += 1;
     for (i = 0; i < placed.length; i++) {
-      placed[i].scale = Math.max(0.5, Math.round(placed[i].scale * 0.82 * 4) / 4);
+      var prevScale = placed[i].scale;
+      placed[i].scale = Math.max(1, Math.round(prevScale * 0.82));
+      if (placed[i].scale >= prevScale) placed[i].scale = Math.max(1, prevScale - 1);
       src = placed[i].src;
       scale = placed[i].scale;
       sw = src.w * scale;
@@ -774,19 +778,22 @@ function placeActors(actors, zone, side, groundY, foeCap) {
 // A soft ground shadow pins every fighter to the battle floor. It stays on
 // the floor line even when the sprite lunges, hops, or recoils.
 function drawGroundShadow(ctx, spot, dx, alpha) {
-  // Stepped (pixel-art) ellipse: three flat bands, no anti-aliased edge.
-  var w = Math.max(12, Math.round(spot.hit.w * 0.62));
-  var band = 3;
+  // Stepped (pixel-art) ellipse: flat bands, no anti-aliased edge.
+  // A boss plants a wider, heavier shadow so the bulk reads as weight.
+  var boss = spot.actor && (spot.actor.boss || spot.actor.sprite === "cinder_maw" || spot.actor.sprite === "tidewyrm");
+  var w = Math.max(12, Math.round(spot.hit.w * (boss ? 0.92 : 0.62)));
+  var band = boss ? 4 : 3;
+  var rows = boss ? [0.48, 0.74, 1, 0.74, 0.48] : [0.62, 1, 0.62];
   var cx = Math.round(spot.x + dx);
   var cy = Math.round(spot.feet);
   ctx.save();
   ctx.globalAlpha = alpha == null ? 1 : alpha;
-  ctx.fillStyle = "rgba(10, 6, 24, 0.30)";
-  var rows = [0.62, 1, 0.62];
-  var i, rw;
+  ctx.fillStyle = boss ? "rgba(8, 4, 16, 0.42)" : "rgba(10, 6, 24, 0.30)";
+  var i, rw, top;
+  top = cy - Math.floor(rows.length / 2) * band;
   for (i = 0; i < rows.length; i++) {
     rw = Math.round(w * rows[i] / 2) * 2;
-    ctx.fillRect(cx - rw / 2, cy - band * 2 + i * band + 1, rw, band);
+    ctx.fillRect(cx - rw / 2, top + i * band, rw, band);
   }
   ctx.restore();
 }
@@ -871,9 +878,9 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     if (!f.alive && b.phase === "result") {
       var fade = b.corpseT || 0;
       if (fade <= 0) return;
-      drawGroundShadow(ctx, spot, nudge.x, Math.max(0, fade / 0.28));
+      drawGroundShadow(ctx, spot, nudge.x, Math.max(0, fade / 0.5));
       ctx.save();
-      ctx.globalAlpha = Math.max(0, fade / 0.28);
+      ctx.globalAlpha = Math.max(0, fade / 0.5);
       drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
       ctx.restore();
       return;

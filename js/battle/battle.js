@@ -378,7 +378,7 @@ function openResult(b, row) {
   b.actorId = null;
   // Corpses finish fading as the panel opens, and the last damage
   // numbers come down with them instead of hanging over the trees.
-  b.corpseT = 0.28;
+  b.corpseT = 0.5;
   if (b.art) {
     b.art.pops = [];
     b.art.hurt = [];
