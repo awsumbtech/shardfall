@@ -2,6 +2,7 @@
 // activate whatever appears under the finger after the finger is up.
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,12 @@ function loadPlaywright() {
   }
   console.error("tap leak: playwright-core is not installed");
   process.exit(1);
+}
+
+function shotPath(name) {
+  const dir = process.env.SF_TAP_SHOTS || process.env.SF_SHOTS || path.join(os.tmpdir(), "shardfall-tap");
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, name);
 }
 
 const pw = loadPlaywright();
@@ -153,9 +160,7 @@ for (let n = 0; n < 5; n++) {
     fail("same tap closed the sail chart on try " + n + " " + JSON.stringify(stayed));
   }
   if (n === 0) {
-    const shot = path.join("/opt/cursor/artifacts/overlay-input", "34-sail-stays.png");
-    fs.mkdirSync(path.dirname(shot), { recursive: true });
-    await page.screenshot({ path: shot });
+    await page.screenshot({ path: shotPath("34-sail-stays.png") });
   }
   const stayAt = await page.evaluate(() => {
     const r = document.getElementById("sail-close").getBoundingClientRect();
@@ -281,9 +286,7 @@ if (overlaps(plates.banner, plates.map) || overlaps(plates.toast, plates.map)) {
   fail("toast or banner covers the map " + JSON.stringify(plates));
 }
 if (plates.lineCount !== 1) fail("shard banner title wraps " + JSON.stringify(plates));
-const bannerShot = path.join("/opt/cursor/artifacts/overlay-input", "35-banner-stack.png");
-fs.mkdirSync(path.dirname(bannerShot), { recursive: true });
-await dp.screenshot({ path: bannerShot });
+await dp.screenshot({ path: shotPath("35-banner-stack.png") });
 const deskErr = deskBoot.errors.filter((e) => e.indexOf("controller") < 0);
 if (deskErr.length) fail("desk page errors " + deskErr.join(" | "));
 await desk.close();

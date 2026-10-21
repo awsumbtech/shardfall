@@ -2090,8 +2090,9 @@ SF.drawLampCrystal = function (ctx, lit) {
 
 SF.drawBobber = function (ctx, x, y, lift) {
   var bob = (SF.calm && SF.calm()) ? 0 : Math.sin(SF.anim * 2) * 2;
+  var rise = lift == null ? 28 : lift;
   ctx.save();
-  ctx.translate(x, y - (lift || 28) + bob);
+  ctx.translate(x, y - rise + bob);
   ctx.fillStyle = "#ffd37a";
   ctx.beginPath();
   ctx.moveTo(0, -5);
@@ -2350,14 +2351,118 @@ SF.guideActor = function (goal) {
     n = SF.NPCS[i];
     if (SF.npcHidden && SF.npcHidden(n)) continue;
     feet = SF.actorFeet ? SF.actorFeet(n) : n;
-    if (feet && Math.hypot(feet.x - goal.x, feet.y - goal.y) < 8) return feet;
+    if (feet && Math.hypot(feet.x - goal.x, feet.y - goal.y) < 8) {
+      return { x: feet.x, y: feet.y, id: n.id };
+    }
   }
   return null;
 };
 
-// Fixed world offset above the target's feet. Not shifted for the camera or the hero.
-SF.guideLift = function () {
-  return SF.GUIDE_HEAD || 42;
+// Union of the field frames. Feet sit on (x, y). Scale is 1 on the field.
+SF.spriteBox = function (id, x, y) {
+  var faces = ["down", "up", "left", "right"];
+  var poses = ["stand", "walk"];
+  var left = Infinity;
+  var top = Infinity;
+  var right = -Infinity;
+  var bottom = -Infinity;
+  var scale = window.Art && Art.fieldScale ? Art.fieldScale(id) : 1;
+  var found = false;
+  var i, j, sz, l, t;
+  if (window.Art && Art.spriteSize) {
+    for (i = 0; i < poses.length; i++) {
+      for (j = 0; j < faces.length; j++) {
+        sz = Art.spriteSize(id, poses[i], faces[j]);
+        if (!sz || !sz.w || !sz.h) continue;
+        found = true;
+        l = x - (sz.ax || 0) * scale;
+        t = y - (sz.ay || 0) * scale;
+        if (l < left) left = l;
+        if (t < top) top = t;
+        if (l + sz.w * scale > right) right = l + sz.w * scale;
+        if (t + sz.h * scale > bottom) bottom = t + sz.h * scale;
+      }
+    }
+  }
+  if (!found) return { left: x - 9, top: y - 28, right: x + 9, bottom: y + 1 };
+  return { left: left, top: top, right: right, bottom: bottom };
+};
+
+// Diamond plus its bob, so a still check covers every frame.
+SF.markBox = function (x, y) {
+  return { left: x - 4, top: y - 7, right: x + 4, bottom: y + 7 };
+};
+
+SF.boxesOverlap = function (a, b) {
+  if (!a || !b) return false;
+  return a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
+};
+
+// Centered above the target's head. When the hero is standing in that spot,
+// slide the diamond to the side of her head so it stays hers and misses him.
+SF.guideAnchor = function (goal, hero) {
+  var actor = SF.guideActor(goal);
+  var tx = actor ? actor.x : (goal ? goal.x : 0);
+  var ty = actor ? actor.y : (goal ? goal.y : 0);
+  var lift = SF.GUIDE_HEAD || 42;
+  var mx = tx;
+  var my = ty - lift;
+  if (!hero || !actor) return { x: mx, y: my };
+  var targetBox = SF.spriteBox(actor.id || "kestrel", tx, ty);
+  var heroBox = SF.spriteBox("wayfarer", hero.x, hero.y);
+  function gapOf(x, y) {
+    var box = SF.markBox(x, y);
+    if (x + 4 < heroBox.left) return heroBox.left - (x + 4);
+    if (x - 4 > heroBox.right) return (x - 4) - heroBox.right;
+    if (box.bottom <= heroBox.top || box.top >= heroBox.bottom) {
+      return box.bottom <= heroBox.top ? heroBox.top - box.bottom : box.top - heroBox.bottom;
+    }
+    return 0;
+  }
+  function crowded(x, y) {
+    var box = SF.markBox(x, y);
+    if (SF.boxesOverlap(box, heroBox)) return true;
+    var sharesY = box.bottom > heroBox.top && box.top < heroBox.bottom;
+    return sharesY && gapOf(x, y) < 18;
+  }
+  if (!crowded(mx, my)) return { x: mx, y: my };
+  var label = "";
+  var ni;
+  for (ni = 0; ni < (SF.NPCS || []).length; ni++) {
+    if (SF.NPCS[ni].id === actor.id) { label = SF.NPCS[ni].name || ""; break; }
+  }
+  var wide = Math.ceil(String(label).length * 6.4) || 48;
+  var tag = SF.nameTag ? SF.nameTag(tx, ty, label, hero, wide) : { x: tx, y: ty - 34 };
+  var name = { left: tag.x - wide / 2, top: tag.y - 12, right: tag.x + wide / 2, bottom: tag.y + 2 };
+  function beside(side) {
+    var x = side < 0 ? targetBox.left - 7 : targetBox.right + 7;
+    var y = targetBox.top - 2;
+    var guard = 0;
+    while (guard < 12 && (SF.boxesOverlap(SF.markBox(x, y), heroBox) || SF.boxesOverlap(SF.markBox(x, y), targetBox))) {
+      x += side * 2;
+      guard++;
+    }
+    guard = 0;
+    while (guard < 8 && SF.boxesOverlap(SF.markBox(x, y), name)) {
+      y -= 2;
+      guard++;
+    }
+    return { x: x, y: y, clear: !SF.boxesOverlap(SF.markBox(x, y), heroBox) && !SF.boxesOverlap(SF.markBox(x, y), name) };
+  }
+  var mid = (targetBox.left + targetBox.right) / 2;
+  var away = hero.x > mid + 2 ? -1 : 1;
+  var spot = beside(away);
+  var other = beside(-away);
+  if (spot.clear) return { x: spot.x, y: spot.y };
+  if (other.clear) return { x: other.x, y: other.y };
+  return { x: spot.x, y: spot.y };
+};
+
+SF.guideLift = function (goal, hero) {
+  var actor = SF.guideActor(goal);
+  var anchor = SF.guideAnchor(goal, hero);
+  var ty = actor ? actor.y : (goal ? goal.y : anchor.y);
+  return ty - anchor.y;
 };
 
 // The overhead name moves aside when the hero is standing in that slot.
@@ -2436,7 +2541,12 @@ SF.drawGuide = function (ctx, s) {
       ctx.restore();
     }
   }
-  if (actor || d > 40) SF.drawBobber(ctx, goal.x, goal.y, actor ? SF.guideLift(goal, p) : 28);
+  if (actor || d > 40) {
+    if (actor && SF.guideAnchor) {
+      var anchor = SF.guideAnchor(goal, p);
+      SF.drawBobber(ctx, anchor.x, anchor.y, 0);
+    } else SF.drawBobber(ctx, goal.x, goal.y, 28);
+  }
 };
 
 SF.hideEdgeArrow = function (goal, s, w, h) {

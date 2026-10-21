@@ -936,41 +936,81 @@ for (const innId of ["ember-hearth", "quay-bunk"]) {
   await shot(page, innId === "ember-hearth" ? "37-inn-ember.png" : "38-inn-cinder.png");
 }
 
-const north = await page.evaluate(() => {
-  SF.mountIsland("cinderveil");
-  SF.state.island = "cinderveil";
+const northStops = await page.evaluate(() => {
+  SF.mountIsland("emberhold");
+  SF.state.island = "emberhold";
   SF.state.mode = "play";
-  SF.state.quest = "sail";
+  SF.state.quest = "stirring";
   SF.state.dialogue = null;
+  SF.state.encounterGrace = 100000;
+  if (SF.watchOverlays) SF.watchOverlays();
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
-  const p = SF.state.player;
-  p.x = feet.x;
-  p.y = feet.y - 45;
-  p.safeX = p.x;
-  p.safeY = p.y;
-  SF.state.camX = feet.x;
-  SF.state.camY = (feet.y + p.y) / 2;
-  const goal = SF.objectivePoint(SF.state);
-  const lift = SF.guideLift(goal, p);
-  const markY = goal.y - lift;
-  const tag = SF.nameTag(feet.x, feet.y, n.name, p);
-  const wide = Math.ceil(n.name.length * 6.4);
-  const nameHitsHero = (tag.x + wide / 2 > p.x - 16) && (tag.x - wide / 2 < p.x + 16) && (tag.y + 2 > p.y - 34) && (tag.y - 12 < p.y + 2);
-  return {
-    onX: Math.abs(goal.x - feet.x) < 2,
-    pinned: lift >= 40 && lift <= 56 && markY > feet.y - 60 && markY < feet.y - 36,
-    nameClear: !nameHitsHero,
-    edgeHidden: SF.hideEdgeArrow(goal, SF.state, SF.viewW || 915, SF.viewH || 412),
-    x: feet.x,
-    y: p.y,
-    lift,
-    tag
-  };
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.font = "600 12px Palatino, Georgia, serif";
+  const wide = ctx.measureText(n.name).width;
+  const dirs = { N: [0, 1], NE: [-1, 1], NW: [1, 1] };
+  const rows = {};
+  Object.keys(dirs).forEach((key) => {
+    const dir = dirs[key];
+    const mag = Math.hypot(dir[0], dir[1]);
+    const nx = dir[0] / mag;
+    const ny = dir[1] / mag;
+    const p = SF.state.player;
+    p.x = feet.x - nx * 48;
+    p.y = feet.y - ny * 48;
+    p.px = p.x;
+    p.py = p.y;
+    p.safeX = p.x;
+    p.safeY = p.y;
+    p.hx = 0;
+    p.hy = 0;
+    p.dashT = 0;
+    if (SF.watchOverlays) SF.watchOverlays();
+    SF.inputState.keysX = nx;
+    SF.inputState.keysY = ny;
+    SF.inputState.stickX = 0;
+    SF.inputState.stickY = 0;
+    let i;
+    for (i = 0; i < 80; i++) SF.updatePlayer(1 / 60);
+    SF.inputState.keysX = 0;
+    SF.inputState.keysY = 0;
+    const goal = SF.objectivePoint(SF.state);
+    const anchor = SF.guideAnchor(goal, p);
+    const mark = SF.markBox(anchor.x, anchor.y);
+    const hero = SF.spriteBox("wayfarer", p.x, p.y);
+    const target = SF.spriteBox("kestrel", feet.x, feet.y);
+    const crownX = (target.left + target.right) / 2;
+    const crownY = target.top;
+    const heroX = (hero.left + hero.right) / 2;
+    const heroY = (hero.top + hero.bottom) / 2;
+    const tag = SF.nameTag(feet.x, feet.y, n.name, p, wide);
+    const nameBox = { left: tag.x - wide / 2, top: tag.y - 12, right: tag.x + wide / 2, bottom: tag.y + 2 };
+    rows[key] = {
+      x: Math.round(p.x * 10) / 10,
+      y: Math.round(p.y * 10) / 10,
+      dist: Math.round(Math.hypot(p.x - feet.x, p.y - feet.y) * 10) / 10,
+      overlap: SF.boxesOverlap(mark, hero),
+      nameOverlap: SF.boxesOverlap(nameBox, hero),
+      above: mark.bottom <= target.top + 2 || (anchor.y <= target.top + 8 && (anchor.x < target.left || anchor.x > target.right)),
+      closer: Math.hypot(anchor.x - crownX, anchor.y - crownY) < Math.hypot(anchor.x - heroX, anchor.y - heroY),
+      anchor
+    };
+  });
+  return rows;
 });
-check(north.onX && north.pinned && north.nameClear && north.edgeHidden, "north of Kestrel the diamond stays on her head and the name clears the hero (" + JSON.stringify(north) + ")");
-await place(page, north.x, north.y, 0, 1);
+["N", "NE", "NW"].forEach((key) => {
+  const row = northStops[key];
+  check(row && row.dist >= 34 && row.dist <= 40 && !row.overlap && !row.nameOverlap && row.above && row.closer,
+    "Kestrel mark from the " + key + " stops clear of the hero (" + JSON.stringify(row) + ")");
+});
+await place(page, northStops.N.x, northStops.N.y, 0, 1);
 await shot(page, "39-kestrel-north.png");
+await place(page, northStops.NE.x, northStops.NE.y, -1, 1);
+await shot(page, "42-kestrel-ne.png");
+await place(page, northStops.NW.x, northStops.NW.y, 1, 1);
+await shot(page, "43-kestrel-nw.png");
 
 const lampNear = await page.evaluate(() => {
   SF.mountIsland("cinderveil");
