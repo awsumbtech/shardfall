@@ -1225,487 +1225,939 @@
     return s;
   });
 
-  person({
-    id: "choirling", bg: C.violetD,
-    skin: C.mask, skinD: C.maskD, skinDeep: C.maskD,
-    hair: C.violetD, hairD: C.void, style: "mask",
-    maskC: C.mask, cloth: C.violetD, clothD: C.void, clothL: C.violet,
-    boot: C.void, robe: true, core: C.core, coreD: C.violet, cast: C.core
-  }, 2, 2);
+  // Enemy and boss battle sprites. Party and NPC painters above stay as they are.
+  // Regular foes share a 38px canvas so they scale together; bosses are taller.
+  // Feet (or a floater's ground anchor) sit on the last row. Outline is exterior only.
 
-  person({
-    id: "choir_soldier", bg: C.violetD,
-    skin: C.skinD, skinD: C.skinDeep, skinDeep: C.skinDeep,
-    hair: C.void, hairD: C.ink, style: "helm", metal: C.armor, plume: C.violet,
-    cloth: C.violetD, clothD: C.void, clothL: C.violet,
-    boot: C.armorD, armor: true, spear: true, broad: true, stern: true, core: C.core
-  }, 2, 2);
+  function eGrid(w, h) {
+    this.w = w;
+    this.h = h;
+    this.g = [];
+    var y, x;
+    for (y = 0; y < h; y++) {
+      this.g[y] = [];
+      for (x = 0; x < w; x++) this.g[y][x] = ".";
+    }
+  }
+  eGrid.prototype.plot = function (x, y, ch) {
+    x = x | 0;
+    y = y | 0;
+    if (!ch || x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    this.g[y][x] = ch;
+  };
+  eGrid.prototype.fill = function (x, y, w, h, ch) {
+    var yy, xx;
+    for (yy = 0; yy < h; yy++) {
+      for (xx = 0; xx < w; xx++) this.plot(x + xx, y + yy, ch);
+    }
+  };
+  eGrid.prototype.disc = function (cx, cy, rx, ry, ch) {
+    var y, x, nx, ny;
+    rx = Math.max(1, rx);
+    ry = Math.max(1, ry);
+    for (y = -ry; y <= ry; y++) {
+      for (x = -rx; x <= rx; x++) {
+        nx = x / rx;
+        ny = y / ry;
+        if (nx * nx + ny * ny <= 1) this.plot(cx + x, cy + y, ch);
+      }
+    }
+  };
+  eGrid.prototype.tri = function (x0, y0, x1, y1, x2, y2, ch) {
+    var minX = Math.min(x0, x1, x2);
+    var maxX = Math.max(x0, x1, x2);
+    var minY = Math.min(y0, y1, y2);
+    var maxY = Math.max(y0, y1, y2);
+    var y, x, d, a, b, c;
+    for (y = minY; y <= maxY; y++) {
+      for (x = minX; x <= maxX; x++) {
+        d = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
+        if (!d) continue;
+        a = ((y1 - y2) * (x - x2) + (x2 - x1) * (y - y2)) / d;
+        b = ((y2 - y0) * (x - x2) + (x0 - x2) * (y - y2)) / d;
+        c = 1 - a - b;
+        if (a >= -0.001 && b >= -0.001 && c >= -0.001) this.plot(x, y, ch);
+      }
+    }
+  };
+  eGrid.prototype.line = function (x0, y0, x1, y1, ch) {
+    var n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    var i, t;
+    if (!n) {
+      this.plot(x0, y0, ch);
+      return;
+    }
+    for (i = 0; i <= n; i++) {
+      t = i / n;
+      this.plot(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), ch);
+    }
+  };
+  eGrid.prototype.rows = function () {
+    var y, out = [];
+    for (y = 0; y < this.h; y++) out.push(this.g[y].join(""));
+    return out;
+  };
 
-  person({
-    id: "hush_raider", bg: C.hushD,
-    skin: C.skin, skinD: C.skinD, skinDeep: C.skinDeep,
-    hair: C.hairK, hairD: C.ink, style: "cap", cap: C.hush, capD: C.hushD,
-    cloth: C.hushD, clothD: C.void, clothL: C.hush,
-    boot: C.woodD, coat: true, knife: true, scarf: false
-  }, 2, 2);
-
-  person({
-    id: "drowned", bg: C.tideD,
-    skin: C.pale, skinD: C.paleD, skinDeep: C.sea,
-    hair: C.weed, hairD: C.weedD, style: "bob",
-    cloth: C.tideD, clothD: C.sea, clothL: C.tide,
-    boot: C.tideD, old: true
-  }, 2, 2);
-
-  function anchor(s, ax, ay) {
-    Art.outline(s);
-    s.ax = ax;
-    s.ay = ay;
-    return s;
+  function ePair(w, h) {
+    this.w = w;
+    this.h = h;
+    this.m = new eGrid(w, h);
+    this.d = new eGrid(w, h);
   }
 
-  function mirrorIf(s, facing) {
-    if (facing === "left") return Art.mirror(s);
-    return s;
+  var EYE = {
+    e: C.eye, w: C.white, l: C.lite, y: C.warm, o: C.emberH, r: C.ember,
+    g: C.gold, q: C.goldD, n: C.void, b: C.bone, u: C.foam, c: C.core,
+    s: C.shardH, t: C.tooth, m: C.tideL, k: C.violetD, p: C.pale, f: C.shard
+  };
+
+  function eEye(d, x, y, w, h, look) {
+    d.fill(x, y, w, h, "w");
+    var px = x + Math.max(0, Math.min(w - 1, look));
+    var py = y + (h > 2 ? 1 : 0);
+    d.plot(px, py, "e");
+    if (h > 2) d.plot(px, Math.min(y + h - 1, py + 1), "e");
+    d.plot(x, y, "l");
+    if (w > 2) d.plot(x + 1, y, "l");
+  }
+  function eShut(d, x, y, w) {
+    var i;
+    for (i = 0; i < w; i++) d.plot(x + i, y, "e");
+  }
+  function eBrows(d, x, y, w, angry) {
+    d.line(x, y + (angry ? 1 : 0), x + w - 1, y, "n");
   }
 
-  function wisp(body, lite, hot, dark, pose, frame) {
-    var s = Art.spr(22, 24);
-    var bob = pose === "hurt" ? 2 : ((frame % 2) ? -1 : 0);
-    var sway = frame % 2 ? 1 : 0;
-    shadeDisc(s, 11 + sway, 12 + bob, pose === "hurt" ? 5 : 6, pose === "hurt" ? 5 : 7, dark, body, lite);
-    shadeDisc(s, 7, 15 + bob, 3, 3, dark, body, lite);
-    shadeDisc(s, 15, 10 + bob, 3, 4, dark, lite, hot);
-    fill(s, 10, 18 + bob, 2, 3, dark);
-    plot(s, 9, 20 + bob, body);
-    plot(s, 12, 21 + bob, lite);
-    plot(s, 6, 8 + bob, lite);
-    plot(s, 16, 14 + bob, hot);
-    if (pose === "hurt") {
-      plot(s, 8, 11 + bob, dark);
-      plot(s, 9, 12 + bob, dark);
-      plot(s, 13, 11 + bob, dark);
-      plot(s, 14, 12 + bob, dark);
-    } else {
-      fill(s, 8, 11 + bob, 2, 2, C.white);
-      fill(s, 13, 11 + bob, 2, 2, C.white);
-      plot(s, 9, 12 + bob, C.eye);
-      plot(s, 14, 12 + bob, C.eye);
-      plot(s, 8, 11 + bob, C.lite);
-    }
-    var core = pose === "hurt" ? dark : hot;
-    shadeDisc(s, 11, 14 + bob, pose === "attack" || pose === "cast" ? 3 : 2, 2, dark, core, C.white);
-    if (pose === "attack") {
-      fill(s, 16, 12, 5, 2, hot);
-      plot(s, 20, 12, C.white);
-      plot(s, 18, 11, lite);
-    }
-    if (pose === "cast") {
-      plot(s, 11, 4, hot);
-      plot(s, 9, 6, lite);
-      plot(s, 13, 5, C.white);
-    }
-    return anchor(s, 11, 22);
+  function eShade(mat, x, y, left, right, top, bot) {
+    var span = right - left;
+    var tall = bot - top;
+    var u = span <= 0 ? 0.5 : (x - left) / span;
+    var v = tall <= 0 ? 0.5 : (y - top) / tall;
+    var edgeR = x === right;
+    var edgeL = x === left;
+    var edgeT = y === top;
+    var edgeB = y === bot;
+    if (span <= 1) return v < 0.35 ? (mat.s || mat.l) : (v > 0.7 ? mat.d : mat.m);
+    if (edgeB || edgeR) return mat.d;
+    if (edgeT && u < 0.75) return mat.l;
+    if (edgeL && v < 0.42) return mat.l;
+    if (u < 0.3 && v < 0.38 && span > 3) return mat.s || mat.l;
+    if (u < 0.46 && v < 0.6) return mat.l;
+    if (u > 0.7 || v > 0.74) return mat.d;
+    return mat.m;
   }
 
-  function floater(id, body, lite, hot, dark) {
-    Art.add(id, function (pose, facing, frame) {
-      var s = wisp(body, lite, hot, dark, pose, frame);
-      if (facing === "left") s = Art.mirror(s);
+  function ePaint(s, mask, det, mats, ox, oy) {
+    var h = mask.length;
+    var w = mask[0].length;
+    var y, x, ch, left, right, top, bot, mat;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        ch = mask[y].charAt(x);
+        if (ch === "." || !mats[ch]) continue;
+        left = x;
+        while (left > 0 && mask[y].charAt(left - 1) === ch) left--;
+        right = x;
+        while (right + 1 < w && mask[y].charAt(right + 1) === ch) right++;
+        top = y;
+        while (top > 0 && mask[top - 1].charAt(x) === ch) top--;
+        bot = y;
+        while (bot + 1 < h && mask[bot + 1].charAt(x) === ch) bot++;
+        mat = mats[ch];
+        plot(s, x + ox, y + oy, eShade(mat, x, y, left, right, top, bot));
+      }
+    }
+    if (!det) return;
+    for (y = 0; y < det.length; y++) {
+      for (x = 0; x < det[y].length; x++) {
+        ch = det[y].charAt(x);
+        if (ch === "." || !EYE[ch]) continue;
+        plot(s, x + ox, y + oy, EYE[ch]);
+      }
+    }
+  }
+
+  function eFlash(s) {
+    var i, c;
+    for (i = 0; i < s.d.length; i++) {
+      c = s.d[i];
+      if (!c || c === C.eye) continue;
+      s.d[i] = C.lite;
+    }
+  }
+  function eDissolve(s) {
+    var x, y, i;
+    for (y = 0; y < s.h; y++) {
+      for (x = 0; x < s.w; x++) {
+        i = y * s.w + x;
+        if (!s.d[i]) continue;
+        if (((x * 3 + y * 5) % 5) === 0) s.d[i] = 0;
+        else if (((x + y * 2) % 4) === 0) s.d[i] = C.void;
+      }
+    }
+  }
+function eFinish(s, ax, ay) {
+  Art.outline(s, C.ink);
+  s.ax = ax;
+  s.ay = ay == null ? s.h - 1 : ay;
+  return s;
+}
+function eBake(part, pose, frame, ax) {
+  var ox = 0;
+  var oy = 0;
+  var f = frame % 2;
+  if (pose === "idle" && f && part.bob !== false) oy = -2;
+  if (pose === "attack") ox = f ? 3 : 1;
+  if (pose === "hurt") {
+    ox = -1;
+    oy = 1;
+  }
+  if (pose === "cast") oy = f ? -2 : -1;
+  if (pose === "victory") oy = f ? -3 : -2;
+  if (pose === "ko") oy = 2;
+  // Extra pixels keep the lunge, bob, and flinch inside the canvas, plus one
+  // row for the exterior outline. The foot anchor does not move with the pose,
+  // so every frame still stands on the same ground line.
+  var padL = ox < 0 ? -ox + 1 : 0;
+  var padR = ox > 0 ? ox + 1 : 0;
+  var padT = oy < 0 ? -oy + 1 : 0;
+  var padB = oy > 0 ? oy + 1 : 0;
+  var s = Art.spr(part.w + padL + padR, part.h + padT + padB);
+  ePaint(s, part.mask, part.det, part.mats, ox + padL, oy + padT);
+  if (pose === "ko") eDissolve(s);
+  if (pose === "hurt" && f) eFlash(s);
+  return eFinish(s, (ax == null ? (part.w >> 1) : ax) + padL, (part.h - 1) + padT);
+}
+
+  function ePortrait(id, bg, focus) {
+    Art.addPortrait(id, function () {
+      var src = Art._makers[id]("idle", "right", 0);
+      var minX = src.w;
+      var minY = src.h;
+      var maxX = 0;
+      var maxY = 0;
+      var x, y, c, bw, bh, win, cx, cy, x0, y0, s, ox, oy;
+      for (y = 0; y < src.h; y++) {
+        for (x = 0; x < src.w; x++) {
+          if (!src.d[y * src.w + x]) continue;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+      bw = Math.max(1, maxX - minX + 1);
+      bh = Math.max(1, maxY - minY + 1);
+      win = 26;
+      cx = focus && focus.x != null ? focus.x : (minX + maxX) / 2;
+      cy = focus && focus.y != null ? focus.y : minY + bh * 0.4;
+      x0 = Math.round(cx - win / 2);
+      y0 = Math.round(cy - win / 2);
+      if (x0 < minX) x0 = minX;
+      if (y0 < minY) y0 = minY;
+      if (x0 + win > maxX) x0 = Math.max(minX, maxX - win + 1);
+      if (y0 + win > maxY) y0 = Math.max(minY, maxY - win + 1);
+      s = Art.spr(32, 32);
+      fill(s, 0, 0, 32, 32, bg);
+      ox = 3;
+      oy = 3;
+      for (y = 0; y < win; y++) {
+        for (x = 0; x < win; x++) {
+          if (y0 + y >= src.h || x0 + x >= src.w || y0 + y < 0 || x0 + x < 0) continue;
+          c = src.d[(y0 + y) * src.w + (x0 + x)];
+          if (c) plot(s, ox + x, oy + y, c);
+        }
+      }
+      s.ax = 16;
+      s.ay = 31;
       return s;
-    }, 2, 2);
+    });
   }
 
-  floater("wisp", C.violet, C.core, C.lite, C.violetD);
-  floater("saltwisp", C.tide, C.tideL, C.foam, C.tideD);
-
-  function brume(pose, facing, frame) {
-    var s = Art.spr(32, 30);
-    var bob = pose === "hurt" ? 1 : ((frame % 2) ? -1 : 0);
-    shadeDisc(s, 16, 16 + bob, 10, 8, C.void, C.hushD, C.hush);
-    shadeDisc(s, 16, 18 + bob, 6, 5, C.hushD, C.hush, C.hushL);
-    fill(s, 8, 8 + bob, 3, 7, C.goldD);
-    fill(s, 21, 8 + bob, 3, 7, C.gold);
-    plot(s, 9, 7 + bob, C.gold);
-    plot(s, 22, 6 + bob, C.gold);
-    plot(s, 8, 6 + bob, C.lite);
-    plot(s, 23, 9 + bob, C.goldD);
-    if (facing === "up") {
-      fill(s, 12, 12 + bob, 8, 4, C.hushD);
-    } else if (pose === "hurt") {
-      fill(s, 11, 14 + bob, 3, 1, C.void);
-      fill(s, 18, 14 + bob, 3, 1, C.void);
-    } else {
-      fill(s, 11, 14 + bob, 3, 2, C.white);
-      fill(s, 18, 14 + bob, 3, 2, C.white);
-      plot(s, 12, 15 + bob, C.eye);
-      plot(s, 19, 15 + bob, C.eye);
-      plot(s, 11, 14 + bob, C.lite);
-      plot(s, 15, 17 + bob, C.hushD);
-      plot(s, 16, 18 + bob, C.void);
-      plot(s, 17, 17 + bob, C.hushD);
-    }
-    var belly = pose === "hurt" ? C.goldD : (pose === "attack" || pose === "cast" ? C.emberH : C.ember);
-    shadeDisc(s, 16, 20 + bob, pose === "attack" ? 4 : 3, 3, C.vestD, belly, C.warm);
-    plot(s, 15, 19 + bob, C.lite);
-    fill(s, 10, 24, 4, 3, C.hushD);
-    fill(s, 18, 24, 4, frame === 1 || frame === 3 ? 2 : 3, C.void);
-    plot(s, 11, 26, C.goldD);
-    plot(s, 20, 26, C.goldD);
-    if (pose === "attack") {
-      fill(s, 24, 16, 6, 3, C.gold);
-      plot(s, 29, 17, C.emberH);
-      plot(s, 27, 15, C.lite);
-    }
-    if (pose === "cast") {
-      plot(s, 16, 4, C.emberH);
-      plot(s, 14, 6, C.ember);
-      plot(s, 18, 5, C.gold);
-      plot(s, 16, 3, C.lite);
-    }
-    return anchor(mirrorIf(s, facing), 16, 27);
-  }
-
-  Art.add("brumekin", function (pose, facing, frame) {
-    return brume(pose, facing, frame);
-  }, 2, 2);
-
-  function ashling(pose, facing, frame) {
-    var s = Art.spr(22, 22);
-    var bob = pose === "hurt" ? 1 : ((frame % 2) ? -1 : 0);
-    shadeDisc(s, 11, 10 + bob, 6, 5, C.rock, C.ash, C.ashL);
-    shadeDisc(s, 7, 12 + bob, 3, 3, C.ashD, C.rock, C.ash);
-    plot(s, 8, 6 + bob, C.ashL);
-    plot(s, 13, 7 + bob, C.ashD);
-    if (pose === "hurt") {
-      plot(s, 8, 9 + bob, C.ashD);
-      plot(s, 9, 10 + bob, C.ashD);
-      plot(s, 13, 9 + bob, C.ashD);
-      plot(s, 14, 10 + bob, C.ashD);
-    } else {
-      plot(s, 8, 9 + bob, C.ember);
-      plot(s, 9, 9 + bob, C.emberH);
-      plot(s, 13, 9 + bob, C.emberH);
-      plot(s, 14, 9 + bob, C.warm);
-      plot(s, 8, 8 + bob, C.lite);
-    }
-    fill(s, 5, 14 + bob, 2, 3, C.ashD);
-    fill(s, 15, 14 + bob, 2, 3, C.rock);
-    var step = frame === 1 || frame === 3 ? 1 : 0;
-    fill(s, 7, 16, 3, 3 - step, C.ashD);
-    fill(s, 12, 16, 3, 3 - (step ? 0 : 1), C.rock);
-    plot(s, 8, 18, C.ink);
-    plot(s, 13, 18, C.ink);
-    if (pose === "attack") {
-      fill(s, 16, 10, 5, 2, C.ember);
-      plot(s, 20, 10, C.emberH);
-      plot(s, 18, 9, C.warm);
-    }
-    if (pose === "cast") {
-      plot(s, 11, 3, C.emberH);
-      plot(s, 9, 4, C.ember);
-      plot(s, 13, 4, C.lite);
-    }
-    return anchor(mirrorIf(s, facing), 11, 20);
-  }
-
-  Art.add("ashling", function (pose, facing, frame) {
-    return ashling(pose, facing, frame);
-  }, 2, 2);
-
-  Art.add("sootwing", function (pose, facing, frame) {
-    var s = Art.spr(34, 20);
-    var flap = 0;
-    if (!(Art.calm() && pose === "walk")) flap = (pose === "attack" || frame % 2) ? -2 : 1;
-    if (pose === "hurt") flap = 2;
-    shadeDisc(s, 16, 11, 4, 3, C.rock, C.ashD, C.ash);
-    fill(s, 12, 10, 8, 3, C.ash);
-    plot(s, 22, 11, C.emberH);
-    plot(s, 21, 10, C.ember);
-    fill(s, 14, 12, 2, 2, C.eye);
-    shaded(s, 4, 8 + flap, 10, 3, C.ashL, C.rock, C.ashD);
-    shaded(s, 18, 7 + flap, 12, 3, C.ash, C.ashD, C.rock);
-    plot(s, 3, 9 + flap, C.ashL);
-    plot(s, 29, 8 + flap, C.ember);
-    fill(s, 15, 14, 2, 3, C.ashD);
-    if (pose === "cast" || pose === "attack") {
-      plot(s, 24, 9, C.emberH);
-      plot(s, 26, 8, C.warm);
-    }
-    s.ax = 16;
-    s.ay = 17;
-    Art.outline(s);
-    if (facing === "left") s = Art.mirror(s);
-    return s;
-  }, 2, 2);
-
-  function hound(pose, facing, frame) {
-    var side = facing === "left" || facing === "right" || facing === "side" || pose !== "walk";
-    var s = Art.spr(40, 26);
-    var bob = pose === "hurt" ? 1 : ((frame % 2) ? -1 : 0);
-    if (!side || facing === "down" || facing === "up") {
-      shadeDisc(s, 20, 12 + bob, 8, 6, C.void, C.ashD, C.ash);
-      fill(s, 12, 8 + bob, 16, 3, pose === "hurt" ? C.ashD : C.ember);
-      plot(s, 14, 8 + bob, C.emberH);
-      plot(s, 18, 7 + bob, C.warm);
-      if (facing !== "up") {
-        plot(s, 16, 12 + bob, C.eye);
-        plot(s, 22, 12 + bob, C.eye);
-        plot(s, 15, 12 + bob, C.lite);
-        plot(s, 19, 14 + bob, pose === "hurt" ? C.ashD : C.emberH);
+  function eBind(id, build, ax, scale) {
+    Art.add(id, function (pose, facing, frame) {
+      frame = ((frame % 4) + 4) % 4;
+      var battle = pose !== "walk" && pose !== "stand";
+      var view = "side";
+      var usePose = battle ? pose : "idle";
+      if (!battle) {
+        if (facing === "up") view = "back";
+        else if (facing === "down") view = "front";
+        else view = "side";
       }
-      fill(s, 14, 18, 3, frame === 1 ? 3 : 4, C.void);
-      fill(s, 22, 18, 3, frame === 3 ? 3 : 4, C.rock);
-      fill(s, 18, 19, 3, 3, C.ashD);
-      if (pose === "attack") fill(s, 26, 12, 6, 2, C.tooth);
-    } else {
-      shadeDisc(s, 16, 13 + bob, 8, 5, C.void, C.ashD, C.ash);
-      fill(s, 20, 12 + bob, 10, 5, C.ash);
-      fill(s, 28, 13 + bob, 6, 4, C.rock);
-      fill(s, 10, 8 + bob, 14, 3, pose === "hurt" ? C.ashD : C.ember);
-      plot(s, 12, 8 + bob, C.emberH);
-      plot(s, 16, 7 + bob, C.warm);
-      plot(s, 20, 8 + bob, C.lite);
-      plot(s, 30, 14 + bob, pose === "hurt" ? C.ashD : C.emberH);
-      fill(s, 31, 15 + bob, 2, 2, C.eye);
-      plot(s, 31, 15 + bob, C.lite);
-      fill(s, 8, 10 + bob, 4, 3, C.ember);
-      plot(s, 7, 12 + bob, C.ashD);
-      var a = frame === 1 || frame === 0 ? 0 : 1;
-      fill(s, 12, 17, 3, 4 - a, C.void);
-      fill(s, 18, 17, 3, 3 + a, C.void);
-      fill(s, 24, 17, 3, 4 - a, C.rock);
-      fill(s, 30, 18, 2, 3, C.rock);
-      if (pose === "attack") {
-        fill(s, 33, 14, 5, 2, C.tooth);
-        plot(s, 37, 14, C.white);
-        plot(s, 35, 13, C.emberH);
+      var part = build(view, frame % 2, usePose);
+      var s = eBake(part, usePose, frame % 2, part.ax != null ? part.ax : ax);
+      if (!battle && facing === "left") return Art.mirror(s);
+      if (battle && facing === "left") return Art.mirror(s);
+      return s;
+    }, scale || 2, 1);
+  }
+
+  var MAT = {
+    violet: { d: C.violetD, m: C.violet, l: C.core, s: C.white },
+    core: { d: C.violet, m: C.core, l: C.white, s: C.lite },
+    tide: { d: C.tideD, m: C.tide, l: C.tideL, s: C.foam },
+    foam: { d: C.tide, m: C.foam, l: C.white, s: C.lite },
+    gold: { d: C.goldD, m: C.gold, l: C.warm, s: C.lite },
+    hush: { d: C.void, m: C.hushD, l: C.hush, s: C.hushL },
+    ember: { d: C.vestD, m: C.ember, l: C.emberH, s: C.warm },
+    ash: { d: C.rock, m: C.ashD, l: C.ash, s: C.ashL },
+    rock: { d: C.void, m: C.rock, l: C.ashD, s: C.ash },
+    mask: { d: C.maskD, m: C.mask, l: C.cloud, s: C.white },
+    robe: { d: C.voidD, m: C.void, l: C.violetD, s: C.violet },
+    armor: { d: C.armorD, m: C.armor, l: C.armorL, s: C.cloud },
+    plume: { d: C.violetD, m: C.violet, l: C.core, s: C.white },
+    skin: { d: C.skinDeep, m: C.skinD, l: C.skin, s: C.lite },
+    pale: { d: C.sea, m: C.paleD, l: C.pale, s: C.cloud },
+    weed: { d: C.weedD, m: C.weed, l: C.green, s: C.leafL },
+    cloth: { d: C.hushD, m: C.hush, l: C.hushL, s: C.cloud },
+    gull: { d: C.stoneD, m: C.stone, l: C.stoneL, s: C.cloud },
+    wing: { d: C.stone, m: C.cloud, l: C.white, s: C.lite },
+    bone: { d: C.ash, m: C.bone, l: C.tooth, s: C.white },
+    sea: { d: C.sea, m: C.tideD, l: C.tide, s: C.tideL },
+    metal: { d: C.metalD, m: C.metal, l: C.cloud, s: C.white },
+    voidm: { d: C.voidD, m: C.void, l: C.void, s: C.violetD },
+    stone: { d: C.stoneD, m: C.stone, l: C.stoneL, s: C.cloud }
+  };
+
+  function eSeat(p) {
+    var y, x, low = -1, ny;
+    var nm, nd;
+    for (y = p.h - 1; y >= 0; y--) {
+      for (x = 0; x < p.w; x++) {
+        if (p.m.g[y][x] !== ".") {
+          low = y;
+          break;
+        }
       }
-      if (pose === "hurt") fill(s, 14, 14, 12, 2, C.ashD);
+      if (low >= 0) break;
     }
-    if (pose === "cast") {
-      plot(s, 18, 4, C.emberH);
-      plot(s, 16, 5, C.ember);
-      plot(s, 20, 5, C.warm);
+    if (low < 0) return;
+    var dy = (p.h - 2) - low;
+    if (dy === 0) return;
+    nm = new eGrid(p.w, p.h);
+    nd = new eGrid(p.w, p.h);
+    for (y = 0; y < p.h; y++) {
+      ny = y + dy;
+      if (ny < 0 || ny >= p.h) continue;
+      for (x = 0; x < p.w; x++) {
+        nm.g[ny][x] = p.m.g[y][x];
+        nd.g[ny][x] = p.d.g[y][x];
+      }
     }
-    s.ax = 20;
-    s.ay = 23;
-    Art.outline(s);
-    if (facing === "left") s = Art.mirror(s);
-    return s;
+    p.m = nm;
+    p.d = nd;
   }
 
-  Art.add("cinderhound", function (pose, facing, frame) {
-    return hound(pose, facing, frame);
-  }, 2, 2);
-
-  function mawWalk(pose, facing, frame) {
-    var s = Art.spr(48, 36);
-    shadeDisc(s, 24, 18, 16, 10, C.void, C.ashD, C.ash);
-    shadeDisc(s, 14, 14, 6, 5, C.rock, C.ashD, C.ashL);
-    shadeDisc(s, 34, 13, 5, 4, C.ashD, C.ash, C.ashL);
-    fill(s, 10, 8, 6, 4, C.rock);
-    plot(s, 12, 7, C.ember);
-    fill(s, 32, 7, 5, 4, C.ash);
-    plot(s, 35, 6, C.emberH);
-    var shut = pose === "hurt";
-    fill(s, 12, 16, 24, shut ? 5 : 8, C.void);
-    var i;
-    for (i = 0; i < 6; i++) {
-      fill(s, 14 + i * 3, 16, 2, 2, C.tooth);
-      plot(s, 15 + i * 3, shut ? 20 : 22, C.bone);
-    }
-    shadeDisc(s, 24, shut ? 19 : 21, pose === "cast" ? 4 : 3, 3, C.vestD, pose === "hurt" ? C.goldD : C.emberH, C.lite);
-    fill(s, 16, 26, 5, 5, C.rock);
-    fill(s, 26, 27, 5, 4, C.ashD);
-    plot(s, 18, 30, C.ink);
-    plot(s, 28, 30, C.ink);
-    if (pose === "attack") {
-      fill(s, 36, 16, 8, 4, C.ember);
-      plot(s, 43, 17, C.emberH);
-      plot(s, 40, 15, C.warm);
-    }
-    if ((frame % 2) && pose === "walk") plot(s, 24, 20, C.warm);
-    return anchor(mirrorIf(s, facing), 24, 33);
+  function eOut(p, mats, ax, bob, seat) {
+    if (seat) eSeat(p);
+    return { w: p.w, h: p.h, mask: p.m.rows(), det: p.d.rows(), mats: mats, ax: ax, bob: bob };
   }
 
-  function mawBattle(pose, facing, frame) {
-    var s = Art.spr(52, 70);
-    var shut = pose === "hurt";
-    shadeDisc(s, 18, 40, 12, 14, C.void, C.ashD, C.ash);
-    shadeDisc(s, 16, 28, 7, 8, C.rock, C.ashD, C.ashL);
-    fill(s, 8, 16, 5, 16, C.rock);
-    fill(s, 12, 10, 4, 12, C.ash);
-    plot(s, 10, 12, C.ember);
-    plot(s, 13, 8, C.emberH);
-    plot(s, 9, 18, C.ashL);
-    shadeDisc(s, 32, 32, 14, 16, pose === "hurt" ? C.rock : C.ashD, C.ash, C.ashL);
-    plot(s, 40, 22, pose === "hurt" ? C.ashD : C.emberH);
-    fill(s, 42, 24, 2, 2, C.void);
-    plot(s, 42, 24, C.lite);
-    fill(s, 24, shut ? 30 : 24, 20, shut ? 8 : 18, C.void);
-    var i;
-    for (i = 0; i < 5; i++) {
-      fill(s, 26 + i * 3, shut ? 30 : 24, 2, 3, i % 2 ? C.bone : C.tooth);
-      plot(s, 27 + i * 3, shut ? 37 : 40, C.bone);
-    }
-    shadeDisc(s, 34, shut ? 34 : 36, pose === "cast" ? 5 : 4, 4, C.vestD, pose === "hurt" ? C.goldD : C.emberH, C.white);
-    if (frame % 2 && pose !== "hurt") plot(s, 34, shut ? 34 : 35, C.warm);
-    shaded(s, 10, 52, 8, 12, C.ashL, C.rock, C.void);
-    shaded(s, 20, 56, 8, 8, C.ash, C.ashD, C.rock);
-    shaded(s, 30, 54, 8, 10, C.ashL, C.rock, C.ashD);
-    plot(s, 14, 62, C.ink);
-    plot(s, 34, 62, C.ink);
-    if (pose === "attack") {
-      fill(s, 42, 30, 8, 6, C.ember);
-      plot(s, 48, 32, C.emberH);
-      plot(s, 46, 29, C.white);
-      plot(s, 44, 34, C.warm);
-    }
-    if (pose === "cast") {
-      plot(s, 40, 12, C.emberH);
-      plot(s, 43, 14, C.ember);
-      plot(s, 38, 16, C.gold);
-      plot(s, 42, 10, C.lite);
-    }
-    if (pose === "victory") plot(s, 36, 18, C.emberH);
-    return anchor(mirrorIf(s, facing), 26, 66);
-  }
-
-  Art.add("cinder_maw", function (pose, facing, frame) {
-    if (pose === "walk") return mawWalk(pose, facing, frame);
-    return mawBattle(pose, facing);
-  }, 2, 1);
-
-  function gull(pose, facing, frame) {
-    var s = Art.spr(34, 22);
-    var flap = 0;
-    if (!(Art.calm() && pose === "walk")) flap = (frame % 2 || pose === "attack") ? -3 : 2;
-    if (pose === "hurt") flap = 3;
-    shadeDisc(s, 16, 12, 5, 3, C.stoneD, C.stoneL, C.cloud);
-    fill(s, 20, 11, 7, 3, C.gold);
-    plot(s, 26, 12, C.goldD);
-    plot(s, 25, 11, C.lite);
-    fill(s, 14, 11, 2, 2, C.white);
-    plot(s, 15, 12, C.eye);
-    shaded(s, 2, 9 + flap, 12, 3, C.cloud, C.stone, C.stoneD);
-    shaded(s, 16, 8 + flap, 12, 3, C.white, C.cloud, C.stone);
-    plot(s, 1, 10 + flap, C.stoneL);
-    plot(s, 27, 9 + flap, C.lite);
-    fill(s, 15, 15, 2, 3, C.goldD);
-    fill(s, 18, 16, 2, 2, C.gold);
-    if (pose === "attack") fill(s, 26, 12, 5, 2, C.gold);
-    if (pose === "cast") plot(s, 22, 6, C.lite);
-    return anchor(mirrorIf(s, facing), 16, 19);
-  }
-
-  Art.add("stormgull", function (pose, facing, frame) {
-    return gull(pose, facing, frame);
-  }, 2, 2);
-
-  function wyrmWalk(pose, facing, frame) {
-    var s = Art.spr(64, 36);
-    var phase = (frame % 2) ? 1 : 0;
-    if (pose === "hurt") phase = 0;
-    var i, x, y, col, lite;
-    for (i = 0; i < 7; i++) {
-      x = 8 + i * 7;
-      y = 18 + (((i + phase) % 2) ? -3 : 3);
-      col = i % 2 ? C.tide : C.tideD;
-      lite = i % 2 ? C.tideL : C.foam;
-      shadeDisc(s, x, y, 5, 4, C.sea, col, lite);
-      plot(s, x - 1, y - 3, C.foam);
-    }
-    shadeDisc(s, 54, 14, 7, 6, C.tideD, C.sea, C.tideL);
-    fill(s, 56, 8, 3, 5, C.bone);
-    plot(s, 57, 8, C.white);
-    plot(s, 52, 13, pose === "hurt" ? C.tideD : C.eye);
-    plot(s, 51, 13, C.lite);
-    plot(s, 58, 16, C.tooth);
-    plot(s, 60, 17, C.tooth);
-    shadeDisc(s, 24, 18, pose === "cast" ? 4 : 3, 3, C.tideD, pose === "hurt" ? C.goldD : C.foam, C.white);
-    if (pose === "attack") {
-      fill(s, 58, 16, 5, 2, C.tooth);
-      plot(s, 62, 16, C.white);
-    }
-    if (pose === "cast") plot(s, 24, 10, C.lite);
-    return anchor(mirrorIf(s, facing), 32, 30);
-  }
-
-  function wyrmBattle(pose, facing, frame) {
-    var s = Art.spr(44, 68);
-    var phase = (frame % 2) ? 1 : 0;
-    if (pose === "hurt") phase = 0;
-    var coils = [
-      [14, 58, 7, C.tideD],
-      [18, 48, 7, C.tide],
-      [14, 38, 6, C.tideD],
-      [22, 30, 7, C.tide],
-      [28, 22, 7, C.sea],
-      [32, 14, 8, C.tideL]
+  function buildWisp(view, frame, pose) {
+    var p = new ePair(34, 38);
+    var m = p.m;
+    var lean = frame ? 1 : 0;
+    var rows = [
+      [16, 2], [15, 4], [14, 6], [13, 8], [12, 10], [11, 12],
+      [10, 14], [9, 15], [9, 14], [10, 13], [12, 10], [14, 7], [15, 4]
     ];
-    var i, c, y;
-    for (i = 0; i < coils.length; i++) {
-      c = coils[i];
-      y = c[1] + (pose === "hurt" ? 2 : ((i + phase) % 2 ? -1 : 1));
-      shadeDisc(s, c[0], y, c[2], c[2] - 1, C.sea, c[3], C.foam);
-      plot(s, c[0] - 1, y - c[2] + 2, C.white);
+    var i, sp;
+    for (i = 0; i < rows.length; i++) {
+      sp = rows[i];
+      m.fill(sp[0] + (i < 3 ? lean : 0), 4 + i, sp[1], 1, "v");
     }
-    shadeDisc(s, 32, 12, 8, 7, C.tideD, C.sea, C.tideL);
-    fill(s, 34, 4, 3, 7, C.bone);
-    plot(s, 35, 4, C.white);
-    plot(s, 28, 11, pose === "hurt" ? C.tideD : C.eye);
-    plot(s, 27, 11, C.lite);
-    plot(s, 36, 15, C.tooth);
-    plot(s, 38, 16, C.tooth);
-    shadeDisc(s, 16, 40, pose === "cast" ? 4 : 3, 3, C.tideD, pose === "hurt" ? C.goldD : C.foam, C.white);
-    if (pose === "attack") fill(s, 36, 15, 6, 2, C.tooth);
-    if (pose === "cast") {
-      plot(s, 24, 18, C.lite);
-      plot(s, 22, 20, C.foam);
-      plot(s, 26, 16, C.white);
-    }
-    return anchor(mirrorIf(s, facing), 22, 64);
-  }
-
-  Art.add("tidewyrm", function (pose, facing, frame) {
-    if (pose === "walk") return wyrmWalk(pose, facing, frame);
-    return wyrmBattle(pose, facing, frame);
-  }, 2, 1);
-
-  function sentinel(pose, facing, frame) {
-    var s = Art.spr(26, 42);
-    var bob = (pose === "walk" && frame % 2) ? -1 : 0;
-    if (pose === "hurt") bob = 1;
-    shaded(s, 8, 16 + bob, 10, 16, C.stoneL, C.stone, C.stoneD);
-    fill(s, 10, 18 + bob, 2, 12, C.stoneL);
-    fill(s, 15, 20 + bob, 2, 8, C.stoneD);
-    shaded(s, 5, 18 + bob, 4, 8, C.armorL, C.armor, C.armorD);
-    shaded(s, 17, 18 + bob, 4, 8, C.stoneL, C.stone, C.stoneD);
-    shadeDisc(s, 13, 10 + bob, 6, 6, C.stoneD, C.stoneL, C.cloud);
-    fill(s, 9, 8 + bob, 8, 4, pose === "hurt" ? C.stoneD : C.hush);
-    plot(s, 11, 9 + bob, pose === "hurt" ? C.stoneD : C.lite);
-    plot(s, 14, 9 + bob, pose === "hurt" ? C.stoneD : C.shardH);
-    plot(s, 12, 8 + bob, C.white);
-    fill(s, 10, 32, 3, 6, C.stoneD);
-    fill(s, 15, 32, 3, frame % 2 && pose === "walk" ? 5 : 6, C.stone);
-    plot(s, 11, 37, C.ink);
-    plot(s, 16, 37, C.gold);
+    m.fill(7, 12, 3, 2, "v");
+    m.fill(24, 10, 3, 2, "v");
+    m.fill(25, 12, 2, 2, "v");
+    m.fill(13, 17, 3, 2, "v");
+    m.fill(18, 17, 3, 2, "v");
+    m.fill(11, 19, 3, 2, "v");
+    m.fill(20, 19, 3, 3, "v");
+    m.fill(9, 21, 2, 2, "v");
+    m.fill(22, 22, 2, 2, "v");
+    m.fill(8, 23, 2, 1, "v");
+    m.disc(16, 13, 3, 3, "c");
+    m.plot(16, 13, "c");
+    if (pose === "hurt") eShut(p.d, 12, 10, 3), eShut(p.d, 19, 10, 3);
+    else eEye(p.d, 11, 9, 4, 3, 2), eEye(p.d, 18, 9, 4, 3, 2);
+    p.d.plot(16, 13, "y");
+    p.d.plot(15, 12, "l");
     if (pose === "attack") {
-      fill(s, 20, 22, 5, 2, C.gold);
-      plot(s, 24, 22, C.lite);
+      p.d.fill(27, 12, 2, 2, "y");
+      p.d.plot(29, 12, "w");
+      p.d.plot(30, 11, "o");
+      p.d.plot(30, 13, "c");
     }
     if (pose === "cast") {
-      plot(s, 13, 2, C.shardH);
-      plot(s, 11, 3, C.shard);
-      plot(s, 15, 3, C.lite);
+      p.d.plot(16, 2, "w");
+      p.d.plot(14, 3, "c");
+      p.d.plot(18, 3, "y");
     }
-    return anchor(mirrorIf(s, facing), 13, 39);
+    return eOut(p, { v: MAT.violet, c: MAT.core }, 16, true);
   }
 
-  Art.add("sentinel", function (pose, facing, frame) {
-    return sentinel(pose, facing, frame);
-  }, 2, 2);
+  function buildSalt(view, frame, pose) {
+    var p = new ePair(40, 38);
+    var m = p.m;
+    var bob = frame ? 0 : 1;
+    m.disc(20, 12 + bob, 10, 7, "t");
+    m.fill(10, 14 + bob, 20, 4, "t");
+    m.tri(8, 12, 6, 6, 12, 12, "g");
+    m.tri(20, 8, 18, 3, 23, 9, "g");
+    m.tri(30, 11, 33, 5, 28, 12, "g");
+    m.fill(12, 18, 4, 2, "f");
+    m.fill(18, 19, 5, 2, "f");
+    m.fill(25, 18, 4, 2, "f");
+    m.fill(14, 20, 2, 6, "t");
+    m.fill(14, 26, 2, 2, "t");
+    m.fill(22, 20, 2, 8, "t");
+    m.fill(27, 20, 2, 5, "t");
+    m.disc(20, 15, 2, 3, "g");
+    if (pose === "hurt") eShut(p.d, 14, 12, 3), eShut(p.d, 22, 12, 3);
+    else eEye(p.d, 14, 11, 4, 2, 2), eEye(p.d, 22, 11, 4, 2, 2);
+    p.d.plot(20, 14, "l");
+    p.d.plot(20, 16, "y");
+    if (pose === "attack") {
+      m.fill(32, 12, 6, 4, "f");
+      p.d.fill(33, 12, 4, 2, "w");
+      p.d.plot(37, 11, "y");
+      p.d.plot(38, 13, "l");
+      p.d.plot(36, 15, "u");
+    }
+    if (pose === "cast") p.d.plot(20, 4, "w"), p.d.plot(18, 5, "u");
+    return eOut(p, { t: MAT.tide, g: MAT.gold, f: MAT.foam }, 20, false);
+  }
+
+  function buildBrume(view, frame, pose) {
+    var p = new ePair(40, 38);
+    var m = p.m;
+    var step = frame ? 1 : 0;
+    m.tri(12, 14, 9, 5, 16, 14, "g");
+    m.tri(26, 14, 30, 4, 22, 13, "g");
+    m.plot(30, 3, "g");
+    m.disc(20, 20, 11, 9, "h");
+    m.fill(8, 18, 5, 6, "h");
+    m.fill(27, 16, 5, 7, "h");
+    m.disc(20, 24, 5, 4, "e");
+    m.fill(11, 30, 6, 4, "h");
+    m.fill(23, 30, 6, 3 + step, "h");
+    m.fill(12, 33, 5, 2, "g");
+    m.fill(24, 33, 5, 2, "g");
+    m.fill(6, 20, 3, 2, "h");
+    m.fill(31, 18, 3, 2, "h");
+    if (pose === "hurt") eShut(p.d, 14, 17, 3), eShut(p.d, 22, 17, 3);
+    else {
+      eBrows(p.d, 13, 16, 5, true);
+      eBrows(p.d, 21, 16, 5, true);
+      eEye(p.d, 14, 17, 3, 2, 2);
+      eEye(p.d, 22, 17, 3, 2, 2);
+    }
+    p.d.fill(17, 21, 5, 1, "n");
+    p.d.plot(19, 22, "b");
+    p.d.plot(20, 23, "y");
+    p.d.plot(18, 24, "o");
+    if (pose === "attack") {
+      m.fill(33, 18, 5, 4, "h");
+      p.d.fill(34, 19, 3, 2, "o");
+      p.d.plot(37, 19, "y");
+    }
+    if (pose === "cast") p.d.plot(20, 6, "y"), p.d.plot(18, 8, "o");
+    return eOut(p, { h: MAT.hush, g: MAT.gold, e: MAT.ember }, 20, true, true);
+  }
+
+  function buildAsh(view, frame, pose) {
+    var p = new ePair(32, 38);
+    var m = p.m;
+    var step = frame ? 1 : 0;
+    m.disc(16, 15, 6, 5, "a");
+    m.fill(12, 13, 8, 4, "a");
+    m.tri(11, 13, 8, 7, 14, 13, "r");
+    m.tri(21, 13, 24, 6, 18, 13, "r");
+    m.tri(16, 11, 14, 6, 18, 11, "r");
+    m.disc(16, 23, 6, 5, "a");
+    m.fill(11, 19, 10, 7, "a");
+    m.line(15, 19, 17, 26, "e");
+    m.fill(7, 19, 3, 4, "a");
+    m.fill(22, 18, 3, 5, "r");
+    m.fill(12, 27, 3, 7, "a");
+    m.fill(18, 27, 3, 6 + step, "a");
+    m.fill(11, 33, 4, 3, "r");
+    m.fill(18, 33, 4, 3, "r");
+    if (pose === "hurt") {
+      eShut(p.d, 12, 15, 3);
+      eShut(p.d, 18, 15, 3);
+    } else {
+      p.d.fill(12, 14, 3, 2, "o");
+      p.d.fill(18, 14, 3, 2, "o");
+      p.d.plot(12, 14, "y");
+      p.d.plot(20, 14, "y");
+      p.d.plot(14, 15, "n");
+      p.d.plot(19, 15, "n");
+    }
+    p.d.plot(16, 22, "y");
+    p.d.plot(16, 24, "o");
+    if (pose === "attack") {
+      m.fill(25, 17, 5, 3, "e");
+      p.d.fill(26, 17, 3, 2, "y");
+      p.d.plot(29, 17, "w");
+    }
+    if (pose === "cast") {
+      p.d.plot(16, 5, "y");
+      p.d.plot(14, 7, "o");
+    }
+    return eOut(p, { a: MAT.ash, r: MAT.rock, e: MAT.ember }, 16, true, true);
+  }
+
+  function buildChoir(view, frame, pose) {
+    var p = new ePair(32, 38);
+    var m = p.m;
+    var sway = frame ? 1 : 0;
+    m.disc(15, 11, 7, 6, "k");
+    m.fill(9, 12, 13, 5, "k");
+    m.fill(12, 17, 8, 4, "r");
+    m.tri(16, 34, 8, 20, 15, 20, "r");
+    m.tri(16, 33, 22, 20, 15, 20, "r");
+    m.fill(7, 22, 3, 6, "r");
+    m.fill(20, 21, 3, 4, "r");
+    m.plot(8, 27, "r");
+    m.plot(22, 24, "r");
+    m.fill(14, 20, 3, 3, "c");
+    m.line(12, 8, 18, 14, ".");
+    m.plot(13, 9, ".");
+    m.plot(14, 10, ".");
+    if (pose === "hurt") eShut(p.d, 11, 11, 3), eShut(p.d, 18, 11, 3);
+    else {
+      p.d.fill(11, 10, 3, 3, "n");
+      p.d.fill(18, 10, 3, 3, "n");
+      p.d.plot(12, 11, "g");
+      p.d.plot(19, 11, "y");
+    }
+    p.d.plot(15, 7, "g");
+    p.d.plot(15, 21, "y");
+    p.d.plot(16, 21, "w");
+    p.d.line(11, 9, 17, 15, "q");
+    if (pose === "attack") {
+      p.d.plot(26, 18, "c");
+      p.d.plot(27, 17, "w");
+      p.d.plot(25, 16, "y");
+    }
+    if (pose === "cast") p.d.plot(15, 3, "w"), p.d.plot(13, 4, "c");
+    if (sway) m.plot(23, 30, "r");
+    return eOut(p, { k: MAT.mask, r: MAT.robe, c: MAT.core }, 15, true);
+  }
+
+  function buildSoldier(view, frame, pose) {
+    var p = new ePair(40, 38);
+    var m = p.m;
+    var step = frame ? 1 : 0;
+    m.fill(14, 6, 12, 7, "a");
+    m.fill(16, 4, 8, 3, "a");
+    m.fill(24, 2, 3, 8, "p");
+    m.plot(25, 1, "p");
+    m.plot(26, 2, "p");
+    m.fill(10, 12, 8, 5, "a");
+    m.fill(22, 12, 8, 5, "a");
+    m.fill(14, 16, 12, 12, "r");
+    m.fill(12, 18, 3, 8, "a");
+    m.fill(25, 17, 4, 8, "a");
+    m.fill(15, 28, 5, 6, "a");
+    m.fill(21, 28, 5, 5 + step, "a");
+    m.fill(14, 33, 6, 2, "m");
+    m.fill(21, 33, 6, 2, "m");
+    m.line(30, 4, 30, 30, "m");
+    m.tri(30, 4, 34, 8, 30, 10, "g");
+    m.fill(8, 18, 4, 3, "a");
+    if (pose === "attack") {
+      m.line(32, 16, 37, 16, "m");
+      m.tri(37, 16, 36, 14, 36, 18, "g");
+    }
+    p.d.fill(17, 8, 7, 2, "n");
+    p.d.plot(18, 8, "s");
+    p.d.plot(21, 8, "y");
+    p.d.plot(22, 9, "c");
+    p.d.plot(25, 3, "l");
+    p.d.fill(18, 22, 4, 5, "g");
+    p.d.plot(19, 23, "y");
+    if (pose === "hurt") p.d.fill(17, 8, 7, 2, "e");
+    if (pose === "cast") p.d.plot(20, 3, "w"), p.d.plot(18, 4, "c");
+    return eOut(p, { a: MAT.armor, p: MAT.plume, r: MAT.robe, m: MAT.metal, g: MAT.gold }, 20, true, true);
+  }
+
+  function buildRaider(view, frame, pose) {
+    var p = new ePair(40, 38);
+    var m = p.m;
+    var step = frame ? 1 : 0;
+    m.fill(12, 5, 14, 3, "c");
+    m.fill(10, 7, 16, 2, "c");
+    m.disc(17, 12, 6, 5, "s");
+    m.fill(14, 16, 10, 10, "h");
+    m.tri(18, 32, 10, 20, 16, 18, "h");
+    m.tri(20, 32, 26, 20, 18, 18, "h");
+    m.fill(8, 18, 4, 8, "h");
+    m.fill(24, 17, 4, 7, "h");
+    m.fill(13, 28, 4, 6, "n");
+    m.fill(21, 28, 4, 5 + step, "n");
+    m.fill(12, 33, 5, 2, "m");
+    m.fill(21, 33, 5, 2, "m");
+    m.fill(16, 18, 6, 2, "f");
+    m.line(28, 18, pose === "attack" ? 36 : 32, 16, "m");
+    m.tri(pose === "attack" ? 36 : 32, 16, pose === "attack" ? 34 : 30, 14, pose === "attack" ? 34 : 30, 18, "g");
+    if (pose === "hurt") eShut(p.d, 15, 11, 4);
+    else {
+      eBrows(p.d, 14, 10, 5, true);
+      eEye(p.d, 15, 11, 3, 2, 2);
+    }
+    p.d.line(15, 15, 19, 15, "n");
+    p.d.plot(20, 15, "r");
+    p.d.plot(13, 6, "l");
+    p.d.plot(22, 19, "y");
+    if (pose === "cast") p.d.plot(18, 4, "y");
+    return eOut(p, { c: MAT.cloth, s: MAT.skin, h: MAT.hush, n: MAT.rock, m: MAT.metal, g: MAT.gold, f: MAT.ember }, 18, true, true);
+  }
+
+  function buildDrowned(view, frame, pose) {
+    var p = new ePair(40, 38);
+    var m = p.m;
+    var drag = frame ? 1 : 0;
+    m.disc(16, 11, 6, 5, "p");
+    m.tri(10, 10, 6, 4, 12, 12, "w");
+    m.tri(12, 12, 8, 8, 14, 16, "w");
+    m.fill(7, 14, 3, 5, "w");
+    m.disc(18, 22, 9, 8, "t");
+    m.fill(12, 18, 12, 8, "t");
+    m.fill(8, 20, 4, 8, "p");
+    m.fill(24, 16, 3, 14, "p");
+    m.fill(26, 28, 4, 3, "p");
+    m.plot(29, 30, "p");
+    m.plot(30, 29, "p");
+    m.fill(13, 28, 5, 5, "t");
+    m.fill(21, 29, 5, 4 + drag, "t");
+    m.fill(13, 33, 5, 2, "n");
+    m.fill(21, 33, 4, 2, "n");
+    m.disc(20, 24, 4, 3, "s");
+    if (pose === "hurt") eShut(p.d, 16, 10, 4);
+    else {
+      p.d.fill(15, 10, 4, 3, "u");
+      p.d.plot(17, 11, "e");
+      p.d.plot(18, 11, "e");
+      p.d.plot(15, 10, "l");
+    }
+    p.d.fill(15, 14, 4, 2, "n");
+    p.d.plot(16, 15, "b");
+    p.d.plot(22, 18, "g");
+    p.d.plot(23, 19, "q");
+    p.d.plot(14, 23, "m");
+    if (pose === "attack") {
+      m.fill(30, 22, 6, 3, "p");
+      p.d.plot(35, 23, "n");
+      p.d.plot(34, 24, "e");
+    }
+    if (pose === "cast") p.d.plot(18, 4, "u"), p.d.plot(16, 6, "m");
+    return eOut(p, { p: MAT.pale, w: MAT.weed, t: MAT.tide, s: MAT.sea, n: MAT.rock }, 18, true, true);
+  }
+
+  function buildHound(view, frame, pose) {
+    var p = new ePair(48, 38);
+    var m = p.m;
+    var a = frame ? 1 : 0;
+    var open = pose === "attack" ? 3 : (pose === "hurt" ? 0 : 1);
+    m.disc(22, 18, 12, 7, "h");
+    m.fill(14, 14, 20, 8, "h");
+    m.disc(34, 16, 7, 6, "h");
+    m.tri(30, 12, 28, 6, 34, 12, "f");
+    m.tri(36, 12, 38, 5, 40, 13, "f");
+    m.fill(16, 10, 14, 4, "f");
+    m.tri(18, 10, 14, 6, 22, 11, "f");
+    m.tri(24, 10, 26, 4, 28, 11, "f");
+    m.fill(8, 16, 6, 4, "f");
+    m.tri(8, 16, 3, 14, 8, 20, "f");
+    m.fill(12, 22, 3, 8 - a, "h");
+    m.fill(18, 22, 3, 7 + a, "h");
+    m.fill(26, 22, 3, 8 - a, "h");
+    m.fill(32, 23, 3, 6 + a, "h");
+    m.fill(11, 29, 4, 2, "r");
+    m.fill(18, 29, 4, 2, "r");
+    m.fill(25, 29, 4, 2, "r");
+    m.fill(32, 29, 4, 2, "r");
+    if (open) {
+      m.fill(38, 16, 4, 2 + open, "k");
+      m.fill(38, 16, 3, 2, "t");
+      m.fill(39, 18, 2, open, "t");
+    }
+    if (pose === "hurt") p.d.fill(36, 14, 3, 1, "e");
+    else eEye(p.d, 35, 13, 3, 2, 2);
+    p.d.plot(20, 12, "y");
+    p.d.plot(24, 8, "w");
+    p.d.plot(17, 11, "o");
+    p.d.plot(40, 17, "w");
+    if (pose === "cast") p.d.plot(22, 6, "y"), p.d.plot(26, 5, "o");
+    return eOut(p, { h: MAT.ash, f: MAT.ember, r: MAT.rock, k: MAT.voidm, t: MAT.bone }, 24, false, true);
+  }
+
+  function buildGull(view, frame, pose) {
+    var p = new ePair(48, 38);
+    var m = p.m;
+    var up = frame === 0;
+    m.disc(24, 16, 5, 4, "g");
+    m.fill(28, 15, 5, 3, "b");
+    m.tri(33, 16, pose === "attack" ? 46 : 40, 15, 33, 18, "b");
+    m.tri(20, 18, 15, 21, 22, 22, "g");
+    if (up) {
+      m.tri(20, 16, 3, 7, 18, 18, "w");
+      m.tri(20, 17, 5, 12, 16, 20, "d");
+      m.tri(28, 15, 44, 6, 30, 18, "w");
+      m.tri(30, 15, 42, 10, 32, 18, "d");
+    } else {
+      m.tri(20, 17, 2, 16, 18, 21, "w");
+      m.tri(20, 18, 4, 20, 16, 23, "d");
+      m.tri(28, 16, 45, 18, 30, 22, "w");
+      m.tri(30, 17, 43, 21, 32, 23, "d");
+    }
+    m.fill(22, 20, 2, 3, "b");
+    m.fill(25, 21, 2, 2, "b");
+    if (pose === "hurt") p.d.fill(22, 15, 3, 1, "e");
+    else eEye(p.d, 22, 14, 3, 2, 2);
+    p.d.plot(30, 15, "l");
+    p.d.plot(6, up ? 9 : 16, "l");
+    p.d.plot(40, up ? 8 : 18, "l");
+    if (pose === "attack") p.d.plot(44, 15, "y");
+    if (pose === "cast") p.d.plot(24, 8, "w");
+    return eOut(p, { g: MAT.gull, w: MAT.wing, d: MAT.gull, b: MAT.gold }, 24, false);
+  }
+
+  function buildSentinel(view, frame, pose) {
+    var p = new ePair(32, 38);
+    var m = p.m;
+    var step = frame ? 1 : 0;
+    m.fill(10, 6, 12, 8, "s");
+    m.fill(12, 4, 8, 3, "s");
+    m.plot(11, 8, ".");
+    m.plot(20, 7, ".");
+    m.fill(6, 13, 6, 8, "s");
+    m.fill(20, 14, 6, 10, "a");
+    m.fill(11, 14, 10, 14, "s");
+    m.fill(12, 16, 3, 10, "m");
+    m.fill(11, 28, 5, 6, "s");
+    m.fill(17, 28, 5, 5 + step, "s");
+    m.fill(10, 33, 6, 2, "g");
+    m.fill(17, 33, 6, 2, "g");
+    m.fill(13, 18, 6, 6, "g");
+    if (pose === "attack") {
+      m.fill(24, 16, 6, 4, "a");
+      p.d.fill(26, 17, 3, 2, "y");
+    }
+    p.d.fill(13, 8, 8, 2, "s");
+    p.d.plot(14, 8, "l");
+    p.d.plot(18, 8, "w");
+    p.d.plot(15, 20, "y");
+    p.d.plot(16, 21, "l");
+    p.d.line(14, 12, 18, 16, "n");
+    if (pose === "hurt") p.d.fill(13, 8, 8, 2, "e");
+    if (pose === "cast") p.d.plot(16, 2, "w"), p.d.plot(14, 3, "s");
+    return eOut(p, { s: MAT.stone, a: MAT.armor, m: MAT.metal, g: MAT.gold }, 16, true, true);
+  }
+
+  function buildMawBody(frame, pose, field) {
+    var w = field ? 52 : 90;
+    var h = field ? 42 : 96;
+    var sc = field ? 0.5 : 1;
+    var p = new ePair(w, h);
+    var m = p.m;
+    var open = pose === "hurt" ? 0 : (pose === "attack" ? (frame ? 16 : 10) : (frame ? 12 : 8));
+    if (field) open = Math.max(4, (open / 2) | 0);
+    var ox = field ? 6 : 8;
+    var oy = field ? 4 : 8;
+    var jy = (field ? 24 : 48) + (open > 6 ? 2 : 0);
+    m.tri(ox + 18, oy + 16, ox + 24, oy + 2, ox + 32, oy + 16, "r");
+    m.tri(ox + 34, oy + 18, ox + 46, oy, ox + 52, oy + 18, "r");
+    m.tri(ox + 8, oy + 20, ox + 4, oy + 8, ox + 16, oy + 20, "r");
+    m.disc(ox + 30, oy + 24, field ? 16 : 28, field ? 12 : 16, "r");
+    m.fill(ox + 10, oy + 18, field ? 28 : 48, field ? 10 : 16, "r");
+    m.fill(ox + 16, jy, field ? 26 : 46, field ? 8 : 14, "r");
+    m.disc(ox + 36, jy + (field ? 6 : 10), field ? 12 : 22, field ? 5 : 9, "r");
+    m.fill(ox + 22, oy + 28, field ? 18 : 36, Math.max(4, (field ? open : open)), "k");
+    var tooth = field ? 3 : 5;
+    var i;
+    for (i = 0; i < tooth; i++) {
+      var tx = ox + 24 + i * (field ? 4 : 6);
+      var th = (field ? 3 : 5) + (i % 2 ? 2 : 0);
+      if (pose === "hurt") th = field ? 2 : 3;
+      m.fill(tx, oy + 28, 2, th, "t");
+      m.fill(tx, jy + (field ? 4 : 8) - (i % 2), 2, field ? 2 : 3, "t");
+    }
+    var cr = field ? 3 : 7;
+    m.disc(ox + 32, oy + 32 + ((open / 4) | 0), cr, cr, "e");
+    m.fill(ox + 14, h - (field ? 10 : 16), field ? 8 : 12, field ? 7 : 12, "r");
+    m.fill(ox + 30, h - (field ? 9 : 14), field ? 8 : 14, field ? 6 : 11, "r");
+    m.fill(ox + 14, h - 4, field ? 7 : 10, 2, "d");
+    m.fill(ox + 32, h - 4, field ? 7 : 12, 2, "d");
+    var eyeX = ox + (field ? 34 : 58);
+    var eyeY = oy + (field ? 16 : 26);
+    if (pose === "hurt") eShut(p.d, eyeX, eyeY, field ? 4 : 7);
+    else eEye(p.d, eyeX, eyeY, field ? 5 : 8, field ? 3 : 5, field ? 3 : 5);
+    eBrows(p.d, eyeX - 1, eyeY - 2, field ? 7 : 10, true);
+    p.d.plot(ox + 32, oy + 32, "w");
+    p.d.plot(ox + 31, oy + 31, "y");
+    p.d.line(ox + 18, oy + 22, ox + 28, oy + 34, "o");
+    p.d.line(ox + 40, oy + 20, ox + 48, oy + 30, "r");
+    p.d.plot(ox + 26, oy + 30, "b");
+    p.d.plot(ox + 44, jy + 2, "w");
+    if (pose === "cast" || (pose === "idle" && frame)) p.d.plot(ox + 33, oy + 32, "l");
+    if (pose === "attack" && !field) {
+      p.d.fill(w - 8, oy + 36, 4, 3, "o");
+      p.d.plot(w - 4, oy + 36, "y");
+    }
+    return eOut(p, { r: MAT.rock, k: MAT.voidm, t: MAT.bone, e: MAT.ember, d: MAT.ash }, field ? 26 : 40, true, true);
+  }
+
+  function buildWyrm(view, frame, pose) {
+    return buildWyrmBody(frame, pose, false);
+  }
+
+  function buildWyrmBody(frame, pose, field) {
+    var w = field ? 64 : 72;
+    var h = field ? 40 : 96;
+    var p = new ePair(w, h);
+    var m = p.m;
+    var phase = frame ? 1 : 0;
+    var coils, i, c, y, fin;
+    if (field) {
+      coils = [[8, 22, 5], [18, 16, 5], [28, 24, 5], [38, 15, 5], [48, 22, 6]];
+      for (i = 0; i < coils.length; i++) {
+        c = coils[i];
+        y = c[1] + ((i + phase) % 2 ? -2 : 2);
+        m.disc(c[0], y, c[2], c[2] - 1, i % 2 ? "t" : "s");
+        m.tri(c[0], y - c[2], c[0] - 2, y - c[2] + 2, c[0] + 2, y - c[2] + 2, "f");
+      }
+      m.disc(56, 16, 6, 5, "s");
+      m.tri(58, 10, 62, 6, 64, 12, "f");
+      m.fill(58, 16, 4, 2, "k");
+      m.fill(58, 16, 3, 2, "t");
+      if (pose === "hurt") eShut(p.d, 54, 14, 3);
+      else eEye(p.d, 53, 13, 3, 2, 2);
+      p.d.plot(28, 18, "w");
+      p.d.plot(27, 17, "l");
+    } else {
+      coils = [[22, 84, 11], [36, 70, 11], [20, 56, 10], [38, 42, 10], [24, 28, 9]];
+      for (i = 0; i < coils.length; i++) {
+        c = coils[i];
+        y = c[1] + (pose === "hurt" ? 2 : ((i + phase) % 2 ? -2 : 1));
+        m.disc(c[0], y, c[2], c[2] - 1, i % 2 ? "t" : "s");
+        fin = c[0] + (i % 2 ? c[2] : -c[2]);
+        m.tri(fin, y - 2, fin + (i % 2 ? 4 : -4), y - 8, fin, y + 2, "f");
+        p.d.plot(c[0] - 3, y - 3, "l");
+      }
+      m.disc(40, 16, 9, 8, "s");
+      m.tri(36, 12, 30, 2, 42, 10, "f");
+      m.tri(46, 10, 54, 4, 50, 14, "f");
+      m.fill(46, 16, 6, 3, "k");
+      m.fill(46, 16, 4, 2, "t");
+      m.fill(48, 18, 2, 3, "t");
+      m.disc(28, 56, 4, 4, "p");
+      if (pose === "hurt") eShut(p.d, 38, 14, 5);
+      else eEye(p.d, 36, 12, 5, 4, 3);
+      p.d.plot(28, 56, "w");
+      p.d.plot(27, 55, "l");
+      p.d.plot(50, 17, "w");
+      if (pose === "attack") {
+        m.fill(54, 14, 8, 4, "s");
+        m.fill(60, 15, 4, 2, "t");
+        p.d.plot(64, 15, "w");
+      }
+      if (pose === "cast") {
+        p.d.plot(30, 48, "w");
+        p.d.plot(24, 52, "u");
+        p.d.plot(34, 50, "l");
+      }
+    }
+    return eOut(p, { t: MAT.tide, s: MAT.sea, f: MAT.foam, k: MAT.voidm, p: MAT.foam, b: MAT.bone }, field ? 32 : 30, false, true);
+  }
+
+  function buildSoot(view, frame, pose) {
+    var p = new ePair(40, 28);
+    var m = p.m;
+    var up = frame === 0;
+    var i, y;
+    m.disc(18, 14, 5, 4, "a");
+    m.fill(22, 13, 5, 3, "a");
+    m.plot(26, 14, "e");
+    for (i = 0; i < 10; i++) {
+      y = 12 + (up ? -Math.floor(i / 2) : Math.floor(i / 3));
+      m.fill(6 - i, y, 3, 2, "a");
+      m.fill(24 + i, y - 1, 3, 2, "r");
+    }
+    if (pose !== "hurt") eEye(p.d, 16, 12, 3, 2, 2);
+    else eShut(p.d, 16, 13, 3);
+    p.d.plot(26, 13, "o");
+    if (pose === "attack") p.d.fill(30, 13, 4, 2, "o");
+    return eOut(p, { a: MAT.ash, r: MAT.rock, e: MAT.ember }, 18, false);
+  }
+
+  function eFieldWrap(battleBuild, fieldBuild, ax) {
+    return function (view, frame, pose) {
+      if (view === "front" || view === "back" || view === "side") {
+        if (fieldBuild && pose === "idle") return fieldBuild(view, frame);
+      }
+      return battleBuild("battle", frame, pose);
+    };
+  }
+
+  // Map tokens stay near the old footprint. Battle poses use the tall sprite.
+  function bindBoss(id, battle, field, ax) {
+    Art.add(id, function (pose, facing, frame) {
+      frame = ((frame % 4) + 4) % 4;
+      var battlePose = pose !== "walk" && pose !== "stand";
+      var part = battlePose ? battle(frame % 2, pose) : field(facing, frame % 2);
+      var s = eBake(part, battlePose ? pose : "idle", frame % 2, part.ax != null ? part.ax : ax);
+      if (facing === "left") return Art.mirror(s);
+      return s;
+    }, 2, 1);
+  }
+
+  eBind("wisp", function (view, frame, pose) {
+    var part = buildWisp(view, frame, pose);
+    if (view === "back") part.det = part.mask.map(function (row) { return row.replace(/./g, "."); });
+    return part;
+  }, 16);
+  eBind("saltwisp", function (view, frame, pose) { return buildSalt(view, frame, pose); }, 20);
+  eBind("brumekin", function (view, frame, pose) { return buildBrume(view, frame, pose); }, 20);
+  eBind("ashling", function (view, frame, pose) { return buildAsh(view, frame, pose); }, 16);
+  eBind("choirling", function (view, frame, pose) { return buildChoir(view, frame, pose); }, 15);
+  eBind("choir_soldier", function (view, frame, pose) { return buildSoldier(view, frame, pose); }, 20);
+  eBind("hush_raider", function (view, frame, pose) { return buildRaider(view, frame, pose); }, 18);
+  eBind("drowned", function (view, frame, pose) { return buildDrowned(view, frame, pose); }, 18);
+  eBind("cinderhound", function (view, frame, pose) { return buildHound(view, frame, pose); }, 24);
+  eBind("stormgull", function (view, frame, pose) { return buildGull(view, frame, pose); }, 26);
+  eBind("sentinel", function (view, frame, pose) { return buildSentinel(view, frame, pose); }, 16);
+  eBind("sootwing", function (view, frame, pose) { return buildSoot(view, frame, pose); }, 18);
+
+  bindBoss("cinder_maw", function (frame, pose) {
+    return buildMawBody(frame, pose, false);
+  }, function (facing, frame) {
+    return buildMawBody(frame, "idle", true);
+  }, 40);
+  bindBoss("tidewyrm", function (frame, pose) {
+    return buildWyrmBody(frame, pose, false);
+  }, function (facing, frame) {
+    return buildWyrmBody(frame, "idle", true);
+  }, 30);
+
+  ePortrait("wisp", C.violetD, { x: 16, y: 12 });
+  ePortrait("saltwisp", C.sea, { x: 20, y: 14 });
+  ePortrait("brumekin", C.hushD, { x: 20, y: 18 });
+  ePortrait("ashling", C.ashD, { x: 16, y: 18 });
+  ePortrait("choirling", C.violetD, { x: 15, y: 14 });
+  ePortrait("choir_soldier", C.violetD, { x: 20, y: 14 });
+  ePortrait("hush_raider", C.hushD, { x: 18, y: 14 });
+  ePortrait("drowned", C.tideD, { x: 18, y: 16 });
+  ePortrait("cinderhound", C.rock, { x: 30, y: 16 });
+  ePortrait("stormgull", C.stoneD, { x: 26, y: 16 });
+  ePortrait("sentinel", C.stoneD, { x: 16, y: 14 });
+  ePortrait("sootwing", C.rock, { x: 18, y: 14 });
+  ePortrait("cinder_maw", C.rock, { x: 48, y: 40 });
+  ePortrait("tidewyrm", C.sea, { x: 40, y: 20 });
+  Art.addPortrait("maw", function () { return Art._portraits.cinder_maw(); });
 
   function badge(bg, draw) {
     var s = Art.spr(32, 32);
@@ -1720,98 +2172,6 @@
   function iconPortrait(id, bg, draw) {
     Art.addPortrait(id, function () { return badge(bg, draw); });
   }
-
-  iconPortrait("wisp", C.violetD, function (s) {
-    shadeDisc(s, 16, 18, 9, 8, C.violetD, C.violet, C.core);
-    shadeDisc(s, 16, 18, 4, 4, C.violet, C.core, C.white);
-    fill(s, 11, 15, 2, 2, C.white);
-    fill(s, 18, 15, 2, 2, C.white);
-    plot(s, 12, 16, C.eye);
-    plot(s, 19, 16, C.eye);
-    plot(s, 11, 15, C.lite);
-  });
-  iconPortrait("saltwisp", C.sea, function (s) {
-    shadeDisc(s, 16, 18, 9, 8, C.tideD, C.tide, C.tideL);
-    shadeDisc(s, 16, 18, 4, 4, C.tide, C.foam, C.white);
-    fill(s, 11, 15, 2, 2, C.white);
-    fill(s, 18, 15, 2, 2, C.white);
-    plot(s, 12, 16, C.eye);
-  });
-  iconPortrait("brumekin", C.hushD, function (s) {
-    shadeDisc(s, 16, 18, 10, 8, C.void, C.hush, C.hushL);
-    fill(s, 7, 8, 3, 8, C.goldD);
-    fill(s, 22, 8, 3, 8, C.gold);
-    plot(s, 8, 7, C.lite);
-    fill(s, 11, 15, 3, 2, C.white);
-    fill(s, 18, 15, 3, 2, C.white);
-    plot(s, 12, 16, C.eye);
-    plot(s, 19, 16, C.eye);
-    shadeDisc(s, 16, 21, 3, 3, C.vestD, C.ember, C.warm);
-  });
-  iconPortrait("ashling", C.ashD, function (s) {
-    shadeDisc(s, 16, 16, 8, 7, C.rock, C.ash, C.ashL);
-    plot(s, 12, 14, C.ember);
-    plot(s, 13, 14, C.emberH);
-    plot(s, 19, 14, C.emberH);
-    plot(s, 12, 13, C.lite);
-    fill(s, 10, 24, 3, 4, C.ashD);
-    fill(s, 18, 24, 3, 4, C.rock);
-  });
-  iconPortrait("sootwing", C.rock, function (s) {
-    shadeDisc(s, 16, 18, 5, 4, C.ashD, C.ash, C.ashL);
-    shaded(s, 3, 14, 10, 3, C.ashL, C.rock, C.ashD);
-    shaded(s, 18, 12, 11, 3, C.ash, C.ashD, C.rock);
-    plot(s, 22, 16, C.emberH);
-  });
-  iconPortrait("cinderhound", C.rock, function (s) {
-    shadeDisc(s, 14, 18, 8, 6, C.void, C.ashD, C.ash);
-    fill(s, 18, 16, 8, 5, C.ash);
-    fill(s, 8, 12, 12, 4, C.ember);
-    plot(s, 10, 12, C.emberH);
-    plot(s, 24, 17, C.eye);
-    fill(s, 24, 20, 4, 2, C.tooth);
-  });
-  iconPortrait("cinder_maw", C.rock, function (s) {
-    shadeDisc(s, 16, 18, 11, 10, C.void, C.ashD, C.ash);
-    fill(s, 8, 16, 16, 8, C.void);
-    fill(s, 10, 14, 2, 4, C.tooth);
-    fill(s, 14, 14, 2, 4, C.tooth);
-    fill(s, 18, 14, 2, 4, C.bone);
-    shadeDisc(s, 16, 20, 3, 3, C.vestD, C.emberH, C.lite);
-  });
-  iconPortrait("stormgull", C.stoneD, function (s) {
-    shadeDisc(s, 16, 18, 5, 4, C.stoneD, C.stoneL, C.cloud);
-    fill(s, 20, 16, 6, 3, C.gold);
-    shaded(s, 3, 14, 12, 3, C.cloud, C.stone, C.stoneD);
-    shaded(s, 16, 12, 12, 3, C.white, C.cloud, C.stone);
-    plot(s, 14, 17, C.eye);
-  });
-  iconPortrait("tidewyrm", C.sea, function (s) {
-    var i;
-    for (i = 0; i < 5; i++) shadeDisc(s, 6 + i * 5, 18 + (i % 2 ? -3 : 3), 4, 3, C.sea, i % 2 ? C.tide : C.tideD, C.foam);
-    shadeDisc(s, 24, 14, 6, 5, C.tideD, C.tideL, C.white);
-    plot(s, 26, 13, C.eye);
-    plot(s, 28, 16, C.tooth);
-  });
-  iconPortrait("sentinel", C.stoneD, function (s) {
-    shaded(s, 10, 14, 12, 12, C.stoneL, C.stone, C.stoneD);
-    shadeDisc(s, 16, 10, 6, 5, C.stoneD, C.stoneL, C.cloud);
-    fill(s, 12, 8, 8, 3, C.hush);
-    plot(s, 14, 9, C.shardH);
-    plot(s, 18, 9, C.lite);
-  });
-
-  Art.addPortrait("maw", function () {
-    return badge(C.rock, function (s) {
-      shadeDisc(s, 16, 18, 10, 9, C.void, C.ashD, C.ash);
-      fill(s, 8, 16, 16, 8, C.void);
-      fill(s, 10, 14, 2, 3, C.tooth);
-      fill(s, 14, 14, 2, 3, C.tooth);
-      fill(s, 18, 14, 2, 3, C.tooth);
-      fill(s, 20, 14, 2, 3, C.bone);
-      shadeDisc(s, 16, 20, 3, 3, C.vestD, C.emberH, C.lite);
-    });
-  });
 
   Art.addPortrait("unknown", function () {
     return badge(C.winD, function (s) {

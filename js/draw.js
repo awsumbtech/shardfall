@@ -2190,9 +2190,22 @@ SF.entityList = function (s) {
         if (e.dying > 0) ctx.globalAlpha = Math.max(0, e.dying / 0.45);
         SF.drawShadow(ctx, e.x, e.y, e.r);
         var foeSprite = SF.foeSprite ? SF.foeSprite(e) : null;
-        var bigFoe = e.boss || e.kind === "maw" || e.kind === "tidewyrm";
         var foeScale = (window.Art && Art.fieldScale) ? Art.fieldScale(foeSprite || "wayfarer") : 1;
-        var drewFoe = foeSprite && SF.tryArtSprite && SF.tryArtSprite(ctx, foeSprite, e.x, e.y, { scale: foeScale });
+        var foeFrame = (SF.calm && SF.calm()) ? 0 : Math.floor((SF.anim || 0) * 4) % 4;
+        var foeFacing = "down";
+        if (s.player) {
+          var fdx = s.player.x - e.x;
+          var fdy = s.player.y - e.y;
+          if (Math.abs(fdx) > 18 || Math.abs(fdy) > 18) {
+            foeFacing = Math.abs(fdx) >= Math.abs(fdy) ? (fdx < 0 ? "left" : "right") : (fdy < 0 ? "up" : "down");
+          }
+        }
+        var drewFoe = foeSprite && SF.tryArtSprite && SF.tryArtSprite(ctx, foeSprite, e.x, e.y, {
+          scale: foeScale,
+          frame: foeFrame,
+          facing: foeFacing,
+          pose: "walk"
+        });
         if (!drewFoe) {
           if (e.kind === "wisp") SF.drawWisp(ctx, e);
           else if (e.kind === "brumekin") SF.drawBrume(ctx, e);

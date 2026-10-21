@@ -152,7 +152,9 @@ function battleScale(actor, count, stageH, slotW, slotH, labelH) {
   scale = Math.min(scale, maxH / src.h, maxW / src.w);
   if (!(scale > 0) || !isFinite(scale)) scale = 2;
   if (actor.side === "party") return partyBattleScale(src.h, 0);
-  return Math.round(scale * 4) / 4;
+  var whole = Math.max(1, Math.round(scale));
+  while (whole > 1 && (whole * src.h > maxH + 0.01 || whole * src.w > maxW + 0.01)) whole -= 1;
+  return whole;
 }
 
 // Party fighters land near 80% of the shortest foe. Whole steps are 1, 2,
@@ -240,6 +242,23 @@ function drawHalfStepSprite(ctx, id, x, y, scale, pose, facing) {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(canvas, lx, ly, dw, dh);
   ctx.imageSmoothingEnabled = smooth;
+}
+
+var FLOATER = { wisp: 1, saltwisp: 1, choirling: 1, stormgull: 1, sootwing: 1 };
+
+function drawFoeShadow(ctx, x, feet, sw, floating) {
+  var rx = Math.max(8, Math.round(sw * (floating ? 0.26 : 0.32)));
+  var ry = Math.max(3, Math.round(rx * 0.28));
+  ctx.save();
+  ctx.fillStyle = floating ? "rgba(16, 10, 24, 0.30)" : "rgba(12, 8, 18, 0.42)";
+  ctx.beginPath();
+  ctx.ellipse(Math.round(x), Math.round(feet) - 1, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(12, 8, 18, 0.18)";
+  ctx.beginPath();
+  ctx.ellipse(Math.round(x), Math.round(feet) - 1, Math.max(4, Math.round(rx * 0.55)), Math.max(2, ry - 1), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawSprite(ctx, id, x, y, scale, pose, facing) {
@@ -774,7 +793,9 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     if (!overlap) break;
     guard += 1;
     for (i = 0; i < placed.length; i++) {
-      placed[i].scale = Math.max(0.5, Math.round(placed[i].scale * 0.82 * 4) / 4);
+      var prevScale = placed[i].scale;
+      placed[i].scale = Math.max(1, Math.round(prevScale * 0.82));
+      if (placed[i].scale >= prevScale) placed[i].scale = Math.max(1, prevScale - 1);
       src = placed[i].src;
       scale = placed[i].scale;
       sw = src.w * scale;
@@ -861,11 +882,13 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     var nudge = actorNudge(b, f);
     var pose = battlePose(b, f);
     var canTap = aimFoe && f.alive;
+    var floating = FLOATER[f.sprite];
     if (!f.alive && b.phase === "result") {
       var fade = b.corpseT || 0;
       if (fade <= 0) return;
       ctx.save();
-      ctx.globalAlpha = Math.max(0, fade / 0.28);
+      ctx.globalAlpha = Math.max(0, fade / 0.5);
+      drawFoeShadow(ctx, spot.x + nudge.x, spot.feet + nudge.y, spot.src.w * spot.scale, floating);
       drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
       ctx.restore();
       return;
@@ -873,6 +896,7 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     ctx.save();
     if (!f.alive) ctx.globalAlpha = 0.35;
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
+    drawFoeShadow(ctx, spot.x + nudge.x, spot.feet + nudge.y, spot.src.w * spot.scale, floating);
     drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
     ctx.restore();
     drawFoeLabel(ctx, spot, b);
