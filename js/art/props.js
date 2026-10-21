@@ -8,11 +8,14 @@
   var plot = Art.plot;
   var fill = Art.fill;
 
-  function add(id, maker) {
-    Art.add(id, function () {
+  var swayX = 0;
+
+  function add(id, maker, ink) {
+    Art.add(id, function (pose, facing, frame) {
+      swayX = [0, 1, 0, -1][(frame | 0) & 3];
       var built = maker();
       var s = built.sprite || built;
-      Art.outline(s);
+      Art.outline(s, ink || 1);
       if (built.shade) built.shade(s);
       return s;
     }, 1, 1);
@@ -50,17 +53,39 @@
         rad = nx * nx + (ny + squash) * (ny + squash);
         if (rad > 1) continue;
         if (rad > 0.82 && ((x * 3 + y) & 3) === 0) continue;
-        light = -nx * 0.8 - ny * 0.55;
-        if (light > 0.55 && ny < 0.15) c = hi;
-        else if (light > 0.18) c = lite;
-        else if (ny > 0.28 || light < -0.32) c = deep;
+        light = -nx * 0.85 - ny * 0.6;
+        if (nx < -0.05 && ny < -0.2 && rad > 0.45) c = hi;
+        else if (light > 0.22) c = lite;
+        else if (ny > 0.22 || light < -0.28) c = deep;
         else c = mid;
-        plot(s, cx + x, cy + y, c);
+        plot(s, cx + x + (ny < -0.22 ? swayX : 0), cy + y, c);
+      }
+    }
+  }
+
+  function rimLight(s, hi, extra) {
+    var leaf = {};
+    leaf[C.leaf] = 1;
+    leaf[C.leafL] = 1;
+    leaf[C.leafD] = 1;
+    leaf[C.green] = 1;
+    leaf[C.greenD] = 1;
+    leaf[C.grass] = 1;
+    leaf[C.grassL] = 1;
+    if (extra) extra.forEach(function (c) { leaf[c] = 1; });
+    var copy = new Uint8Array(s.d);
+    var y, x, i;
+    for (y = 1; y < s.h; y++) {
+      for (x = 1; x < s.w; x++) {
+        i = y * s.w + x;
+        if (!leaf[copy[i]]) continue;
+        if (!copy[i - s.w - 1]) s.d[i] = hi;
       }
     }
   }
 
   function sprig(s, x, y, c, hi) {
+    x += swayX;
     plot(s, x, y, hi);
     plot(s, x - 1, y + 1, c);
     plot(s, x + 1, y + 1, c);
@@ -148,9 +173,9 @@
   function oak(w, h, ax, fruit) {
     var s = spr(w, h, ax, h - 3);
     var top = fruit ? 24 : 28;
-    var deep = C.leafD;
-    var mid = C.green;
-    var lite = C.leaf;
+    var deep = C.greenD;
+    var mid = C.leaf;
+    var lite = C.leafL;
     var hi = C.grassL;
     puff(s, ax - 1, top - 8, 10, 8, deep, mid, lite, hi);
     puff(s, ax + 12, top - 1, 11, 9, deep, mid, lite, hi);
@@ -159,6 +184,7 @@
     puff(s, ax + 1, top + 7, 13, 8, deep, mid, lite, hi);
     puff(s, ax - 6, top + 11, 8, 5, deep, mid, lite, hi);
     puff(s, ax + 8, top - 10, 6, 5, deep, mid, lite, hi);
+    rimLight(s, C.grassL);
     trunk(s, ax - 3, top + 6, h - 4, 7);
     roots(s, ax - 3, h - 5, 7);
     sprig(s, ax - 20, top + 1, C.leaf, C.leafL);
@@ -187,7 +213,8 @@
     puff(s, 12, 16, 7, 7, C.leafD, C.green, C.leaf, C.grassL);
     puff(s, 22, 18, 6, 7, C.leafD, C.leaf, C.grassL, C.leafL);
     puff(s, 16, 26, 8, 6, C.leafD, C.green, C.leaf, C.grassL);
-    puff(s, 20, 32, 5, 4, C.greenD, C.green, C.leaf, C.leafL);
+    puff(s, 20, 32, 5, 4, C.greenD, C.leaf, C.leafL, C.grassL);
+    rimLight(s, C.grassL);
     fill(s, 15, 32, 5, 42, C.sand);
     fill(s, 15, 32, 1, 42, C.stoneD);
     fill(s, 19, 32, 1, 42, C.paper);
@@ -212,7 +239,8 @@
     bough(s, 23, 28, 16, 12, C.greenD, C.green, C.leafL);
     bough(s, 19, 16, 16, 9, C.leafD, C.leaf, C.grassL);
     bough(s, 22, 6, 14, 5, C.greenD, C.green, C.leafL);
-    plot(s, 21, 4, C.leafL);
+    rimLight(s, C.leafL);
+    plot(s, 21 + swayX, 4, C.leafL);
     return { sprite: s, shade: shadow(s, 22, 75, 12, 3, C.grassX) };
   }
 
@@ -229,7 +257,8 @@
     puff(s, 36, 16, 12, 10, C.greenD, C.leaf, C.grassL, C.leafL);
     puff(s, 34, 34, 18, 9, C.leafD, C.green, C.leaf, C.grassL);
     puff(s, 14, 36, 8, 6, C.leafD, C.green, C.leaf, C.leafL);
-    puff(s, 58, 32, 8, 6, C.greenD, C.green, C.leaf, C.grassL);
+    puff(s, 58, 32, 8, 6, C.greenD, C.leaf, C.leafL, C.grassL);
+    rimLight(s, C.grassL);
     trunk(s, 20, 40, 72, 6);
     trunk(s, 44, 36, 72, 7);
     sprig(s, 6, 30, C.leaf, C.leafL);
@@ -294,6 +323,7 @@
     plot(s, 29, 66, C.stoneD);
     emberCrack(s, 21, 50);
     plot(s, 22, 36, C.ember);
+    rimLight(s, C.ash, [C.void, C.rock, C.ashD, C.stoneD]);
     return { sprite: s, shade: shadow(s, 22, 67, 12, 3, C.void) };
   }
 
@@ -310,6 +340,7 @@
     fill(s, 12, 60, 12, 3, C.stoneD);
     emberCrack(s, 26, 40);
     plot(s, 34, 24, C.emberH);
+    rimLight(s, C.ash, [C.void, C.rock, C.ashD, C.stoneD]);
     return { sprite: s, shade: shadow(s, 24, 61, 14, 3, C.void) };
   }
 
@@ -325,6 +356,7 @@
     fill(s, 10, 44, 14, 3, C.rock);
     emberCrack(s, 16, 34);
     plot(s, 38, 36, C.ember);
+    rimLight(s, C.ashL, [C.void, C.rock, C.ashD, C.stoneD, C.woodD]);
     return { sprite: s, shade: shadow(s, 16, 46, 11, 3, C.void) };
   }
 
@@ -347,7 +379,8 @@
     var ax = w >> 1;
     puff(s, ax - 4, 10, wide ? 8 : 6, 6, C.leafD, C.green, C.leaf, C.grassL);
     puff(s, ax + 6, 9, wide ? 8 : 6, 5, C.leafD, C.leaf, C.grassL, C.leafL);
-    puff(s, ax, 13, wide ? 9 : 7, 4, C.greenD, C.green, C.leaf, C.grassL);
+    puff(s, ax, 13, wide ? 9 : 7, 4, C.greenD, C.leaf, C.leafL, C.grassL);
+    rimLight(s, C.grassL);
     sprig(s, ax - 12, 8, C.leaf, C.leafL);
     sprig(s, ax + 11, 7, C.green, C.grassL);
     fill(s, ax - 4, 9, 2, 2, C.bloom);
@@ -372,9 +405,9 @@
     var i, b;
     for (i = 0; i < spec.length; i++) {
       b = spec[i];
-      thick(s, b[0], b[1], b[2], b[3], 1, c, c);
-      plot(s, b[2], b[3], hi);
-      plot(s, b[2] + (b[2] > b[0] ? 1 : -1), b[3] + 1, hi);
+      thick(s, b[0], b[1], b[2] + swayX, b[3], 1, c, c);
+      plot(s, b[2] + swayX, b[3], hi);
+      plot(s, b[2] + swayX + (b[2] > b[0] ? 1 : -1), b[3] + 1, hi);
     }
   }
 
@@ -427,19 +460,29 @@
     return { sprite: s, shade: shadow(s, 9, 12, 5, 2, C.void) };
   }
 
-  function makeFlower(petal, petalD, heart, leaf) {
+  function blob(s, x, y, c, hi) {
+    fill(s, x - 1, y, 3, 3, c);
+    plot(s, x, y - 1, c);
+    plot(s, x, y, hi);
+    plot(s, x - 1, y + 1, c);
+  }
+
+  function makeFlower(petalC, petalD, heart, leaf) {
     var s = spr(15, 18, 7, 16);
-    fill(s, 7, 9, 1, 7, leaf);
-    ellipse(s, 4, 13, 3, 2, leaf);
-    ellipse(s, 11, 14, 3, 2, C.leafD);
-    plot(s, 5, 12, C.leafL);
-    ellipse(s, 7, 5, 3, 3, petal);
-    ellipse(s, 3, 7, 3, 2, petalD);
-    ellipse(s, 11, 7, 3, 2, petal);
-    ellipse(s, 5, 8, 2, 2, petalD);
-    ellipse(s, 9, 8, 2, 2, petal);
-    ellipse(s, 7, 6, 2, 2, heart);
-    plot(s, 7, 6, C.lite);
+    var x = 7 + swayX;
+    fill(s, 7, 11, 1, 5, leaf);
+    fill(s, 4, 13, 4, 2, leaf);
+    fill(s, 8, 14, 4, 2, C.leafD);
+    plot(s, 4, 13, C.leafL);
+    plot(s, 11, 14, C.leafL);
+    blob(s, x, 3, petalC, C.lite);
+    blob(s, x - 3, 5, petalD, petalC);
+    blob(s, x + 3, 5, petalC, C.lite);
+    blob(s, x - 2, 8, petalD, petalC);
+    blob(s, x + 2, 8, petalC, petalD);
+    fill(s, x - 1, 5, 3, 5, heart);
+    plot(s, x, 5, C.lite);
+    plot(s, x - 1, 6, heart);
     return { sprite: s, shade: shadow(s, 7, 16, 3, 1, C.grassX) };
   }
 
@@ -648,6 +691,68 @@
     return { sprite: s, shade: shadow(s, 12, 32, 6, 2, C.grassX) };
   }
 
+  function makeChest() {
+    var s = spr(16, 14, 8, 12);
+    fill(s, 2, 3, 12, 4, C.woodL);
+    fill(s, 2, 3, 2, 1, C.sand);
+    fill(s, 2, 6, 12, 1, C.gold);
+    fill(s, 13, 4, 1, 3, C.woodD);
+    fill(s, 2, 7, 12, 5, C.wood);
+    fill(s, 2, 7, 1, 5, C.woodL);
+    fill(s, 13, 7, 1, 5, C.woodD);
+    fill(s, 7, 6, 2, 4, C.goldD);
+    plot(s, 7, 7, C.gold);
+    plot(s, 8, 8, C.ink);
+    fill(s, 3, 11, 2, 2, C.woodD);
+    fill(s, 11, 11, 2, 2, C.woodD);
+    plot(s, 4, 9, C.woodD);
+    plot(s, 11, 9, C.woodD);
+    return { sprite: s, shade: shadow(s, 8, 12, 6, 2, C.grassX) };
+  }
+
+  function makeChestOpen() {
+    var s = spr(16, 16, 8, 14);
+    fill(s, 2, 1, 12, 3, C.woodL);
+    fill(s, 3, 2, 10, 1, C.woodD);
+    fill(s, 2, 3, 12, 1, C.gold);
+    fill(s, 2, 5, 12, 7, C.wood);
+    fill(s, 2, 5, 1, 7, C.woodL);
+    fill(s, 13, 5, 1, 7, C.woodD);
+    fill(s, 4, 6, 8, 4, C.gold);
+    fill(s, 5, 7, 6, 2, C.goldD);
+    plot(s, 6, 7, C.shardH);
+    plot(s, 9, 8, C.warm);
+    plot(s, 7, 8, C.white);
+    fill(s, 7, 4, 2, 3, C.goldD);
+    fill(s, 3, 11, 2, 2, C.woodD);
+    fill(s, 11, 11, 2, 2, C.woodD);
+    return { sprite: s, shade: shadow(s, 8, 14, 6, 2, C.grassX) };
+  }
+
+  function makeBarrel() {
+    var s = spr(14, 16, 7, 14);
+    ellipse(s, 7, 8, 5, 6, C.wood);
+    ellipse(s, 5, 7, 2, 4, C.woodL);
+    var bx, by, bi;
+    for (by = 4; by <= 11; by++) {
+      if (by !== 4 && by !== 5 && by !== 10 && by !== 11) continue;
+      for (bx = 2; bx < 12; bx++) {
+        bi = by * s.w + bx;
+        if (!s.d[bi]) continue;
+        s.d[bi] = (by === 4 || by === 10) ? (bx < 6 ? C.metal : C.metalD) : C.ashD;
+      }
+    }
+    plot(s, 4, 6, C.woodD);
+    plot(s, 4, 8, C.woodD);
+    plot(s, 7, 7, C.woodD);
+    plot(s, 7, 9, C.woodD);
+    plot(s, 10, 6, C.woodD);
+    plot(s, 10, 8, C.woodD);
+    plot(s, 6, 3, C.woodL);
+    plot(s, 8, 3, C.sand);
+    return { sprite: s, shade: shadow(s, 7, 14, 5, 2, C.grassX) };
+  }
+
   add("tree_oak", makeOak);
   add("tree", makeOak);
   add("tree_birch", makeBirch);
@@ -661,15 +766,18 @@
   add("bush", function () { return makeBush(false); });
   add("bush_b", function () { return makeBush(true); });
   add("bush_dead", makeBushDead);
-  add("tuft", function () { return makeTuft(false); });
-  add("tuft_bloom", function () { return makeTuft(true); });
-  add("tuft_b", makeTuftB);
-  add("tuft_dead", function () { return makeTuftDead(false); });
-  add("tuft_dead_b", function () { return makeTuftDead(true); });
+  add("tuft", function () { return makeTuft(false); }, C.greenD);
+  add("tuft_bloom", function () { return makeTuft(true); }, C.greenD);
+  add("tuft_b", makeTuftB, C.greenD);
+  add("tuft_dead", function () { return makeTuftDead(false); }, C.ashD);
+  add("tuft_dead_b", function () { return makeTuftDead(true); }, C.ashD);
   add("flower", function () { return makeFlower(C.bloom, C.hp, C.gold, C.leaf); });
   add("flower_gold", function () { return makeFlower(C.warm, C.gold, C.lite, C.leafD); });
   add("flower_tide", function () { return makeFlower(C.tideL, C.tide, C.foam, C.weed); });
   add("blossom", makeBlossom);
+  add("chest", makeChest);
+  add("chest_open", makeChestOpen);
+  add("barrel", makeBarrel);
   add("rock", makeRock);
   add("rock_b", makeRockB);
   add("basalt", function () { return makeBasalt(false); });
@@ -691,7 +799,8 @@
     "flower", "flower_gold", "flower_tide", "blossom",
     "rock", "rock_b", "basalt", "basalt_b",
     "log", "log_char", "stump", "stump_char",
-    "crate", "fence", "fence_burnt", "signpost"
+    "crate", "barrel", "chest", "chest_open",
+    "fence", "fence_burnt", "signpost"
   ];
 
   function mix(x, y, n) {
@@ -735,5 +844,32 @@
     if (id === "stump") return ash ? "stump_char" : "stump";
     if (id === "log") return ash ? "log_char" : "log";
     return id;
+  };
+
+  // Four cached frames. The field draw always asks for frame 0, so the
+  // wind and the lamp pick a frame from the clock unless motion is reduced.
+  var windRate = {
+    tree: 1.5, tree_oak: 1.5, tree_birch: 1.4, tree_pine: 1.2, tree_apple: 1.5, tree_grove: 1.1,
+    bush: 1.8, bush_b: 1.8,
+    tuft: 2.2, tuft_b: 2.2, tuft_bloom: 2.2, tuft_dead: 1.6, tuft_dead_b: 1.6,
+    flower: 2, flower_gold: 2, flower_tide: 2, blossom: 2,
+    skiff: 1.4
+  };
+  var glowRate = {
+    lamp_lit: 3, great_lamp_lit: 2.2, cottage: 1.6, workshop: 1.6
+  };
+  var drawSprite = Art.sprite;
+  Art.sprite = function (ctx, id, x, y, opts) {
+    var rate = windRate[id];
+    var still = !!(window.SF && SF.reduceMotion);
+    if (!rate && glowRate[id]) {
+      rate = glowRate[id];
+      still = !!(window.SF && SF.calm && SF.calm());
+    }
+    if (rate && !still) {
+      opts = Object.assign({}, opts || {});
+      opts.frame = Math.floor(((window.SF && SF.anim) || 0) * rate) & 3;
+    }
+    return drawSprite(ctx, id, x, y, opts);
   };
 })();

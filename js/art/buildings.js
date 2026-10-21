@@ -12,10 +12,33 @@
   var plot = Art.plot;
   var fill = Art.fill;
 
+  function shadeFeet(s, rx, c) {
+    var cx = s.ax;
+    var cy = Math.min(s.h - 2, s.ay - 1);
+    var ry = 3;
+    var y, x, nx, ny, e;
+    for (y = -ry; y <= ry; y++) {
+      for (x = -rx; x <= rx; x++) {
+        nx = x / rx;
+        ny = y / ry;
+        e = nx * nx + ny * ny;
+        if (e > 1) continue;
+        if (cx + x < 0 || cy + y < 0 || cx + x >= s.w || cy + y >= s.h) continue;
+        if (s.d[(cy + y) * s.w + (cx + x)]) continue;
+        plot(s, cx + x, cy + y, e > 0.62 ? C.greenD : c);
+      }
+    }
+  }
+
   function prop(id, maker) {
-    Art.add(id, function () {
-      var s = maker();
+    Art.add(id, function (pose, facing, frame) {
+      var s = maker(frame | 0);
       Art.outline(s);
+      if (id === "cottage" || id === "hut") shadeFeet(s, 28, C.grassX);
+      else if (id === "workshop") shadeFeet(s, 28, C.void);
+      else if (id === "great_lamp" || id === "great_lamp_lit") shadeFeet(s, 18, C.grassX);
+      else if (id === "skiff") shadeFeet(s, 22, C.tideD);
+      else if (id === "lamp_lit" || id === "lamp_cold") shadeFeet(s, 6, C.grassX);
       return s;
     }, 2, 1);
   }
@@ -194,14 +217,14 @@
   }
 
   // Mouth of the flue is the smoke origin. mx/my are sprite pixels.
-  function chimney(s, mx, my, lit) {
+  function chimney(s, mx, my, lit, frame) {
     var x = mx - 5;
     var y = my - 3;
     stoneCourses(s, x, y + 6, 10, 26, C.stoneL, C.stone, C.stoneD);
     fill(s, x - 1, y + 2, 12, 4, C.stoneD);
     fill(s, x, y + 3, 10, 2, C.stone);
     fill(s, x + 2, y + 1, 6, 3, C.void);
-    plot(s, mx, my, lit ? C.ember : C.ashD);
+    plot(s, mx, my, lit ? ((frame & 1) ? C.emberH : C.ember) : C.ashD);
     plot(s, mx - 1, my, C.ashD);
     plot(s, mx + 1, my, C.ink);
     plot(s, mx, my + 1, lit ? C.emberH : C.ash);
@@ -231,7 +254,7 @@
     }
   }
 
-  function dwelling(kind) {
+  function dwelling(kind, frame) {
     var home = kind === "home";
     var s = Art.spr(128, 98);
     var ax = 62;
@@ -298,7 +321,8 @@
       plot(s, 62, 73, C.warm);
     }
 
-    chimney(s, ax + 30, ay - 86, true);
+    fill(s, 16, 45, 92, 2, C.woodD);
+    chimney(s, ax + 30, ay - 86, true, frame | 0);
     ivy(s, 20, 68, 88);
 
     if (home) {
@@ -346,7 +370,7 @@
   };
 
   // Wide iron crown. Crystal center stays on row ay - 136.
-  function greatLamp(lit) {
+  function greatLamp(lit, frame) {
     var s = Art.spr(72, 160);
     var ax = 36;
     var ay = 152;
@@ -390,10 +414,12 @@
       return pal.edge;
     });
     if (lit) {
-      plot(s, ax, cy - 1, C.white);
-      plot(s, ax - 2, cy, C.white);
-      plot(s, ax + 3, cy + 1, C.lite);
-      plot(s, ax, cy + 2, C.warm);
+      var hot = (frame & 1) ? C.white : C.lite;
+      var spark = (frame & 2) ? C.warm : C.gold;
+      plot(s, ax, cy - 1, hot);
+      plot(s, ax - 2, cy, hot);
+      plot(s, ax + 3, cy + 1, spark);
+      plot(s, ax, cy + 2, (frame & 1) ? C.gold : C.warm);
       plot(s, 16, cy, C.gold);
       plot(s, 55, cy + 1, C.lite);
       plot(s, 18, cy + 5, C.warm);
@@ -410,7 +436,7 @@
     return s;
   }
 
-  function pathLamp(lit) {
+  function pathLamp(lit, frame) {
     var s = Art.spr(18, 40);
     var pal = lit ? LAMP_PAL.lit : LAMP_PAL.cold;
     fill(s, 4, 34, 10, 4, C.stone);
@@ -429,7 +455,8 @@
       if (Math.abs(x) + Math.abs(y) <= 1) return pal.hot;
       return x < 0 ? pal.glassHi : pal.edge;
     });
-    if (lit) plot(s, 9, 14, C.white);
+    if (lit) plot(s, 9, 14, (frame & 1) ? C.white : C.lite);
+    if (lit && (frame & 2)) plot(s, 8, 16, C.warm);
     s.ax = 9;
     s.ay = 38;
     return s;
@@ -469,8 +496,9 @@
     return s;
   }
 
-  function skiff() {
+  function skiff(frame) {
     var s = Art.spr(78, 52);
+    var bob = (frame & 1) ? 1 : 0;
     var y, x, strake;
     fillPoly(s, [[6, 30], [14, 22], [58, 22], [70, 28], [72, 36], [62, 42], [12, 42], [4, 34]], function (x, y) {
       strake = Math.floor((y - 22) / 4);
@@ -508,6 +536,17 @@
     line(s, 8, 24, 2, 16, C.pathD);
     disc(s, 2, 14, 2, C.tide);
     plot(s, 2, 14, C.foam);
+    if (bob) {
+      var lifted = new Uint8Array(s.d);
+      s.d.fill(0);
+      var yy, xx, c;
+      for (yy = 1; yy < s.h; yy++) {
+        for (xx = 0; xx < s.w; xx++) {
+          c = lifted[yy * s.w + xx];
+          if (c) s.d[(yy - 1) * s.w + xx] = c;
+        }
+      }
+    }
     s.ax = 38;
     s.ay = 44;
     return s;
@@ -791,8 +830,10 @@
       rx = ropeAt(y, 1) | 0;
       plot(s, lx, y, C.woodD);
       plot(s, lx + 1, y, C.path);
+      plot(s, lx + 2, y, C.wood);
       plot(s, rx, y, C.woodD);
       plot(s, rx - 1, y, C.pathD);
+      plot(s, rx - 2, y, C.woodD);
     }
     for (y = 6; y < h - 8; y += 8) {
       lx = (ropeAt(y, -1) | 0) + 4;
@@ -826,12 +867,12 @@
       row = Math.floor(y / 6);
       for (x = 0; x < w; x++) {
         joint = (x + (row & 1 ? 10 : 0)) % 22 === 0;
-        if (y % 6 === 0) shade = C.woodD;
-        else if (joint) shade = C.ink;
-        else if (y % 6 === 1) shade = (row % 5 === 0) ? C.pathL : C.woodL;
-        else if ((x * 3 + y) % 29 === 0) shade = C.goldD;
-        else if (row % 7 === 3) shade = C.pathD;
-        else shade = C.wood;
+        if (y % 6 === 0) shade = C.ink;
+        else if (joint) shade = C.woodD;
+        else if (y % 6 === 1) shade = C.sand;
+        else if (y % 6 === 5) shade = C.woodD;
+        else if ((x + row * 5) % 13 === 0) shade = C.goldD;
+        else shade = (row & 1) ? C.wood : C.path;
         if (x < 3 || x > w - 4) shade = y % 8 < 5 ? C.woodD : C.tideD;
         plot(s, x, y, shade);
       }
@@ -871,12 +912,12 @@
     return dockCache[key];
   };
 
-  prop("lamp_lit", function () { return pathLamp(true); });
-  prop("lamp_cold", function () { return pathLamp(false); });
-  prop("great_lamp", function () { return greatLamp(false); });
-  prop("great_lamp_lit", function () { return greatLamp(true); });
-  prop("cottage", function () { return dwelling("home"); });
-  prop("workshop", function () { return dwelling("forge"); });
+  prop("lamp_lit", function (frame) { return pathLamp(true, frame); });
+  prop("lamp_cold", function (frame) { return pathLamp(false, frame); });
+  prop("great_lamp", function (frame) { return greatLamp(false, frame); });
+  prop("great_lamp_lit", function (frame) { return greatLamp(true, frame); });
+  prop("cottage", function (frame) { return dwelling("home", frame); });
+  prop("workshop", function (frame) { return dwelling("forge", frame); });
   prop("hut", hut);
   prop("skiff", skiff);
   prop("stilt", stilt);
