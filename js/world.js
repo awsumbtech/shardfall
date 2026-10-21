@@ -134,6 +134,11 @@ SF.openChest = function (chest) {
     s.chestLoot = { id: chest.id, rows: rows };
     SF.releaseHolds();
     s.mode = "chest";
+    // The tap that opened the chest is still finishing (its click lands ~100ms
+    // later on the new overlay). Ignore input briefly and require a fresh press.
+    s.chestOpenAt = Date.now();
+    s.chestArmed = false;
+    if (SF.inputState) SF.inputState.interactEdge = false;
   }
   if (window.Sfx) Sfx.play("pickup");
   if (SF.saveGame) SF.saveGame({ silent: true });
@@ -144,6 +149,14 @@ SF.closeChest = function () {
   if (!s || s.mode !== "chest") return;
   s.mode = "play";
   s.chestLoot = null;
+  s.chestArmed = false;
+  if (SF.inputState) SF.inputState.interactEdge = false;
+};
+
+SF.CHEST_LOCK_MS = 300;
+SF.chestLocked = function () {
+  var s = SF.state;
+  return !s || Date.now() - (s.chestOpenAt || 0) < SF.CHEST_LOCK_MS;
 };
 
 SF.chestOpenT = function (id) {
@@ -1162,11 +1175,19 @@ SF.bindWorldUI = function () {
   var noticeClose = document.getElementById("notice-close");
   if (noticeClose) noticeClose.addEventListener("click", function () { SF.closeWorldPanel(); if (SF.syncUI) SF.syncUI(); });
   var chest = document.getElementById("chest");
-  if (chest) chest.addEventListener("click", function () {
-    if (!SF.state || SF.state.mode !== "chest") return;
-    SF.closeChest();
-    if (SF.syncUI) SF.syncUI();
-  });
+  if (chest) {
+    // Only a press that starts on the popup after the lockout can close it.
+    chest.addEventListener("pointerdown", function () {
+      if (!SF.state || SF.state.mode !== "chest") return;
+      SF.state.chestArmed = !SF.chestLocked();
+    });
+    chest.addEventListener("click", function () {
+      if (!SF.state || SF.state.mode !== "chest") return;
+      if (!SF.state.chestArmed || SF.chestLocked()) return;
+      SF.closeChest();
+      if (SF.syncUI) SF.syncUI();
+    });
+  }
 };
 
 if (SF.bindUI) {

@@ -1118,7 +1118,7 @@ SF.updateCamera = function (dt) {
     else if (u < 0.46) lampW = (u - 0.28) / 0.18;
     else if (u < 0.68) lampW = 1;
     else if (u < 0.88) lampW = Math.max(0, 1 - (u - 0.68) / 0.2);
-    var crystalY = SF.LAMP.y - 126;
+    var crystalY = SF.LAMP.y - ((window.Art && Art.lampCrystalDy) || 34);
     targetX = s.player.x + (SF.LAMP.x - s.player.x) * lampW;
     targetY = s.player.y + (crystalY - s.player.y) * lampW;
     if (u >= 1) s.revealPan = null;
