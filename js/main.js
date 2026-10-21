@@ -3,6 +3,19 @@
 var SF = window.SF || {};
 window.SF = SF;
 
+// The act lock starts when an overlay's mode changes, which can be a long
+// frame before anything is painted. Real time starts after that paint.
+SF.noteOverlayPaint = function () {
+  var key = SF._overlayKey;
+  if (key == null) return;
+  if (key === SF._paintedOverlay) return;
+  var first = SF._paintedOverlay == null;
+  SF._paintedOverlay = key;
+  if (first) return;
+  if (!document.body || document.body.dataset.actlock !== "1") return;
+  SF._actUntil = Date.now() + 350;
+};
+
 SF.boot = function () {
   if (window.Art && Art.wantsGallery && Art.wantsGallery()) {
     Art.openGallery();
@@ -32,6 +45,7 @@ SF.boot = function () {
     if (SF.portraitLock) {
       SF.draw();
       SF.syncUI();
+      if (SF.noteOverlayPaint) SF.noteOverlayPaint();
       requestAnimationFrame(frame);
       return;
     }
@@ -43,6 +57,7 @@ SF.boot = function () {
     if (SF._resizeTick % 30 === 0) SF.resize();
     SF.draw();
     SF.syncUI();
+    if (SF.noteOverlayPaint) SF.noteOverlayPaint();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

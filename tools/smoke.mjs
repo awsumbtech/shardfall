@@ -333,6 +333,11 @@ if (mawLast !== "Fight the Cinder Maw?") {
   console.error("maw confirm line", mawLast);
   process.exit(1);
 }
+const mawNarr = mawAsk.lines.map((line) => SF.lineText(line)).join(" ");
+if (mawNarr.indexOf("That's where to hit it") >= 0 || mawNarr.indexOf("A bright point of light pulses in the middle of its chest.") < 0) {
+  console.error("maw narration", mawNarr);
+  process.exit(1);
+}
 const mawChoices = (mawAsk.choices || []).map((c) => c.text + ":" + (c.event || ""));
 if (mawChoices.join(",") !== "Yes:boss_start,Not yet:" || mawAsk.onEnd) {
   console.error("maw choices", mawChoices, mawAsk.onEnd);

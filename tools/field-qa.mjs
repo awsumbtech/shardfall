@@ -679,7 +679,7 @@ for (const who of [
       heroAt,
       npcAt,
       heroSouth: p.y > (feet ? feet.y : p.y),
-      pinned: !!(feet && lift >= 40 && lift <= 56 && Math.abs((goal.y - markY) - lift) < 0.1),
+      pinned: !!(feet && lift >= 58 && lift <= 64 && lift - 7 >= 46 && Math.abs((goal.y - markY) - lift) < 0.1),
       onX: !!(feet && Math.abs(goal.x - feet.x) < 2)
     };
   });
@@ -968,7 +968,7 @@ const kestrelMark = await page.evaluate(() => {
       hidden: !mark,
       x: mark ? Math.round(mark.x * 10) / 10 : null,
       lift: mark ? mark.lift : 0,
-      centered: !!(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 40 && mark.lift <= 56)
+      centered: !!(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 58 && mark.lift <= 64 && mark.lift - 7 >= 46)
     };
   }
   Object.keys(dirs).forEach((key) => {
@@ -1006,6 +1006,35 @@ await place(page, kestrelMark.place.south.x, kestrelMark.place.south.y, 0, -1);
 await shot(page, "44-kestrel-south.png");
 await place(page, kestrelMark.place.far.x, kestrelMark.place.far.y, 0, 1);
 await shot(page, "45-kestrel-far.png");
+
+const nameNudge = await page.evaluate(() => {
+  const n = SF.NPCS.find((npc) => npc.id === "kestrel");
+  const feet = SF.actorFeet(n);
+  const ctx = SF.ctx;
+  ctx.font = "600 12px Palatino, Georgia, serif";
+  const contact = 35;
+  const side = contact / Math.SQRT2;
+  function at(dx, dy) {
+    const tag = SF.nameAnchor(ctx, feet.x, feet.y - 34, n.name, { x: feet.x + dx, y: feet.y + dy });
+    return {
+      dx: Math.round((tag.x - feet.x) * 10) / 10,
+      dy: Math.round((tag.y - (feet.y - 34)) * 10) / 10
+    };
+  }
+  return {
+    n: at(0, -contact),
+    ne: at(side, -side),
+    nw: at(-side, -side),
+    s: at(0, contact),
+    e: at(contact, 0),
+    far: at(0, -80)
+  };
+});
+check(nameNudge.n.dx > 8, "north contact moves Kestrel's name off the hero (" + JSON.stringify(nameNudge.n) + ")");
+check(nameNudge.ne.dx < -8, "northeast contact moves her name away from the hero (" + JSON.stringify(nameNudge.ne) + ")");
+check(nameNudge.nw.dx > 8, "northwest contact moves her name away from the hero (" + JSON.stringify(nameNudge.nw) + ")");
+check(nameNudge.s.dx === 0 && nameNudge.s.dy === 0, "south contact leaves the name tag (" + JSON.stringify(nameNudge.s) + ")");
+check(nameNudge.e.dx === 0 && nameNudge.e.dy === 0 && nameNudge.far.dx === 0 && nameNudge.far.dy === 0, "east and far leave the name tag (" + JSON.stringify(nameNudge) + ")");
 
 const lampNear = await page.evaluate(() => {
   SF.mountIsland("cinderveil");
@@ -1064,6 +1093,141 @@ const sense = await page.evaluate(() => {
 check(sense.sensed && sense.dist > 96 && sense.onScreen && sense.shown, "a far shard still on screen keeps the pale sense arrow (" + JSON.stringify(sense) + ")");
 await place(page, sense.x, sense.y, 1, 0);
 await shot(page, "41-sense-arrow.png");
+
+const crossings = await page.evaluate(async () => {
+  function screenAt(dx, dy) {
+    const c = SF.view;
+    const x = Math.max(0, Math.min(c.width - 1, Math.floor(c.width / 2 + dx)));
+    const y = Math.max(0, Math.min(c.height - 1, Math.floor(c.height / 2 + dy)));
+    const px = SF.ctx.getImageData(x, y, 1, 1).data;
+    return [px[0], px[1], px[2]];
+  }
+  function sheetAt(wx, wy) {
+    const sheet = SF._terrain;
+    const box = SF._terrainBox;
+    const ppm = SF._terrainPpm || 1;
+    if (!sheet || !box) return null;
+    const sx = Math.floor((wx - box.minX) * ppm);
+    const sy = Math.floor((wy - box.minY) * ppm);
+    if (sx < 1 || sy < 1 || sx >= sheet.width - 1 || sy >= sheet.height - 1) return null;
+    const px = sheet.getContext("2d").getImageData(sx, sy, 1, 1).data;
+    return [px[0], px[1], px[2]];
+  }
+  function close(a, b) {
+    return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) <= 48;
+  }
+  const offsets = [[0, 0], [180, 40], [-160, 80], [40, -180], [-80, -120]];
+  let watch = null;
+  const orig = SF.draw;
+  SF.draw = function () {
+    orig.call(SF);
+    if (!watch) return;
+    const s = SF.state;
+    const mode = s.mode;
+    const island = SF.islandId;
+    const key = SF._terrainKey || "";
+    const cover = SF._landCover || 0;
+    const scale = Math.max(1, Math.round((SF.dpr || 1) * (SF.zoom || 1)));
+    let hits = 0;
+    let seen = 0;
+    offsets.forEach((pair) => {
+      const dx = pair[0];
+      const dy = pair[1];
+      const stale = watch.at(s.camX + dx / scale, s.camY + dy / scale);
+      if (!stale) return;
+      seen++;
+      const now = screenAt(dx, dy);
+      const dark = now[0] < 28 && now[1] < 28 && now[2] < 40;
+      if (!dark && close(now, stale)) hits++;
+    });
+    const keyOk = key.indexOf(watch.dest + ":") === 0;
+    const covered = cover >= 0.45 || mode === "voyage" || mode === "title" || mode === "dialogue";
+    const stalePixels = !covered && seen >= 3 && hits >= 3 && !keyOk;
+    const wrongSheet = mode === "play" && cover < 0.45 && key && key.indexOf(island + ":") !== 0;
+    if (stalePixels || wrongSheet) {
+      watch.bad.push({ mode: mode, island: island, key: key, cover: cover, hits: hits, seen: seen, px: screenAt(0, 0) });
+    }
+    watch.frames++;
+    if (mode === "voyage") watch.voyage++;
+    if (mode === "play" && island === watch.dest) watch.landed++;
+  };
+  function arm(dest) {
+    const dock = SF.DOCKS[dest];
+    const scale = Math.max(1, Math.round((SF.dpr || 1) * (SF.zoom || 1)));
+    const frozen = offsets.map((pair) => ({
+      x: dock.x + pair[0] / scale,
+      y: dock.y + pair[1] / scale,
+      px: sheetAt(dock.x + pair[0] / scale, dock.y + pair[1] / scale)
+    }));
+    watch = {
+      dest: dest,
+      frames: 0,
+      voyage: 0,
+      landed: 0,
+      bad: [],
+      at: function (wx, wy) {
+        let best = null;
+        let bestD = 1e9;
+        frozen.forEach((row) => {
+          const d = Math.hypot(wx - row.x, wy - row.y);
+          if (d < bestD) {
+            bestD = d;
+            best = row.px;
+          }
+        });
+        return bestD < 4 ? best : null;
+      }
+    };
+    return frozen.filter((row) => row.px).length;
+  }
+  SF.state.flags.sailUnlocked = true;
+  SF.state.flags.lampLit = true;
+  SF.state.flags.metCinderKestrel = true;
+  SF.state.mode = "play";
+  SF.state.dialogue = null;
+  SF.state.voyage = null;
+  SF.state.voyageTalk = false;
+  const ready = () => SF.islandId === "emberhold" && (SF._landCover || 0) < 0.05 && SF._terrainKey && SF._terrainKey.indexOf("emberhold:") === 0;
+  if (!ready() && SF.islandId !== "emberhold") SF.travelTo("emberhold");
+  const t0 = performance.now();
+  while (!ready() && performance.now() - t0 < 8000) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  const primed = ready();
+  const travelKnown = arm("cinderveil");
+  const travelWatch = watch;
+  SF.travelTo("cinderveil");
+  await new Promise((r) => setTimeout(r, 5000));
+  const travel = {
+    frames: travelWatch.frames,
+    badN: travelWatch.bad.length,
+    bad: travelWatch.bad.slice(0, 3),
+    known: travelKnown,
+    primed: primed,
+    landed: travelWatch.landed
+  };
+  const sailKnown = arm("emberhold");
+  const sailWatch = watch;
+  SF.seaFightChance = 0;
+  SF.startVoyage("emberhold");
+  await new Promise((r) => setTimeout(r, 8000));
+  const sail = {
+    frames: sailWatch.frames,
+    voyage: sailWatch.voyage,
+    landed: sailWatch.landed,
+    badN: sailWatch.bad.length,
+    bad: sailWatch.bad.slice(0, 3),
+    known: sailKnown,
+    island: SF.islandId,
+    cover: SF._landCover || 0
+  };
+  SF.draw = orig;
+  return { travel: travel, sail: sail };
+});
+check(crossings.travel.primed && crossings.travel.frames > 10 && crossings.travel.landed > 0 && crossings.travel.badN === 0,
+  "Travel shows no previous-island frame (" + JSON.stringify(crossings.travel) + ")");
+check(crossings.sail.voyage > 0 && crossings.sail.landed > 0 && crossings.sail.badN === 0 && crossings.sail.island === "emberhold",
+  "a real sail shows no previous-island frame (" + JSON.stringify(crossings.sail) + ")");
 
 await phoneCtx.close();
 
@@ -1194,7 +1358,7 @@ const deskMark = await keys.evaluate(() => {
     p.x = feet.x + (dir[0] / mag) * far;
     p.y = feet.y + (dir[1] / mag) * far;
     const mark = SF.guideMark(SF.objectivePoint(SF.state), p);
-    shown.push(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 40 && mark.lift <= 56);
+    shown.push(mark && Math.abs(mark.x - feet.x) < 2 && mark.lift >= 58 && mark.lift <= 64 && mark.lift - 7 >= 46);
   });
   return { hidden: near.every((mark) => !mark), centered: shown.every(Boolean) };
 });
