@@ -790,6 +790,26 @@ function placeActors(actors, zone, side, groundY, foeCap) {
   return placed;
 }
 
+// A soft ground shadow pins every fighter to the battle floor. It stays on
+// the floor line even when the sprite lunges, hops, or recoils.
+function drawGroundShadow(ctx, spot, dx, alpha) {
+  // Stepped (pixel-art) ellipse: three flat bands, no anti-aliased edge.
+  var w = Math.max(12, Math.round(spot.hit.w * 0.62));
+  var band = 3;
+  var cx = Math.round(spot.x + dx);
+  var cy = Math.round(spot.feet);
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.fillStyle = "rgba(10, 6, 24, 0.30)";
+  var rows = [0.62, 1, 0.62];
+  var i, rw;
+  for (i = 0; i < rows.length; i++) {
+    rw = Math.round(w * rows[i] / 2) * 2;
+    ctx.fillRect(cx - rw / 2, cy - band * 2 + i * band + 1, rw, band);
+  }
+  ctx.restore();
+}
+
 function drawFoeLabel(ctx, spot, battle) {
   var f = spot.actor;
   var box = spot.label;
@@ -864,12 +884,14 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     if (!f.alive && b.phase === "result") {
       var fade = b.corpseT || 0;
       if (fade <= 0) return;
+      drawGroundShadow(ctx, spot, nudge.x, Math.max(0, fade / 0.28));
       ctx.save();
       ctx.globalAlpha = Math.max(0, fade / 0.28);
       drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
       ctx.restore();
       return;
     }
+    drawGroundShadow(ctx, spot, nudge.x, !f.alive ? 0.35 : (aiming && !canTap ? 0.4 : 1));
     ctx.save();
     if (!f.alive) ctx.globalAlpha = 0.35;
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
@@ -895,7 +917,9 @@ function drawStage(ctx, b, foes, party, stage, canvasH) {
     var a = spot.actor;
     var nudge = actorNudge(b, a);
     var pose = battlePose(b, a);
-    if (pose === "victory") nudge.y -= 10;
+    // Victory used to lift the hero 10px for the whole results screen, which
+    // left him hovering over the floor. The victory pose already raises the arm.
+    drawGroundShadow(ctx, spot, nudge.x, a.alive ? 1 : 0.35);
     ctx.save();
     if (!a.alive) ctx.globalAlpha = 0.35;
     drawSprite(ctx, a.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "left");
