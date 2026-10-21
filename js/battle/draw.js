@@ -151,21 +151,30 @@ function battleScale(actor, count, stageH, slotW, slotH, labelH) {
   var maxW = Math.max(20, (slotW || 160) - 8);
   scale = Math.min(scale, maxH / src.h, maxW / src.w);
   if (!(scale > 0) || !isFinite(scale)) scale = 2;
-  if (actor.side === "party") return partyIntegerScale(src.h, stageH, 0);
+  if (actor.side === "party") return partyBattleScale(src.h, 0);
   return Math.round(scale * 4) / 4;
 }
 
-// Party fighters stay near 15–18% of the battle area, on a whole-pixel
-// scale, and never taller than the shortest enemy in the fight.
-function partyIntegerScale(srcH, stageH, foeCap) {
-  var cap = stageH * 0.17;
-  if (foeCap > 0) cap = Math.min(cap, foeCap);
-  var upper = stageH * 0.18;
-  if (cap > upper) cap = upper;
-  var scale = Math.floor(cap / srcH);
-  if (!(scale >= 1)) scale = 1;
-  if (scale > 1 && srcH * scale > upper) scale -= 1;
-  return scale;
+// Party fighters land near 80% of the shortest foe. Whole steps are 1, 2,
+// and 3; 1.5 is allowed when that is what sits in the 75–85% band.
+function partyBattleScale(srcH, foeH) {
+  var options = [1, 1.5, 2, 3];
+  var target = foeH > 0 ? foeH * 0.8 : srcH * 1.5;
+  var best = 1;
+  var bestScore = Infinity;
+  var i, s, h, ratio, inBand, score;
+  for (i = 0; i < options.length; i++) {
+    s = options[i];
+    h = srcH * s;
+    ratio = foeH > 0 ? h / foeH : 1;
+    inBand = foeH > 0 && ratio >= 0.75 && ratio <= 0.85;
+    score = Math.abs(h - target) + (inBand ? 0 : 1000);
+    if (score < bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+  return best;
 }
 
 function animP(b) {
@@ -197,9 +206,51 @@ function actorNudge(b, actor) {
   return { x: Math.round(dx), y: Math.round(dy) };
 }
 
+function halfStep(scale) {
+  return Math.abs(scale * 2 - Math.round(scale * 2)) < 1e-6 && Math.abs(scale - Math.round(scale)) > 1e-6;
+}
+
+// 1.5× cannot go through Art.blit, which rounds the device multiplier to a
+// whole number (1.5 becomes 2 at 1×). Draw the destination at the rounded
+// device size with smoothing off so every screen pixel stays whole.
+function drawHalfStepSprite(ctx, id, x, y, scale, pose, facing) {
+  var canvas = Art.frameOf(id, pose, facing, battleFrame(pose));
+  var ax = canvas._ax || 0;
+  var ay = canvas._ay || canvas.height - 1;
+  var lx = x - ax * scale;
+  var ly = y - ay * scale;
+  var dw = canvas.width * scale;
+  var dh = canvas.height * scale;
+  if (ctx.getTransform && ctx.setTransform) {
+    var t = ctx.getTransform();
+    if (t.b === 0 && t.c === 0 && t.a !== 0 && t.d !== 0) {
+      var px = Math.round(t.a * lx + t.e);
+      var py = Math.round(t.d * ly + t.f);
+      var pw = Math.max(1, Math.round(Math.abs(t.a * dw)));
+      var ph = Math.max(1, Math.round(Math.abs(t.d * dh)));
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(canvas, px, py, pw, ph);
+      ctx.restore();
+      return;
+    }
+  }
+  var smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, lx, ly, dw, dh);
+  ctx.imageSmoothingEnabled = smooth;
+}
+
 function drawSprite(ctx, id, x, y, scale, pose, facing) {
   pose = pose || "idle";
   facing = facing || "right";
+  if (window.Art && halfStep(scale) && typeof Art.frameOf === "function") {
+    try {
+      drawHalfStepSprite(ctx, id, x, y, scale, pose, facing);
+      return;
+    } catch (err) { /* fall through */ }
+  }
   if (window.Art && typeof Art.sprite === "function") {
     try {
       Art.sprite(ctx, id, x, y, {
@@ -669,7 +720,7 @@ function placeActors(actors, zone, side, groundY, foeCap) {
   if (side === "party" && specs.length) {
     var tallSrc = specs[0].src.h;
     for (i = 1; i < specs.length; i++) if (specs[i].src.h > tallSrc) tallSrc = specs[i].src.h;
-    var shared = partyIntegerScale(tallSrc, zone.h, foeCap || 0);
+    var shared = partyBattleScale(tallSrc, foeCap || 0);
     tallest = 0;
     for (i = 0; i < specs.length; i++) {
       specs[i].scale = shared;

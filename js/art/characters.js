@@ -1139,72 +1139,15 @@
     return doubled;
   }
 
-  // The field side pose is painted facing right. Battle stands the party
-  // on the right, so a left-facing fighter is that picture mirrored, then
-  // given a nose and a weapon that lead off the left edge toward the foes.
-  function leadLeft(s) {
-    var y, x, p, eyeX, eyeY, left, minW;
-    eyeX = s.w;
-    eyeY = -1;
-    for (y = 0; y < s.h && y < 30; y++) {
-      for (x = 0; x < s.w; x++) {
-        if (s.d[y * s.w + x] === C.eye && x < eyeX) {
-          eyeX = x;
-          eyeY = y;
-        }
-      }
-    }
-    if (eyeY >= 0) {
-      var row = Math.min(s.h - 1, eyeY + 2);
-      left = s.w;
-      for (x = 0; x < s.w; x++) {
-        if (s.d[row * s.w + x]) { left = x; break; }
-      }
-      // Replace the left outline with a nose and step it one pixel further left.
-      if (left < s.w) {
-        s.d[row * s.w + left] = C.skinD;
-        if (left > 0) s.d[row * s.w + left - 1] = C.skinD;
-        if (left > 1) s.d[row * s.w + left - 2] = C.ink;
-        if (left > 0 && row > 0 && !s.d[(row - 1) * s.w + left - 1]) s.d[(row - 1) * s.w + left - 1] = C.ink;
-        if (left > 0 && row + 1 < s.h && !s.d[(row + 1) * s.w + left - 1]) s.d[(row + 1) * s.w + left - 1] = C.ink;
-      }
-    }
-    minW = s.w;
-    var tipY = 0;
-    var tipC = 0;
-    for (y = Math.floor(s.h * 0.4); y < s.h; y++) {
-      for (x = 0; x < s.w; x++) {
-        p = s.d[y * s.w + x];
-        if (p === C.shard || p === C.shardH || p === C.metal || p === C.metalD || p === C.frame || p === C.woodD) {
-          if (x < minW) { minW = x; tipY = y; tipC = p; }
-        }
-      }
-    }
-    if (tipC) {
-      left = minW;
-      for (x = minW; x >= 0; x--) {
-        if (!s.d[tipY * s.w + x]) break;
-        left = x;
-      }
-      if (left < s.w) {
-        s.d[tipY * s.w + left] = tipC;
-        if (left > 0) s.d[tipY * s.w + left - 1] = tipC;
-        if (left > 1) s.d[tipY * s.w + left - 2] = C.ink;
-      }
-    }
-    return s;
-  }
-
+  // The field side pose faces right. Battle stands the party on the right,
+  // so a left-facing fighter is that picture mirrored toward the foes.
   function battle(id, pose, facing, frame) {
     var face = facing === "left" ? "left" : "right";
     var f = frame ? 1 : 0;
     var key = id + "|" + pose + "|" + face + "|" + f;
     if (!battleCache[key]) {
       var s = battleRaw(id, pose, f);
-      if (face === "left") {
-        s = Art.mirror(s);
-        leadLeft(s);
-      }
+      if (face === "left") s = Art.mirror(s);
       battleCache[key] = s;
     }
     return Art.clone(battleCache[key]);
@@ -1214,7 +1157,6 @@
     // Same left-facing head as the battle sprite, so the HUD and turn
     // icons look toward the enemies on the left.
     var body = Art.mirror(battleRaw(id, "idle", 0));
-    leadLeft(body);
     var spec = SPECS[id];
     var s = Art.spr(32, 32);
     var bg = id === "kestrel" ? C.tealD : (id === "tamsin" ? C.vestD : C.coatD);
