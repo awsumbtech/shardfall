@@ -2586,21 +2586,6 @@ SF.drawMawAsh = function (ctx, e, facing) {
 };
 
 SF.drawSceneWash = function (ctx, w, h) {
-  var dusk = SF._duskAmt || 0;
-  if (dusk > 0.004) {
-    ctx.save();
-    ctx.globalAlpha = 0.4 * dusk;
-    ctx.fillStyle = "#ff7a32";
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalAlpha = 1;
-    var sky = ctx.createLinearGradient(0, 0, 0, h * 0.62);
-    sky.addColorStop(0, "rgba(60, 24, 64, " + (0.34 * dusk).toFixed(3) + ")");
-    sky.addColorStop(0.45, "rgba(60, 24, 64, " + (0.12 * dusk).toFixed(3) + ")");
-    sky.addColorStop(1, "rgba(60, 24, 64, 0)");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h * 0.62);
-    ctx.restore();
-  }
   var veil = SF._veil && SF._veil.a;
   if (veil > 0.004) {
     ctx.save();

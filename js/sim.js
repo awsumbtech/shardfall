@@ -468,6 +468,7 @@ SF.onDialogueEvent("maren_mend", function () {
 SF.onDialogueEvent("quest_lamp_done", function () {
   var s = SF.state;
   s.flags.metMaren = true;
+  s.flags.marenLampTalk = true;
   s.player.hp = s.player.maxHp;
   SF.saveGame({ silent: true });
 });
@@ -554,7 +555,7 @@ SF.actionFor = function (s, near) {
       var need = SF.CINDER_SHARDS || 3;
       var ready = s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld >= need;
       var coreLabel = ready ? "Place shards" : "Inspect";
-      return { label: coreLabel, name: "the ember core", prompt: coreLabel + " — the ember core" };
+      return { label: coreLabel, name: "the lamp", prompt: coreLabel + " — the lamp" };
     }
     var place = !s.flags.lampLit && s.shardsHeld >= SF.QUEST_SHARDS;
     var label = place ? "Place shards" : "Inspect";
@@ -643,7 +644,7 @@ SF.tryLamp = function () {
   if (SF.islandId === "cinderveil") {
     var need = SF.CINDER_SHARDS || 3;
     if (s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld >= need) SF.startDialogue("cinderveil.lamp.relit");
-    else SF.startDialogue("inspect.cinder_core");
+    else SF.startDialogue("inspect.cinder_lamp");
     if (s.flags.mawDead && !s.flags.cinderLit && s.shardsHeld < need) {
       SF.pushToast("The lamp needs " + need + ". You have " + s.shardsHeld + ".", 2.2);
     }

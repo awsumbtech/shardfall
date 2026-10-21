@@ -19,7 +19,7 @@
     speaker: "Narration",
     portrait: "stones",
     lines: [
-      narr("Dusk. You wake in a ring of standing stones with no memory of your name. A sliver of glowing blue crystal has grown into your right palm.", "stones"),
+      narr("You wake in a ring of standing stones with no memory of your name. A sliver of glowing blue crystal has grown into your right palm.", "stones"),
       narr("Down the hill, smoke rises from a cottage chimney. Up on the ridge, a great lamp flickers weakly.", "lamp")
     ]
   });
@@ -29,6 +29,7 @@
     speaker: "Old Maren",
     portrait: "maren",
     onEnd: "meet_maren",
+    reopenChoices: "marenIntroHeard",
     lines: [
       "Oh, you're up. You've been lying out on those stones since yesterday. I'm Maren.",
       "Do you know your name? No? That's all right. I'll call you Wayfarer till it comes back to you.",
@@ -39,8 +40,8 @@
       "It needs five sky-shards. My knees won't get me out to where they fall anymore. Will you find them and set them in the lamp?"
     ],
     choices: [
-      { text: "What's the Hush?", next: "emberhold.maren.ask_hush", setFlags: { asked_maren: "hush" } },
-      { text: "What is this thing in my hand?", next: "emberhold.maren.ask_hand", setFlags: { asked_maren: "hand" } },
+      { text: "What's the Hush?", next: "emberhold.maren.ask_hush", setFlags: { asked_maren: "hush", asked_maren_hush: true }, unless: { asked_maren_hush: true } },
+      { text: "What is this thing in my hand?", next: "emberhold.maren.ask_hand", setFlags: { asked_maren: "hand", asked_maren_hand: true }, unless: { asked_maren_hand: true } },
       { text: "I'll get them.", next: "emberhold.maren.intro_go" }
     ]
   });
@@ -49,7 +50,7 @@
     id: "emberhold.maren.ask_hush",
     speaker: "Old Maren",
     portrait: "maren",
-    next: "emberhold.maren.intro_go",
+    next: "emberhold.maren.intro",
     lines: [
       "The cloud sea under the islands. A hundred years ago the Heartshard cracked, the sky broke apart, and everything underneath went into the Hush.",
       "Whatever falls in comes back as Hushborn, made of cloud and hunger. A lit lamp is the only thing they won't cross."
@@ -60,7 +61,7 @@
     id: "emberhold.maren.ask_hand",
     speaker: "Old Maren",
     portrait: "maren",
-    next: "emberhold.maren.intro_go",
+    next: "emberhold.maren.intro",
     lines: [
       "I wish I knew. It looks like a sky-shard, but it's brighter than any I've held.",
       "While you were asleep, the lamp flared every time your hand twitched. Whatever that is, the lamp knows it."
@@ -72,7 +73,7 @@
     speaker: "Old Maren",
     portrait: "maren",
     lines: [
-      "Shards glow, so they're easy to spot. Some Hushborn carry them too. Hit the bright spot in the middle and they'll drop them.",
+      "Shards glow, so they're easy to spot. Some Hushborn carry them too. Beat one and it'll drop what it's carrying.",
       "Where the path's broken, run and jump. Folk holding a shard can leap farther than they should, and yours is part of you.",
       "If you get hurt, come back and I'll patch you up. And say hello to Kestrel at the dock."
     ]
@@ -98,8 +99,8 @@
       narr("Maren has climbed the hill. She's out of breath, looking from the lamp to you and back.", "maren"),
       "I saw that from the garden. Shards don't do that. That lamp hasn't burned so bright since I was a girl.",
       "Your hand lit up before the lamp did. I don't know what you are, love, but I'm glad you came.",
-      { text: "You asked me about the Hush. Look, it's pulling back from the cliffs. That's your doing.", requires: { asked_maren: "hush" } },
-      { text: "You asked what that shard was. I still can't tell you. But I think the lamps could.", requires: { asked_maren: "hand" } },
+      { text: "You asked me about the Hush. Look, it's pulling back from the cliffs. That's your doing.", requiresAny: [{ asked_maren: "hush" }, { asked_maren_hush: true }] },
+      { text: "You asked what that shard was. I still can't tell you. But I think the lamps could.", requiresAny: [{ asked_maren: "hand" }, { asked_maren_hand: true }] },
       "There's something else. Cinderveil's lamp, out west, went dark a week ago. No one's heard a word from them since.",
       "The Lanternwrights there would never let it go out. Something's wrong. Kestrel can take you."
     ]
@@ -202,15 +203,18 @@
     speaker: "Kestrel Vane",
     portrait: "kestrel",
     onEnd: "open_sail_menu",
+    reopenChoices: "kestrelOfferHeard",
     lines: [
+      { text: "Hey, it's the sleeper! Kestrel Vane. And this beauty's the *Quickmercy*, fastest skiff on the wind. Ignore the patches.", unless: { metKestrel: true } },
       "You did it! I saw that from down here. Looked like a second sunrise.",
-      "Maren tell you about Cinderveil? I run cargo there. A week dark means they're in real trouble.",
+      { text: "Maren tell you about Cinderveil? I run cargo there. A week dark means they're in real trouble.", requires: { marenLampTalk: true } },
+      { text: "You heard about Cinderveil? Their lamp went dark a week ago. I run cargo there, and a week dark means they're in real trouble.", unless: { marenLampTalk: true } },
       "I'll take you. Free this trip, since you lit my lamp. After that I charge like anybody else."
     ],
     choices: [
       { text: "Let's go.", next: "emberhold.kestrel.sail_yes", setFlags: { sail_answer: "yes" } },
-      { text: "What's waiting for us there?", next: "emberhold.kestrel.sail_what", setFlags: { sail_answer: "ask" } },
-      { text: "I met someone in a mask, in Whisper Hollow.", next: "emberhold.kestrel.sail_cantor", setFlags: { sail_answer: "cantor" }, requires: { met_cantor: true } }
+      { text: "What's waiting for us there?", next: "emberhold.kestrel.sail_what", setFlags: { sail_answer: "ask", sail_asked: true }, unless: { sail_asked: true } },
+      { text: "I met someone in a mask, in Whisper Hollow.", next: "emberhold.kestrel.sail_cantor", setFlags: { sail_answer: "cantor", sail_told_cantor: true }, requires: { met_cantor: true }, unless: { sail_told_cantor: true } }
     ]
   });
 
@@ -227,6 +231,7 @@
     id: "emberhold.kestrel.sail_what",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
+    next: "emberhold.kestrel.offer_sail",
     lines: [
       "Cinderveil's a mining island. Ash on everything. Lowmoor Quay's the town: good people, awful tea.",
       "With the lamp out, there'll be Hushborn on the ridge. Bring that hand."
@@ -237,6 +242,7 @@
     id: "emberhold.kestrel.sail_cantor",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
+    next: "emberhold.kestrel.offer_sail",
     lines: [
       "Gold trim? Very polite? That's the Cantor. They lead the Hollow Choir. Half the Driftborn won't dock anywhere they've been.",
       "They want the sky to finish falling. Whatever they told you, don't buy it."
@@ -250,8 +256,8 @@
     onEnd: "open_sail_menu",
     lines: [
       "Ready? Cinderveil's half a day west. Just say the word.",
-      { text: "Still ash, still Hushborn, still awful tea. Nothing's changed.", requires: { sail_answer: "ask" } },
-      { text: "And if that mask turns up again, walk the other way.", requires: { sail_answer: "cantor" } }
+      { text: "Still ash, still Hushborn, still awful tea. Nothing's changed.", requiresAny: [{ sail_answer: "ask" }, { sail_asked: true }] },
+      { text: "And if that mask turns up again, walk the other way.", requiresAny: [{ sail_answer: "cantor" }, { sail_told_cantor: true }] }
     ]
   });
 

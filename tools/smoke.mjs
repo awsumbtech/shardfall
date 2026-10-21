@@ -149,17 +149,38 @@ if (talk.mode !== "dialogue" || talk.dialogue.speaker !== "Old Maren") {
   process.exit(1);
 }
 let guard = 0;
+let askedHand = false;
+let returned = false;
 while (talk.mode === "dialogue" && guard < 24) {
   talk.dialogue.lock = 0;
   if (talk.dialogue.phase === "choice") {
     const hand = talk.dialogue.choices.findIndex((c) => c.setFlags && c.setFlags.asked_maren === "hand");
-    if (hand < 0) {
+    if (hand >= 0) {
+      askedHand = true;
+      SF.chooseDialogue(hand);
+    } else if (!askedHand) {
       console.error("Maren did not offer the hand question");
       process.exit(1);
+    } else {
+      returned = true;
+      const go = talk.dialogue.choices.findIndex((c) => c.next === "emberhold.maren.intro_go");
+      if (go < 0) {
+        console.error("Maren did not return to the shard offer");
+        process.exit(1);
+      }
+      const hush = talk.dialogue.choices.findIndex((c) => c.setFlags && c.setFlags.asked_maren === "hush");
+      if (hush < 0) {
+        console.error("Maren dropped the question that was not asked");
+        process.exit(1);
+      }
+      SF.chooseDialogue(go);
     }
-    SF.chooseDialogue(hand);
   } else SF.advanceDialogue();
   guard += 1;
+}
+if (!returned) {
+  console.error("Maren's question did not return to the choices");
+  process.exit(1);
 }
 if (talk.quest !== "gather" || !talk.flags.metMaren || !talk.flags.shard_sense || talk.flags.asked_maren !== "hand") {
   console.error("quest did not start", talk.quest, talk.flags);
@@ -440,6 +461,45 @@ if (sail.quest !== "hooked" || !sail.flags.kestrelAfter || sail.flags.sail_answe
   process.exit(1);
 }
 
+const askSail = freshPlay();
+askSail.flags.lampLit = true;
+askSail.flags.met_cantor = true;
+SF.startDialogue("emberhold.kestrel.offer_sail");
+guard = 0;
+let askedWaiting = false;
+let sailBack = false;
+while (askSail.mode === "dialogue" && guard < 24) {
+  askSail.dialogue.lock = 0;
+  if (askSail.dialogue.phase === "choice") {
+    const waiting = askSail.dialogue.choices.findIndex((c) => c.next === "emberhold.kestrel.sail_what");
+    const letsGo = askSail.dialogue.choices.findIndex((c) => c.next === "emberhold.kestrel.sail_yes");
+    if (!askedWaiting && waiting >= 0) {
+      askedWaiting = true;
+      if (letsGo < 0) {
+        console.error("Let's go was missing beside What's waiting");
+        process.exit(1);
+      }
+      SF.chooseDialogue(waiting);
+    } else if (askedWaiting && letsGo >= 0 && waiting < 0) {
+      sailBack = true;
+      SF.chooseDialogue(letsGo);
+    } else {
+      console.error("Kestrel's offer did not keep Let's go", askSail.dialogue.choices.map((c) => c.text));
+      process.exit(1);
+    }
+  } else SF.advanceDialogue();
+  guard += 1;
+}
+if (!sailBack || askSail.flags.sail_answer !== "yes" || !askSail.flags.sail_asked) {
+  console.error("What's waiting skipped Let's go", askSail.flags);
+  process.exit(1);
+}
+const firstMeet = askSail.dialogueNodes ? null : SF.dialogueNodes["emberhold.kestrel.offer_sail"].lines[0];
+if (!firstMeet || !String(firstMeet.text || firstMeet).includes("Kestrel Vane")) {
+  console.error("offer_sail lost Kestrel's introduction");
+  process.exit(1);
+}
+
 if (typeof context.startDialogue !== "function") {
   console.error("startDialogue is not global");
   process.exit(1);
@@ -617,7 +677,7 @@ road.shardsHeld = 2;
 road.player.x = SF.LAMP.x;
 road.player.y = SF.LAMP.y;
 SF.tryInteract();
-if (!road.dialogue || road.dialogue.id !== "inspect.cinder_core") fail("two shards should only inspect the core");
+if (!road.dialogue || road.dialogue.id !== "inspect.cinder_lamp") fail("two shards should only inspect the lamp");
 finishTalk(road);
 if (road.flags.cinderLit) fail("two shards lit the core");
 road.shardsHeld = 3;
