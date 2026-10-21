@@ -1119,6 +1119,7 @@ SF.syncSailChart = function () {
   root.innerHTML = "";
   list.innerHTML = "";
   if (routes) {
+    root.appendChild(routes);
     var svg = "";
     (SF.SAIL_ROUTES || []).forEach(function (pair) {
       var a = SF.destinationById(pair[0]);
@@ -1146,8 +1147,15 @@ SF.syncSailChart = function () {
       pin.appendChild(cv);
     }
     var lab = document.createElement("span");
+    lab.className = "chart-name";
     lab.textContent = d.short || d.name;
     pin.appendChild(lab);
+    if (!open && (d.unlock === "soon" || d.unlock === "hold")) {
+      var soon = document.createElement("span");
+      soon.className = "chart-soon";
+      soon.textContent = "Coming soon";
+      pin.appendChild(soon);
+    }
     pin.disabled = !open || here;
     pin.dataset.sail = d.id;
     root.appendChild(pin);

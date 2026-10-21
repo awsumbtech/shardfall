@@ -764,6 +764,7 @@ SF.dismissEndcard = function () {
   if (!d || s.mode !== "dialogue" || d.id !== "cinderveil.act1.finale") return;
   if (s.endcardLock && Date.now() < s.endcardLock) return;
   s.endcardLock = 0;
+  s.endcardHold = false;
   if (d.lock > 0) d.lock = 0;
   SF.advanceDialogue();
 };
@@ -774,6 +775,20 @@ if (SF._dialogueUi) {
     function onEndcard(e) {
       e.preventDefault();
       e.stopPropagation();
+      var s = SF.state;
+      var locked = !!(s && s.endcardLock && Date.now() < s.endcardLock);
+      // A press that starts during the lockout also swallows its trailing click,
+      // which Chrome can deliver after the 400ms window.
+      if (e.type === "pointerdown") {
+        if (locked) {
+          s.endcardHold = true;
+          return;
+        }
+        s.endcardHold = false;
+      } else if (s && s.endcardHold) {
+        s.endcardHold = false;
+        return;
+      }
       SF.dismissEndcard();
     }
     endCardEl.addEventListener("pointerdown", onEndcard);

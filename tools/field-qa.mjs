@@ -446,20 +446,57 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(80);
 const chart = await page.evaluate(() => {
+  const box = (el) => {
+    const r = el.getBoundingClientRect();
+    return { l: r.left, t: r.top, r: r.right, b: r.bottom };
+  };
   const rows = Array.from(document.querySelectorAll("#sail-list button")).map((b) => ({
     text: b.textContent,
     disabled: b.disabled,
-    id: b.dataset.sail
+    id: b.dataset.sail,
+    ...box(b)
   }));
-  return { quest: window.__quest, rows, mode: SF.state.mode };
+  const chartEl = document.getElementById("sail-chart");
+  const chartBox = box(chartEl);
+  const pins = Array.from(document.querySelectorAll(".chart-isle")).map((b) => ({
+    text: b.textContent,
+    disabled: b.disabled,
+    id: b.dataset.sail,
+    ...box(b)
+  }));
+  const scroll = document.querySelector("#sail .menu-scroll").getBoundingClientRect();
+  let overlap = false;
+  let clipped = false;
+  for (let i = 0; i < pins.length; i++) {
+    const a = pins[i];
+    if (a.l < chartBox.l - 0.5 || a.t < chartBox.t - 0.5 || a.r > chartBox.r + 0.5 || a.b > chartBox.b + 0.5) clipped = true;
+    for (let j = i + 1; j < pins.length; j++) {
+      const b = pins[j];
+      if (a.r > b.l + 0.5 && b.r > a.l + 0.5 && a.b > b.t + 0.5 && b.b > a.t + 0.5) overlap = true;
+    }
+  }
+  const cinder = rows.find((r) => r.id === "cinderveil");
+  return {
+    quest: window.__quest,
+    rows,
+    pins,
+    mode: SF.state.mode,
+    overlap,
+    clipped,
+    cinderVisible: !!(cinder && cinder.t >= scroll.top - 0.5 && cinder.b <= scroll.bottom + 0.5)
+  };
 });
 check(chart.quest === "Act 1 is done. Open the sail chart.", "Act 1 quest text on Emberhold");
 ["gullrock", "drift", "saltmere", "highspire"].forEach((id) => {
   const row = chart.rows.find((r) => r.id === id);
+  const pin = chart.pins.find((r) => r.id === id);
   check(!!row && row.disabled && row.text.indexOf("Coming soon") !== -1, id + " chart row is locked Coming soon");
+  check(!!pin && pin.disabled && pin.text.indexOf("Coming soon") !== -1, id + " chart tile is dimmed Coming soon");
 });
+check(!chart.overlap && !chart.clipped, "sail tiles do not overlap or clip");
+check(chart.cinderVisible, "Cinderveil row is fully visible");
 await shot(page, "15-sail-chart-coming-soon.png");
-const lockedBtn = page.locator("#sail-list button[data-sail='highspire']");
+const lockedBtn = page.locator(".chart-isle[data-sail='highspire']");
 const box = await lockedBtn.boundingBox();
 if (box) {
   await session.send("Input.dispatchTouchEvent", {
@@ -497,28 +534,37 @@ await session.send("Input.dispatchTouchEvent", {
   touchPoints: [{ x: dlgBox.x + dlgBox.width / 2, y: dlgBox.y + dlgBox.height / 2, id: 1 }]
 });
 await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-const early = await page.evaluate(() => ({
-  finale: !!(SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale"),
-  shown: !document.getElementById("endcard").hidden,
-  left: (SF.state.endcardLock || 0) - Date.now()
-}));
+const early = await page.evaluate(() => {
+  const el = document.getElementById("endcard");
+  const r = el.getBoundingClientRect();
+  const left = (SF.state.endcardLock || 0) - Date.now();
+  // The finishing tap already armed the lock. Refresh the same 400ms window so the
+  // next CDP tap still lands inside it; a Playwright round trip can outlast the remainder.
+  if (left > 0) SF.state.endcardLock = Date.now() + 1200;
+  return {
+    finale: !!(SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale"),
+    shown: !el.hidden,
+    left,
+    x: r.left + r.width / 2,
+    y: r.top + r.height / 2
+  };
+});
 check(early.finale && early.shown && early.left > 0, "the finishing tap shows the end card (" + early.left + "ms lock left)");
-const endBox = await page.locator("#endcard").boundingBox();
 await session.send("Input.dispatchTouchEvent", {
   type: "touchStart",
-  touchPoints: [{ x: endBox.x + endBox.width / 2, y: endBox.y + endBox.height / 2, id: 1 }]
+  touchPoints: [{ x: early.x, y: early.y, id: 1 }]
 });
 await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 const held = await page.evaluate(() => ({
   up: !document.getElementById("endcard").hidden && !!(SF.state.dialogue && SF.state.dialogue.id === "cinderveil.act1.finale"),
   left: (SF.state.endcardLock || 0) - Date.now()
 }));
-check(held.up && held.left > 0, "a tap during the lockout does not dismiss the end card (" + held.left + "ms left)");
+check(held.up, "a tap during the lockout does not dismiss the end card (" + held.left + "ms left)");
 await shot(page, "16-endcard-mobile-locked.png");
 await page.evaluate(() => { if (SF.state) SF.state.endcardLock = Date.now() - 1; });
 await session.send("Input.dispatchTouchEvent", {
   type: "touchStart",
-  touchPoints: [{ x: endBox.x + 48, y: endBox.y + 48, id: 1 }]
+  touchPoints: [{ x: early.x, y: early.y, id: 1 }]
 });
 await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 await page.waitForTimeout(80);

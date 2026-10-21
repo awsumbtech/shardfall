@@ -667,7 +667,7 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 }
 #sail-chart {
   position: relative;
-  height: 112px;
+  height: 136px;
   margin: 8px 0 12px;
   border-radius: 2px;
   overflow: hidden;
@@ -690,31 +690,42 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
 .chart-isle {
   position: absolute;
   transform: translate(-50%, -50%);
-  min-width: 76px;
-  min-height: 52px;
-  padding: 3px 4px 4px;
+  width: max-content;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  padding: 3px 6px 3px;
   border-radius: 2px;
   border: 2px solid #f4f0e4;
   background: linear-gradient(180deg, #1e4c98, #0e2868);
   box-shadow: inset 0 0 0 2px #07102a;
   color: #fff8ee;
   font-family: var(--serif);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.05;
+  white-space: nowrap;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1px;
 }
 .chart-isle .chart-card {
-  width: 36px;
-  height: 26px;
+  width: 30px;
+  height: 18px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+.chart-isle .chart-soon {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  color: #f0d878;
+}
 .chart-isle.here { border-color: #f0d878; box-shadow: inset 0 0 0 2px #f0d878; }
-.chart-isle.locked, .chart-isle:disabled { opacity: 0.55; }
+.chart-isle.locked, .chart-isle:disabled { opacity: 0.42; }
 #sail-list button, #shop-list button, #inn .card > button, #notice .card > button, #shop .card > button, #chest .card > button {
   width: 100%;
   min-height: 48px;
@@ -1509,7 +1520,17 @@ body[data-mode="chest"] #rotate { display: none; }
 #enc-rate button { flex: 1 1 0; }
 
 @media (max-height: 430px) {
-  #sail-chart { height: 96px; }
+  #sail {
+    padding: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  #sail .card { padding: 10px 12px; }
+  #sail .card h2 { font-size: 22px; margin: 0 0 4px; }
+  #sail .menu-foot { padding-top: 4px; }
+  #sail .menu-foot button { min-height: 44px; }
+  #sail-note { margin: 0 0 4px; }
+  #sail-chart { height: 136px; margin: 4px 0 6px; }
+  #sail-list button { min-height: 44px; margin: 3px 0; padding: 6px 10px; }
   #chest { padding: 8px; }
   #chest .card { padding: 10px 12px; }
   #chest .card h2 { font-size: 22px; margin-bottom: 4px; }
