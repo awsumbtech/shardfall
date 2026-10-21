@@ -95,7 +95,7 @@ function statLine(s, id) {
     var it = SF.ITEMS[m.equip[slot]];
     return (slot[0].toUpperCase() + slot.slice(1)) + ": " + (it ? it.name : "Empty");
   }).join(" · ");
-  return SF.PARTY[id].name + "  Lv " + m.level +
+  return "Lv " + m.level +
     "\nHP " + m.hp + "/" + st.maxHp + "   SP " + (m.sp || 0) + "/" + st.maxSp +
     "\nAttack " + st.atk + "   Defense " + st.def + "   Magic " + st.mag + "   Speed " + st.spd +
     "\n" + gear;
@@ -108,7 +108,6 @@ function buildRoot(s) {
     { id: "equip", label: "Equip" },
     { id: "skills", label: "Skills" },
     { id: "save", label: "Save" },
-    { id: "resume", label: "Resume" },
     { id: "more", label: "More" }
   ];
 }
@@ -116,6 +115,7 @@ function buildRoot(s) {
 function buildMore(s) {
   return [
     { id: "settings", label: "Settings" },
+    { id: "hints", label: "Hints" },
     { id: "news", label: "What's new in v" + (SF.VERSION || "0.3") },
     { id: "install", label: "Install" },
     { id: "load", label: "Load", ghost: true },
@@ -134,7 +134,10 @@ function paint(s) {
   if (!body) return;
   if (gold) gold.textContent = "Marks: " + (s.gold || 0);
   if (note) note.textContent = SF.fieldNote || "";
-  if (back) back.hidden = SF.fieldScreen === "root";
+  if (back) {
+    back.hidden = false;
+    back.textContent = SF.fieldScreen === "root" ? "Resume" : "Back";
+  }
   var sig = SF.fieldScreen + "|" + SF.fieldMember + "|" + SF.fieldSlot + "|" + (s.gold || 0) + "|" + JSON.stringify(s.inventory || {}) + "|" + joined(s).join(",") + "|" + (SF.reduceFlash ? 1 : 0);
   joined(s).forEach(function (id) {
     var m = s.party.members[id];
@@ -149,6 +152,7 @@ function paint(s) {
   if (SF.fieldScreen === "skills") title.textContent = "Skills";
   if (SF.fieldScreen === "items" || SF.fieldScreen === "item-who") title.textContent = "Items";
   if (SF.fieldScreen === "equip" || SF.fieldScreen === "equip-pick") title.textContent = "Equip";
+  if (SF.fieldScreen === "hints") title.textContent = "Hints";
 
   if (SF.fieldScreen === "root") {
     buildRoot(s).forEach(function (row) { addButton(body, row.label, row.ghost, function () { onRoot(row.id); }); });
@@ -156,6 +160,22 @@ function paint(s) {
   }
   if (SF.fieldScreen === "more") {
     buildMore(s).forEach(function (row) { addButton(body, row.label, row.ghost, function () { onRoot(row.id); }); });
+    return;
+  }
+  if (SF.fieldScreen === "hints") {
+    [
+      "Move with the stick on the left.",
+      "Dash crosses a short gap.",
+      "When someone is close, the button on the right names what you can do. It stays dim when nobody is near.",
+      "Hold HOOK, aim with the stick, then let go.",
+      "Rest at an inn to refill HP and save.",
+      "A lit lamp quiets that island."
+    ].forEach(function (line) {
+      var p = document.createElement("p");
+      p.className = "field-stat";
+      p.textContent = line;
+      body.appendChild(p);
+    });
     return;
   }
   if (SF.fieldScreen === "party") {
@@ -233,13 +253,15 @@ function paint(s) {
   }
   if (SF.fieldScreen === "equip") {
     faceRow(body, SF.fieldMember);
-    joined(s).forEach(function (id) {
-      addButton(body, SF.PARTY[id].name, SF.fieldMember !== id, function () {
-        SF.fieldMember = id;
-        SF._fieldSig = "";
-        paint(SF.state);
+    if (joined(s).length > 1) {
+      joined(s).forEach(function (id) {
+        addButton(body, SF.PARTY[id].name, SF.fieldMember !== id, function () {
+          SF.fieldMember = id;
+          SF._fieldSig = "";
+          paint(SF.state);
+        });
       });
-    });
+    }
     var who = s.party.members[SF.fieldMember];
     ["weapon", "armor", "charm"].forEach(function (slot) {
       var worn = SF.ITEMS[who.equip[slot]];
@@ -373,13 +395,21 @@ function ensureDom() {
   var el = document.createElement("div");
   el.id = "fieldmenu";
   el.hidden = true;
-  el.innerHTML = '<div class="card scroll sf-window" id="field-card"><h2 id="field-title">Menu</h2><p id="field-gold"></p><p id="field-note"></p><div id="field-body"></div><button id="field-back" type="button">Back</button></div>';
-  var app = document.getElementById("app") || document.body;
-  app.appendChild(el);
+  el.innerHTML = '<div class="card menu-sheet sf-window" id="field-card"><h2 id="field-title">Menu</h2><p id="field-gold"></p><p id="field-note"></p><div id="field-body" class="menu-scroll"></div><div class="menu-foot"><button id="field-back" type="button">Back</button></div></div>';
+  var host = document.getElementById("chrome") || document.getElementById("app") || document.body;
+  host.appendChild(el);
+  el.addEventListener("pointerdown", function (e) {
+    if (e.target !== el) return;
+    SF.closeFieldMenu();
+  });
   document.getElementById("field-back").addEventListener("click", function () {
+    if (SF.fieldScreen === "root") {
+      SF.closeFieldMenu();
+      return;
+    }
     if (SF.fieldScreen === "equip-pick") SF.fieldScreen = "equip";
     else if (SF.fieldScreen === "item-who") SF.fieldScreen = "items";
-    else if (SF.fieldScreen === "more") SF.fieldScreen = "root";
+    else if (SF.fieldScreen === "more" || SF.fieldScreen === "hints") SF.fieldScreen = SF.fieldScreen === "hints" ? "more" : "root";
     else SF.fieldScreen = "root";
     SF._fieldSig = "";
     if (SF.state) paint(SF.state);

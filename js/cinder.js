@@ -526,7 +526,7 @@ SF.auditCinder = function () {
   var baseCoach = SF.coachLine;
   SF.coachLine = function (s) {
     if (s && s.player && s.player.grapple && !s.hints.hook && s.mode === "play") {
-      return "Hook: hold the ember button, aim with the stick, let go.";
+      return "Hold HOOK, aim with the stick, then let go.";
     }
     if (s && SF.islandId === "cinderveil" && s.mode === "play" && !s.player.grapple && SF.dist(s.player.x, s.player.y, 620, 40) < 80) {
       return "This gap is too wide. Tamsin's hook will cross it.";
