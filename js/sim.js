@@ -63,6 +63,7 @@ SF.fresh = function () {
     cogs: 0,
     upgrades: {},
     checkpoint: null,
+    checkpoints: {},
     enemySave: {},
     picked: {},
     drops: {},
@@ -336,26 +337,19 @@ SF.hurtPlayer = function (dmg, nx, ny, softLine) {
     p.fall = 0;
     p.dashT = 0;
     p.grappleT = 0;
-    var stone = s.checkpoint && (s.quest === "maw" || (s.flags && s.flags.mawFight));
-    if (stone) {
-      if (s.checkpoint.island && SF.islandId !== s.checkpoint.island && SF.travelTo) {
-        s.pendingTalk = null;
-        SF.travelTo(s.checkpoint.island);
-        s.pendingTalk = null;
-      }
-      p.x = s.checkpoint.x;
-      p.y = s.checkpoint.y;
-      p.safeX = p.x;
-      p.safeY = p.y;
-      if (SF.resetMaw) SF.resetMaw();
-      SF.pushToast("The vault stone pulls you back.");
-    } else {
+    if (SF.placeAtCheckpoint) SF.placeAtCheckpoint(s);
+    else {
       p.x = SF.WAKE.x;
       p.y = SF.WAKE.y;
       p.safeX = p.x;
       p.safeY = p.y;
-      SF.pushToast("The shard flares and hauls you back to the stones.");
     }
+    if ((s.quest === "maw" || (s.flags && s.flags.mawFight)) && SF.resetMaw) SF.resetMaw();
+    var nearWake = SF.islandId === "emberhold" && SF.WAKE && SF.dist(p.x, p.y, SF.WAKE.x, SF.WAKE.y) < 72;
+    var spotKind = s.checkpoint && s.checkpoint.kind;
+    if (nearWake) SF.pushToast("The shard flares and hauls you back to the stones.");
+    else if (spotKind === "post") SF.pushToast("The vault stone pulls you back.");
+    else SF.pushToast("Back to the last lamp.");
     SF.emit("death");
     SF.saveGame({ silent: true });
   } else if (softLine) {
@@ -495,21 +489,42 @@ SF.onDialogueEvent("meet_cantor", function () {
   SF.saveGame({ silent: true });
 });
 
+SF.interactRank = function (kind) {
+  if (kind === "npc") return 0;
+  if (kind === "chest") return 1;
+  if (kind === "text") return 3;
+  return 2;
+};
+
 SF.nearestInteract = function (range) {
   var s = SF.state;
   var p = s.player;
   var best = null;
-  var bestD = range || 54;
+  var limit = range || 54;
   function consider(kind, ref, x, y) {
     var d = SF.dist(p.x, p.y, x, y);
-    if (d < bestD) {
-      bestD = d;
-      best = { kind: kind, ref: ref, d: d };
+    if (d >= limit) return;
+    var dx = x - p.x;
+    var dy = y - p.y;
+    var face = d < 12 || ((dx * (p.fx || 0)) + (dy * (p.fy || 0))) / (d || 1) > 0.35;
+    var rank = SF.interactRank(kind);
+    var cand = { kind: kind, ref: ref, d: d, x: x, y: y, rank: rank, face: face };
+    if (!best || rank < best.rank || (rank === best.rank && face && !best.face) || (rank === best.rank && face === best.face && d < best.d)) {
+      best = cand;
     }
   }
   SF.NPCS.forEach(function (n) {
     if (SF.npcHidden && SF.npcHidden(n)) return;
-    consider("npc", n, n.x, n.y);
+    var nx = n.x;
+    var ny = n.y;
+    if (n.id === "cantor" && SF.cantorWorldPos) {
+      var spot = SF.cantorWorldPos();
+      if (spot) {
+        nx = spot.x;
+        ny = spot.y;
+      }
+    }
+    consider("npc", n, nx, ny);
   });
   SF.TEXTS.forEach(function (t) { consider("text", t, t.x, t.y); });
   if (SF.EXTRAS) {
@@ -725,6 +740,7 @@ SF.applyCutscene = function () {
     if (e.hp <= 0) SF.killEnemy(e);
   });
   SF.emit("lamp");
+  if (SF.rememberCheckpoint && SF.LAMP) SF.rememberCheckpoint(SF.LAMP.x, SF.LAMP.y, { quiet: true, kind: "lamp" });
   SF.saveGame({ silent: true });
 };
 
@@ -1024,11 +1040,17 @@ SF.updatePlayer = function (dt) {
   }
 
   var hooked = p.grappleT > 0 && SF.stepGrapple && SF.stepGrapple(p, dt);
+  var aiming = !!(SF.inputState && SF.inputState.grappleHold && p.grapple && s.mode === "play");
   if (!hooked && p.dashT > 0) {
     var step = Math.min(dt, p.dashT);
+    var dashX = p.x + p.dvx * step;
+    var dashY = p.y + p.dvy * step;
+    if (SF.occupied && SF.occupied(dashX, dashY, p.x, p.y)) {
+      p.dashT = 0;
+    } else {
     p.dashT -= step;
-    p.x += p.dvx * step;
-    p.y += p.dvy * step;
+    p.x = dashX;
+    p.y = dashY;
     p.trail -= step;
     if (p.trail <= 0) {
       p.trail = 0.025;
@@ -1036,9 +1058,10 @@ SF.updatePlayer = function (dt) {
       if (s.ghosts.length < 7) s.ghosts.push({ x: p.x, y: p.y, fx: p.fx, fy: p.fy, a: 0.45 });
     }
     SF.dashSing(p);
+    }
   } else if (!hooked) {
     var mag = Math.hypot(move.x, move.y);
-    if (mag > 0.12) {
+    if (!aiming && mag > 0.12) {
       var nx = move.x / mag;
       var ny = move.y / mag;
       var sp = 150 * Math.min(1, mag);
@@ -1052,9 +1075,10 @@ SF.updatePlayer = function (dt) {
     p.y += p.hy * dt;
     p.hx *= Math.exp(-9 * dt);
     p.hy *= Math.exp(-9 * dt);
-    if (!SF.walkable(p.x, p.y)) {
-      if (SF.walkable(p.x, p.py)) p.y = p.py;
-      else if (SF.walkable(p.px, p.y)) p.x = p.px;
+    var free = SF.footFree || function (x, y) { return SF.walkable(x, y); };
+    if (!free(p.x, p.y, p.px, p.py)) {
+      if (free(p.x, p.py, p.px, p.py)) p.y = p.py;
+      else if (free(p.px, p.y, p.px, p.py)) p.x = p.px;
       else {
         p.x = p.px;
         p.y = p.py;

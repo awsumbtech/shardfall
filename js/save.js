@@ -28,6 +28,7 @@ SF.exportState = function (s) {
     cogs: s.cogs || 0,
     upgrades: s.upgrades || {},
     checkpoint: s.checkpoint || null,
+    checkpoints: s.checkpoints || {},
     enemySave: s.enemySave || {},
     picked: s.picked,
     drops: s.drops,
@@ -123,6 +124,10 @@ SF.applySave = function (s, data) {
   s.cogs = data.cogs || 0;
   s.upgrades = data.upgrades || {};
   s.checkpoint = data.checkpoint || null;
+  s.checkpoints = data.checkpoints || {};
+  if (s.checkpoint && s.checkpoint.island && !s.checkpoints[s.checkpoint.island]) {
+    s.checkpoints[s.checkpoint.island] = s.checkpoint;
+  }
   s.enemySave = data.enemySave || {};
   s.picked = data.picked || {};
   s.drops = data.drops || {};

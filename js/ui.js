@@ -421,6 +421,8 @@ SF.syncUI = function () {
   document.getElementById("hp").classList.toggle("low", hpPct < 0.3 && hpPct > 0);
   setText("hp-num", Math.max(0, Math.ceil(pstat.hp)) + "/" + pstat.maxHp);
   setText("lv", "Lv " + pstat.level);
+  var handMeter = document.getElementById("hand-meter");
+  if (handMeter) handMeter.hidden = !(s.flags && s.flags.lampLit);
   setText("shards", SF.handMeter ? SF.handMeter(s) : ("✦ " + s.shardsHeld));
   var vitals = document.getElementById("vitals");
   if (vitals) vitals.classList.toggle("hand-pulse", !!(s.handNear && s.flags && s.flags.shard_sense));

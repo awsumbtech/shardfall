@@ -256,7 +256,7 @@ window.SF = SF;
     { id: "cantor", name: "The Cantor", x: 8 * T, y: 41 * T }
   ];
   ember.texts = [
-    { id: "wake-stone", x: 53 * T, y: 64 * T, speaker: "Waking Stones", node: "inspect.waking_stones" },
+    { id: "wake-stone", x: 53 * T, y: 62 * T, speaker: "Waking Stones", node: "inspect.waking_stones" },
     { id: "scar-stone", x: 118 * T, y: 58 * T, speaker: "The Scar", node: "inspect.scar" },
     { id: "hull", x: 82 * T, y: 98 * T, speaker: "The Quickmercy", node: "inspect.quickmercy" },
     { id: "wrong-sky", x: 140 * T, y: 9 * T, speaker: "Standing Stones", node: "inspect.wrong_sky" },
@@ -290,7 +290,7 @@ window.SF = SF;
     [[128, 18], [135, 14], [144, 10]]
   ]);
   ember.props = [
-    { kind: "stones", x: 53 * T, y: 64 * T },
+    { kind: "stones", x: 53 * T, y: 62 * T },
     { kind: "cottage", x: 73 * T, y: 16 * T },
     { kind: "stones", x: 140 * T, y: 9 * T },
     { kind: "airship", x: 80 * T, y: 100 * T },
@@ -386,7 +386,7 @@ window.SF = SF;
   placeExtra(cinder, "lowmoor-shop", 46, 84);
   placeExtra(cinder, "quay-bunk", 72, 84);
   placeExtra(cinder, "chest-ash", 40, 50);
-  placeExtra(cinder, "chest-vault", 100, 12);
+  placeExtra(cinder, "chest-vault", 104, 14);
   placeExtra(cinder, "bench", 32, 88);
   placeExtra(cinder, "vault-stone", 98, 34);
   cinder.bounds = { x: 0, y: 0, w: 156 * T, h: 108 * T };
