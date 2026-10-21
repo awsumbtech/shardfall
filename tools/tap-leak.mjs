@@ -2,12 +2,15 @@
 // activate whatever appears under the finger after the finger is up.
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const shotDir = process.env.SF_SHOTS || fs.mkdtempSync(path.join(os.tmpdir(), "shardfall-tap-"));
+fs.mkdirSync(shotDir, { recursive: true });
 
 function loadPlaywright() {
   const candidates = ["playwright-core", "/tmp/pw/node_modules/playwright-core"];
@@ -153,8 +156,7 @@ for (let n = 0; n < 5; n++) {
     fail("same tap closed the sail chart on try " + n + " " + JSON.stringify(stayed));
   }
   if (n === 0) {
-    const shot = path.join("/opt/cursor/artifacts/overlay-input", "34-sail-stays.png");
-    fs.mkdirSync(path.dirname(shot), { recursive: true });
+    const shot = path.join(shotDir, "34-sail-stays.png");
     await page.screenshot({ path: shot });
   }
   const stayAt = await page.evaluate(() => {
@@ -281,8 +283,7 @@ if (overlaps(plates.banner, plates.map) || overlaps(plates.toast, plates.map)) {
   fail("toast or banner covers the map " + JSON.stringify(plates));
 }
 if (plates.lineCount !== 1) fail("shard banner title wraps " + JSON.stringify(plates));
-const bannerShot = path.join("/opt/cursor/artifacts/overlay-input", "35-banner-stack.png");
-fs.mkdirSync(path.dirname(bannerShot), { recursive: true });
+const bannerShot = path.join(shotDir, "35-banner-stack.png");
 await dp.screenshot({ path: bannerShot });
 const deskErr = deskBoot.errors.filter((e) => e.indexOf("controller") < 0);
 if (deskErr.length) fail("desk page errors " + deskErr.join(" | "));

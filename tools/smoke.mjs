@@ -1,6 +1,12 @@
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import vm from "node:vm";
 import { spawnSync } from "node:child_process";
+
+const shotDir = process.env.SF_SHOTS || fs.mkdtempSync(path.join(os.tmpdir(), "shardfall-smoke-"));
+fs.mkdirSync(shotDir, { recursive: true });
+const childEnv = Object.assign({}, process.env, { SF_SHOTS: shotDir });
 
 const context = {};
 context.window = context;
@@ -1463,7 +1469,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.20"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.21"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1695,13 +1701,13 @@ SF.mountIsland("emberhold");
   if (play.battle._rows.length > play.battle._visible && !play.battle._moreBelow) fail("item list hides rows with no hint");
 }
 
-const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit" });
+const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
-const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit" });
+const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit", env: childEnv });
 if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 
-const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit" });
+const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit", env: childEnv });
 if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
 console.log("smoke ok");
