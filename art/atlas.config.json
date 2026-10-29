@@ -1,5 +1,5 @@
 {
-  "description": "Frames the game may pack. Keys stay under kenmi.hero so nothing in the game draws them yet.",
+  "description": "Field hero paper doll. The game draws these keys in order: base, pants, shoes, shirt, hair.",
   "atlas": "field",
   "maxSize": 768,
   "padding": 1,
@@ -37,7 +37,7 @@
     },
     {
       "key": "kenmi.hero.shirt",
-      "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/OG_Shirt/Shirt_1_Blue.png",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/Royal_Shirt/Royal_Shirt_1_Blue.png",
       "code": "wayfarer",
       "anchor": [32, 39],
       "grid": { "cell": 64, "clips": [

@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.24";
+SF.VERSION = "0.4.25";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -34,7 +34,8 @@ SF.WHATS_NEW = [
   "Act 1 dialogue is clearer: one name for the lamp, side questions return to your choices, and Kestrel always introduces herself.",
   "Resting heals you fully, a loss sends you back in front of the last stop, people are solid, fences connect, and the Cinder Maw asks before the fight.",
   "Behind the scenes: new art system groundwork, no visible change",
-  "Behind the scenes: packed art is ready for the site, with no visible change."
+  "Behind the scenes: packed art is ready for the site, with no visible change.",
+  "New hero sprite on the map."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

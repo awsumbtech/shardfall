@@ -1,7 +1,14 @@
 "use strict";
 
-// One job: choose the frame of a named clip. It never draws.
-// Directions are down, side, and up. Left is the side row, flipped.
+// One job: choose the clip and the frame. It never draws.
+// Idle when the hero is still, walk while moving. Facing comes from the
+// stick and the keys. Directions are down, side, and up. Left is the side
+// row, flipped.
+//
+// Walk timing is a clock, not a distance. Full stick is 12 frames a second,
+// scaled by stick magnitude, and never slower than 7. Each advance moves
+// one cell, so a long frame cannot skip ahead. A walk starts on a contact
+// cell (0, then 3, then 0).
 (function () {
   var SF = window.SF || {};
   window.SF = SF;
@@ -24,6 +31,26 @@
       hurt: { fps: 8, frames: 2, loop: false },
       death: { fps: 8, frames: 6, loop: false }
     };
+  };
+
+  // Cells per second at a full stick, and the slowest a moving hero steps.
+  Animator.WALK_FPS = 12;
+  Animator.WALK_FPS_MIN = 7;
+
+  // magnitude is 0..1. A dash passes 1 so the cycle stays at the walk rate.
+  Animator.rateFor = function (magnitude) {
+    var mag = magnitude > 0 ? magnitude : 0;
+    if (mag > 1) mag = 1;
+    var scaled = Animator.WALK_FPS * mag;
+    return scaled < Animator.WALK_FPS_MIN ? Animator.WALK_FPS_MIN : scaled;
+  };
+
+  // Same priority as the field: horizontal wins a tie, including a zero vector.
+  Animator.vectorFacing = function (fx, fy) {
+    fx = fx || 0;
+    fy = fy || 0;
+    if (Math.abs(fx) >= Math.abs(fy)) return fx < 0 ? "left" : "right";
+    return fy < 0 ? "up" : "down";
   };
 
   Animator.facing = function (facing) {
@@ -105,6 +132,76 @@
       col: index,
       name: frameName
     };
+  };
+
+  function clipDirs() {
+    return ["down", "side", "up"];
+  }
+
+  // Every name this clip will ask for. A sheet missing one of them is not ready.
+  Animator.prototype.clipFrames = function (clipName) {
+    var clip = this.clips[clipName] || this.clips.idle;
+    if (!clip) return [];
+    var dirs = clipDirs();
+    var out = [];
+    var d, i, name;
+    for (d = 0; d < dirs.length; d++) {
+      for (i = 0; i < clip.count; i++) {
+        name = clip.name + "." + dirs[d] + "." + i;
+        if (clip.names && clip.names[dirs[d]] && clip.names[dirs[d]][i]) name = clip.names[dirs[d]][i];
+        out.push(name);
+      }
+    }
+    return out;
+  };
+
+  Animator.prototype._walkNamed = function (facing) {
+    var clip = this.clips.walk || Animator.normalize("walk", { frames: 6, fps: 8 });
+    var index = this.walkFrame || 0;
+    if (index < 0) index = 0;
+    if (clip.count > 0) index = index % clip.count;
+    var fps = clip.fps > 0 ? clip.fps : 8;
+    return this.frame("walk", index / fps, facing);
+  };
+
+  // state: { moving, facing, fx, fy, time, hold, dt, magnitude, advance }.
+  // advance is true only for the live hero's tick. A ghost samples the pose
+  // and leaves the clock alone. The first cell of a walk is shown before dt
+  // is counted, so a 12 Hz frame still begins on the contact cell.
+  Animator.prototype.pose = function (state) {
+    state = state || {};
+    var facing = state.facing;
+    if (facing == null) facing = Animator.vectorFacing(state.fx, state.fy);
+    var idleTime = state.hold ? 0 : (state.time || 0);
+    if (!state.advance) {
+      if (!state.moving) return this.frame("idle", idleTime, facing);
+      if (!this.walking) return this.frame("walk", 0, facing);
+      return this._walkNamed(facing);
+    }
+    if (!state.moving) {
+      this.walking = false;
+      return this.frame("idle", idleTime, facing);
+    }
+    var clip = this.clips.walk || Animator.normalize("walk", { frames: 6, fps: 8 });
+    if (!this.walking) {
+      this.walking = true;
+      var contact = this.nextContact === 3 && clip.count > 3 ? 3 : 0;
+      this.walkFrame = contact;
+      this.nextContact = contact === 0 ? 3 : 0;
+      this.acc = 0;
+      return this._walkNamed(facing);
+    }
+    var fps = Animator.rateFor(state.magnitude);
+    var step = 1 / fps;
+    var dt = state.dt > 0 ? state.dt : 0;
+    this.acc = (this.acc || 0) + dt;
+    if (this.acc + 1e-9 >= step) {
+      this.acc -= step;
+      if (this.acc < 0) this.acc = 0;
+      if (this.acc >= step) this.acc = this.acc % step;
+      this.walkFrame = ((this.walkFrame || 0) + 1) % clip.count;
+    }
+    return this._walkNamed(facing);
   };
 
   SF.Animator = Animator;
