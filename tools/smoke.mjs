@@ -1485,7 +1485,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.25"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.26"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -1721,6 +1721,8 @@ SF.mountIsland("emberhold");
   if (play.battle._rows.length > play.battle._visible && !play.battle._moreBelow) fail("item list hides rows with no hint");
 }
 
+runGroundChecks();
+
 await runAssetChecks();
 
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
@@ -1734,13 +1736,16 @@ if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.25"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.26"')) fail("version was not bumped");
   if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
   if (!dataJs.includes("Behind the scenes: packed art is ready for the site, with no visible change.")) {
     fail("whats new atlas line");
   }
   if (!dataJs.includes("New hero sprite on the map.")) fail("whats new hero line");
-  if (!html.includes("v0.4.25")) fail("html version");
+  if (!dataJs.includes("Emberhold's ground, paths and cliffs are redrawn in the new art style.")) {
+    fail("whats new ground line");
+  }
+  if (!html.includes("v0.4.26")) fail("html version");
   const drawJs = fs.readFileSync("js/draw.js", "utf8");
   if (!drawJs.includes('id === "wayfarer"') || !drawJs.includes("SF.spriteRenderer")) {
     fail("the field hero is not routed through the asset registry");
@@ -2325,29 +2330,72 @@ async function runAtlasChecks() {
     if (parts.some((part) => !part || part === "." || part === "..")) return false;
     return true;
   }
+  const tilePaths = {
+    "kenmi.tile.grass": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_1.png",
+    "kenmi.tile.grass.fill": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
+    "kenmi.tile.path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+    "kenmi.tile.path.deco": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Decoration.png",
+    "kenmi.tile.cliff": "vendor/kenmi/Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png"
+  };
   const packs = new Set();
+  let heroCount = 0;
   for (const entry of declared.entries) {
-    if (!entry.key || !entry.key.startsWith("kenmi.hero.")) fail("packed key is visible to the game: " + entry.key);
-    if (!rigText.includes(entry.key)) fail("the field rig does not draw " + entry.key);
-    for (const file of gameFiles) {
-      if (file === "js/assets/rig.js") continue;
-      if (fs.readFileSync(file, "utf8").includes(entry.key)) fail(file + " references " + entry.key);
-    }
     if (!wellFormedPackPath(entry.path)) fail("pack path is not well-formed: " + entry.path);
-    if (packPaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
-    if (!entry.anchor || entry.anchor[0] !== 32 || entry.anchor[1] !== 39) fail(entry.key + " foot anchor is not the measured foot line");
-    packs.add(entry.path.split("/")[2]);
     if (entry.path.includes("Cute_Fantasy_Free")) fail("the free pack is non-commercial");
-    const clips = entry.grid && entry.grid.clips || [];
-    const names = clips.map((clip) => clip.name).sort().join(",");
-    if (names !== "idle.down,idle.side,idle.up,walk.down,walk.side,walk.up") {
-      fail(entry.key + " is not idle and walk in three directions");
+    packs.add(entry.path.split("/")[2]);
+    if (entry.key && entry.key.startsWith("kenmi.hero.")) {
+      heroCount += 1;
+      if (!rigText.includes(entry.key)) fail("the field rig does not draw " + entry.key);
+      for (const file of gameFiles) {
+        if (file === "js/assets/rig.js") continue;
+        if (fs.readFileSync(file, "utf8").includes(entry.key)) fail(file + " references " + entry.key);
+      }
+      if (packPaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
+      if (!entry.anchor || entry.anchor[0] !== 32 || entry.anchor[1] !== 39) fail(entry.key + " foot anchor is not the measured foot line");
+      const clips = entry.grid && entry.grid.clips || [];
+      const names = clips.map((clip) => clip.name).sort().join(",");
+      if (names !== "idle.down,idle.side,idle.up,walk.down,walk.side,walk.up") {
+        fail(entry.key + " is not idle and walk in three directions");
+      }
+    } else if (entry.key && entry.key.startsWith("kenmi.tile.")) {
+      if (tilePaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
+      if (entry.anchor) fail(entry.key + " is a ground tile and should not use a foot anchor");
+      if (!entry.rects || !entry.rects.length) fail(entry.key + " has no rects");
+      for (const rect of entry.rects) {
+        if (!rect || !rect.name || rect.w !== 16 || rect.h !== 16 || (rect.x % 16) || (rect.y % 16)) {
+          fail(entry.key + " frame is not a 16px cell");
+        }
+      }
+    } else {
+      fail("packed key is not a hero or ground tile: " + entry.key);
     }
+  }
+  if (heroCount !== 5) fail("hero sheets changed");
+  for (const key of Object.keys(tilePaths)) {
+    if (!declared.entries.some((entry) => entry.key === key)) fail("missing tile sheet " + key);
   }
   const reader = new ConfigReader(declared);
   const planned = reader.frames();
   if (![...packs].includes("Cute_Fantasy")) fail("hero frames are not from Cute_Fantasy");
-  if (planned.length !== declared.entries.length * 36) fail("hero clip did not expand to 36 frames");
+  const heroPlanned = planned.filter((frame) => frame.key.startsWith("kenmi.hero."));
+  if (heroPlanned.length !== heroCount * 36) fail("hero clip did not expand to 36 frames");
+  const tileSetJson = JSON.parse(fs.readFileSync("js/tiles/tileset.json", "utf8"));
+  const framesByKey = new Map();
+  for (const frame of planned) {
+    if (!frame.key.startsWith("kenmi.tile.")) continue;
+    if (!framesByKey.has(frame.key)) framesByKey.set(frame.key, new Set());
+    framesByKey.get(frame.key).add(frame.name);
+  }
+  const usedKeys = new Set();
+  for (const name of Object.keys(tileSetJson.tiles)) {
+    const spec = tileSetJson.tiles[name];
+    usedKeys.add(spec.key);
+    const have = framesByKey.get(spec.key);
+    if (!have || !have.has(spec.frame)) fail("tileset frame missing from the atlas config: " + name);
+  }
+  for (const key of Object.keys(tilePaths)) {
+    if (!usedKeys.has(key)) fail("atlas tile sheet is not used by the tileset: " + key);
+  }
   const packer = new Packer({
     padding: reader.padding,
     maxSize: reader.maxSize,
@@ -2731,6 +2779,258 @@ async function runAtlasChecks() {
 
   fs.rmSync(dir, { recursive: true, force: true });
   console.log("atlas checks ok");
+}
+
+function runGroundChecks() {
+  const files = [
+    "js/assets/manifest.js",
+    "js/assets/sheet.js",
+    "js/assets/registry.js",
+    "js/tiles/tileset.js",
+    "js/tiles/autotiler.js",
+    "js/tiles/tilemap.js",
+    "js/tiles/renderer.js"
+  ];
+  for (const file of files) {
+    if (!fs.existsSync(file)) fail("missing " + file);
+    if (file.endsWith(".js") && !html.includes('src="' + file + '"')) fail("page omits " + file);
+    if (!sw.includes('"' + file + '"')) fail("precache omits " + file);
+    vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  }
+  if (!sw.includes('"js/tiles/tileset.json"')) fail("precache omits the tileset");
+  const drawJs = fs.readFileSync("js/draw.js", "utf8");
+  if (!drawJs.includes("SF.tilesReady") || !drawJs.includes("SF._drawTileGround")) fail("ground draw does not ask the registry");
+  if (!drawJs.includes('SF.islandId !== "emberhold"')) fail("cinderveil would use the tile ground");
+  if (!drawJs.includes("SF._tileGroundOn = false")) fail("code ground does not stay in charge when tiles are absent");
+  if (!drawJs.includes("!SF._tileGroundOn")) fail("code cliff fronts still draw over the tile ground");
+  if (!drawJs.includes("paintActGround")) fail("code ground was removed");
+  if (!drawJs.includes("drawCells")) fail("cliff faces are not sorted with the actors");
+
+  const G = context.SF;
+  const raw = JSON.parse(fs.readFileSync("js/tiles/tileset.json", "utf8"));
+  const set = new G.TileSet(raw);
+  const tiler = G.AutoTiler;
+  function cell(t, g) { return { t: t, g: g || "" }; }
+  const grass = cell("grass");
+  const block = [
+    [grass, grass, grass],
+    [grass, grass, grass],
+    [grass, grass, grass]
+  ];
+  if (tiler.mask(block, 1, 1) !== 255) fail("full grass mask was " + tiler.mask(block, 1, 1));
+  if (tiler.pick(block, 1, 1) !== "grass.center") fail("center tile");
+  if (tiler.pick(block, 1, 0) !== "grass.edge.n") fail("north edge");
+  if (tiler.pick(block, 1, 2) !== "grass.edge.s") fail("south edge");
+  if (tiler.pick(block, 0, 1) !== "grass.edge.w") fail("west edge");
+  if (tiler.pick(block, 2, 1) !== "grass.edge.e") fail("east edge");
+  if (tiler.pick(block, 0, 0) !== "grass.corner.nw") fail("nw corner");
+  if (tiler.pick(block, 2, 0) !== "grass.corner.ne") fail("ne corner");
+  if (tiler.pick(block, 0, 2) !== "grass.corner.sw") fail("sw corner");
+  if (tiler.pick(block, 2, 2) !== "grass.corner.se") fail("se corner");
+  const bitten = block.map((row) => row.slice());
+  bitten[0][2] = null;
+  if (tiler.pick(bitten, 1, 1) !== "grass.corner.in.ne") fail("inner corner was " + tiler.pick(bitten, 1, 1));
+  if ((tiler.mask(block, 1, 0) & 1) !== 0) fail("north bit set on the north edge");
+  if ((tiler.mask(block, 2, 1) & 2) !== 0) fail("east bit set on the east edge");
+
+  const path = cell("path");
+  const road = [
+    [grass, grass, grass, grass, grass],
+    [grass, path, path, path, grass],
+    [grass, grass, grass, grass, grass]
+  ];
+  if (tiler.pick(road, 2, 1) !== "path.center") fail("a thin path middle was " + tiler.pick(road, 2, 1));
+  if (tiler.pick(road, 1, 1) !== "path.corner.nw" || tiler.pick(road, 3, 1) !== "path.corner.ne") {
+    fail("a thin path end was " + tiler.pick(road, 1, 1) + " " + tiler.pick(road, 3, 1));
+  }
+  const wide = [
+    [grass, grass, grass],
+    [grass, path, grass],
+    [grass, path, grass],
+    [grass, path, grass],
+    [grass, grass, grass]
+  ];
+  if (tiler.pick(wide, 1, 2) !== "path.center") fail("vertical path middle was " + tiler.pick(wide, 1, 2));
+  const blob = [
+    [grass, grass, grass, grass],
+    [grass, path, path, grass],
+    [grass, path, path, grass],
+    [grass, grass, grass, grass]
+  ];
+  if (tiler.pick(blob, 1, 1) !== "path.corner.nw") fail("path nw " + tiler.pick(blob, 1, 1));
+  if (tiler.pick(blob, 2, 1) !== "path.corner.ne") fail("path ne " + tiler.pick(blob, 2, 1));
+  if (tiler.pick(blob, 1, 2) !== "path.corner.sw") fail("path sw " + tiler.pick(blob, 1, 2));
+  if (tiler.pick(blob, 2, 2) !== "path.corner.se") fail("path se " + tiler.pick(blob, 2, 2));
+
+  function cliff(g) { return cell("cliff", g); }
+  const wall = [
+    [cliff("a"), cliff("a"), cliff("a")],
+    [cliff("a"), cliff("a"), cliff("a")],
+    [cliff("a"), cliff("a"), cliff("a")]
+  ];
+  if (tiler.pick(wall, 0, 0) !== "cliff.top.n.w") fail("cliff cap w " + tiler.pick(wall, 0, 0));
+  if (tiler.pick(wall, 1, 0) !== "cliff.top.n") fail("cliff cap " + tiler.pick(wall, 1, 0));
+  if (tiler.pick(wall, 2, 0) !== "cliff.top.n.e") fail("cliff cap e " + tiler.pick(wall, 2, 0));
+  if (tiler.pick(wall, 1, 1) !== "cliff.face.s") fail("cliff mid " + tiler.pick(wall, 1, 1));
+  if (tiler.pick(wall, 0, 1) !== "cliff.face.s.w") fail("cliff side " + tiler.pick(wall, 0, 1));
+  if (tiler.pick(wall, 2, 1) !== "cliff.face.s.e") fail("cliff side e " + tiler.pick(wall, 2, 1));
+  if (tiler.pick(wall, 0, 2) !== "cliff.face.s.foot.w") fail("cliff foot w " + tiler.pick(wall, 0, 2));
+  if (tiler.pick(wall, 1, 2) !== "cliff.face.s.foot") fail("cliff foot " + tiler.pick(wall, 1, 2));
+  if (tiler.pick(wall, 2, 2) !== "cliff.face.s.foot.e") fail("cliff foot e " + tiler.pick(wall, 2, 2));
+  const split = [[cliff("a"), cliff("b")]];
+  if (tiler.mask(split, 0, 0) & 2) fail("cliff groups connected");
+  const before = JSON.stringify(block);
+  tiler.pick(block, 1, 1);
+  if (JSON.stringify(block) !== before) fail("autotiler mutated the grid");
+
+  const cams = [0, 0.4, 10.2, 33.7, -8.5];
+  const dprs = [1, 1.25, 2, 3];
+  const zooms = [1, 1.7, 2];
+  cams.forEach((cam) => {
+    dprs.forEach((dpr) => {
+      zooms.forEach((zoom) => {
+        const px = Math.max(1, Math.round(dpr * zoom));
+        const e = Math.round(dpr * 180 - cam * px);
+        const tr = { a: px, d: px, e: e, f: e };
+        const a = G.TileMapRenderer.deviceRect(tr, 0, 0, 256, 256);
+        const b = G.TileMapRenderer.deviceRect(tr, 256, 0, 256, 256);
+        const c = G.TileMapRenderer.deviceRect(tr, 0, 256, 256, 256);
+        if (a.x + a.w !== b.x || a.y + a.h !== c.y) {
+          fail("tile chunks gap at cam " + cam + " dpr " + dpr + " zoom " + zoom);
+        }
+        const t0 = G.TileMapRenderer.deviceRect(tr, 16, 32, 16, 16);
+        const t1 = G.TileMapRenderer.deviceRect(tr, 32, 32, 16, 16);
+        if (t0.x + t0.w !== t1.x) fail("neighbor tiles gap");
+      });
+    });
+  });
+
+  const byKey = {};
+  Object.keys(raw.tiles).forEach((name) => {
+    const spec = raw.tiles[name];
+    if (!byKey[spec.key]) byKey[spec.key] = { key: spec.key, atlas: "assets/atlas/field.png", code: "ground", frames: [] };
+    if (!byKey[spec.key].frames.some((frame) => frame.name === spec.frame)) {
+      byKey[spec.key].frames.push({ name: spec.frame, x: 0, y: 0, w: 16, h: 16 });
+    }
+  });
+  const manifest = G.AssetManifest.fromData({ entries: Object.values(byKey) });
+  const empty = new G.AssetRegistry(manifest);
+  if (G.TileMapRenderer.ready(empty, set)) fail("an unloaded atlas counted as ready");
+  if (G.TileMapRenderer.ready(null, set) || G.TileMapRenderer.ready(empty, null)) fail("ready without a registry or tileset");
+  const partialEntries = Object.values(byKey).map((entry, i) => {
+    return Object.assign({}, entry, { atlas: i === 0 ? "assets/atlas/field.png" : "assets/atlas/other.png" });
+  });
+  const partial = new G.AssetRegistry(G.AssetManifest.fromData({ entries: partialEntries }));
+  partial.noteImage("assets/atlas/field.png", { width: 16, height: 16 });
+  if (G.TileMapRenderer.ready(partial, set)) fail("a partial atlas counted as ready");
+  const full = new G.AssetRegistry(manifest);
+  full.noteImage("assets/atlas/field.png", { width: 16, height: 16 });
+  if (!G.TileMapRenderer.ready(full, set)) fail("a complete atlas was not ready");
+
+  const prevAssets = G.assets;
+  const prevSet = G.tileSet;
+  const prevW = G.viewW;
+  const prevH = G.viewH;
+  const prevZoom = G.zoom;
+  G.assets = full;
+  G.tileSet = set;
+  G.viewW = 64;
+  G.viewH = 64;
+  G.zoom = 1;
+  const canvases = [];
+  const renderer = new G.TileMapRenderer({
+    createElement() {
+      return {
+        width: 0,
+        height: 0,
+        getContext() {
+          const ctx = {
+            imageSmoothingEnabled: false,
+            fillStyle: "",
+            fillRect() {},
+            clearRect() {},
+            drawImage() {}
+          };
+          canvases.push(ctx);
+          return ctx;
+        }
+      };
+    }
+  });
+  const tiny = {
+    cols: 2,
+    rows: 2,
+    originX: 0,
+    originY: 0,
+    tile: 16,
+    kind: Uint8Array.of(G.TileMap.GRASS, 0, 0, 0),
+    names: ["grass.center", "", "", ""],
+    faces: [],
+    stamp: "t1"
+  };
+  const fakeCtx = {
+    imageSmoothingEnabled: true,
+    draws: 0,
+    getTransform() { return { a: 2, b: 0, c: 0, d: 2, e: 3, f: 5 }; },
+    save() {},
+    restore() {},
+    setTransform() {},
+    drawImage() { this.draws += 1; }
+  };
+  if (!renderer.draw(fakeCtx, { camX: 8, camY: 8 }, tiny)) fail("ready ground did not draw");
+  const made = canvases.length;
+  if (made < 1) fail("chunk was not cached");
+  renderer.draw(fakeCtx, { camX: 8, camY: 8 }, tiny);
+  if (canvases.length !== made) fail("chunk rebuilt while the map was valid");
+  tiny.stamp = "t2";
+  renderer.draw(fakeCtx, { camX: 8, camY: 8 }, tiny);
+  if (canvases.length === made) fail("chunk stayed after the map changed");
+  G.assets = null;
+  G.tileSet = null;
+  if (G.tilesReady()) fail("fallback ready with no atlas");
+  G.assets = prevAssets;
+  G.tileSet = prevSet;
+  G.viewW = prevW;
+  G.viewH = prevH;
+  G.zoom = prevZoom;
+
+  const prevIsland = G.islandId;
+  const prevState = G.state;
+  G.mountIsland("cinderveil");
+  if (G.TileMap.fromWorld(set)) fail("cinderveil built a Kenmi tile map");
+  G.mountIsland("emberhold");
+  G.state = prevState || { flags: {} };
+  let map;
+  try {
+    map = G.TileMap.fromWorld(set);
+  } catch (err) {
+    fail("tile map build failed: " + (err && err.message));
+  }
+  if (!map) fail("emberhold tile map was not built");
+  const hill = (G.TERRACES.emberhold || []).find((t) => t.id === "hill-3");
+  if (!hill || map.heightAt(hill.x, hill.y) !== hill.level) fail("hill-3 height");
+  function expectedHeight(x, y) {
+    let h = 0;
+    (G.TERRACES.emberhold || []).forEach((t) => {
+      const m = G.terraceMetrics(t, x, y);
+      if (m && m.gap <= 0 && (t.level || 0) > h) h = t.level || 0;
+    });
+    return h;
+  }
+  for (let y = 0; y < map.rows; y++) {
+    for (let x = 0; x < map.cols; x++) {
+      const wx = map.originX + x * map.tile + map.tile / 2;
+      const wy = map.originY + y * map.tile + map.tile / 2;
+      if (map.isWalkable(wx, wy) !== G.walkable(wx, wy)) fail("walkable drifted at " + x + "," + y);
+      const got = map.zoneAt(wx, wy);
+      const want = G.zoneAt(wx, wy);
+      if ((got && got.id) !== (want && want.id)) fail("zone drifted at " + x + "," + y);
+      if (map.heightAt(wx, wy) !== expectedHeight(wx, wy)) fail("height drifted at " + x + "," + y);
+    }
+  }
+  G.mountIsland(prevIsland || "emberhold");
+  G.state = prevState;
+  console.log("ground checks ok");
 }
 
 console.log("smoke ok");

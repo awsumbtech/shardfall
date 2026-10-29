@@ -1,5 +1,5 @@
 {
-  "description": "Field hero paper doll. The game draws these keys in order: base, pants, shoes, shirt, hair.",
+  "description": "Field atlas. Hero keys are the paper doll, drawn in order: base, pants, shoes, shirt, hair. Ground keys are Emberhold grass, paths, and cliffs, drawn only when every ground frame has loaded.",
   "atlas": "field",
   "maxSize": 768,
   "padding": 1,
@@ -76,6 +76,71 @@
         { "name": "walk.side", "row": 4, "count": 6 },
         { "name": "walk.up", "row": 5, "count": 6 }
       ] }
+    },
+    {
+      "key": "kenmi.tile.grass",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_1.png",
+      "code": "ground",
+      "rects": [
+        { "name": "corner.nw", "x": 0, "y": 0, "w": 16, "h": 16 },
+        { "name": "edge.n", "x": 16, "y": 0, "w": 16, "h": 16 },
+        { "name": "corner.ne", "x": 32, "y": 0, "w": 16, "h": 16 },
+        { "name": "edge.w", "x": 0, "y": 16, "w": 16, "h": 16 },
+        { "name": "edge.e", "x": 32, "y": 16, "w": 16, "h": 16 },
+        { "name": "corner.sw", "x": 0, "y": 32, "w": 16, "h": 16 },
+        { "name": "edge.s", "x": 16, "y": 32, "w": 16, "h": 16 },
+        { "name": "corner.se", "x": 32, "y": 32, "w": 16, "h": 16 },
+        { "name": "path.corner.nw", "x": 0, "y": 80, "w": 16, "h": 16 },
+        { "name": "path.edge.n", "x": 16, "y": 80, "w": 16, "h": 16 },
+        { "name": "path.corner.ne", "x": 32, "y": 80, "w": 16, "h": 16 },
+        { "name": "path.edge.w", "x": 0, "y": 96, "w": 16, "h": 16 },
+        { "name": "path.edge.e", "x": 32, "y": 96, "w": 16, "h": 16 },
+        { "name": "path.corner.sw", "x": 0, "y": 112, "w": 16, "h": 16 },
+        { "name": "path.edge.s", "x": 16, "y": 112, "w": 16, "h": 16 },
+        { "name": "path.corner.se", "x": 32, "y": 112, "w": 16, "h": 16 }
+      ]
+    },
+    {
+      "key": "kenmi.tile.grass.fill",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
+      "code": "ground",
+      "rects": [
+        { "name": "center", "x": 0, "y": 0, "w": 16, "h": 16 }
+      ]
+    },
+    {
+      "key": "kenmi.tile.path",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+      "code": "ground",
+      "rects": [
+        { "name": "center", "x": 0, "y": 0, "w": 16, "h": 16 }
+      ]
+    },
+    {
+      "key": "kenmi.tile.path.deco",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Decoration.png",
+      "code": "ground",
+      "rects": [
+        { "name": "0", "x": 0, "y": 0, "w": 16, "h": 16 },
+        { "name": "1", "x": 16, "y": 0, "w": 16, "h": 16 },
+        { "name": "2", "x": 32, "y": 0, "w": 16, "h": 16 }
+      ]
+    },
+    {
+      "key": "kenmi.tile.cliff",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png",
+      "code": "ground",
+      "rects": [
+        { "name": "top.w", "x": 16, "y": 32, "w": 16, "h": 16 },
+        { "name": "top", "x": 32, "y": 32, "w": 16, "h": 16 },
+        { "name": "top.e", "x": 48, "y": 32, "w": 16, "h": 16 },
+        { "name": "face.w", "x": 16, "y": 48, "w": 16, "h": 16 },
+        { "name": "face", "x": 32, "y": 48, "w": 16, "h": 16 },
+        { "name": "face.e", "x": 48, "y": 48, "w": 16, "h": 16 },
+        { "name": "foot.w", "x": 16, "y": 64, "w": 16, "h": 16 },
+        { "name": "foot", "x": 32, "y": 64, "w": 16, "h": 16 },
+        { "name": "foot.e", "x": 48, "y": 64, "w": 16, "h": 16 }
+      ]
     }
   ]
 }

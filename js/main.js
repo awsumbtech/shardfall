@@ -31,6 +31,9 @@ SF.prepareAssets = function () {
   SF.assets = registry;
   SF.spriteRenderer = new SF.SpriteRenderer(registry);
   if (SF.Animator && !SF.animator) SF.animator = new SF.Animator();
+  if (SF.prepareTileSet) {
+    try { SF.prepareTileSet(); } catch (err) { /* missing tiles keep the code ground */ }
+  }
   if (!SF.AssetManifest || typeof SF.AssetManifest.load !== "function") return registry;
   SF.AssetManifest.load(SF.AssetManifest.URL).then(function (loaded) {
     registry.setManifest(loaded || new SF.AssetManifest());

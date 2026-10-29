@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.25";
+SF.VERSION = "0.4.26";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -35,7 +35,8 @@ SF.WHATS_NEW = [
   "Resting heals you fully, a loss sends you back in front of the last stop, people are solid, fences connect, and the Cinder Maw asks before the fight.",
   "Behind the scenes: new art system groundwork, no visible change",
   "Behind the scenes: packed art is ready for the site, with no visible change.",
-  "New hero sprite on the map."
+  "New hero sprite on the map.",
+  "Emberhold's ground, paths and cliffs are redrawn in the new art style."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
