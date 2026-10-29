@@ -1989,6 +1989,10 @@ async function runAssetChecks() {
       restore() { this.ops.push(["restore"]); },
       translate(x, y) { this.ops.push(["translate", x, y]); },
       scale(x, y) { this.ops.push(["scale", x, y]); },
+      beginPath() {},
+      fill() {},
+      arc() { this.ops.push(["glow"]); },
+      fillRect() { this.ops.push(["shard"]); },
       drawImage(...args) { this.ops.push(["draw", args]); }
     };
   }
@@ -2171,16 +2175,49 @@ async function runAssetChecks() {
   asset.SF.state.player.px = 0;
   asset.SF.drawWayfarer(quiet, 5, 6, 1, 0, 1, false);
   if (asset.SF.heroAnimator.walkFrame !== 1) fail("12 Hz did not step one cell, frame " + asset.SF.heroAnimator.walkFrame);
+  const handTable = JSON.parse(fs.readFileSync("js/assets/hand-table.json", "utf8"));
   const crystal = new A.HandCrystal();
-  const palmRight = crystal.offset({ clip: "walk", dir: "side", facing: "right", flip: false, frame: 0 });
-  const palmLeft = crystal.offset({ clip: "walk", dir: "side", facing: "left", flip: true, frame: 0 });
-  const palmDown = crystal.offset({ clip: "idle", dir: "down", facing: "down", flip: false, frame: 0 });
-  if (!palmRight || !palmLeft || palmLeft.x !== -palmRight.x || palmLeft.y !== palmRight.y) {
-    fail("the crystal did not mirror");
+  ["idle", "walk"].forEach((clip) => {
+    for (let frame = 0; frame < 6; frame++) {
+      const down = crystal.place({ clip: clip, dir: "down", facing: "down", flip: false, frame: frame });
+      const downCell = handTable[clip].down[frame];
+      if (!down || down.behind || down.x !== downCell[0] || down.y !== downCell[1]) {
+        fail(clip + " down " + frame + " crystal was " + JSON.stringify(down));
+      }
+      const right = crystal.place({ clip: clip, dir: "side", facing: "right", flip: false, frame: frame });
+      const front = handTable[clip].side_front[frame];
+      if (!right || right.behind || right.x !== front[0] || right.y !== front[1]) {
+        fail(clip + " side front " + frame + " crystal was " + JSON.stringify(right));
+      }
+      const left = crystal.place({ clip: clip, dir: "side", facing: "left", flip: true, frame: frame });
+      const back = handTable[clip].side_back[frame];
+      if (!left || !left.behind || left.x !== -back[0] || left.y !== back[1]) {
+        fail(clip + " side back " + frame + " crystal was " + JSON.stringify(left));
+      }
+      const up = crystal.place({ clip: clip, dir: "up", facing: "up", flip: false, frame: frame });
+      const upCell = handTable[clip].up[frame];
+      if (!up || !up.behind || up.x !== upCell[0] || up.y !== upCell[1]) {
+        fail(clip + " up " + frame + " crystal was " + JSON.stringify(up));
+      }
+    }
+  });
+  if (A.HandCrystal.PALM_DROP !== 1) fail("the shard is not one pixel under the sleeve");
+  asset.SF._heroTick = false;
+  const frontCtx = paintCtx();
+  if (asset.SF.drawFieldHero(frontCtx, 40, 70, { facing: "down" }, false, true) !== true) {
+    fail("the front crystal had no doll");
   }
-  if (!palmDown || palmDown.x >= 0) fail("the down crystal is not in the right palm");
-  if (crystal.offset({ clip: "walk", dir: "up", facing: "up", flip: false, frame: 1 })) {
-    fail("the crystal shows while facing up");
+  const frontOps = frontCtx.ops.map((op) => op[0]);
+  if (frontOps.indexOf("draw") < 0 || frontOps.indexOf("shard") < frontOps.indexOf("draw")) {
+    fail("the down crystal was not painted after the body");
+  }
+  const backCtx = paintCtx();
+  if (asset.SF.drawFieldHero(backCtx, 40, 70, { facing: "left" }, false, true) !== true) {
+    fail("the back crystal had no doll");
+  }
+  const backOps = backCtx.ops.map((op) => op[0]);
+  if (backOps.indexOf("glow") < 0 || backOps.indexOf("glow") > backOps.indexOf("draw") || backOps.indexOf("shard") >= 0) {
+    fail("the left crystal was not a glow behind the body");
   }
 
   if (SF.fresh().player.r !== 12) fail("hero collision radius changed");
@@ -2275,7 +2312,7 @@ async function runAtlasChecks() {
   const packPaths = {
     "kenmi.hero.base": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base_animations.png",
     "kenmi.hero.hair": "vendor/kenmi/Cute_Fantasy/Player/Head/Hair_1/Hair_1_Brown.png",
-    "kenmi.hero.shirt": "vendor/kenmi/Cute_Fantasy/Player/Chest/Royal_Shirt_1_Blue.png",
+    "kenmi.hero.shirt": "vendor/kenmi/Cute_Fantasy/Player/Chest/Royal_Shirt/Royal_Shirt_1_Blue.png",
     "kenmi.hero.pants": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
     "kenmi.hero.shoes": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png"
   };

@@ -1687,6 +1687,11 @@ SF.drawFieldHero = function (ctx, x, y, opts, moving, calm) {
     if (typeof SF.heroAnimator.clipFrames === "function") {
       need = SF.heroAnimator.clipFrames("idle").concat(SF.heroAnimator.clipFrames("walk"));
     }
+    var spot = SF.handCrystal && SF.handCrystal.place(picked);
+    var ahead = !need || (typeof rig.ready === "function" && rig.ready(need));
+    if (ahead && spot && spot.behind) {
+      try { SF.handCrystal.draw(ctx, x, y, picked); } catch (errGlow) { /* glow is optional */ }
+    }
     if (rig.draw(ctx, x, y, {
       name: picked.name,
       names: need,
@@ -1696,9 +1701,9 @@ SF.drawFieldHero = function (ctx, x, y, opts, moving, calm) {
       clip: picked.clip,
       scale: scale
     }) !== true) return false;
-    try {
-      if (SF.handCrystal) SF.handCrystal.draw(ctx, x, y, picked);
-    } catch (err2) { /* the doll is already drawn */ }
+    if (spot && !spot.behind) {
+      try { SF.handCrystal.draw(ctx, x, y, picked); } catch (err2) { /* the doll is already drawn */ }
+    }
     return true;
   } catch (err) {
     return false;
