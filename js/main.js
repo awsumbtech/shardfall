@@ -22,11 +22,33 @@ SF.noteOverlayPaint = function () {
   SF._overlayPaintAt = performance.now();
 };
 
+// Build the asset registry before the first frame. A missing manifest or
+// a failed atlas load leaves every key on the code-drawn art.
+SF.prepareAssets = function () {
+  if (!SF.AssetRegistry || !SF.SpriteRenderer) return null;
+  if (SF.assets && SF.spriteRenderer) return SF.assets;
+  var registry = new SF.AssetRegistry(SF.AssetManifest ? new SF.AssetManifest() : null);
+  SF.assets = registry;
+  SF.spriteRenderer = new SF.SpriteRenderer(registry);
+  if (SF.Animator && !SF.animator) SF.animator = new SF.Animator();
+  if (!SF.AssetManifest || typeof SF.AssetManifest.load !== "function") return registry;
+  SF.AssetManifest.load(SF.AssetManifest.URL).then(function (loaded) {
+    registry.setManifest(loaded || new SF.AssetManifest());
+    var paths = loaded && loaded.atlasList ? loaded.atlasList() : [];
+    if (!paths.length || !SF.AssetLoader || typeof SF.AssetLoader.images !== "function") return null;
+    return SF.AssetLoader.images(paths);
+  }).then(function (images) {
+    if (images) registry.noteImages(images);
+  }).catch(function () {});
+  return registry;
+};
+
 SF.boot = function () {
   if (window.Art && Art.wantsGallery && Art.wantsGallery()) {
     Art.openGallery();
     return;
   }
+  try { SF.prepareAssets(); } catch (err) { /* missing art must not stop boot */ }
   SF.view = document.getElementById("view");
   SF.map = document.getElementById("minimap");
   SF.ctx = SF.view.getContext("2d", { alpha: false }) || SF.view.getContext("2d");

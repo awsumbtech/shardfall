@@ -1485,7 +1485,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.22"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.23"')) fail("cache version");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1717,6 +1717,8 @@ SF.mountIsland("emberhold");
   if (play.battle._rows.length > play.battle._visible && !play.battle._moreBelow) fail("item list hides rows with no hint");
 }
 
+await runAssetChecks();
+
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
@@ -1725,5 +1727,188 @@ if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 
 const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit", env: childEnv });
 if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
+
+async function runAssetChecks() {
+  const dataJs = fs.readFileSync("js/data.js", "utf8");
+  if (!dataJs.includes('SF.VERSION = "0.4.23"')) fail("version was not bumped");
+  if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
+  if (!html.includes("v0.4.23")) fail("html version");
+  const drawJs = fs.readFileSync("js/draw.js", "utf8");
+  if (!drawJs.includes('id === "wayfarer"') || !drawJs.includes("SF.spriteRenderer")) {
+    fail("the field hero is not routed through the asset registry");
+  }
+  const assetFiles = [
+    "js/assets/manifest.js",
+    "js/assets/loader.js",
+    "js/assets/sheet.js",
+    "js/assets/animator.js",
+    "js/assets/registry.js",
+    "js/assets/renderer.js"
+  ];
+  for (const file of assetFiles) {
+    if (!fs.existsSync(file)) fail("missing " + file);
+    if (!html.includes('src="' + file + '"')) fail("page omits " + file);
+    if (!sw.includes('"' + file + '"')) fail("precache omits " + file);
+  }
+
+  const asset = {
+    console,
+    setTimeout,
+    clearTimeout,
+    Promise,
+    AbortController
+  };
+  asset.window = asset;
+  asset.Art = {
+    frames: [],
+    spriteCalls: [],
+    frameOf(id, pose, facing, frame) {
+      this.frames.push([id, pose, facing, frame]);
+      return { id, pose, facing, frame, width: 10, height: 12, _ax: 5, _ay: 11 };
+    },
+    sprite(ctx, id, x, y, opts) {
+      this.spriteCalls.push({ id, x, y, opts });
+    }
+  };
+  vm.createContext(asset);
+  for (const file of assetFiles) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), asset, { filename: file });
+  }
+  const A = asset.SF;
+
+  const anim = new A.Animator();
+  const down = anim.frame("walk", 0, "down");
+  if (down.frame !== 0 || down.dir !== "down" || down.row !== 0 || down.flip || down.name !== "walk.down.0") {
+    fail("walk down frame 0 was " + JSON.stringify(down));
+  }
+  const step = anim.frame("walk", 0.2, "down");
+  if (step.frame !== 1 || step.col !== 1) fail("walk at 0.2s was frame " + step.frame);
+  const left = anim.frame("walk", 0, "left");
+  const right = anim.frame("idle", 0, "right");
+  const up = anim.frame("idle", 0.5, "up");
+  if (!left.flip || left.dir !== "side" || left.row !== 1 || left.facing !== "left") fail("left was not a flipped side");
+  if (right.flip || right.dir !== "side" || right.row !== 1) fail("right was not the side row");
+  if (up.dir !== "up" || up.row !== 2 || up.frame !== 3 || up.flip) fail("idle up was " + JSON.stringify(up));
+  if (anim.frame("walk", 0.75, "down").frame !== 0) fail("walk did not loop");
+  const held = anim.frame("death", 100, "up");
+  if (held.frame !== 5 || held.dir !== "up" || held.flip) fail("death did not hold the last up frame");
+  if (anim.frame("no-such-clip", 0, "down").clip !== "idle") fail("a missing clip did not fall back to idle");
+  const named = new A.Animator({
+    walk: {
+      fps: 4,
+      loop: true,
+      names: { down: ["a", "b"], side: ["c"], up: ["d"] }
+    }
+  });
+  const namedFrame = named.frame("walk", 0, "side");
+  if (namedFrame.name !== "c" || namedFrame.flip || namedFrame.dir !== "side") {
+    fail("named side frame was " + namedFrame.name);
+  }
+
+  const sheet = new A.SpriteSheet(null, {
+    frames: [{ name: "walk.down.0", x: 1, y: 2, w: 3, h: 4 }],
+    grid: { cols: 2, rows: 2, w: 8, h: 8, names: ["a", "b", "c", "d"] }
+  });
+  if (!sheet.frame("walk.down.0") || sheet.frame("walk.down.0").w !== 3) fail("rect lookup");
+  const cell = sheet.frame("c");
+  if (!cell || cell.x !== 0 || cell.y !== 8 || cell.w !== 8) fail("grid lookup " + JSON.stringify(cell));
+  if (sheet.frame(2).name !== "b") fail("grid order");
+
+  const empty = new A.AssetRegistry(new A.AssetManifest());
+  const missed = empty.lookup("wayfarer", { pose: "stand", facing: "left", index: 1 });
+  if (missed.ready || missed.codeId !== "wayfarer") fail("empty registry did not fall back");
+  const code = empty.codeCanvas(missed);
+  if (!code || code.id !== "wayfarer" || asset.Art.frames[0].join("|") !== "wayfarer|stand|left|1") {
+    fail("fallback did not ask Art for the code sprite");
+  }
+
+  const declared = A.AssetManifest.fromData({
+    entries: [{
+      key: "hero.field",
+      atlas: "assets/atlas/field.png",
+      code: "wayfarer",
+      anchor: [16, 31],
+      frames: [{ name: "walk.down.0", x: 0, y: 0, w: 32, h: 32 }]
+    }]
+  });
+  if (declared.atlasList().join(",") !== "assets/atlas/field.png") fail("atlas list");
+  const pending = new A.AssetRegistry(declared);
+  const unloaded = pending.lookup("hero.field", { pose: "walk", facing: "down", index: 0 });
+  if (unloaded.ready || unloaded.codeId !== "wayfarer") fail("a missing image was treated as loaded");
+  pending.noteImage("assets/atlas/field.png", { width: 32, height: 32 });
+  const loaded = pending.lookup("hero.field", { name: "walk.down.0" });
+  if (!loaded.ready || !loaded.frame || loaded.frame.w !== 32 || loaded.anchor.y !== 31) {
+    fail("loaded frame was " + JSON.stringify(loaded.frame));
+  }
+  const stillCode = pending.lookup("maren");
+  if (stillCode.ready || stillCode.codeId !== "maren") fail("an unknown key stopped falling back");
+
+  const renderer = new A.SpriteRenderer(empty);
+  const fakeCtx = { imageSmoothingEnabled: true };
+  renderer.draw(fakeCtx, "wayfarer", 12, 24, { pose: "stand", facing: "right", frame: 0, scale: 1 });
+  const call = asset.Art.spriteCalls[0];
+  if (!call || call.id !== "wayfarer" || call.x !== 12 || call.y !== 24 || call.opts.pose !== "stand" || call.opts.scale !== 1) {
+    fail("renderer fallback did not call Art.sprite");
+  }
+  const sheetCtx = {
+    imageSmoothingEnabled: true,
+    draws: [],
+    save() {},
+    restore() {},
+    translate() {},
+    scale() {},
+    drawImage(...args) { this.draws.push(args); }
+  };
+  const sheetRenderer = new A.SpriteRenderer(pending);
+  const beforeCalls = asset.Art.spriteCalls.length;
+  sheetRenderer.draw(sheetCtx, "hero.field", 0, 0, { scale: 1, frame: 0 });
+  if (!sheetCtx.draws.length || sheetCtx.draws[0][1] !== 0 || sheetCtx.draws[0][3] !== 32) {
+    fail("sheet frame was not drawn");
+  }
+  if (asset.Art.spriteCalls.length !== beforeCalls) fail("a loaded frame also drew the code sprite");
+
+  const missingManifest = await A.AssetManifest.load("assets/atlas/manifest.json", () => null);
+  if (missingManifest.keys().length) fail("a missing manifest was not empty");
+  const thrownManifest = await A.AssetManifest.load("assets/atlas/manifest.json", () => {
+    throw new Error("gone");
+  });
+  if (thrownManifest.keys().length) fail("a thrown manifest read escaped");
+  const badManifest = await A.AssetManifest.load("assets/atlas/manifest.json", () => Promise.reject(new Error("nope")));
+  if (badManifest.keys().length) fail("a rejected manifest read escaped");
+
+  asset.fetch = () => Promise.reject(new Error("offline"));
+  if (await A.AssetLoader.json("assets/atlas/manifest.json", 200) !== null) fail("a failed json load rejected");
+  asset.fetch = () => Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({ entries: [{ key: "x" }] }) });
+  if (await A.AssetLoader.json("assets/atlas/manifest.json", 200) !== null) fail("a 404 was treated as a manifest");
+  asset.fetch = () => new Promise(() => {});
+  if (await A.AssetLoader.json("assets/atlas/manifest.json", 30) !== null) fail("a hung json load did not time out");
+
+  function FakeImage() {}
+  FakeImage.prototype = {
+    set src(url) {
+      const img = this;
+      Promise.resolve().then(() => {
+        if (String(url).indexOf("missing") >= 0) {
+          if (img.onerror) img.onerror();
+        } else if (img.onload) {
+          img.naturalWidth = 8;
+          img.naturalHeight = 8;
+          img.onload();
+        }
+      });
+    }
+  };
+  asset.Image = FakeImage;
+  const images = await A.AssetLoader.images(["assets/atlas/field.png", "assets/atlas/missing.png"], 200);
+  if (!images["assets/atlas/field.png"] || images["assets/atlas/missing.png"]) {
+    fail("image batch did not keep the good file and drop the bad one");
+  }
+  function HungImage() {}
+  HungImage.prototype = { set src(_) {} };
+  asset.Image = HungImage;
+  if (await A.AssetLoader.image("assets/atlas/field.png", 30) !== null) fail("a hung image load did not time out");
+
+  console.log("asset checks ok");
+}
 
 console.log("smoke ok");
