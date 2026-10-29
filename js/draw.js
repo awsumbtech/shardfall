@@ -1647,14 +1647,22 @@ SF.drawActor = function (ctx, id, x, y, fx, fy, moving, alpha, phase) {
     pose = "stand";
     frame = calm ? 0 : Math.floor((SF.anim + (phase || 0)) * 2) % 2;
   }
-  ctx.save();
-  ctx.globalAlpha = alpha == null ? 1 : alpha;
-  Art.sprite(ctx, id, x, y, {
+  var opts = {
     facing: SF.artFacing(fx, fy),
     frame: frame,
     pose: pose,
     scale: Art.fieldScale(id)
-  });
+  };
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  // The field hero asks the registry first. With no atlas loaded this draws
+  // the same code sprite the other actors still draw directly.
+  var drew = false;
+  if (id === "wayfarer" && SF.spriteRenderer && typeof SF.spriteRenderer.draw === "function") {
+    try { drew = SF.spriteRenderer.draw(ctx, id, x, y, opts) !== false; }
+    catch (err) { drew = false; }
+  }
+  if (!drew) Art.sprite(ctx, id, x, y, opts);
   ctx.restore();
   return true;
 };
