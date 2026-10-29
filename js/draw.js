@@ -1637,6 +1637,61 @@ SF.artFrame = function (moving, phase) {
   return Math.floor((SF.anim + (phase || 0)) * speed) % 4;
 };
 
+// The rig shares the registry. Built once, then the manifest can arrive later.
+SF.fieldHeroRig = function () {
+  if (SF._heroRig) return SF._heroRig;
+  if (!SF.LayeredSprite || !SF.assets || !SF.spriteRenderer) return null;
+  if (typeof SF.spriteRenderer.draw !== "function") return null;
+  SF._heroRig = new SF.LayeredSprite(SF.assets, SF.LayeredSprite.HERO, SF.spriteRenderer);
+  if (!SF.heroAnimator && SF.Animator) SF.heroAnimator = new SF.Animator();
+  return SF._heroRig;
+};
+
+// Add this step to the walk cycle. Capped at a full walk so a dash does not
+// strobe the feet. The shadow ring and the collision circle stay on this
+// same foot point; the rig draws its anchor there too.
+SF.noteHeroTravel = function (p) {
+  if (!p) return;
+  var token = p.x + "|" + p.y + "|" + p.px + "|" + p.py + "|" + (p.dashT || 0);
+  if (token === SF._heroTravelToken) return;
+  SF._heroTravelToken = token;
+  var moved = Math.hypot((p.x - p.px) || 0, (p.y - p.py) || 0);
+  var walk = SF.Animator && SF.Animator.WALK_SPEED > 0 ? SF.Animator.WALK_SPEED : 150;
+  var dt = SF.stepDt > 0 ? SF.stepDt : 1 / 60;
+  var cap = walk * dt;
+  if (moved > cap) moved = cap;
+  if (moved > 0) SF.heroTravel = (SF.heroTravel || 0) + moved;
+};
+
+// True when the layered atlas hero was drawn. False means the caller draws
+// the code sprite with the opts it already built.
+SF.drawFieldHero = function (ctx, x, y, opts, moving, calm) {
+  var rig = SF.fieldHeroRig();
+  if (!rig || !SF.heroAnimator || typeof SF.heroAnimator.pose !== "function") return false;
+  var scale = SF.LayeredSprite.FIELD_SCALE;
+  var picked;
+  try {
+    picked = SF.heroAnimator.pose({
+      moving: !!moving,
+      facing: opts && opts.facing,
+      time: SF.anim || 0,
+      hold: !!calm && !moving,
+      distance: SF.heroTravel || 0,
+      scale: scale
+    });
+    return rig.draw(ctx, x, y, {
+      name: picked.name,
+      frame: picked.frame,
+      facing: opts && opts.facing,
+      flip: picked.flip,
+      clip: picked.clip,
+      scale: scale
+    }) === true;
+  } catch (err) {
+    return false;
+  }
+};
+
 SF.drawActor = function (ctx, id, x, y, fx, fy, moving, alpha, phase) {
   if (!window.Art || !Art.sprite) return false;
   var calm = SF.calm && SF.calm();
@@ -1655,11 +1710,11 @@ SF.drawActor = function (ctx, id, x, y, fx, fy, moving, alpha, phase) {
   };
   ctx.save();
   ctx.globalAlpha = alpha == null ? 1 : alpha;
-  // The field hero asks the registry first. With no atlas loaded this draws
-  // the same code sprite the other actors still draw directly.
+  // Only the field hero uses the atlas. Anyone else, and a hero with no
+  // atlas, draws the code sprite with the opts above, unchanged.
   var drew = false;
   if (id === "wayfarer" && SF.spriteRenderer && typeof SF.spriteRenderer.draw === "function") {
-    try { drew = SF.spriteRenderer.draw(ctx, id, x, y, opts) !== false; }
+    try { drew = SF.drawFieldHero(ctx, x, y, opts, moving, calm); }
     catch (err) { drew = false; }
   }
   if (!drew) Art.sprite(ctx, id, x, y, opts);
@@ -1672,6 +1727,7 @@ SF.drawWayfarer = function (ctx, x, y, fx, fy, alpha, shardstep) {
   var p = SF.state && SF.state.player;
   if (p && Math.abs(p.x - x) < 0.01 && Math.abs(p.y - y) < 0.01) {
     moving = Math.hypot(p.x - p.px, p.y - p.py) > 0.2 || p.dashT > 0;
+    if (moving) SF.noteHeroTravel(p);
   }
   if (SF.drawActor(ctx, "wayfarer", x, y, fx, fy, moving, alpha, shardstep ? 1 : 0)) return;
   var ang = Math.atan2(fy, fx);

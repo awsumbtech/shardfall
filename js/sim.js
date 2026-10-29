@@ -1230,6 +1230,7 @@ SF.pumpMessages = function (dt) {
 };
 
 SF.update = function (dt) {
+  SF.stepDt = dt;
   var s = SF.state;
   if (!s) return;
   SF.anim = (SF.anim || 0) + dt;

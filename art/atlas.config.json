@@ -1,5 +1,5 @@
 {
-  "description": "Frames the game may pack. Keys stay under kenmi.hero so nothing in the game draws them yet.",
+  "description": "Field hero paper doll. The game draws these keys in order: base, pants, shoes, shirt, hair.",
   "atlas": "field",
   "maxSize": 768,
   "padding": 1,

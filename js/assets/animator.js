@@ -1,7 +1,15 @@
 "use strict";
 
-// One job: choose the frame of a named clip. It never draws.
-// Directions are down, side, and up. Left is the side row, flipped.
+// One job: choose the clip and the frame. It never draws.
+// Idle when the hero is still, walk while moving. Facing comes from the
+// stick and the keys. Directions are down, side, and up. Left is the side
+// row, flipped.
+//
+// A walk cycle is six frames and two steps. On the side row the planted
+// feet sit about 6 source pixels apart, so the full cycle covers 12 source
+// pixels. At the field walk of 150px/s and scale 1 that is 75 frames a
+// second. pose() advances by distance traveled, so a slower stick slows
+// the cycle and a planted foot stays with the ground.
 (function () {
   var SF = window.SF || {};
   window.SF = SF;
@@ -24,6 +32,28 @@
       hurt: { fps: 8, frames: 2, loop: false },
       death: { fps: 8, frames: 6, loop: false }
     };
+  };
+
+  // Source pixels of travel in one six-frame walk cycle (two steps).
+  Animator.WALK_STRIDE = 12;
+  // Field walk in world pixels per second. Matches the speed in js/sim.js.
+  Animator.WALK_SPEED = 150;
+
+  // Frames per second that keep the stride stuck to the ground at this speed.
+  Animator.walkFps = function (speed, scale, stride, frames) {
+    var rate = speed > 0 ? speed : Animator.WALK_SPEED;
+    var size = scale > 0 ? scale : 1;
+    var step = stride > 0 ? stride : Animator.WALK_STRIDE;
+    var count = frames > 0 ? frames : 6;
+    return rate / (step * size) * count;
+  };
+
+  // Same priority as the field: horizontal wins a tie, including a zero vector.
+  Animator.vectorFacing = function (fx, fy) {
+    fx = fx || 0;
+    fy = fy || 0;
+    if (Math.abs(fx) >= Math.abs(fy)) return fx < 0 ? "left" : "right";
+    return fy < 0 ? "up" : "down";
   };
 
   Animator.facing = function (facing) {
@@ -105,6 +135,28 @@
       col: index,
       name: frameName
     };
+  };
+
+  // state: { moving, facing, fx, fy, time, hold, distance, scale }.
+  // Walk frame index comes from distance / (stride * scale), not from a clock.
+  Animator.prototype.pose = function (state) {
+    state = state || {};
+    var facing = state.facing;
+    if (facing == null) facing = Animator.vectorFacing(state.fx, state.fy);
+    if (!state.moving) return this.frame("idle", state.hold ? 0 : (state.time || 0), facing);
+    var clip = this.clips.walk || Animator.normalize("walk", { frames: 6, fps: 8 });
+    var scale = state.scale > 0 ? state.scale : 1;
+    var stride = this.stride > 0 ? this.stride : Animator.WALK_STRIDE;
+    var cycle = stride * scale;
+    var dist = state.distance > 0 ? state.distance : 0;
+    var index = 0;
+    if (cycle > 0 && clip.count > 1) {
+      index = Math.floor(dist / cycle * clip.count);
+      if (index < 0) index = 0;
+      index = index % clip.count;
+    }
+    var fps = clip.fps > 0 ? clip.fps : 8;
+    return this.frame("walk", index / fps, facing);
   };
 
   SF.Animator = Animator;

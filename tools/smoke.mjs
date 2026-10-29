@@ -1485,7 +1485,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.24"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.25"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -1734,12 +1734,13 @@ if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.24"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.25"')) fail("version was not bumped");
   if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
   if (!dataJs.includes("Behind the scenes: packed art is ready for the site, with no visible change.")) {
     fail("whats new atlas line");
   }
-  if (!html.includes("v0.4.24")) fail("html version");
+  if (!dataJs.includes("New hero sprite on the map.")) fail("whats new hero line");
+  if (!html.includes("v0.4.25")) fail("html version");
   const drawJs = fs.readFileSync("js/draw.js", "utf8");
   if (!drawJs.includes('id === "wayfarer"') || !drawJs.includes("SF.spriteRenderer")) {
     fail("the field hero is not routed through the asset registry");
@@ -1750,7 +1751,8 @@ async function runAssetChecks() {
     "js/assets/sheet.js",
     "js/assets/animator.js",
     "js/assets/registry.js",
-    "js/assets/renderer.js"
+    "js/assets/renderer.js",
+    "js/assets/rig.js"
   ];
   for (const file of assetFiles) {
     if (!fs.existsSync(file)) fail("missing " + file);
@@ -1874,6 +1876,222 @@ async function runAssetChecks() {
   }
   if (asset.Art.spriteCalls.length !== beforeCalls) fail("a loaded frame also drew the code sprite");
 
+  if (A.Animator.walkFps(150, 1) !== 75) fail("full walk was " + A.Animator.walkFps(150, 1) + " fps");
+  if (A.Animator.walkFps(75, 1) !== 37.5) fail("half-speed walk fps");
+  if (A.Animator.walkFps(150, 2) !== 37.5) fail("scale 2 walk fps");
+  const pose = new A.Animator();
+  function expectPose(state, name, flip) {
+    const got = pose.pose(state);
+    if (got.name !== name || !!got.flip !== !!flip) {
+      fail("pose " + JSON.stringify(state) + " was " + got.name + " flip " + got.flip);
+    }
+    return got;
+  }
+  expectPose({ moving: false, facing: "down", time: 0 }, "idle.down.0", false);
+  expectPose({ moving: false, facing: "left", time: 0 }, "idle.side.0", true);
+  expectPose({ moving: false, facing: "right", time: 0 }, "idle.side.0", false);
+  expectPose({ moving: false, facing: "up", time: 0 }, "idle.up.0", false);
+  expectPose({ moving: true, facing: "down", distance: 0 }, "walk.down.0", false);
+  expectPose({ moving: true, facing: "left", distance: 0 }, "walk.side.0", true);
+  expectPose({ moving: true, facing: "right", distance: 0 }, "walk.side.0", false);
+  expectPose({ moving: true, facing: "up", distance: 0 }, "walk.up.0", false);
+  expectPose({ moving: true, fx: -1, fy: 0, distance: 0 }, "walk.side.0", true);
+  expectPose({ moving: true, fx: 1, fy: 0.2, distance: 0 }, "walk.side.0", false);
+  expectPose({ moving: true, fx: 0, fy: -1, distance: 0 }, "walk.up.0", false);
+  expectPose({ moving: true, fx: 0.2, fy: 1, distance: 0 }, "walk.down.0", false);
+  if (pose.pose({ moving: true, facing: "down", distance: 2 }).frame !== 1) fail("2px was not walk frame 1");
+  if (pose.pose({ moving: true, facing: "down", distance: 6 }).frame !== 3) fail("6px was not walk frame 3");
+  if (pose.pose({ moving: true, facing: "right", distance: 12 }).name !== "walk.side.0") fail("a full stride did not loop");
+  if (pose.pose({ moving: true, facing: "down", distance: 14 }).frame !== 1) fail("14px was not frame 1");
+  if (pose.pose({ moving: false, facing: "down", time: 0.5 }).frame !== 3) fail("idle at 0.5s");
+  if (pose.pose({ moving: false, facing: "down", time: 10, hold: true }).frame !== 0) fail("held idle moved");
+
+  const layers = A.LayeredSprite.HERO.slice();
+  if (layers.join(",") !== "kenmi.hero.base,kenmi.hero.pants,kenmi.hero.shoes,kenmi.hero.shirt,kenmi.hero.hair") {
+    fail("hero layers are " + layers.join(","));
+  }
+  if (A.LayeredSprite.FIELD_SCALE !== 1) fail("field hero scale is not 1");
+  const clipNames = ["idle.down.0", "idle.side.0", "idle.up.0", "walk.down.0", "walk.side.0", "walk.up.0"];
+  const standEntries = layers.map((key, layer) => ({
+    key,
+    atlas: "assets/atlas/field-0.png",
+    code: "wayfarer",
+    anchor: [32, 39],
+    frames: clipNames.map((name, n) => ({
+      name,
+      x: layer * 20 + n,
+      y: layer,
+      w: 10,
+      h: 12,
+      ox: 24 + layer,
+      oy: 22
+    }))
+  }));
+  const standImage = { width: 160, height: 16 };
+  const standManifest = A.AssetManifest.fromData({ entries: standEntries });
+  const standReg = new A.AssetRegistry(standManifest);
+  standReg.noteImage("assets/atlas/field-0.png", standImage);
+  const rig = new A.LayeredSprite(standReg, layers, new A.SpriteRenderer(standReg));
+  function paintCtx() {
+    return {
+      imageSmoothingEnabled: true,
+      ops: [],
+      save() { this.ops.push(["save"]); },
+      restore() { this.ops.push(["restore"]); },
+      translate(x, y) { this.ops.push(["translate", x, y]); },
+      scale(x, y) { this.ops.push(["scale", x, y]); },
+      drawImage(...args) { this.ops.push(["draw", args]); }
+    };
+  }
+  const stacked = paintCtx();
+  if (!rig.draw(stacked, 80, 90, { name: "walk.down.0", flip: false, scale: 1 })) fail("stand-in rig did not draw");
+  const layerDraws = stacked.ops.filter((op) => op[0] === "draw").map((op) => op[1]);
+  if (layerDraws.length !== layers.length) fail("rig drew " + layerDraws.length + " layers");
+  const downIndex = clipNames.indexOf("walk.down.0");
+  for (let i = 0; i < layers.length; i++) {
+    const args = layerDraws[i];
+    if (args[0] !== standImage || args[1] !== i * 20 + downIndex || args[2] !== i || args[3] !== 10) {
+      fail("layer " + layers[i] + " blit " + args.slice(1, 4).join(","));
+    }
+    if (args[5] !== 72 + i || args[6] !== 73 || args[7] !== 10 || args[8] !== 12) {
+      fail("layer " + i + " feet dest " + args.slice(5).join(","));
+    }
+  }
+  if (stacked.imageSmoothingEnabled !== true) fail("smoothing was left on");
+  const mirrored = paintCtx();
+  if (!rig.draw(mirrored, 80, 90, { name: "walk.side.0", flip: true, scale: 1 })) fail("left rig did not draw");
+  const mirrors = mirrored.ops.filter((op) => op[0] === "scale");
+  if (mirrors.length !== 5 || mirrors.some((op) => op[1] !== -1 || op[2] !== 1)) fail("left did not mirror the side row");
+  const shifts = mirrored.ops.filter((op) => op[0] === "translate");
+  for (let i = 0; i < shifts.length; i++) {
+    if (shifts[i][1] !== 88 - i || shifts[i][2] !== 73) fail("left foot moved to " + shifts[i].slice(1).join(","));
+  }
+  const grown = paintCtx();
+  rig.draw(grown, 0, 0, { name: "idle.down.0", scale: 2 });
+  const grownDraw = grown.ops.find((op) => op[0] === "draw");
+  if (!grownDraw || grownDraw[1][7] !== 20 || grownDraw[1][8] !== 24) fail("2x was not a whole-pixel scale");
+  const fractional = paintCtx();
+  rig.draw(fractional, 0, 0, { name: "idle.down.0", scale: 1.2 });
+  const fractionalDraw = fractional.ops.find((op) => op[0] === "draw");
+  if (!fractionalDraw || fractionalDraw[1][7] !== 10) fail("a fractional scale was drawn");
+  const bare = paintCtx();
+  const baseOnly = new A.LayeredSprite(
+    new A.AssetRegistry(A.AssetManifest.fromData({ entries: [standEntries[0]] })),
+    layers,
+    new A.SpriteRenderer(null)
+  );
+  baseOnly.registry.noteImage("assets/atlas/field-0.png", standImage);
+  if (baseOnly.draw(bare, 0, 0, { name: "idle.down.0", scale: 1 })) fail("a missing layer still drew");
+  if (bare.ops.some((op) => op[0] === "draw")) fail("a partial doll was painted");
+
+  vm.runInContext(fs.readFileSync("js/draw.js", "utf8"), asset, { filename: "js/draw.js" });
+  asset.Art.fieldScale = function () { return 1; };
+  asset.Art.fieldCast = { wayfarer: 1 };
+  asset.SF.calm = function () { return false; };
+  asset.SF.assets = new A.AssetRegistry(new A.AssetManifest());
+  asset.SF.spriteRenderer = new A.SpriteRenderer(asset.SF.assets);
+  asset.SF._heroRig = null;
+  asset.SF.heroAnimator = null;
+  asset.SF.heroTravel = 0;
+  asset.SF._heroTravelToken = null;
+  asset.SF.anim = 0.5;
+  asset.Art.spriteCalls = [];
+  const quiet = {
+    save() {},
+    restore() {},
+    globalAlpha: 1,
+    imageSmoothingEnabled: false,
+    translate() {},
+    scale() {},
+    drawImage() {}
+  };
+  asset.SF.drawActor(quiet, "wayfarer", 40, 70, 0, 1, false, 1, 0);
+  const idleCall = asset.Art.spriteCalls[asset.Art.spriteCalls.length - 1];
+  if (!idleCall || idleCall.id !== "wayfarer" || idleCall.x !== 40 || idleCall.y !== 70 ||
+      idleCall.opts.pose !== "stand" || idleCall.opts.frame !== 1 || idleCall.opts.facing !== "down" ||
+      idleCall.opts.scale !== 1) {
+    fail("missing atlas did not keep the code hero " + JSON.stringify(idleCall));
+  }
+  asset.SF.anim = 0.3;
+  asset.Art.spriteCalls = [];
+  asset.SF.drawActor(quiet, "wayfarer", 40, 70, -1, 0, true, 1, 0);
+  const walkCall = asset.Art.spriteCalls.pop();
+  if (!walkCall || walkCall.opts.pose !== "walk" || walkCall.opts.facing !== "left" ||
+      walkCall.opts.frame !== 2 || walkCall.opts.scale !== 1 || walkCall.x !== 40 || walkCall.y !== 70) {
+    fail("moving fallback was " + JSON.stringify(walkCall && walkCall.opts));
+  }
+  asset.Art.spriteCalls = [];
+  asset.SF.drawActor(quiet, "maren", 3, 4, 1, 0, false, 1, 0);
+  const npcCall = asset.Art.spriteCalls.pop();
+  if (!npcCall || npcCall.id !== "maren" || npcCall.x !== 3 || npcCall.y !== 4) fail("an npc used the hero rig");
+
+  asset.SF.assets.setManifest(A.AssetManifest.fromData({ entries: [standEntries[0]] }));
+  asset.SF.assets.noteImage("assets/atlas/field-0.png", standImage);
+  asset.SF._heroRig = null;
+  asset.SF.anim = 0;
+  asset.Art.spriteCalls = [];
+  const partialCtx = paintCtx();
+  asset.SF.drawActor(partialCtx, "wayfarer", 10, 20, 0, 1, false, 1, 0);
+  if (partialCtx.ops.some((op) => op[0] === "draw")) fail("a partial hero was drawn before fallback");
+  const partialCall = asset.Art.spriteCalls.pop();
+  if (!partialCall || partialCall.id !== "wayfarer" || partialCall.opts.pose !== "stand" || partialCall.opts.scale !== 1) {
+    fail("partial atlas did not fall back to the code hero");
+  }
+
+  asset.SF.assets.setManifest(standManifest);
+  asset.SF.assets.noteImage("assets/atlas/field-0.png", standImage);
+  asset.SF._heroRig = null;
+  asset.SF.heroTravel = 0;
+  asset.Art.spriteCalls = [];
+  const live = paintCtx();
+  asset.SF.drawActor(live, "wayfarer", 80, 90, 1, 0, true, 1, 0);
+  if (asset.Art.spriteCalls.length) fail("a loaded hero also drew the code sprite");
+  const liveDraws = live.ops.filter((op) => op[0] === "draw").map((op) => op[1]);
+  if (liveDraws.length !== 5) fail("field hero drew " + liveDraws.length + " layers");
+  const sideIndex = clipNames.indexOf("walk.side.0");
+  for (let i = 0; i < liveDraws.length; i++) {
+    if (liveDraws[i][1] !== i * 20 + sideIndex || liveDraws[i][5] !== 72 + i) {
+      fail("field layer " + i + " was " + liveDraws[i].slice(1).join(","));
+    }
+  }
+  asset.Art.spriteCalls = [];
+  const leftLive = paintCtx();
+  asset.SF.drawActor(leftLive, "wayfarer", 80, 90, -1, 0, true, 1, 0);
+  const leftScales = leftLive.ops.filter((op) => op[0] === "scale");
+  if (asset.Art.spriteCalls.length || leftScales.length !== 5 || leftScales.some((op) => op[1] !== -1)) {
+    fail("the field hero did not mirror left");
+  }
+
+  asset.SF.heroTravel = 0;
+  asset.SF._heroTravelToken = null;
+  asset.SF.stepDt = 0.1;
+  asset.SF.noteHeroTravel({ x: 10, y: 0, px: 0, py: 0, dashT: 0 });
+  if (asset.SF.heroTravel !== 10) fail("walk travel was " + asset.SF.heroTravel);
+  asset.SF.noteHeroTravel({ x: 10, y: 0, px: 0, py: 0, dashT: 0 });
+  if (asset.SF.heroTravel !== 10) fail("one step was counted twice");
+  asset.SF.noteHeroTravel({ x: 40, y: 0, px: 10, py: 0, dashT: 0.1 });
+  if (Math.abs(asset.SF.heroTravel - 25) > 1e-6) fail("a fast step was not capped at a walk " + asset.SF.heroTravel);
+  asset.SF.state = { player: { x: 5, y: 6, px: 5, py: 6, fx: 1, fy: 0, dashT: 0 } };
+  asset.SF.heroTravel = 0;
+  asset.SF._heroTravelToken = null;
+  asset.SF.drawWayfarer(quiet, 99, 99, 1, 0, 1, false);
+  asset.SF.drawWayfarer(quiet, 5, 6, 1, 0, 1, false);
+  if (asset.SF.heroTravel) fail("standing or a ghost advanced the cycle");
+  asset.SF.state.player.x = 8;
+  asset.SF.state.player.px = 5;
+  asset.SF.stepDt = 1;
+  asset.SF.drawWayfarer(quiet, 8, 6, 1, 0, 1, false);
+  if (asset.SF.heroTravel !== 3) fail("the hero step was " + asset.SF.heroTravel);
+
+  if (SF.fresh().player.r !== 12) fail("hero collision radius changed");
+  if (!drawJs.includes("SF.drawShadow(ctx, p.x, p.y, aboardHero ? 5 : 11, aboardHero ? 0 : 1)")) {
+    fail("hero shadow left the feet");
+  }
+  if (!drawJs.includes("ctx.ellipse(p.x, p.y + 1, 11, 11 * 0.45")) fail("hero ring left the feet");
+  if (!drawJs.includes("ctx.fillText(n.name, nx, ny - 34)")) fail("name tag moved");
+  if (!drawJs.includes("SF.GUIDE_HEAD = 60")) fail("quest diamond moved");
+  if (fs.readFileSync("js/battle/draw.js", "utf8").includes("LayeredSprite")) fail("battle draws the field rig");
+
   const missingManifest = await A.AssetManifest.load("assets/atlas/manifest.json", () => null);
   if (missingManifest.keys().length) fail("a missing manifest was not empty");
   const thrownManifest = await A.AssetManifest.load("assets/atlas/manifest.json", () => {
@@ -1938,16 +2156,22 @@ async function runAtlasChecks() {
   }
 
   const declared = JSON.parse(fs.readFileSync("art/atlas.config.json", "utf8"));
-  const gameJs = [];
+  const gameFiles = [];
   function walkJs(dir) {
     for (const name of fs.readdirSync(dir)) {
       const file = path.join(dir, name);
       if (fs.statSync(file).isDirectory()) walkJs(file);
-      else if (name.endsWith(".js")) gameJs.push(fs.readFileSync(file, "utf8"));
+      else if (name.endsWith(".js")) gameFiles.push(file);
     }
   }
   walkJs("js");
-  const gameText = gameJs.join("\n");
+  const rigText = fs.readFileSync("js/assets/rig.js", "utf8");
+  let layerAt = -1;
+  for (const part of ["base", "pants", "shoes", "shirt", "hair"]) {
+    const at = rigText.indexOf("kenmi.hero." + part);
+    if (at < 0 || at < layerAt) fail("hero layers are out of order in the rig");
+    layerAt = at;
+  }
   if (!declared.entries || declared.entries.length < 2) fail("atlas config needs more than one sheet");
   const packPaths = {
     "kenmi.hero.base": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base_animations.png",
@@ -1968,7 +2192,11 @@ async function runAtlasChecks() {
   const packs = new Set();
   for (const entry of declared.entries) {
     if (!entry.key || !entry.key.startsWith("kenmi.hero.")) fail("packed key is visible to the game: " + entry.key);
-    if (gameText.includes(entry.key)) fail("the game references " + entry.key);
+    if (!rigText.includes(entry.key)) fail("the field rig does not draw " + entry.key);
+    for (const file of gameFiles) {
+      if (file === "js/assets/rig.js") continue;
+      if (fs.readFileSync(file, "utf8").includes(entry.key)) fail(file + " references " + entry.key);
+    }
     if (!wellFormedPackPath(entry.path)) fail("pack path is not well-formed: " + entry.path);
     if (packPaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
     if (!entry.anchor || entry.anchor[0] !== 32 || entry.anchor[1] !== 39) fail(entry.key + " foot anchor is not the measured foot line");
