@@ -1485,7 +1485,10 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.23"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.24"')) fail("cache version");
+if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
+if (!sw.includes("function isRuntimeAtlas") || !sw.includes("/assets/atlas/")) fail("runtime atlas cache missing");
+if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("atlas cache is not cache-first");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1730,9 +1733,12 @@ if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.23"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.24"')) fail("version was not bumped");
   if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
-  if (!html.includes("v0.4.23")) fail("html version");
+  if (!dataJs.includes("Behind the scenes: packed art is ready for the site, with no visible change.")) {
+    fail("whats new atlas line");
+  }
+  if (!html.includes("v0.4.24")) fail("html version");
   const drawJs = fs.readFileSync("js/draw.js", "utf8");
   if (!drawJs.includes('id === "wayfarer"') || !drawJs.includes("SF.spriteRenderer")) {
     fail("the field hero is not routed through the asset registry");
@@ -1909,6 +1915,173 @@ async function runAssetChecks() {
   if (await A.AssetLoader.image("assets/atlas/field.png", 30) !== null) fail("a hung image load did not time out");
 
   console.log("asset checks ok");
+  await runAtlasChecks();
+}
+
+async function runAtlasChecks() {
+  const { PNG } = await import("pngjs");
+  const { ConfigReader } = await import("./atlas/config-reader.js");
+  const { FrameExtractor } = await import("./atlas/frame-extractor.js");
+  const { Packer } = await import("./atlas/packer.js");
+  const manifestVm = { console, setTimeout, clearTimeout, Promise };
+  manifestVm.window = manifestVm;
+  vm.createContext(manifestVm);
+  vm.runInContext(fs.readFileSync("js/assets/manifest.js", "utf8"), manifestVm, { filename: "js/assets/manifest.js" });
+  const Manifest = manifestVm.SF.AssetManifest;
+  const atlasSrc = fs.readdirSync("tools/atlas").filter((name) => name.endsWith(".js")).map((name) => {
+    return fs.readFileSync(path.join("tools/atlas", name), "utf8");
+  }).join("\n");
+  if (/\bfetch\s*\(|\bhttps?:\/\//.test(atlasSrc)) fail("atlas tools make a network call");
+  for (const name of ["config-reader.js", "frame-extractor.js", "packer.js", "atlas-writer.js", "cli.js"]) {
+    if (!fs.existsSync(path.join("tools/atlas", name))) fail("missing atlas module " + name);
+  }
+
+  const declared = JSON.parse(fs.readFileSync("art/atlas.config.json", "utf8"));
+  const gameJs = [];
+  function walkJs(dir) {
+    for (const name of fs.readdirSync(dir)) {
+      const file = path.join(dir, name);
+      if (fs.statSync(file).isDirectory()) walkJs(file);
+      else if (name.endsWith(".js")) gameJs.push(fs.readFileSync(file, "utf8"));
+    }
+  }
+  walkJs("js");
+  const gameText = gameJs.join("\n");
+  if (!declared.entries || declared.entries.length < 2) fail("atlas config needs more than one sheet");
+  const packs = new Set();
+  for (const entry of declared.entries) {
+    if (!entry.key || !entry.key.startsWith("kenmi.hero.")) fail("packed key is visible to the game: " + entry.key);
+    if (gameText.includes(entry.key)) fail("the game references " + entry.key);
+    if (!entry.path || !entry.path.startsWith("vendor/kenmi/")) fail("pack path is not under vendor/kenmi");
+    packs.add(entry.path.split("/")[2]);
+    if (entry.path.includes("Cute_Fantasy_Free")) fail("the free pack is non-commercial");
+    const clips = entry.grid && entry.grid.clips || [];
+    const names = clips.map((clip) => clip.name).sort().join(",");
+    if (names !== "idle.down,idle.side,idle.up,walk.down,walk.side,walk.up") {
+      fail(entry.key + " is not idle and walk in three directions");
+    }
+  }
+  const reader = new ConfigReader(declared);
+  const planned = reader.frames();
+  if (![...packs].includes("Cute_Fantasy")) fail("hero frames are not from Cute_Fantasy");
+  if (planned.length !== declared.entries.length * 36) fail("hero clip did not expand to 36 frames");
+  const packer = new Packer({
+    padding: reader.padding,
+    maxSize: reader.maxSize,
+    shuffle: true,
+    seed: reader.seed
+  });
+  const plannedPages = packer.pack(planned.map((frame) => ({
+    key: frame.key,
+    file: frame.file,
+    w: frame.w + reader.extrude * 2,
+    h: frame.h + reader.extrude * 2
+  })));
+  if (plannedPages.length < 2) fail("the hero frames packed into one atlas");
+  if (!plannedPages.some((page) => new Set(page.placements.map((p) => p.frame.file)).size > 1)) {
+    fail("atlas pages did not mix source sheets");
+  }
+  const straight = new Packer({ padding: 1, maxSize: 64, shuffle: false, seed: 1 });
+  const mixedUp = new Packer({ padding: 1, maxSize: 64, shuffle: true, seed: 1 });
+  const tiles = [0, 1, 2].map((n) => ({ key: "k" + n, w: 4, h: 4, n }));
+  const a = straight.pack(tiles)[0].placements.map((p) => p.frame.n + "@" + p.x);
+  const b = mixedUp.pack(tiles)[0].placements.map((p) => p.frame.n + "@" + p.x);
+  if (a.join(",") === b.join(",")) fail("shuffle did not move frames");
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shardfall-atlas-"));
+  const packA = path.join(dir, "pack-a");
+  const packB = path.join(dir, "pack-b");
+  fs.mkdirSync(packA, { recursive: true });
+  fs.mkdirSync(packB, { recursive: true });
+  function paint(file, width, height, fill) {
+    const png = new PNG({ width, height });
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const rgba = fill(x, y);
+        png.data[i] = rgba[0];
+        png.data[i + 1] = rgba[1];
+        png.data[i + 2] = rgba[2];
+        png.data[i + 3] = rgba[3];
+      }
+    }
+    fs.writeFileSync(file, PNG.sync.write(png));
+  }
+  paint(path.join(packA, "sheet.png"), 8, 4, (x, y) => [20 + x * 20, y * 40, 10, 255]);
+  paint(path.join(packB, "sheet.png"), 4, 4, () => [0, 80, 200, 255]);
+  const cfg = {
+    atlas: "field",
+    maxSize: 64,
+    padding: 1,
+    extrude: 1,
+    shuffle: true,
+    seed: 3,
+    entries: [
+      {
+        key: "kenmi.hero.base",
+        path: "pack-a/sheet.png",
+        code: "wayfarer",
+        anchor: [1, 3],
+        rects: [{ name: "idle.down.0", x: 1, y: 1, w: 2, h: 2 }]
+      },
+      {
+        key: "kenmi.hero.hair",
+        path: "pack-b/sheet.png",
+        code: "wayfarer",
+        anchor: [1, 3],
+        grid: { cell: 2, clips: [{ name: "walk.side", row: 0, count: 2 }] }
+      }
+    ]
+  };
+  const cfgFile = path.join(dir, "atlas.config.json");
+  const outDir = path.join(dir, "out");
+  fs.writeFileSync(cfgFile, JSON.stringify(cfg));
+  const missing = spawnSync(process.execPath, [
+    "tools/atlas/cli.js", "--config", cfgFile, "--assets", path.join(dir, "nope"), "--out", outDir
+  ], { encoding: "utf8" });
+  if (missing.status === 0) fail("the packer succeeded without an assets dir");
+  const packed = spawnSync(process.execPath, [
+    "tools/atlas/cli.js", "--config", cfgFile, "--assets", dir, "--out", outDir
+  ], { encoding: "utf8" });
+  if (packed.status !== 0) fail("packer failed: " + (packed.stderr || packed.stdout));
+  const names = fs.readdirSync(outDir).sort();
+  if (names.some((name) => name !== "manifest.json" && !/^field-\d+\.png$/.test(name))) {
+    fail("atlas output was not just pngs and a manifest: " + names.join(","));
+  }
+  const manifest = JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf8"));
+  const loaded = Manifest.fromData(manifest);
+  if (loaded.keys().sort().join(",") !== "kenmi.hero.base,kenmi.hero.hair") fail("manifest keys");
+  const hair = loaded.get("kenmi.hero.hair");
+  const base = loaded.get("kenmi.hero.base");
+  if (!hair || hair.frames.length !== 2 || hair.frames[0].name !== "walk.side.0" || hair.frames[0].w !== 2) {
+    fail("grid frames were not written for the manifest");
+  }
+  if (!base || base.code !== "wayfarer" || !base.anchor || base.anchor.y !== 3 || base.frames[0].name !== "idle.down.0") {
+    fail("rect frame was not written for the manifest");
+  }
+  if (base.atlas !== hair.atlas) fail("frames from two packs did not share an atlas");
+  const atlasPng = PNG.sync.read(fs.readFileSync(path.join(outDir, path.basename(base.atlas))));
+  const srcA = PNG.sync.read(fs.readFileSync(path.join(packA, "sheet.png")));
+  const srcB = PNG.sync.read(fs.readFileSync(path.join(packB, "sheet.png")));
+  if (atlasPng.data.equals(srcA.data) || atlasPng.data.equals(srcB.data)) fail("a raw pack sheet was written");
+  if (atlasPng.width === srcA.width && atlasPng.height === srcA.height) fail("atlas kept a source sheet's size");
+  const frame = base.frames[0];
+  const sample = (png, x, y) => {
+    const i = (y * png.width + x) * 4;
+    return [png.data[i], png.data[i + 1], png.data[i + 2], png.data[i + 3]];
+  };
+  const got = sample(atlasPng, frame.x, frame.y);
+  const want = sample(srcA, 1, 1);
+  if (got.join(",") !== want.join(",")) fail("packed pixel was " + got.join(",") + " not " + want.join(","));
+  const edge = sample(atlasPng, frame.x - 1, frame.y);
+  if (edge.join(",") !== want.join(",")) fail("extruded edge did not copy the frame");
+  if (sample(atlasPng, 0, 0)[3] !== 0) fail("padding pixel was not empty");
+  const extractor = new FrameExtractor(1);
+  const cut = extractor.cut(path.join(packA, "sheet.png"), { name: "idle.down.0", x: 1, y: 1, w: 2, h: 2 });
+  if (cut.w !== 4 || cut.h !== 4) fail("extrusion did not grow the frame");
+  if (cut.data[((1 * cut.w) + 1) * 4] !== srcA.data[(1 * srcA.width + 1) * 4]) fail("inner pixel changed");
+  fs.rmSync(dir, { recursive: true, force: true });
+  console.log("atlas checks ok");
 }
 
 console.log("smoke ok");

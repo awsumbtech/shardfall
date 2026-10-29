@@ -1,6 +1,10 @@
 # Deploys the static game to GitHub Pages.
 # The site is served at https://awsumbtech.github.io/shardfall/
 # Pages is already set to build_type=workflow, so this file is the publish source.
+#
+# The private art repo is packed into _site/assets/atlas/ when the deploy key
+# works. A failed checkout or packer only warns: the site still publishes, and
+# the game keeps drawing the code art.
 
 name: Deploy to GitHub Pages
 
@@ -36,6 +40,40 @@ jobs:
           mkdir -p _site
           cp index.html sw.js manifest.webmanifest _site/
           cp -r css js icons _site/
+
+      - name: Checkout art packs
+        id: assets
+        continue-on-error: true
+        uses: actions/checkout@v6
+        with:
+          repository: awsumbtech/shardfall-assets
+          path: .assets-vendor
+          ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+          persist-credentials: false
+
+      - name: Pack atlases
+        id: atlas
+        if: steps.assets.outcome == 'success'
+        continue-on-error: true
+        run: |
+          npm ci
+          mkdir -p _site/assets/atlas
+          node tools/atlas/cli.js --config art/atlas.config.json --assets .assets-vendor --out _site/assets/atlas
+
+      - name: Warn if atlases were skipped
+        if: always() && (steps.assets.outcome != 'success' || steps.atlas.outcome != 'success')
+        run: echo "::warning title=Art packs skipped::The private art checkout or the atlas packer failed. Deploying without atlases so the game keeps the code-drawn art."
+
+      - name: Keep pack files out of the site
+        if: always()
+        run: |
+          rm -rf .assets-vendor
+          leaked=$(find _site \( -iname '*kenmi*' -o -iname 'Player_Base*' -o -path '*/vendor/*' -o -path '*/.assets-vendor/*' \) -print)
+          if [ -n "$leaked" ]; then
+            echo "::error::Pack files leaked into the Pages site"
+            printf '%s\n' "$leaked"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

@@ -1,0 +1,13 @@
+{
+  "name": "shardfall",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "atlas": "node tools/atlas/cli.js --config art/atlas.config.json --out assets/atlas",
+    "smoke": "node tools/smoke.mjs",
+    "shards": "node tools/shard-check.mjs"
+  },
+  "dependencies": {
+    "pngjs": "7.0.0"
+  }
+}
