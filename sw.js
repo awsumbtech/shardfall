@@ -67,9 +67,9 @@ var SHELL = [
   "js/main.js"
 ];
 
-// assets/atlas/* stays off the precache list. Those files are optional, and
-// a missing manifest must not fail install. isRuntimeAtlas caches them on
-// first use, cache-first, in this versioned CACHE. A 404 is not stored.
+// assets/atlas/* stays off this list. A missing manifest must not fail install.
+// The cache-first fetch handler stores those files on first use, in this
+// versioned CACHE. A 404 is not stored.
 
 function freshRequest(url) {
   // A unique query misses the previous worker's cache. cache:"reload" and
@@ -130,11 +130,6 @@ function isDocument(request) {
   return path.endsWith("/index.html") || path.endsWith("/");
 }
 
-function isRuntimeAtlas(request) {
-  var path = new URL(request.url).pathname;
-  return path.indexOf("/assets/atlas/") !== -1;
-}
-
 function cacheFirst(request) {
   return caches.match(request).then(function (hit) {
     if (hit) return hit;
@@ -179,11 +174,6 @@ self.addEventListener("fetch", function (event) {
         });
       })
     );
-    return;
-  }
-
-  if (isRuntimeAtlas(request)) {
-    event.respondWith(cacheFirst(request));
     return;
   }
 

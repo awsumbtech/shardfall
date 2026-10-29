@@ -1487,8 +1487,9 @@ if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("ches
 const sw = fs.readFileSync("sw.js", "utf8");
 if (!sw.includes('CACHE = "shardfall-v0.4.24"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
-if (!sw.includes("function isRuntimeAtlas") || !sw.includes("/assets/atlas/")) fail("runtime atlas cache missing");
-if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("atlas cache is not cache-first");
+if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
+if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
+if (!sw.includes("response.ok")) fail("a missing file would be cached");
 if (!sw.includes("skipWaiting")) fail("skipWaiting");
 if (!sw.includes('cache: "reload"') || !sw.includes("no-store")) fail("install cache bypass");
 const refs = [...html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((href) => !/^[a-z]+:/i.test(href));
@@ -1948,11 +1949,29 @@ async function runAtlasChecks() {
   walkJs("js");
   const gameText = gameJs.join("\n");
   if (!declared.entries || declared.entries.length < 2) fail("atlas config needs more than one sheet");
+  const packPaths = {
+    "kenmi.hero.base": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base_animations.png",
+    "kenmi.hero.hair": "vendor/kenmi/Cute_Fantasy/Player/Head/Hair_1/Hair_1_Brown.png",
+    "kenmi.hero.shirt": "vendor/kenmi/Cute_Fantasy/Player/Chest/OG_Shirt/Shirt_1_Blue.png",
+    "kenmi.hero.pants": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
+    "kenmi.hero.shoes": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png"
+  };
+  function wellFormedPackPath(packPath) {
+    if (typeof packPath !== "string" || !packPath.endsWith(".png")) return false;
+    if (packPath.startsWith("/") || packPath.includes("\\") || packPath.includes("\0")) return false;
+    const parts = packPath.split("/");
+    if (parts.length < 4 || parts[0] !== "vendor" || parts[1] !== "kenmi") return false;
+    if (!parts[2] || parts[2] === "Cute_Fantasy_Free") return false;
+    if (parts.some((part) => !part || part === "." || part === "..")) return false;
+    return true;
+  }
   const packs = new Set();
   for (const entry of declared.entries) {
     if (!entry.key || !entry.key.startsWith("kenmi.hero.")) fail("packed key is visible to the game: " + entry.key);
     if (gameText.includes(entry.key)) fail("the game references " + entry.key);
-    if (!entry.path || !entry.path.startsWith("vendor/kenmi/")) fail("pack path is not under vendor/kenmi");
+    if (!wellFormedPackPath(entry.path)) fail("pack path is not well-formed: " + entry.path);
+    if (packPaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
+    if (!entry.anchor || entry.anchor[0] !== 32 || entry.anchor[1] !== 39) fail(entry.key + " foot anchor is not the measured foot line");
     packs.add(entry.path.split("/")[2]);
     if (entry.path.includes("Cute_Fantasy_Free")) fail("the free pack is non-commercial");
     const clips = entry.grid && entry.grid.clips || [];
@@ -1977,10 +1996,19 @@ async function runAtlasChecks() {
     w: frame.w + reader.extrude * 2,
     h: frame.h + reader.extrude * 2
   })));
-  if (plannedPages.length < 2) fail("the hero frames packed into one atlas");
+  if (plannedPages.reduce((n, page) => n + page.placements.length, 0) !== planned.length) {
+    fail("a declared hero frame was dropped");
+  }
   if (!plannedPages.some((page) => new Set(page.placements.map((p) => p.frame.file)).size > 1)) {
     fail("atlas pages did not mix source sheets");
   }
+  let badPathThrew = false;
+  try {
+    new ConfigReader({ entries: [{ key: "x", path: "vendor/kenmi/Cute_Fantasy/../secret.png", rects: [{ name: "a", x: 0, y: 0, w: 1, h: 1 }] }] }).frames();
+  } catch (err) {
+    badPathThrew = /not well-formed/.test(err.message);
+  }
+  if (!badPathThrew) fail("a path with .. was accepted");
   const straight = new Packer({ padding: 1, maxSize: 64, shuffle: false, seed: 1 });
   const mixedUp = new Packer({ padding: 1, maxSize: 64, shuffle: true, seed: 1 });
   const tiles = [0, 1, 2].map((n) => ({ key: "k" + n, w: 4, h: 4, n }));
@@ -2059,6 +2087,9 @@ async function runAtlasChecks() {
   if (!base || base.code !== "wayfarer" || !base.anchor || base.anchor.y !== 3 || base.frames[0].name !== "idle.down.0") {
     fail("rect frame was not written for the manifest");
   }
+  if (base.frames[0].ox !== 0 || base.frames[0].oy !== 0 || base.frames[0].w !== 2) {
+    fail("a full opaque cell was trimmed");
+  }
   if (base.atlas !== hair.atlas) fail("frames from two packs did not share an atlas");
   const atlasPng = PNG.sync.read(fs.readFileSync(path.join(outDir, path.basename(base.atlas))));
   const srcA = PNG.sync.read(fs.readFileSync(path.join(packA, "sheet.png")));
@@ -2080,6 +2111,104 @@ async function runAtlasChecks() {
   const cut = extractor.cut(path.join(packA, "sheet.png"), { name: "idle.down.0", x: 1, y: 1, w: 2, h: 2 });
   if (cut.w !== 4 || cut.h !== 4) fail("extrusion did not grow the frame");
   if (cut.data[((1 * cut.w) + 1) * 4] !== srcA.data[(1 * srcA.width + 1) * 4]) fail("inner pixel changed");
+
+  paint(path.join(dir, "sparse.png"), 8, 8, () => [0, 0, 0, 0]);
+  const sparse = PNG.sync.read(fs.readFileSync(path.join(dir, "sparse.png")));
+  for (let y = 4; y <= 5; y++) {
+    for (let x = 3; x <= 4; x++) {
+      const i = (y * 8 + x) * 4;
+      sparse.data[i] = 200;
+      sparse.data[i + 1] = 10;
+      sparse.data[i + 2] = 10;
+      sparse.data[i + 3] = 255;
+    }
+  }
+  fs.writeFileSync(path.join(dir, "sparse.png"), PNG.sync.write(sparse));
+  const trimCfg = {
+    atlas: "field",
+    maxSize: 64,
+    padding: 1,
+    extrude: 1,
+    shuffle: false,
+    entries: [{
+      key: "kenmi.hero.base",
+      path: "sparse.png",
+      code: "wayfarer",
+      anchor: [4, 5],
+      rects: [{ name: "idle.down.0", x: 0, y: 0, w: 8, h: 8 }]
+    }]
+  };
+  const trimCfgFile = path.join(dir, "trim.config.json");
+  const trimOut = path.join(dir, "trim-out");
+  fs.writeFileSync(trimCfgFile, JSON.stringify(trimCfg));
+  const trimmed = spawnSync(process.execPath, [
+    "tools/atlas/cli.js", "--config", trimCfgFile, "--assets", dir, "--out", trimOut, "--no-shuffle"
+  ], { encoding: "utf8" });
+  if (trimmed.status !== 0) fail("trim pack failed: " + (trimmed.stderr || trimmed.stdout));
+  const trimManifest = JSON.parse(fs.readFileSync(path.join(trimOut, "manifest.json"), "utf8"));
+  const trimLoaded = Manifest.fromData(trimManifest);
+  const trimFrame = trimLoaded.get("kenmi.hero.base").frames[0];
+  if (trimFrame.ox !== 2 || trimFrame.oy !== 3 || trimFrame.w !== 4 || trimFrame.h !== 4) {
+    fail("trimmed frame was " + JSON.stringify(trimFrame));
+  }
+  if (trimFrame.w * trimFrame.h >= 8 * 8) fail("trim left the empty cell");
+  const trimPng = PNG.sync.read(fs.readFileSync(path.join(trimOut, "field-0.png")));
+  const blob = sample(trimPng, trimFrame.x + 1, trimFrame.y + 1);
+  if (blob.join(",") !== "200,10,10,255") fail("trimmed pixel moved");
+  const foot = extractor.footLine(path.join(dir, "sparse.png"), [{ x: 0, y: 0, w: 8, h: 8 }]);
+  if (foot[0] !== 4 || foot[1] !== 5) fail("foot line measured " + foot.join(","));
+
+  const drawVm = { console, setTimeout, clearTimeout, Promise };
+  drawVm.window = drawVm;
+  vm.createContext(drawVm);
+  vm.runInContext(fs.readFileSync("js/assets/renderer.js", "utf8"), drawVm, { filename: "js/assets/renderer.js" });
+  const draws = [];
+  const trimRenderer = new drawVm.SF.SpriteRenderer(null);
+  trimRenderer.drawFrame({
+    imageSmoothingEnabled: false,
+    drawImage(...args) { draws.push(args); }
+  }, {
+    image: { width: 4, height: 4 },
+    anchor: { x: 4, y: 5 },
+    frame: trimFrame,
+    flip: false
+  }, 100, 80, { scale: 1 });
+  if (!draws.length || draws[0][5] !== 100 - (4 - trimFrame.ox) || draws[0][6] !== 80 - (5 - trimFrame.oy)) {
+    fail("trimmed anchor was not offset, dest " + (draws[0] && draws[0].slice(5, 7).join(",")));
+  }
+
+  if (process.env.ASSETS_DIR) {
+    const assetsDir = process.env.ASSETS_DIR;
+    if (!fs.existsSync(assetsDir) || !fs.statSync(assetsDir).isDirectory()) {
+      fail("ASSETS_DIR is set but missing: " + assetsDir);
+    }
+    const live = new FrameExtractor(0, 0);
+    const byFile = new Map();
+    for (const frame of planned) {
+      const abs = path.resolve(assetsDir, frame.file);
+      if (!fs.existsSync(abs)) fail("missing pack file " + frame.file);
+      if (!byFile.has(frame.file)) byFile.set(frame.file, []);
+      byFile.get(frame.file).push(frame);
+    }
+    for (const [rel, frames] of byFile) {
+      const abs = path.resolve(assetsDir, rel);
+      let opaque = 0;
+      for (const frame of frames) {
+        const piece = live.cut(abs, frame);
+        if (!piece.empty) opaque += 1;
+      }
+      if (!opaque) fail(rel + " yielded no opaque frame");
+    }
+    const baseRel = packPaths["kenmi.hero.base"];
+    const down = planned.filter((frame) => frame.key === "kenmi.hero.base" && frame.name.startsWith("idle.down."));
+    const measured = live.footLine(path.resolve(assetsDir, baseRel), down);
+    const declaredFoot = declared.entries.find((entry) => entry.key === "kenmi.hero.base").anchor;
+    if (Math.abs(measured[0] - declaredFoot[0]) > 2 || Math.abs(measured[1] - declaredFoot[1]) > 2) {
+      fail("foot line measured " + measured.join(",") + " but the config anchor is " + declaredFoot.join(","));
+    }
+    console.log("atlas files ok, foot " + measured.join(","));
+  }
+
   fs.rmSync(dir, { recursive: true, force: true });
   console.log("atlas checks ok");
 }

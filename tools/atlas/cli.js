@@ -50,7 +50,7 @@ try {
   die(err.message);
 }
 
-const extractor = new FrameExtractor(config.extrude);
+const extractor = new FrameExtractor(config.extrude, config.padding);
 const packed = [];
 const sources = [];
 try {
@@ -72,6 +72,15 @@ try {
       h: cut.h,
       cut
     });
+  }
+  const seenKeys = new Set();
+  for (let i = 0; i < packed.length; i++) seenKeys.add(packed[i].key);
+  for (const key of seenKeys) {
+    let opaque = false;
+    for (let i = 0; i < packed.length; i++) {
+      if (packed[i].key === key && !packed[i].cut.empty) opaque = true;
+    }
+    if (!opaque) die(key + " has no opaque frame");
   }
   const packer = new Packer({
     padding: config.padding,

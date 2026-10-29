@@ -53,7 +53,11 @@ export class ConfigReader {
       if (seen.has(entry.key)) throw new Error("duplicate atlas key " + entry.key);
       seen.add(entry.key);
       const file = typeof entry.path === "string" ? entry.path : "";
-      if (!file || file.includes("\0")) throw new Error(entry.key + " has no pack path");
+      const parts = file.split("/");
+      if (!file || file.includes("\0") || file.startsWith("/") || file.includes("\\") ||
+          parts.some((part) => !part || part === "." || part === "..")) {
+        throw new Error(entry.key + " pack path is not well-formed");
+      }
       const code = typeof entry.code === "string" && entry.code ? entry.code : entry.key;
       const anchor = anchorOf(entry.anchor);
       const before = out.length;

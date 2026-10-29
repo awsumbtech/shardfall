@@ -56,13 +56,32 @@ jobs:
         if: steps.assets.outcome == 'success'
         continue-on-error: true
         run: |
-          npm ci
+          set +e
+          npm ci > "$RUNNER_TEMP/atlas-pack.log" 2>&1
+          ci=$?
+          if [ "$ci" -ne 0 ]; then
+            cat "$RUNNER_TEMP/atlas-pack.log"
+            echo "pack_error=npm ci failed before the packer ran" >> "$GITHUB_OUTPUT"
+            exit "$ci"
+          fi
           mkdir -p _site/assets/atlas
-          node tools/atlas/cli.js --config art/atlas.config.json --assets .assets-vendor --out _site/assets/atlas
+          node tools/atlas/cli.js --config art/atlas.config.json --assets .assets-vendor --out _site/assets/atlas >> "$RUNNER_TEMP/atlas-pack.log" 2>&1
+          code=$?
+          cat "$RUNNER_TEMP/atlas-pack.log"
+          if [ "$code" -ne 0 ]; then
+            line=$(grep '^atlas:' "$RUNNER_TEMP/atlas-pack.log" | tail -n 1 | tr '\r\n' ' ' | cut -c 1-300)
+            if [ -z "$line" ]; then line="the packer exited $code"; fi
+            echo "pack_error=$line" >> "$GITHUB_OUTPUT"
+            exit "$code"
+          fi
 
-      - name: Warn if atlases were skipped
-        if: always() && (steps.assets.outcome != 'success' || steps.atlas.outcome != 'success')
-        run: echo "::warning title=Art packs skipped::The private art checkout or the atlas packer failed. Deploying without atlases so the game keeps the code-drawn art."
+      - name: Warn if the art checkout failed
+        if: always() && steps.assets.outcome != 'success'
+        run: echo "::warning title=Art checkout failed::The private art repo was not checked out. Deploying without atlases so the game keeps the code-drawn art."
+
+      - name: Warn if the atlas pack failed
+        if: always() && steps.assets.outcome == 'success' && steps.atlas.outcome != 'success'
+        run: echo "::warning title=Atlas pack failed::The art checkout succeeded, but packing failed. This is a config or frame error, not missing access. ${{ steps.atlas.outputs.pack_error }} Deploying without atlases."
 
       - name: Keep pack files out of the site
         if: always()

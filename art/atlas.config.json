@@ -9,9 +9,9 @@
   "entries": [
     {
       "key": "kenmi.hero.base",
-      "path": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base.png",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base_animations.png",
       "code": "wayfarer",
-      "anchor": [32, 63],
+      "anchor": [32, 39],
       "grid": { "cell": 64, "clips": [
         { "name": "idle.down", "row": 0, "count": 6 },
         { "name": "idle.side", "row": 1, "count": 6 },
@@ -23,9 +23,9 @@
     },
     {
       "key": "kenmi.hero.hair",
-      "path": "vendor/kenmi/Cute_Fantasy/Player/Head/Hair_1/Brown.png",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Head/Hair_1/Hair_1_Brown.png",
       "code": "wayfarer",
-      "anchor": [32, 63],
+      "anchor": [32, 39],
       "grid": { "cell": 64, "clips": [
         { "name": "idle.down", "row": 0, "count": 6 },
         { "name": "idle.side", "row": 1, "count": 6 },
@@ -37,9 +37,9 @@
     },
     {
       "key": "kenmi.hero.shirt",
-      "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/OG_Shirt/Blue.png",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/OG_Shirt/Shirt_1_Blue.png",
       "code": "wayfarer",
-      "anchor": [32, 63],
+      "anchor": [32, 39],
       "grid": { "cell": 64, "clips": [
         { "name": "idle.down", "row": 0, "count": 6 },
         { "name": "idle.side", "row": 1, "count": 6 },
@@ -51,9 +51,9 @@
     },
     {
       "key": "kenmi.hero.pants",
-      "path": "vendor/kenmi/Cute_Fantasy/Player/Legs/Pants/Brown.png",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
       "code": "wayfarer",
-      "anchor": [32, 63],
+      "anchor": [32, 39],
       "grid": { "cell": 64, "clips": [
         { "name": "idle.down", "row": 0, "count": 6 },
         { "name": "idle.side", "row": 1, "count": 6 },
@@ -65,9 +65,9 @@
     },
     {
       "key": "kenmi.hero.shoes",
-      "path": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes.png",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png",
       "code": "wayfarer",
-      "anchor": [32, 63],
+      "anchor": [32, 39],
       "grid": { "cell": 64, "clips": [
         { "name": "idle.down", "row": 0, "count": 6 },
         { "name": "idle.side", "row": 1, "count": 6 },

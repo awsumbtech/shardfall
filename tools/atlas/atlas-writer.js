@@ -63,6 +63,8 @@ export class AtlasWriter {
           y: place.y + cut.extrude,
           w: cut.innerW,
           h: cut.innerH,
+          ox: cut.ox || 0,
+          oy: cut.oy || 0,
           order: frame.order
         });
       }
@@ -81,7 +83,9 @@ export class AtlasWriter {
         x: frame.x,
         y: frame.y,
         w: frame.w,
-        h: frame.h
+        h: frame.h,
+        ox: frame.ox,
+        oy: frame.oy
       }));
       const row = { key: entry.key, atlas: entry.atlas, code: entry.code, frames };
       if (entry.anchor) row.anchor = entry.anchor;
