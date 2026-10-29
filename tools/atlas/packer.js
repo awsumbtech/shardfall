@@ -82,6 +82,8 @@ export class Packer {
     const pad = this.padding;
     const max = this.maxSize;
     const placements = [];
+    // Taller frames first. Equal heights keep their order, so a shuffle still moves them.
+    frames = frames.slice().sort((a, b) => (b.h - a.h) || (b.w - a.w));
     let x = pad;
     let y = pad;
     let rowH = 0;

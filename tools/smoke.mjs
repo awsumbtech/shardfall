@@ -2177,6 +2177,162 @@ async function runAtlasChecks() {
     fail("trimmed anchor was not offset, dest " + (draws[0] && draws[0].slice(5, 7).join(",")));
   }
 
+  function blankSheet(width, height) {
+    const png = new PNG({ width, height });
+    png.data.fill(0);
+    return png;
+  }
+  function putPixel(png, x, y, rgba) {
+    const i = (y * png.width + x) * 4;
+    png.data[i] = rgba[0];
+    png.data[i + 1] = rgba[1];
+    png.data[i + 2] = rgba[2];
+    png.data[i + 3] = rgba[3];
+  }
+  const cellW = 16;
+  const cellH = 14;
+  const mirrorFoot = [6, 11];
+  const bodyPx = [[2, 8], [3, 8], [4, 8], [3, 9], [4, 9], [5, 9], [4, 10], [5, 10]];
+  const hairPx = [[4, 2], [5, 2], [6, 2], [5, 3], [6, 3], [7, 3]];
+  const bodySheet = blankSheet(cellW, cellH);
+  const hairSheet = blankSheet(cellW, cellH);
+  bodyPx.forEach(([x, y]) => putPixel(bodySheet, x, y, [20, 70, 210, 255]));
+  hairPx.forEach(([x, y]) => putPixel(hairSheet, x, y, [120, 60, 30, 255]));
+  fs.writeFileSync(path.join(dir, "body.png"), PNG.sync.write(bodySheet));
+  fs.writeFileSync(path.join(dir, "hair.png"), PNG.sync.write(hairSheet));
+  const mirrorCfg = {
+    atlas: "field",
+    maxSize: 64,
+    padding: 1,
+    extrude: 1,
+    shuffle: false,
+    entries: [
+      {
+        key: "kenmi.hero.base",
+        path: "body.png",
+        code: "wayfarer",
+        anchor: mirrorFoot,
+        rects: [{ name: "idle.side.0", x: 0, y: 0, w: cellW, h: cellH }]
+      },
+      {
+        key: "kenmi.hero.hair",
+        path: "hair.png",
+        code: "wayfarer",
+        anchor: mirrorFoot,
+        rects: [{ name: "idle.side.0", x: 0, y: 0, w: cellW, h: cellH }]
+      }
+    ]
+  };
+  const mirrorOut = path.join(dir, "mirror-out");
+  fs.writeFileSync(path.join(dir, "mirror.config.json"), JSON.stringify(mirrorCfg));
+  const mirrored = spawnSync(process.execPath, [
+    "tools/atlas/cli.js", "--config", path.join(dir, "mirror.config.json"),
+    "--assets", dir, "--out", mirrorOut, "--no-shuffle"
+  ], { encoding: "utf8" });
+  if (mirrored.status !== 0) fail("mirror pack failed: " + (mirrored.stderr || mirrored.stdout));
+  const mirrorManifest = Manifest.fromData(JSON.parse(fs.readFileSync(path.join(mirrorOut, "manifest.json"), "utf8")));
+  const atlasImages = {};
+  for (const name of fs.readdirSync(mirrorOut)) {
+    if (name.endsWith(".png")) atlasImages[name] = PNG.sync.read(fs.readFileSync(path.join(mirrorOut, name)));
+  }
+  function softwareCtx(width, height) {
+    const data = Buffer.alloc(width * height * 4, 0);
+    const stack = [];
+    let m = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+    function multiply(n) {
+      m = {
+        a: m.a * n.a + m.c * n.b,
+        b: m.b * n.a + m.d * n.b,
+        c: m.a * n.c + m.c * n.d,
+        d: m.b * n.c + m.d * n.d,
+        e: m.a * n.e + m.c * n.f + m.e,
+        f: m.b * n.e + m.d * n.f + m.f
+      };
+    }
+    return {
+      data,
+      width,
+      height,
+      imageSmoothingEnabled: false,
+      save() { stack.push({ a: m.a, b: m.b, c: m.c, d: m.d, e: m.e, f: m.f }); },
+      restore() { m = stack.pop(); },
+      translate(x, y) { multiply({ a: 1, b: 0, c: 0, d: 1, e: x, f: y }); },
+      scale(x, y) { multiply({ a: x, b: 0, c: 0, d: y, e: 0, f: 0 }); },
+      getTransform() { return { a: m.a, b: m.b, c: m.c, d: m.d, e: m.e, f: m.f }; },
+      setTransform(a, b, c, d, e, f) { m = { a, b, c, d, e, f }; },
+      drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh) {
+        for (let j = 0; j < sh; j++) {
+          for (let i = 0; i < sw; i++) {
+            const si = ((sy + j) * img.width + (sx + i)) * 4;
+            if (img.data[si + 3] === 0) continue;
+            const x0 = dx + (i * dw) / sw;
+            const y0 = dy + (j * dh) / sh;
+            const x1 = dx + ((i + 1) * dw) / sw;
+            const y1 = dy + ((j + 1) * dh) / sh;
+            const pts = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]];
+            let minX = Infinity;
+            let minY = Infinity;
+            for (let p = 0; p < pts.length; p++) {
+              const sx2 = m.a * pts[p][0] + m.c * pts[p][1] + m.e;
+              const sy2 = m.b * pts[p][0] + m.d * pts[p][1] + m.f;
+              if (sx2 < minX) minX = sx2;
+              if (sy2 < minY) minY = sy2;
+            }
+            const px = Math.floor(minX + 1e-6);
+            const py = Math.floor(minY + 1e-6);
+            if (px < 0 || py < 0 || px >= width || py >= height) continue;
+            const di = (py * width + px) * 4;
+            data[di] = img.data[si];
+            data[di + 1] = img.data[si + 1];
+            data[di + 2] = img.data[si + 2];
+            data[di + 3] = img.data[si + 3];
+          }
+        }
+      }
+    };
+  }
+  const mirrorView = 48;
+  const feetX = 24;
+  const feetY = 28;
+  const flipped = softwareCtx(mirrorView, mirrorView);
+  const mirrorRenderer = new drawVm.SF.SpriteRenderer(null);
+  for (const key of ["kenmi.hero.base", "kenmi.hero.hair"]) {
+    const entry = mirrorManifest.get(key);
+    const image = atlasImages[path.basename(entry.atlas)];
+    mirrorRenderer.drawFrame(flipped, {
+      image,
+      anchor: entry.anchor,
+      frame: entry.frames[0],
+      flip: true
+    }, feetX, feetY, { scale: 1 });
+  }
+  const expectMirror = Buffer.alloc(mirrorView * mirrorView * 4, 0);
+  function plotMirror(sheet) {
+    for (let cy = 0; cy < sheet.height; cy++) {
+      for (let cx = 0; cx < sheet.width; cx++) {
+        const si = (cy * sheet.width + cx) * 4;
+        if (sheet.data[si + 3] === 0) continue;
+        const wx = feetX + (mirrorFoot[0] - cx) - 1;
+        const wy = feetY - mirrorFoot[1] + cy;
+        if (wx < 0 || wy < 0 || wx >= mirrorView || wy >= mirrorView) fail("mirror pixel fell outside the test");
+        const di = (wy * mirrorView + wx) * 4;
+        expectMirror[di] = sheet.data[si];
+        expectMirror[di + 1] = sheet.data[si + 1];
+        expectMirror[di + 2] = sheet.data[si + 2];
+        expectMirror[di + 3] = sheet.data[si + 3];
+      }
+    }
+  }
+  plotMirror(bodySheet);
+  plotMirror(hairSheet);
+  let mirrorMiss = 0;
+  for (let i = 0; i < expectMirror.length; i += 4) {
+    if (flipped.data[i] !== expectMirror[i] || flipped.data[i + 1] !== expectMirror[i + 1] || flipped.data[i + 2] !== expectMirror[i + 2] || flipped.data[i + 3] !== expectMirror[i + 3]) {
+      mirrorMiss += 1;
+    }
+  }
+  if (mirrorMiss) fail("flipped trimmed layers were not a mirror of the source (" + mirrorMiss + " pixels)");
+
   if (process.env.ASSETS_DIR) {
     const assetsDir = process.env.ASSETS_DIR;
     if (!fs.existsSync(assetsDir) || !fs.statSync(assetsDir).isDirectory()) {

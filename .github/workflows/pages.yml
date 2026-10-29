@@ -81,7 +81,9 @@ jobs:
 
       - name: Warn if the atlas pack failed
         if: always() && steps.assets.outcome == 'success' && steps.atlas.outcome != 'success'
-        run: echo "::warning title=Atlas pack failed::The art checkout succeeded, but packing failed. This is a config or frame error, not missing access. ${{ steps.atlas.outputs.pack_error }} Deploying without atlases."
+        env:
+          PACK_ERROR: ${{ steps.atlas.outputs.pack_error }}
+        run: echo "::warning title=Atlas pack failed::The art checkout succeeded, but packing failed. This is a config or frame error, not missing access. ${PACK_ERROR} Deploying without atlases."
 
       - name: Keep pack files out of the site
         if: always()
