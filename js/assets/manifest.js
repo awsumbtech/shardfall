@@ -19,13 +19,17 @@
   function frameOf(raw, index) {
     if (!raw || !(raw.w > 0) || !(raw.h > 0)) return null;
     var name = raw.name || raw.id || ("f" + index);
-    return {
+    var frame = {
       name: String(name),
       x: raw.x || 0,
       y: raw.y || 0,
       w: raw.w,
       h: raw.h
     };
+    // ox/oy is how far this trimmed frame sits inside its source cell.
+    if (typeof raw.ox === "number") frame.ox = raw.ox;
+    if (typeof raw.oy === "number") frame.oy = raw.oy;
+    return frame;
   }
 
   function gridOf(raw) {

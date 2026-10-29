@@ -1,6 +1,10 @@
 # Deploys the static game to GitHub Pages.
 # The site is served at https://awsumbtech.github.io/shardfall/
 # Pages is already set to build_type=workflow, so this file is the publish source.
+#
+# The private art repo is packed into _site/assets/atlas/ when the deploy key
+# works. A failed checkout or packer only warns: the site still publishes, and
+# the game keeps drawing the code art.
 
 name: Deploy to GitHub Pages
 
@@ -36,6 +40,61 @@ jobs:
           mkdir -p _site
           cp index.html sw.js manifest.webmanifest _site/
           cp -r css js icons _site/
+
+      - name: Checkout art packs
+        id: assets
+        continue-on-error: true
+        uses: actions/checkout@v6
+        with:
+          repository: awsumbtech/shardfall-assets
+          path: .assets-vendor
+          ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+          persist-credentials: false
+
+      - name: Pack atlases
+        id: atlas
+        if: steps.assets.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set +e
+          npm ci > "$RUNNER_TEMP/atlas-pack.log" 2>&1
+          ci=$?
+          if [ "$ci" -ne 0 ]; then
+            cat "$RUNNER_TEMP/atlas-pack.log"
+            echo "pack_error=npm ci failed before the packer ran" >> "$GITHUB_OUTPUT"
+            exit "$ci"
+          fi
+          mkdir -p _site/assets/atlas
+          node tools/atlas/cli.js --config art/atlas.config.json --assets .assets-vendor --out _site/assets/atlas >> "$RUNNER_TEMP/atlas-pack.log" 2>&1
+          code=$?
+          cat "$RUNNER_TEMP/atlas-pack.log"
+          if [ "$code" -ne 0 ]; then
+            line=$(grep '^atlas:' "$RUNNER_TEMP/atlas-pack.log" | tail -n 1 | tr '\r\n' ' ' | cut -c 1-300)
+            if [ -z "$line" ]; then line="the packer exited $code"; fi
+            echo "pack_error=$line" >> "$GITHUB_OUTPUT"
+            exit "$code"
+          fi
+
+      - name: Warn if the art checkout failed
+        if: always() && steps.assets.outcome != 'success'
+        run: echo "::warning title=Art checkout failed::The private art repo was not checked out. Deploying without atlases so the game keeps the code-drawn art."
+
+      - name: Warn if the atlas pack failed
+        if: always() && steps.assets.outcome == 'success' && steps.atlas.outcome != 'success'
+        env:
+          PACK_ERROR: ${{ steps.atlas.outputs.pack_error }}
+        run: echo "::warning title=Atlas pack failed::The art checkout succeeded, but packing failed. This is a config or frame error, not missing access. ${PACK_ERROR} Deploying without atlases."
+
+      - name: Keep pack files out of the site
+        if: always()
+        run: |
+          rm -rf .assets-vendor
+          leaked=$(find _site \( -iname '*kenmi*' -o -iname 'Player_Base*' -o -path '*/vendor/*' -o -path '*/.assets-vendor/*' \) -print)
+          if [ -n "$leaked" ]; then
+            echo "::error::Pack files leaked into the Pages site"
+            printf '%s\n' "$leaked"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

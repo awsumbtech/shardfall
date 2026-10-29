@@ -1,0 +1,81 @@
+{
+  "description": "Frames the game may pack. Keys stay under kenmi.hero so nothing in the game draws them yet.",
+  "atlas": "field",
+  "maxSize": 768,
+  "padding": 1,
+  "extrude": 1,
+  "shuffle": true,
+  "seed": 418,
+  "entries": [
+    {
+      "key": "kenmi.hero.base",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base_animations.png",
+      "code": "wayfarer",
+      "anchor": [32, 39],
+      "grid": { "cell": 64, "clips": [
+        { "name": "idle.down", "row": 0, "count": 6 },
+        { "name": "idle.side", "row": 1, "count": 6 },
+        { "name": "idle.up", "row": 2, "count": 6 },
+        { "name": "walk.down", "row": 3, "count": 6 },
+        { "name": "walk.side", "row": 4, "count": 6 },
+        { "name": "walk.up", "row": 5, "count": 6 }
+      ] }
+    },
+    {
+      "key": "kenmi.hero.hair",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Head/Hair_1/Hair_1_Brown.png",
+      "code": "wayfarer",
+      "anchor": [32, 39],
+      "grid": { "cell": 64, "clips": [
+        { "name": "idle.down", "row": 0, "count": 6 },
+        { "name": "idle.side", "row": 1, "count": 6 },
+        { "name": "idle.up", "row": 2, "count": 6 },
+        { "name": "walk.down", "row": 3, "count": 6 },
+        { "name": "walk.side", "row": 4, "count": 6 },
+        { "name": "walk.up", "row": 5, "count": 6 }
+      ] }
+    },
+    {
+      "key": "kenmi.hero.shirt",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/OG_Shirt/Shirt_1_Blue.png",
+      "code": "wayfarer",
+      "anchor": [32, 39],
+      "grid": { "cell": 64, "clips": [
+        { "name": "idle.down", "row": 0, "count": 6 },
+        { "name": "idle.side", "row": 1, "count": 6 },
+        { "name": "idle.up", "row": 2, "count": 6 },
+        { "name": "walk.down", "row": 3, "count": 6 },
+        { "name": "walk.side", "row": 4, "count": 6 },
+        { "name": "walk.up", "row": 5, "count": 6 }
+      ] }
+    },
+    {
+      "key": "kenmi.hero.pants",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
+      "code": "wayfarer",
+      "anchor": [32, 39],
+      "grid": { "cell": 64, "clips": [
+        { "name": "idle.down", "row": 0, "count": 6 },
+        { "name": "idle.side", "row": 1, "count": 6 },
+        { "name": "idle.up", "row": 2, "count": 6 },
+        { "name": "walk.down", "row": 3, "count": 6 },
+        { "name": "walk.side", "row": 4, "count": 6 },
+        { "name": "walk.up", "row": 5, "count": 6 }
+      ] }
+    },
+    {
+      "key": "kenmi.hero.shoes",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png",
+      "code": "wayfarer",
+      "anchor": [32, 39],
+      "grid": { "cell": 64, "clips": [
+        { "name": "idle.down", "row": 0, "count": 6 },
+        { "name": "idle.side", "row": 1, "count": 6 },
+        { "name": "idle.up", "row": 2, "count": 6 },
+        { "name": "walk.down", "row": 3, "count": 6 },
+        { "name": "walk.side", "row": 4, "count": 6 },
+        { "name": "walk.up", "row": 5, "count": 6 }
+      ] }
+    }
+  ]
+}

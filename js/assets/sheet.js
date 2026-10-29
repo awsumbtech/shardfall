@@ -30,6 +30,8 @@
       w: frame.w,
       h: frame.h
     };
+    if (typeof frame.ox === "number") rect.ox = frame.ox;
+    if (typeof frame.oy === "number") rect.oy = frame.oy;
     this.frames[rect.name] = rect;
     this.order.push(rect);
     return rect;

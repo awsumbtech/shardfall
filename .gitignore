@@ -1,2 +1,6 @@
 .DS_Store
 _site/
+node_modules/
+assets/atlas/
+.assets-vendor/
+vendor/

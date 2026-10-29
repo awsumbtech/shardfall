@@ -3,7 +3,7 @@
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
 // CACHE is the precache version. A new name drops every older shell.
-var CACHE = "shardfall-v0.4.23";
+var CACHE = "shardfall-v0.4.24";
 
 var SHELL = [
   "index.html",
@@ -67,6 +67,10 @@ var SHELL = [
   "js/main.js"
 ];
 
+// assets/atlas/* stays off this list. A missing manifest must not fail install.
+// The cache-first fetch handler stores those files on first use, in this
+// versioned CACHE. A 404 is not stored.
+
 function freshRequest(url) {
   // A unique query misses the previous worker's cache. cache:"reload" and
   // Cache-Control: no-store both skip the HTTP cache, so install never
@@ -126,6 +130,15 @@ function isDocument(request) {
   return path.endsWith("/index.html") || path.endsWith("/");
 }
 
+function cacheFirst(request) {
+  return caches.match(request).then(function (hit) {
+    if (hit) return hit;
+    return fetch(freshRequest(request.url)).then(function (response) {
+      return store(request, response);
+    });
+  });
+}
+
 function fromCache(request) {
   return caches.match(request).then(function (hit) {
     if (hit) return hit;
@@ -164,12 +177,5 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then(function (hit) {
-      if (hit) return hit;
-      return fetch(freshRequest(request.url)).then(function (response) {
-        return store(request, response);
-      });
-    })
-  );
+  event.respondWith(cacheFirst(request));
 });

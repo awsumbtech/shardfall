@@ -86,8 +86,11 @@
       ax = frame.w / 2;
       ay = 0;
     } else if (desc.anchor) {
-      ax = desc.anchor.x;
-      ay = desc.anchor.y;
+      ax = desc.anchor.x - (frame.ox || 0);
+      ay = desc.anchor.y - (frame.oy || 0);
+      // A trimmed frame is not centered in the cell. Mirror around the foot,
+      // not around the unflipped offset, or left-facing layers shift by a pixel.
+      if (desc.flip) ax = frame.w - ax;
     } else {
       ax = (frame.w / 2) | 0;
       ay = frame.h - 1;
