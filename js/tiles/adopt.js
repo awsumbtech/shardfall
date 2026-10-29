@@ -24,13 +24,26 @@
     return false;
   }
 
+  // Keep the hero's feet off a cliff lip. The whole ground cell stays open in
+  // the map; only the last few pixels beside a blocked neighbour are refused.
+  var FOOT_INSET = 5;
+
+  function terrainOpen(map, x, y) {
+    if (!map.isWalkable(x, y)) return false;
+    if (!map.isWalkable(x - FOOT_INSET, y)) return false;
+    if (!map.isWalkable(x + FOOT_INSET, y)) return false;
+    if (!map.isWalkable(x, y - FOOT_INSET)) return false;
+    if (!map.isWalkable(x, y + FOOT_INSET)) return false;
+    return true;
+  }
+
   function installWraps() {
     if (shapeWalk) return;
     shapeWalk = SF.walkable;
     shapeZone = SF.zoneAt;
     SF.walkable = function (x, y) {
       if (SF.worldSource === "tiles" && SF.islandId === "emberhold" && SF.tileMap) {
-        if (!SF.tileMap.isWalkable(x, y)) return false;
+        if (!terrainOpen(SF.tileMap, x, y)) return false;
         if (propBlocks(x, y)) return false;
         return true;
       }
@@ -142,51 +155,216 @@
     return null;
   }
 
+  function propClass(p) {
+    if (!p) return "";
+    if (p.kind === "tuft" || p.kind === "flower") return "decor";
+    if (p.block || p.kind === "tree" || p.kind === "rock" || p.kind === "bush" || p.kind === "stump" || p.kind === "log") return "solid";
+    return "";
+  }
+
   SF.nudgeProps = function (map, preview) {
     if (!map || !SF.PROPS) return;
     var moves = parseMoves(preview);
-    var i, p, k, move, spot, tx, ty;
+    var keep = [];
+    var i, p, k, move, spot, tx, ty, kind;
     for (i = 0; i < SF.PROPS.length; i++) {
       p = SF.PROPS[i];
-      if (p.kind !== "tree" && p.kind !== "rock") continue;
-      tx = Math.round(p.x / map.tile);
-      ty = Math.round(p.y / map.tile);
-      move = null;
-      for (k = 0; k < moves.length; k++) {
-        if (moves[k].used) continue;
-        if (moves[k].fx === tx && moves[k].fy === ty) { move = moves[k]; break; }
+      kind = propClass(p);
+      if (kind === "decor") {
+        if (map.badFooting(p.x, p.y)) continue;
+        keep.push(p);
+        continue;
       }
-      if (move) {
-        p.x = move.x;
-        p.y = move.y;
-        move.used = 1;
+      if (kind === "solid") {
+        tx = Math.round(p.x / map.tile);
+        ty = Math.round(p.y / map.tile);
+        move = null;
+        for (k = 0; k < moves.length; k++) {
+          if (moves[k].used) continue;
+          if (moves[k].fx === tx && moves[k].fy === ty) { move = moves[k]; break; }
+        }
+        if (move) {
+          p.x = move.x;
+          p.y = move.y;
+          move.used = 1;
+        }
+        if (map.badFooting(p.x, p.y)) {
+          spot = nearestOpen(map, p.x, p.y);
+          if (spot) { p.x = spot.x; p.y = spot.y; }
+        }
       }
-      if (map.badFooting(p.x, p.y)) {
-        spot = nearestOpen(map, p.x, p.y);
-        if (spot) { p.x = spot.x; p.y = spot.y; }
-      }
+      keep.push(p);
     }
+    SF.PROPS = keep;
+    if (SF.ISLANDS && SF.ISLANDS.emberhold) SF.ISLANDS.emberhold.props = keep;
   };
 
-  SF.snapToWalkable = function (x, y) {
-    if (SF.walkable && SF.walkable(x, y)) return { x: x, y: y };
-    var map = SF.tileMap;
-    if (!map) {
-      var dock = SF.DOCKS && SF.DOCKS.emberhold;
-      return dock ? { x: dock.x, y: dock.y } : { x: x, y: y };
+  function dashReach() {
+    var player = SF.state && SF.state.player;
+    var flags = SF.state && SF.state.flags;
+    var plus = (player && player.shardstep) || (flags && flags.shardstep);
+    return (plus ? SF.DASH_SPEED_PLUS : SF.DASH_SPEED) * SF.DASH_TIME;
+  }
+
+  function buildGraph(map) {
+    if (map._graph) return map._graph;
+    var w = map.w;
+    var h = map.h;
+    var tile = map.tile;
+    var label = new Int16Array(w * h);
+    var n = 0;
+    var x, y, i, q, qi, cx, cy, nx, ny, ni, id;
+    for (i = 0; i < label.length; i++) label[i] = -1;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (label[i] >= 0) continue;
+        if (!terrainOpen(map, x * tile + tile / 2, y * tile + tile / 2)) continue;
+        id = n++;
+        q = [i];
+        label[i] = id;
+        for (qi = 0; qi < q.length; qi++) {
+          i = q[qi];
+          cx = i % w;
+          cy = (i / w) | 0;
+          if (cx + 1 < w) {
+            ni = i + 1;
+            if (label[ni] < 0 && terrainOpen(map, (cx + 1) * tile + tile / 2, cy * tile + tile / 2)) {
+              label[ni] = id;
+              q.push(ni);
+            }
+          }
+          if (cx > 0) {
+            ni = i - 1;
+            if (label[ni] < 0 && terrainOpen(map, (cx - 1) * tile + tile / 2, cy * tile + tile / 2)) {
+              label[ni] = id;
+              q.push(ni);
+            }
+          }
+          if (cy + 1 < h) {
+            ni = i + w;
+            if (label[ni] < 0 && terrainOpen(map, cx * tile + tile / 2, (cy + 1) * tile + tile / 2)) {
+              label[ni] = id;
+              q.push(ni);
+            }
+          }
+          if (cy > 0) {
+            ni = i - w;
+            if (label[ni] < 0 && terrainOpen(map, cx * tile + tile / 2, (cy - 1) * tile + tile / 2)) {
+              label[ni] = id;
+              q.push(ni);
+            }
+          }
+        }
+      }
     }
+    var edges = [];
+    for (id = 0; id < n; id++) edges.push([]);
+    var step = 4;
+    var px, py;
+    for (py = 0; py < h * tile; py += step) {
+      for (px = 0; px < w * tile; px += step) {
+        if (!terrainOpen(map, px, py)) continue;
+        cx = Math.floor(px / tile);
+        cy = Math.floor(py / tile);
+        if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
+        id = label[cy * w + cx];
+        if (id < 0) continue;
+        if (terrainOpen(map, px - step, py) && terrainOpen(map, px + step, py) &&
+            terrainOpen(map, px, py - step) && terrainOpen(map, px, py + step)) continue;
+        edges[id].push(px, py);
+      }
+    }
+    map._graph = { label: label, n: n, edges: edges, gaps: {}, home: {} };
+    return map._graph;
+  }
+
+  function componentGap(graph, a, b) {
+    var key = a < b ? a + ":" + b : b + ":" + a;
+    if (graph.gaps[key] != null) return graph.gaps[key];
+    var ea = graph.edges[a];
+    var eb = graph.edges[b];
+    var best = Infinity;
+    var i, j, dx, dy, d;
+    if (!ea.length || !eb.length) {
+      graph.gaps[key] = Infinity;
+      return Infinity;
+    }
+    var buckets = {};
+    var bx, by, list, cell;
+    for (j = 0; j < eb.length; j += 2) {
+      bx = (eb[j] / 32) | 0;
+      by = (eb[j + 1] / 32) | 0;
+      key = bx + "," + by;
+      list = buckets[key];
+      if (!list) buckets[key] = list = [];
+      list.push(j);
+    }
+    for (i = 0; i < ea.length; i += 2) {
+      bx = (ea[i] / 32) | 0;
+      by = (ea[i + 1] / 32) | 0;
+      for (dy = -6; dy <= 6; dy++) {
+        for (dx = -6; dx <= 6; dx++) {
+          list = buckets[(bx + dx) + "," + (by + dy)];
+          if (!list) continue;
+          for (j = 0; j < list.length; j++) {
+            cell = list[j];
+            d = Math.hypot(eb[cell] - ea[i], eb[cell + 1] - ea[i + 1]);
+            if (d < best) best = d;
+          }
+        }
+      }
+    }
+    graph.gaps[a < b ? a + ":" + b : b + ":" + a] = best;
+    return best;
+  }
+
+  function returnable(graph, reach) {
+    var cached = graph.home[reach];
+    if (cached) return cached;
+    var wake = SF.WAKE || { x: 0, y: 0 };
+    var map = SF.tileMap;
+    var wi = map._cell(wake.x, wake.y);
+    var home = wi >= 0 ? graph.label[wi] : -1;
+    var ok = [];
+    var i, j, id;
+    if (home >= 0) ok[home] = 1;
+    var grew = true;
+    while (grew) {
+      grew = false;
+      for (i = 0; i < graph.n; i++) {
+        if (ok[i]) continue;
+        for (j = 0; j < graph.n; j++) {
+          if (!ok[j]) continue;
+          if (componentGap(graph, i, j) <= reach + 0.01) {
+            ok[i] = 1;
+            grew = true;
+            break;
+          }
+        }
+      }
+    }
+    graph.home[reach] = ok;
+    return ok;
+  }
+
+  function nearestReturnable(map, graph, ok, x, y) {
     var tile = map.tile;
     var tx = Math.floor(x / tile);
     var ty = Math.floor(y / tile);
-    var r, dx, dy, px, py, best, bestD, d;
+    var r, dx, dy, px, py, id, best, bestD, d;
     best = null;
     bestD = Infinity;
-    for (r = 1; r <= 48; r++) {
+    for (r = 0; r <= 48; r++) {
       for (dy = -r; dy <= r; dy++) {
         for (dx = -r; dx <= r; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
           px = (tx + dx) * tile + tile / 2;
           py = (ty + dy) * tile + tile / 2;
+          id = map._cell(px, py);
+          if (id < 0) continue;
+          id = graph.label[id];
+          if (id < 0 || !ok[id]) continue;
           if (!SF.walkable(px, py)) continue;
           d = (px - x) * (px - x) + (py - y) * (py - y);
           if (d < bestD) { bestD = d; best = { x: px, y: py }; }
@@ -194,7 +372,28 @@
       }
       if (best) return best;
     }
-    return { x: x, y: y };
+    return null;
+  }
+
+  SF.snapToWalkable = function (x, y) {
+    var map = SF.tileMap;
+    var tiles = SF.worldSource === "tiles" && SF.islandId === "emberhold" && map;
+    if (!tiles) {
+      if (SF.walkable && SF.walkable(x, y)) return { x: x, y: y };
+      var dock0 = SF.DOCKS && SF.DOCKS.emberhold;
+      return dock0 ? { x: dock0.x, y: dock0.y } : { x: x, y: y };
+    }
+    var graph = buildGraph(map);
+    var ok = returnable(graph, dashReach());
+    var here = map._cell(x, y);
+    if (here >= 0) here = graph.label[here];
+    else here = -1;
+    if (here >= 0 && ok[here] && SF.walkable(x, y)) return { x: x, y: y };
+    var spot = nearestReturnable(map, graph, ok, x, y);
+    if (spot) return spot;
+    var dock = SF.DOCKS && SF.DOCKS.emberhold;
+    if (dock) return { x: dock.x, y: dock.y };
+    return SF.WAKE ? { x: SF.WAKE.x, y: SF.WAKE.y } : { x: x, y: y };
   };
 
   SF.adoptTileWorld = function (map, preview) {
@@ -211,7 +410,7 @@
     SF.applyTileMarkers(map);
     SF.nudgeProps(map, preview);
     var player = SF.state && SF.state.player;
-    if (player && SF.islandId === "emberhold" && SF.walkable && !SF.walkable(player.x, player.y)) {
+    if (player && SF.islandId === "emberhold") {
       var spot = SF.snapToWalkable(player.x, player.y);
       player.x = spot.x;
       player.y = spot.y;

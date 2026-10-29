@@ -2,7 +2,6 @@
 import json, os
 from dataclasses import dataclass
 from types import MappingProxyType
-from PIL import Image
 
 
 # Low-ash RGB scale. Alpha is unchanged. The atlas packer uses the same number.
@@ -66,6 +65,7 @@ class Tileset:
 
     def sheet_image(self, sheet):
         if sheet not in self._imgs:
+            from PIL import Image
             self._imgs[sheet] = Image.open(self.sheet_path(sheet)).convert("RGBA")
         return self._imgs[sheet]
 

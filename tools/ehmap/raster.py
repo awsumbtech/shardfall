@@ -92,7 +92,9 @@ def build(spec):
     for s in spec.stairs:
         t = spec.terrace(s.terrace)
         mat = MATERIALS[t.material]
-        width = 1 if mat == ASH else 3
+        # Ash stairs used to be one column and disappeared into the basalt.
+        # Every stair is the same 3-wide stone flight as the earth terraces.
+        width = 3
         lip = _lip_row(height, t, s.x, width)
         for c in range(width):
             for r in range(4):

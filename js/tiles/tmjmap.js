@@ -206,6 +206,20 @@
     return this.height[i];
   };
 
+  function worldZoneName(id) {
+    var walk = SF.WALK;
+    var lists, i, j, shape;
+    if (!walk) return id;
+    lists = [walk.circles || [], walk.rects || []];
+    for (i = 0; i < lists.length; i++) {
+      for (j = 0; j < lists[i].length; j++) {
+        shape = lists[i][j];
+        if (shape && shape.id === id && shape.name) return shape.name;
+      }
+    }
+    return id;
+  }
+
   TmjMap.prototype.zoneAt = function (x, y) {
     var best = null;
     var bestA = Infinity;
@@ -221,7 +235,7 @@
       }
     }
     if (!best) return { id: "hush", name: "The Hush" };
-    return { id: best.id, name: best.id };
+    return { id: best.id, name: worldZoneName(best.id) };
   };
 
   TmjMap.prototype.badFooting = function (x, y) {

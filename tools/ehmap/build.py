@@ -1,6 +1,6 @@
 """CLI: spec + tileset -> emberhold.tmj, report.json, tileset-check.png. python3 -m ehmap.build"""
 import json, os, sys
-from . import spec as spec_mod, raster, collision, validate, contact
+from . import spec as spec_mod, raster, collision, validate
 from .tileset import Tileset
 from .autotile import Autotiler, Layer
 from .tmj import TmjWriter
@@ -48,19 +48,25 @@ def _dim_low_ash(layer, g):
 
 def main():
     ts = Tileset(os.path.join(HERE, "tileset.json"))
-    contact.render(ts, os.path.join(HERE, "tileset-check.png"))
     sp = spec_mod.load(os.path.join(HERE, "emberhold.spec.json"))
     g = raster.build(sp)
     at = Autotiler(g)
     base = at.build()
+    repo = os.path.abspath(os.path.join(HERE, "..", ".."))
+    preview_path = os.path.join(repo, "js", "content", "maps", "props-preview.json")
     pp = PropPlanner(g, base, sp, os.path.join(HERE, "live", "live-frame.json"))
-    props = pp.plan(at.paths)
-    with open(os.path.join(HERE, "props-preview.json"), "w") as f:
-        json.dump({"note": "preview-only Kenmi sprites; not part of the tmj", "props": props}, f, indent=1)
+    if os.path.exists(preview_path):
+        with open(preview_path) as f:
+            props = json.load(f)["props"]
+    else:
+        props = pp.plan(at.paths)
     layers = dress(g, base, at.paths, sp, pp.footprint(props))
     blocked = collision.build(g)
-    zones = [(l.id, l.rects) for l in sp.land] + [("terrace:" + t.id, t.rects) for t in sp.terraces]
-    TmjWriter(ts, HERE).write(os.path.join(HERE, "emberhold.tmj"), g, layers, blocked, zones, sp.markers,
+    zones = [(l.id, l.rects) for l in sp.land]
+    zones += [(z.id, z.rects) for z in sp.zones]
+    zones += [("terrace:" + t.id, t.rects) for t in sp.terraces]
+    out = os.path.join(repo, "js", "content", "maps", "emberhold.tmj")
+    TmjWriter(ts, out).write(out, g, layers, blocked, zones, sp.markers,
                               [{"name": "island", "type": "string", "value": "emberhold"},
                                {"name": "private", "type": "string", "value": "Kenmi Cute Fantasy, do not redistribute"}])
     rep = validate.report(sp, g, blocked, at.issues)

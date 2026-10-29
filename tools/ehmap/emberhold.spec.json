@@ -6,7 +6,7 @@
   "A terrace's bottom row is its south lip; the cliff face hangs on the 2 rows below it, shadow on the 3rd.",
   "Keep 3 clear rows of the lower level under every south lip. Keep paths 1 tile off any rim of their own level.",
   "material: grass (Kenmi Grass_Tiles_1) or ash (Kenmi Volcano). paths: centre-line waypoints, orthogonal runs only.",
-  "stairs: the west column x of a 3-wide stair cut through a terrace's south face (basalt stairs are 1 wide)."
+  "stairs: the west column x of a 3-wide stone stair cut through a terrace's south face, ash included."
  ],
  "width": 152,
  "height": 108,
@@ -245,9 +245,9 @@
    "rects": [
     [
      124,
-     30,
+     32,
      131,
-     37
+     39
     ]
    ]
   },
@@ -278,9 +278,9 @@
    "id": "ledge",
    "rects": [
     [
-     141,
+     140,
      53,
-     149,
+     148,
      61
     ]
    ]
@@ -379,6 +379,18 @@
     [
      102,
      38,
+     124,
+     40
+    ],
+    [
+     131,
+     38,
+     134,
+     40
+    ],
+    [
+     102,
+     40,
      134,
      70
     ]
@@ -789,6 +801,30 @@
    "x": 87,
    "y0": 81,
    "y1": 90
+  }
+ ],
+ "zones": [
+  {
+   "id": "lip",
+   "rects": [
+    [
+     116,
+     16,
+     124,
+     20
+    ]
+   ]
+  },
+  {
+   "id": "rope",
+   "rects": [
+    [
+     85,
+     82,
+     89,
+     92
+    ]
+   ]
   }
  ],
  "markers": {

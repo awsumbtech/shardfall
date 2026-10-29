@@ -236,24 +236,20 @@ class Autotiler:
                         break
                     if L > 0 and g.height[yy, x] >= 0 and g.height[yy, x] < L - 1:
                         self.issues.add("face-over-lower", x, yy, "L%d" % L)
-                    if basalt:
-                        if st:
-                            cliff[yy, x] = "bas_stair_%d" % (r - 1)
-                        else:
-                            cliff[yy, x] = ("bas_w%d" if (x % 2 == 0 and not east_end) or west_end else "bas_e%d") % (r - 1)
+                    if st:
+                        cliff[yy, x] = self._stair_name(st, min(r, 3))
+                    elif basalt:
+                        cliff[yy, x] = ("bas_w%d" if (x % 2 == 0 and not east_end) or west_end else "bas_e%d") % (r - 1)
                     else:
                         part = "face" if r < rows else "foot"
-                        if st:
-                            cliff[yy, x] = self._stair_name(st, r)
-                        else:
-                            cliff[yy, x] = part + ("_w" if west_end else "_e" if east_end else "")
-                if not basalt:
-                    if st:
-                        cliff[y, x] = self._stair_name(st, 0)
-                        if y + 3 < g.h and land(x, y + 3):
-                            shade[y + 3, x] = self._stair_name(st, 3)
-                    elif y + 3 < g.h and land(x, y + 3) and not reg(x, y + 3):
-                        shade[y + 3, x] = "shade" + ("_w" if west_end else "_e" if east_end else "")
+                        cliff[yy, x] = part + ("_w" if west_end else "_e" if east_end else "")
+                if st:
+                    # Stone steps, including on ash, so the Scar flight reads like the others.
+                    cliff[y, x] = self._stair_name(st, 0)
+                    if y + 3 < g.h and land(x, y + 3):
+                        shade[y + 3, x] = self._stair_name(st, 3)
+                elif not basalt and y + 3 < g.h and land(x, y + 3) and not reg(x, y + 3):
+                    shade[y + 3, x] = "shade" + ("_w" if west_end else "_e" if east_end else "")
 
     def _stair_name(self, st, r):
         part = ("t", "m", "b", "r")[r]

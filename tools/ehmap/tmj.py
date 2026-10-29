@@ -1,49 +1,36 @@
-"""TmjWriter: layers + data grids -> Tiled-compatible JSON (.tmj). One tileset per Kenmi sheet."""
+"""TmjWriter: layers + data grids -> Tiled-compatible JSON (.tmj). One tileset per Kenmi sheet.
+
+Sheet headers (paths, pixel sizes, first gids) are copied from the map already in the
+game. Rebuilding does not open Kenmi images and does not need Pillow.
+"""
 import json, os
 import numpy as np
-from PIL import Image
 from .tileset import DIM
 
 META_TILES = ("blocked", "h0", "h1", "h2", "h3", "stair")
-META_COLORS = ((220, 40, 40, 160), (60, 140, 60, 120), (120, 190, 80, 120),
-               (190, 220, 90, 120), (240, 240, 120, 120), (80, 160, 240, 160))
-
-
-def write_meta_png(path, size=16):
-    im = Image.new("RGBA", (size * len(META_TILES), size), (0, 0, 0, 0))
-    for i, c in enumerate(META_COLORS):
-        im.paste(Image.new("RGBA", (size, size), c), (i * size, 0))
-    im.save(path)
 
 
 class TmjWriter:
-    def __init__(self, tileset, out_dir):
+    def __init__(self, tileset, proto_path):
         self.ts = tileset
-        self.out_dir = out_dir
+        with open(proto_path) as f:
+            proto = json.load(f)
+        self.tilesets = proto["tilesets"]
         self.firstgid = {}
-        self.tilesets = []
-        gid = 1
-        for sid in tileset.sheets:
-            im = tileset.sheet_image(sid)
-            cols, rows = im.width // tileset.size, im.height // tileset.size
-            self.firstgid[sid] = (gid, cols)
-            props = [{"name": "private", "type": "bool", "value": sid not in ("fx",)}]
-            if sid == "volcanoDim":
-                props.append({"name": "dim", "type": "float", "value": DIM})
-            self.tilesets.append({
-                "firstgid": gid, "name": "kenmi-" + sid, "image": tileset.sheet_ref(sid),
-                "imagewidth": im.width, "imageheight": im.height, "tilewidth": tileset.size,
-                "tileheight": tileset.size, "columns": cols, "tilecount": cols * rows, "margin": 0, "spacing": 0,
-                "properties": props})
-            gid += cols * rows
-        self.meta_gid = gid
-        meta_png = os.path.join(out_dir, "meta-tiles.png")
-        write_meta_png(meta_png, tileset.size)
-        self.tilesets.append({
-            "firstgid": gid, "name": "meta", "image": "meta-tiles.png", "imagewidth": tileset.size * len(META_TILES),
-            "imageheight": tileset.size, "tilewidth": tileset.size, "tileheight": tileset.size,
-            "columns": len(META_TILES), "tilecount": len(META_TILES), "margin": 0, "spacing": 0,
-            "tiles": [{"id": i, "type": n} for i, n in enumerate(META_TILES)]})
+        self.meta_gid = 0
+        for header in self.tilesets:
+            name = header["name"]
+            if name == "meta":
+                self.meta_gid = header["firstgid"]
+            elif name.startswith("kenmi-"):
+                self.firstgid[name[len("kenmi-"):]] = (header["firstgid"], header["columns"])
+            if name == "kenmi-volcanoDim":
+                props = header.setdefault("properties", [])
+                if not any(p.get("name") == "dim" for p in props):
+                    props.append({"name": "dim", "type": "float", "value": DIM})
+        missing = [sid for sid in tileset.sheets if sid not in self.firstgid]
+        if missing or not self.meta_gid:
+            raise RuntimeError("tile map is missing sheet headers: " + ", ".join(missing))
 
     def gid(self, name):
         if name is None:
