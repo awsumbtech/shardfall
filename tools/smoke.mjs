@@ -1752,7 +1752,8 @@ async function runAssetChecks() {
     "js/assets/animator.js",
     "js/assets/registry.js",
     "js/assets/renderer.js",
-    "js/assets/rig.js"
+    "js/assets/rig.js",
+    "js/assets/crystal.js"
   ];
   for (const file of assetFiles) {
     if (!fs.existsSync(file)) fail("missing " + file);
@@ -1876,9 +1877,56 @@ async function runAssetChecks() {
   }
   if (asset.Art.spriteCalls.length !== beforeCalls) fail("a loaded frame also drew the code sprite");
 
-  if (A.Animator.walkFps(150, 1) !== 75) fail("full walk was " + A.Animator.walkFps(150, 1) + " fps");
-  if (A.Animator.walkFps(75, 1) !== 37.5) fail("half-speed walk fps");
-  if (A.Animator.walkFps(150, 2) !== 37.5) fail("scale 2 walk fps");
+  if (A.Animator.rateFor(1) !== 12) fail("full stick was " + A.Animator.rateFor(1) + " fps");
+  if (A.Animator.rateFor(0.5) !== 7) fail("half stick was not floored at 7");
+  if (A.Animator.rateFor(0) !== 7) fail("walk floor was " + A.Animator.rateFor(0));
+  if (A.Animator.rateFor(4) !== 12) fail("a dash magnitude was not capped at the walk rate");
+  function walkSeq(hz, seconds, magnitude) {
+    const clock = new A.Animator();
+    const dt = 1 / hz;
+    const ticks = Math.round(hz * seconds);
+    const seq = [];
+    for (let n = 0; n < ticks; n++) {
+      seq.push(clock.pose({
+        moving: true,
+        facing: "right",
+        dt: dt,
+        magnitude: magnitude == null ? 1 : magnitude,
+        advance: true
+      }).frame);
+    }
+    return seq;
+  }
+  function walkChanges(seq) {
+    let n = 0;
+    for (let i = 1; i < seq.length; i++) if (seq[i] !== seq[i - 1]) n++;
+    return n;
+  }
+  function assertNoSkip(seq, label) {
+    for (let i = 1; i < seq.length; i++) {
+      const step = (seq[i] - seq[i - 1] + 6) % 6;
+      if (step !== 0 && step !== 1) fail(label + " skipped " + seq[i - 1] + " to " + seq[i]);
+    }
+  }
+  const at12 = walkSeq(12, 1, 1);
+  if (at12.join(",") !== "0,1,2,3,4,5,0,1,2,3,4,5") fail("12 Hz walk was " + at12.join(","));
+  for (const hz of [30, 60, 120]) {
+    const seq = walkSeq(hz, 2, 1);
+    assertNoSkip(seq, hz + " Hz");
+    const rate = walkChanges(seq) / 2;
+    if (rate < 10.5 || rate > 12.5) fail(hz + " Hz walked at " + rate + " fps");
+  }
+  const half = walkSeq(60, 2, 0.5);
+  assertNoSkip(half, "half stick");
+  const halfRate = walkChanges(half) / 2;
+  if (halfRate < 6 || halfRate > 8) fail("half stick walked at " + halfRate + " fps");
+  const restarted = new A.Animator();
+  const contact = restarted.pose({ moving: true, facing: "down", dt: 0, magnitude: 1, advance: true });
+  if (contact.frame !== 0) fail("a walk started on frame " + contact.frame);
+  restarted.pose({ moving: true, facing: "down", dt: 1 / 12, magnitude: 1, advance: true });
+  restarted.pose({ moving: false, facing: "down", advance: true, time: 0 });
+  const again = restarted.pose({ moving: true, facing: "down", dt: 0, magnitude: 1, advance: true });
+  if (again.frame !== 3) fail("a restart began on frame " + again.frame);
   const pose = new A.Animator();
   function expectPose(state, name, flip) {
     const got = pose.pose(state);
@@ -1899,10 +1947,6 @@ async function runAssetChecks() {
   expectPose({ moving: true, fx: 1, fy: 0.2, distance: 0 }, "walk.side.0", false);
   expectPose({ moving: true, fx: 0, fy: -1, distance: 0 }, "walk.up.0", false);
   expectPose({ moving: true, fx: 0.2, fy: 1, distance: 0 }, "walk.down.0", false);
-  if (pose.pose({ moving: true, facing: "down", distance: 2 }).frame !== 1) fail("2px was not walk frame 1");
-  if (pose.pose({ moving: true, facing: "down", distance: 6 }).frame !== 3) fail("6px was not walk frame 3");
-  if (pose.pose({ moving: true, facing: "right", distance: 12 }).name !== "walk.side.0") fail("a full stride did not loop");
-  if (pose.pose({ moving: true, facing: "down", distance: 14 }).frame !== 1) fail("14px was not frame 1");
   if (pose.pose({ moving: false, facing: "down", time: 0.5 }).frame !== 3) fail("idle at 0.5s");
   if (pose.pose({ moving: false, facing: "down", time: 10, hold: true }).frame !== 0) fail("held idle moved");
 
@@ -1911,7 +1955,12 @@ async function runAssetChecks() {
     fail("hero layers are " + layers.join(","));
   }
   if (A.LayeredSprite.FIELD_SCALE !== 1) fail("field hero scale is not 1");
-  const clipNames = ["idle.down.0", "idle.side.0", "idle.up.0", "walk.down.0", "walk.side.0", "walk.up.0"];
+  const clipNames = [];
+  ["idle", "walk"].forEach((clip) => {
+    ["down", "side", "up"].forEach((dir) => {
+      for (let n = 0; n < 6; n++) clipNames.push(clip + "." + dir + "." + n);
+    });
+  });
   const standEntries = layers.map((key, layer) => ({
     key,
     atlas: "assets/atlas/field-0.png",
@@ -1919,7 +1968,7 @@ async function runAssetChecks() {
     anchor: [32, 39],
     frames: clipNames.map((name, n) => ({
       name,
-      x: layer * 20 + n,
+      x: layer * 40 + n,
       y: layer,
       w: 10,
       h: 12,
@@ -1927,7 +1976,7 @@ async function runAssetChecks() {
       oy: 22
     }))
   }));
-  const standImage = { width: 160, height: 16 };
+  const standImage = { width: 240, height: 20 };
   const standManifest = A.AssetManifest.fromData({ entries: standEntries });
   const standReg = new A.AssetRegistry(standManifest);
   standReg.noteImage("assets/atlas/field-0.png", standImage);
@@ -1950,7 +1999,7 @@ async function runAssetChecks() {
   const downIndex = clipNames.indexOf("walk.down.0");
   for (let i = 0; i < layers.length; i++) {
     const args = layerDraws[i];
-    if (args[0] !== standImage || args[1] !== i * 20 + downIndex || args[2] !== i || args[3] !== 10) {
+    if (args[0] !== standImage || args[1] !== i * 40 + downIndex || args[2] !== i || args[3] !== 10) {
       fail("layer " + layers[i] + " blit " + args.slice(1, 4).join(","));
     }
     if (args[5] !== 72 + i || args[6] !== 73 || args[7] !== 10 || args[8] !== 12) {
@@ -2050,7 +2099,7 @@ async function runAssetChecks() {
   if (liveDraws.length !== 5) fail("field hero drew " + liveDraws.length + " layers");
   const sideIndex = clipNames.indexOf("walk.side.0");
   for (let i = 0; i < liveDraws.length; i++) {
-    if (liveDraws[i][1] !== i * 20 + sideIndex || liveDraws[i][5] !== 72 + i) {
+    if (liveDraws[i][1] !== i * 40 + sideIndex || liveDraws[i][5] !== 72 + i) {
       fail("field layer " + i + " was " + liveDraws[i].slice(1).join(","));
     }
   }
@@ -2062,32 +2111,82 @@ async function runAssetChecks() {
     fail("the field hero did not mirror left");
   }
 
-  asset.SF.heroTravel = 0;
-  asset.SF._heroTravelToken = null;
-  asset.SF.stepDt = 0.1;
-  asset.SF.noteHeroTravel({ x: 10, y: 0, px: 0, py: 0, dashT: 0 });
-  if (asset.SF.heroTravel !== 10) fail("walk travel was " + asset.SF.heroTravel);
-  asset.SF.noteHeroTravel({ x: 10, y: 0, px: 0, py: 0, dashT: 0 });
-  if (asset.SF.heroTravel !== 10) fail("one step was counted twice");
-  asset.SF.noteHeroTravel({ x: 40, y: 0, px: 10, py: 0, dashT: 0.1 });
-  if (Math.abs(asset.SF.heroTravel - 25) > 1e-6) fail("a fast step was not capped at a walk " + asset.SF.heroTravel);
-  asset.SF.state = { player: { x: 5, y: 6, px: 5, py: 6, fx: 1, fy: 0, dashT: 0 } };
-  asset.SF.heroTravel = 0;
-  asset.SF._heroTravelToken = null;
-  asset.SF.drawWayfarer(quiet, 99, 99, 1, 0, 1, false);
+  const namedOnly = A.AssetManifest.fromData({
+    entries: [{
+      key: "kenmi.hero.hair",
+      atlas: "assets/atlas/field-0.png",
+      code: "wayfarer",
+      anchor: [32, 39],
+      frames: [0, 1, 2, 3, 4, 5].map((n) => ({ name: "idle.down." + n, x: n, y: 0, w: 4, h: 4 }))
+    }]
+  });
+  const namedReg = new A.AssetRegistry(namedOnly);
+  namedReg.noteImage("assets/atlas/field-0.png", standImage);
+  const missedName = namedReg.lookup("kenmi.hero.hair", { name: "walk.up.2", index: 2 });
+  if (missedName.ready || (missedName.frame && missedName.frame.name === "idle.down.2")) {
+    fail("a missing walk frame was taken by list position");
+  }
+  const incomplete = namedReg.lookup("kenmi.hero.hair", {
+    name: "idle.down.0",
+    names: new A.Animator().clipFrames("walk")
+  });
+  if (incomplete.ready) fail("a clip missing walk frames was ready");
+  const gappyHair = standEntries.map((entry) => {
+    if (entry.key !== "kenmi.hero.hair") return entry;
+    return {
+      key: entry.key,
+      atlas: entry.atlas,
+      code: entry.code,
+      anchor: entry.anchor,
+      frames: entry.frames.filter((frame) => frame.name !== "walk.up.2")
+    };
+  });
+  asset.SF.assets.setManifest(A.AssetManifest.fromData({ entries: gappyHair }));
+  asset.SF.assets.noteImage("assets/atlas/field-0.png", standImage);
+  asset.SF._heroRig = null;
+  asset.SF.heroAnimator = null;
+  asset.Art.spriteCalls = [];
+  const gappyCtx = paintCtx();
+  asset.SF.anim = 0;
+  asset.SF.drawActor(gappyCtx, "wayfarer", 10, 20, 0, 1, true, 1, 0);
+  if (gappyCtx.ops.some((op) => op[0] === "draw")) fail("a partial clip drew a layer");
+  const gappyCall = asset.Art.spriteCalls.pop();
+  if (!gappyCall || gappyCall.id !== "wayfarer" || gappyCall.opts.pose !== "walk") {
+    fail("a partial clip did not fall back to the code hero");
+  }
+  asset.SF.assets.setManifest(standManifest);
+  asset.SF.assets.noteImage("assets/atlas/field-0.png", standImage);
+  asset.SF._heroRig = null;
+  asset.SF.heroAnimator = null;
+  asset.SF.state = { player: { x: 5, y: 6, px: 0, py: 6, fx: 1, fy: 0, dashT: 0 } };
+  asset.SF.stepDt = 1 / 12;
+  asset.SF.readMove = () => ({ x: 1, y: 0 });
   asset.SF.drawWayfarer(quiet, 5, 6, 1, 0, 1, false);
-  if (asset.SF.heroTravel) fail("standing or a ghost advanced the cycle");
-  asset.SF.state.player.x = 8;
-  asset.SF.state.player.px = 5;
-  asset.SF.stepDt = 1;
-  asset.SF.drawWayfarer(quiet, 8, 6, 1, 0, 1, false);
-  if (asset.SF.heroTravel !== 3) fail("the hero step was " + asset.SF.heroTravel);
+  const started = asset.SF.heroAnimator.walkFrame;
+  if (started !== 0) fail("the field walk started on frame " + started);
+  asset.SF.drawWayfarer(quiet, 99, 99, -1, 0, 0.4, false);
+  if (asset.SF.heroAnimator.walkFrame !== 0 || asset.SF.heroAnimator.walking !== true) {
+    fail("a ghost moved the walk clock");
+  }
+  asset.SF.state.player.px = 0;
+  asset.SF.drawWayfarer(quiet, 5, 6, 1, 0, 1, false);
+  if (asset.SF.heroAnimator.walkFrame !== 1) fail("12 Hz did not step one cell, frame " + asset.SF.heroAnimator.walkFrame);
+  const crystal = new A.HandCrystal();
+  const palmRight = crystal.offset({ clip: "walk", dir: "side", facing: "right", flip: false, frame: 0 });
+  const palmLeft = crystal.offset({ clip: "walk", dir: "side", facing: "left", flip: true, frame: 0 });
+  const palmDown = crystal.offset({ clip: "idle", dir: "down", facing: "down", flip: false, frame: 0 });
+  if (!palmRight || !palmLeft || palmLeft.x !== -palmRight.x || palmLeft.y !== palmRight.y) {
+    fail("the crystal did not mirror");
+  }
+  if (!palmDown || palmDown.x >= 0) fail("the down crystal is not in the right palm");
+  if (crystal.offset({ clip: "walk", dir: "up", facing: "up", flip: false, frame: 1 })) {
+    fail("the crystal shows while facing up");
+  }
 
   if (SF.fresh().player.r !== 12) fail("hero collision radius changed");
-  if (!drawJs.includes("SF.drawShadow(ctx, p.x, p.y, aboardHero ? 5 : 11, aboardHero ? 0 : 1)")) {
-    fail("hero shadow left the feet");
-  }
-  if (!drawJs.includes("ctx.ellipse(p.x, p.y + 1, 11, 11 * 0.45")) fail("hero ring left the feet");
+  if (!drawJs.includes("SF.drawShadow(ctx, p.x, p.y,")) fail("hero shadow left the feet");
+  if (!drawJs.includes("kenmi ? 7 : 11")) fail("the foot ring does not follow the sprite");
+  if (!drawJs.includes("ringR * 0.45")) fail("the foot ring lost its shape");
   if (!drawJs.includes("ctx.fillText(n.name, nx, ny - 34)")) fail("name tag moved");
   if (!drawJs.includes("SF.GUIDE_HEAD = 60")) fail("quest diamond moved");
   if (fs.readFileSync("js/battle/draw.js", "utf8").includes("LayeredSprite")) fail("battle draws the field rig");
@@ -2176,7 +2275,7 @@ async function runAtlasChecks() {
   const packPaths = {
     "kenmi.hero.base": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base_animations.png",
     "kenmi.hero.hair": "vendor/kenmi/Cute_Fantasy/Player/Head/Hair_1/Hair_1_Brown.png",
-    "kenmi.hero.shirt": "vendor/kenmi/Cute_Fantasy/Player/Chest/OG_Shirt/Shirt_1_Blue.png",
+    "kenmi.hero.shirt": "vendor/kenmi/Cute_Fantasy/Player/Chest/Royal_Shirt_1_Blue.png",
     "kenmi.hero.pants": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
     "kenmi.hero.shoes": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png"
   };

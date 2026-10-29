@@ -68,10 +68,23 @@
     if (!image) return desc;
     var sheet = this.sheetFor(entry);
     if (!sheet) return desc;
+    // A named request never falls through to "the Nth frame in the list".
+    // names is every cell the clip will show. One gap means the key is not ready.
+    var needed = query.names;
+    var n;
+    if (needed && needed.length) {
+      for (n = 0; n < needed.length; n++) {
+        if (!sheet.frame(needed[n])) return desc;
+      }
+    }
     var frame = null;
-    if (query.name) frame = sheet.frame(query.name);
-    if (!frame) frame = sheet.frame(desc.index);
-    if (!frame) return desc;
+    if (query.name) {
+      frame = sheet.frame(query.name);
+      if (!frame) return desc;
+    } else {
+      frame = sheet.frame(desc.index);
+      if (!frame) return desc;
+    }
     desc.ready = true;
     desc.image = image;
     desc.frame = frame;

@@ -36,6 +36,22 @@
     "kenmi.hero.hair"
   ];
 
+  // True when every layer has every named cell. Used before choosing the ring.
+  LayeredSprite.prototype.ready = function (names) {
+    if (!this.registry || !this.keys.length || !names || !names.length) return false;
+    var query = { name: names[0], names: names };
+    var i, desc;
+    for (i = 0; i < this.keys.length; i++) {
+      try {
+        desc = this.registry.lookup(this.keys[i], query);
+      } catch (err) {
+        return false;
+      }
+      if (!desc || !desc.ready) return false;
+    }
+    return true;
+  };
+
   LayeredSprite.prototype.draw = function (ctx, x, y, opts) {
     if (!ctx || !this.registry || !this.renderer || !this.keys.length) return false;
     if (typeof this.registry.lookup !== "function" || typeof this.renderer.drawFrame !== "function") return false;
@@ -43,6 +59,7 @@
     var scale = wholeScale(opts.scale != null ? opts.scale : LayeredSprite.FIELD_SCALE);
     var query = {
       name: opts.name || null,
+      names: opts.names || null,
       index: opts.frame,
       facing: opts.facing,
       flip: !!opts.flip,

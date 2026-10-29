@@ -57,6 +57,7 @@ var SHELL = [
   "js/assets/registry.js",
   "js/assets/renderer.js",
   "js/assets/rig.js",
+  "js/assets/crystal.js",
   "js/draw.js",
   "js/battle/battle.js",
   "js/battle/draw.js",

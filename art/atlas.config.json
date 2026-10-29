@@ -37,7 +37,7 @@
     },
     {
       "key": "kenmi.hero.shirt",
-      "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/OG_Shirt/Shirt_1_Blue.png",
+      "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/Royal_Shirt_1_Blue.png",
       "code": "wayfarer",
       "anchor": [32, 39],
       "grid": { "cell": 64, "clips": [

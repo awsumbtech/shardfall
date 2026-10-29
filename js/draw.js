@@ -1647,20 +1647,23 @@ SF.fieldHeroRig = function () {
   return SF._heroRig;
 };
 
-// Add this step to the walk cycle. Capped at a full walk so a dash does not
-// strobe the feet. The shadow ring and the collision circle stay on this
-// same foot point; the rig draws its anchor there too.
-SF.noteHeroTravel = function (p) {
-  if (!p) return;
-  var token = p.x + "|" + p.y + "|" + p.px + "|" + p.py + "|" + (p.dashT || 0);
-  if (token === SF._heroTravelToken) return;
-  SF._heroTravelToken = token;
-  var moved = Math.hypot((p.x - p.px) || 0, (p.y - p.py) || 0);
-  var walk = SF.Animator && SF.Animator.WALK_SPEED > 0 ? SF.Animator.WALK_SPEED : 150;
-  var dt = SF.stepDt > 0 ? SF.stepDt : 1 / 60;
-  var cap = walk * dt;
-  if (moved > cap) moved = cap;
-  if (moved > 0) SF.heroTravel = (SF.heroTravel || 0) + moved;
+// Stick length, 0..1. A dash reports a full stick so the cycle stays at the
+// walk rate instead of speeding up with the dash.
+SF.heroMagnitude = function (p) {
+  if (p && p.dashT > 0) return 1;
+  var move = SF.readMove ? SF.readMove() : { x: 0, y: 0 };
+  var mag = Math.hypot(move.x || 0, move.y || 0);
+  if (mag > 1) mag = 1;
+  return mag;
+};
+
+// Both idle and walk have to be complete. A gap in either clip keeps the
+// code hero, and the wide foot ring that belongs to him.
+SF.kenmiFoot = function () {
+  var rig = SF.fieldHeroRig();
+  var anim = SF.heroAnimator;
+  if (!rig || !anim || typeof rig.ready !== "function" || typeof anim.clipFrames !== "function") return false;
+  return rig.ready(anim.clipFrames("idle")) && rig.ready(anim.clipFrames("walk"));
 };
 
 // True when the layered atlas hero was drawn. False means the caller draws
@@ -1676,17 +1679,27 @@ SF.drawFieldHero = function (ctx, x, y, opts, moving, calm) {
       facing: opts && opts.facing,
       time: SF.anim || 0,
       hold: !!calm && !moving,
-      distance: SF.heroTravel || 0,
-      scale: scale
+      dt: SF._heroTick ? (SF.stepDt > 0 ? SF.stepDt : 0) : 0,
+      magnitude: SF._heroTick ? SF._heroMag : 0,
+      advance: !!SF._heroTick
     });
-    return rig.draw(ctx, x, y, {
+    var need = null;
+    if (typeof SF.heroAnimator.clipFrames === "function") {
+      need = SF.heroAnimator.clipFrames("idle").concat(SF.heroAnimator.clipFrames("walk"));
+    }
+    if (rig.draw(ctx, x, y, {
       name: picked.name,
+      names: need,
       frame: picked.frame,
       facing: opts && opts.facing,
       flip: picked.flip,
       clip: picked.clip,
       scale: scale
-    }) === true;
+    }) !== true) return false;
+    try {
+      if (SF.handCrystal) SF.handCrystal.draw(ctx, x, y, picked);
+    } catch (err2) { /* the doll is already drawn */ }
+    return true;
   } catch (err) {
     return false;
   }
@@ -1725,11 +1738,19 @@ SF.drawActor = function (ctx, id, x, y, fx, fy, moving, alpha, phase) {
 SF.drawWayfarer = function (ctx, x, y, fx, fy, alpha, shardstep) {
   var moving = false;
   var p = SF.state && SF.state.player;
-  if (p && Math.abs(p.x - x) < 0.01 && Math.abs(p.y - y) < 0.01) {
+  var live = p && Math.abs(p.x - x) < 0.01 && Math.abs(p.y - y) < 0.01;
+  if (live) {
     moving = Math.hypot(p.x - p.px, p.y - p.py) > 0.2 || p.dashT > 0;
-    if (moving) SF.noteHeroTravel(p);
+    SF._heroTick = true;
+    SF._heroMag = SF.heroMagnitude(p);
   }
-  if (SF.drawActor(ctx, "wayfarer", x, y, fx, fy, moving, alpha, shardstep ? 1 : 0)) return;
+  var drew = false;
+  try {
+    drew = SF.drawActor(ctx, "wayfarer", x, y, fx, fy, moving, alpha, shardstep ? 1 : 0);
+  } finally {
+    SF._heroTick = false;
+  }
+  if (drew) return;
   var ang = Math.atan2(fy, fx);
   ctx.save();
   ctx.translate(x, y);
@@ -2441,12 +2462,14 @@ SF.entityList = function (s) {
         SF.drawWayfarer(ctx, g.x, g.y, g.fx, g.fy, g.a, p.shardstep);
       });
       var aboardHero = SF.boatBoard && SF.boatBoard() > 0.45;
-      SF.drawShadow(ctx, p.x, p.y, aboardHero ? 5 : 11, aboardHero ? 0 : 1);
+      var kenmi = !aboardHero && SF.kenmiFoot && SF.kenmiFoot();
+      var ringR = kenmi ? 7 : 11;
+      SF.drawShadow(ctx, p.x, p.y, aboardHero ? 5 : ringR, aboardHero ? 0 : 1);
       ctx.save();
       ctx.strokeStyle = "rgba(185, 248, 255, 0.9)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y + 1, 11, 11 * 0.45, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, p.y + 1, ringR, ringR * 0.45, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       SF.drawWayfarer(ctx, p.x, p.y + sink, p.fx, p.fy, alpha, p.shardstep);
