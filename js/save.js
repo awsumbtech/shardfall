@@ -176,9 +176,15 @@ SF.applySave = function (s, data) {
   s.stepAcc = 0;
   s.zoneId = null;
   if (!SF.walkable(p.x, p.y)) {
-    var dock = SF.DOCKS && SF.DOCKS[s.island];
-    p.x = dock ? dock.x : SF.WAKE.x;
-    p.y = dock ? dock.y : SF.WAKE.y;
+    if (SF.worldSource === "tiles" && SF.snapToWalkable) {
+      var snapped = SF.snapToWalkable(p.x, p.y);
+      p.x = snapped.x;
+      p.y = snapped.y;
+    } else {
+      var dock = SF.DOCKS && SF.DOCKS[s.island];
+      p.x = dock ? dock.x : SF.WAKE.x;
+      p.y = dock ? dock.y : SF.WAKE.y;
+    }
   }
   p.safeX = p.x;
   p.safeY = p.y;

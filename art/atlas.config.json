@@ -1,5 +1,5 @@
 {
-  "description": "Field atlas. Hero keys are the paper doll, drawn in order: base, pants, shoes, shirt, hair. Ground keys are Emberhold grass, paths, and cliffs, drawn only when every ground frame has loaded.",
+  "description": "Field atlas. Hero keys are the paper doll. Ground keys are the Emberhold tile map, packed only for cells the map uses. volcanoDim frames are Volcano_Tiles darkened by the dim factor.",
   "atlas": "field",
   "maxSize": 768,
   "padding": 1,
@@ -11,135 +11,1544 @@
       "key": "kenmi.hero.base",
       "path": "vendor/kenmi/Cute_Fantasy/Player/Player_Base/Player_Base_animations.png",
       "code": "wayfarer",
-      "anchor": [32, 39],
-      "grid": { "cell": 64, "clips": [
-        { "name": "idle.down", "row": 0, "count": 6 },
-        { "name": "idle.side", "row": 1, "count": 6 },
-        { "name": "idle.up", "row": 2, "count": 6 },
-        { "name": "walk.down", "row": 3, "count": 6 },
-        { "name": "walk.side", "row": 4, "count": 6 },
-        { "name": "walk.up", "row": 5, "count": 6 }
-      ] }
+      "anchor": [
+        32,
+        39
+      ],
+      "grid": {
+        "cell": 64,
+        "clips": [
+          {
+            "name": "idle.down",
+            "row": 0,
+            "count": 6
+          },
+          {
+            "name": "idle.side",
+            "row": 1,
+            "count": 6
+          },
+          {
+            "name": "idle.up",
+            "row": 2,
+            "count": 6
+          },
+          {
+            "name": "walk.down",
+            "row": 3,
+            "count": 6
+          },
+          {
+            "name": "walk.side",
+            "row": 4,
+            "count": 6
+          },
+          {
+            "name": "walk.up",
+            "row": 5,
+            "count": 6
+          }
+        ]
+      }
     },
     {
       "key": "kenmi.hero.hair",
       "path": "vendor/kenmi/Cute_Fantasy/Player/Head/Hair_1/Hair_1_Brown.png",
       "code": "wayfarer",
-      "anchor": [32, 39],
-      "grid": { "cell": 64, "clips": [
-        { "name": "idle.down", "row": 0, "count": 6 },
-        { "name": "idle.side", "row": 1, "count": 6 },
-        { "name": "idle.up", "row": 2, "count": 6 },
-        { "name": "walk.down", "row": 3, "count": 6 },
-        { "name": "walk.side", "row": 4, "count": 6 },
-        { "name": "walk.up", "row": 5, "count": 6 }
-      ] }
+      "anchor": [
+        32,
+        39
+      ],
+      "grid": {
+        "cell": 64,
+        "clips": [
+          {
+            "name": "idle.down",
+            "row": 0,
+            "count": 6
+          },
+          {
+            "name": "idle.side",
+            "row": 1,
+            "count": 6
+          },
+          {
+            "name": "idle.up",
+            "row": 2,
+            "count": 6
+          },
+          {
+            "name": "walk.down",
+            "row": 3,
+            "count": 6
+          },
+          {
+            "name": "walk.side",
+            "row": 4,
+            "count": 6
+          },
+          {
+            "name": "walk.up",
+            "row": 5,
+            "count": 6
+          }
+        ]
+      }
     },
     {
       "key": "kenmi.hero.shirt",
       "path": "vendor/kenmi/Cute_Fantasy/Player/Chest/Royal_Shirt/Royal_Shirt_1_Blue.png",
       "code": "wayfarer",
-      "anchor": [32, 39],
-      "grid": { "cell": 64, "clips": [
-        { "name": "idle.down", "row": 0, "count": 6 },
-        { "name": "idle.side", "row": 1, "count": 6 },
-        { "name": "idle.up", "row": 2, "count": 6 },
-        { "name": "walk.down", "row": 3, "count": 6 },
-        { "name": "walk.side", "row": 4, "count": 6 },
-        { "name": "walk.up", "row": 5, "count": 6 }
-      ] }
+      "anchor": [
+        32,
+        39
+      ],
+      "grid": {
+        "cell": 64,
+        "clips": [
+          {
+            "name": "idle.down",
+            "row": 0,
+            "count": 6
+          },
+          {
+            "name": "idle.side",
+            "row": 1,
+            "count": 6
+          },
+          {
+            "name": "idle.up",
+            "row": 2,
+            "count": 6
+          },
+          {
+            "name": "walk.down",
+            "row": 3,
+            "count": 6
+          },
+          {
+            "name": "walk.side",
+            "row": 4,
+            "count": 6
+          },
+          {
+            "name": "walk.up",
+            "row": 5,
+            "count": 6
+          }
+        ]
+      }
     },
     {
       "key": "kenmi.hero.pants",
       "path": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
       "code": "wayfarer",
-      "anchor": [32, 39],
-      "grid": { "cell": 64, "clips": [
-        { "name": "idle.down", "row": 0, "count": 6 },
-        { "name": "idle.side", "row": 1, "count": 6 },
-        { "name": "idle.up", "row": 2, "count": 6 },
-        { "name": "walk.down", "row": 3, "count": 6 },
-        { "name": "walk.side", "row": 4, "count": 6 },
-        { "name": "walk.up", "row": 5, "count": 6 }
-      ] }
+      "anchor": [
+        32,
+        39
+      ],
+      "grid": {
+        "cell": 64,
+        "clips": [
+          {
+            "name": "idle.down",
+            "row": 0,
+            "count": 6
+          },
+          {
+            "name": "idle.side",
+            "row": 1,
+            "count": 6
+          },
+          {
+            "name": "idle.up",
+            "row": 2,
+            "count": 6
+          },
+          {
+            "name": "walk.down",
+            "row": 3,
+            "count": 6
+          },
+          {
+            "name": "walk.side",
+            "row": 4,
+            "count": 6
+          },
+          {
+            "name": "walk.up",
+            "row": 5,
+            "count": 6
+          }
+        ]
+      }
     },
     {
       "key": "kenmi.hero.shoes",
       "path": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png",
       "code": "wayfarer",
-      "anchor": [32, 39],
-      "grid": { "cell": 64, "clips": [
-        { "name": "idle.down", "row": 0, "count": 6 },
-        { "name": "idle.side", "row": 1, "count": 6 },
-        { "name": "idle.up", "row": 2, "count": 6 },
-        { "name": "walk.down", "row": 3, "count": 6 },
-        { "name": "walk.side", "row": 4, "count": 6 },
-        { "name": "walk.up", "row": 5, "count": 6 }
-      ] }
+      "anchor": [
+        32,
+        39
+      ],
+      "grid": {
+        "cell": 64,
+        "clips": [
+          {
+            "name": "idle.down",
+            "row": 0,
+            "count": 6
+          },
+          {
+            "name": "idle.side",
+            "row": 1,
+            "count": 6
+          },
+          {
+            "name": "idle.up",
+            "row": 2,
+            "count": 6
+          },
+          {
+            "name": "walk.down",
+            "row": 3,
+            "count": 6
+          },
+          {
+            "name": "walk.side",
+            "row": 4,
+            "count": 6
+          },
+          {
+            "name": "walk.up",
+            "row": 5,
+            "count": 6
+          }
+        ]
+      }
+    },
+    {
+      "key": "ground.fx",
+      "path": "art/fx-tiles.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.bridge",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Bridge/Bridge_Wood.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r1c4",
+          "x": 64,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c4",
+          "x": 64,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c4",
+          "x": 64,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        }
+      ]
     },
     {
       "key": "kenmi.tile.grass",
       "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_1.png",
       "code": "ground",
       "rects": [
-        { "name": "corner.nw", "x": 0, "y": 0, "w": 16, "h": 16 },
-        { "name": "edge.n", "x": 16, "y": 0, "w": 16, "h": 16 },
-        { "name": "corner.ne", "x": 32, "y": 0, "w": 16, "h": 16 },
-        { "name": "edge.w", "x": 0, "y": 16, "w": 16, "h": 16 },
-        { "name": "edge.e", "x": 32, "y": 16, "w": 16, "h": 16 },
-        { "name": "corner.sw", "x": 0, "y": 32, "w": 16, "h": 16 },
-        { "name": "edge.s", "x": 16, "y": 32, "w": 16, "h": 16 },
-        { "name": "corner.se", "x": 32, "y": 32, "w": 16, "h": 16 },
-        { "name": "path.corner.nw", "x": 0, "y": 80, "w": 16, "h": 16 },
-        { "name": "path.edge.n", "x": 16, "y": 80, "w": 16, "h": 16 },
-        { "name": "path.corner.ne", "x": 32, "y": 80, "w": 16, "h": 16 },
-        { "name": "path.edge.w", "x": 0, "y": 96, "w": 16, "h": 16 },
-        { "name": "path.edge.e", "x": 32, "y": 96, "w": 16, "h": 16 },
-        { "name": "path.corner.sw", "x": 0, "y": 112, "w": 16, "h": 16 },
-        { "name": "path.edge.s", "x": 16, "y": 112, "w": 16, "h": 16 },
-        { "name": "path.corner.se", "x": 32, "y": 112, "w": 16, "h": 16 }
+        {
+          "name": "r0c3",
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c5",
+          "x": 80,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c8",
+          "x": 128,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c9",
+          "x": 144,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c10",
+          "x": 160,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c8",
+          "x": 128,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c10",
+          "x": 160,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c3",
+          "x": 48,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c5",
+          "x": 80,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c8",
+          "x": 128,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c9",
+          "x": 144,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c10",
+          "x": 160,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c8",
+          "x": 128,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c9",
+          "x": 144,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c10",
+          "x": 160,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c8",
+          "x": 128,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c9",
+          "x": 144,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c10",
+          "x": 160,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r5c0",
+          "x": 0,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r5c1",
+          "x": 16,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r5c2",
+          "x": 32,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r5c8",
+          "x": 128,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r5c9",
+          "x": 144,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r5c10",
+          "x": 160,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c0",
+          "x": 0,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c2",
+          "x": 32,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r7c0",
+          "x": 0,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r7c1",
+          "x": 16,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r7c2",
+          "x": 32,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r8c0",
+          "x": 0,
+          "y": 128,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r8c1",
+          "x": 16,
+          "y": 128,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c0",
+          "x": 0,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c1",
+          "x": 16,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c5",
+          "x": 80,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c6",
+          "x": 96,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c7",
+          "x": 112,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
       ]
     },
     {
-      "key": "kenmi.tile.grass.fill",
+      "key": "kenmi.tile.grass2",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_2.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c0",
+          "x": 0,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c2",
+          "x": 32,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c0",
+          "x": 0,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c1",
+          "x": 16,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c2",
+          "x": 32,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c0",
+          "x": 0,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c1",
+          "x": 16,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c0",
+          "x": 0,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c1",
+          "x": 16,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.grass2Mid",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_2_Middle.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.grass3",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_3.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c0",
+          "x": 0,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c2",
+          "x": 32,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c0",
+          "x": 0,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c1",
+          "x": 16,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c2",
+          "x": 32,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c0",
+          "x": 0,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c1",
+          "x": 16,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c0",
+          "x": 0,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c1",
+          "x": 16,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.grass3Mid",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_3_Middle.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.grassMid",
       "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
       "code": "ground",
       "rects": [
-        { "name": "center", "x": 0, "y": 0, "w": 16, "h": 16 }
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
       ]
     },
     {
-      "key": "kenmi.tile.path",
-      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+      "key": "kenmi.tile.odecor",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
       "code": "ground",
       "rects": [
-        { "name": "center", "x": 0, "y": 0, "w": 16, "h": 16 }
+        {
+          "name": "r1c0",
+          "x": 0,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c1",
+          "x": 16,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c2",
+          "x": 32,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c4",
+          "x": 64,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c5",
+          "x": 80,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c6",
+          "x": 96,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c0",
+          "x": 0,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c1",
+          "x": 16,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c2",
+          "x": 32,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c6",
+          "x": 96,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c6",
+          "x": 96,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c7",
+          "x": 112,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c8",
+          "x": 128,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r5c5",
+          "x": 80,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c3",
+          "x": 48,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c4",
+          "x": 64,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c3",
+          "x": 48,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c5",
+          "x": 80,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c6",
+          "x": 96,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r9c7",
+          "x": 112,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
       ]
     },
     {
-      "key": "kenmi.tile.path.deco",
+      "key": "kenmi.tile.pathDecor",
       "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Decoration.png",
       "code": "ground",
       "rects": [
-        { "name": "0", "x": 0, "y": 0, "w": 16, "h": 16 },
-        { "name": "1", "x": 16, "y": 0, "w": 16, "h": 16 },
-        { "name": "2", "x": 32, "y": 0, "w": 16, "h": 16 }
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
       ]
     },
     {
-      "key": "kenmi.tile.cliff",
+      "key": "kenmi.tile.pathMid",
+      "path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.stone",
       "path": "vendor/kenmi/Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png",
       "code": "ground",
       "rects": [
-        { "name": "top.w", "x": 16, "y": 32, "w": 16, "h": 16 },
-        { "name": "top", "x": 32, "y": 32, "w": 16, "h": 16 },
-        { "name": "top.e", "x": 48, "y": 32, "w": 16, "h": 16 },
-        { "name": "face.w", "x": 16, "y": 48, "w": 16, "h": 16 },
-        { "name": "face", "x": 32, "y": 48, "w": 16, "h": 16 },
-        { "name": "face.e", "x": 48, "y": 48, "w": 16, "h": 16 },
-        { "name": "foot.w", "x": 16, "y": 64, "w": 16, "h": 16 },
-        { "name": "foot", "x": 32, "y": 64, "w": 16, "h": 16 },
-        { "name": "foot.e", "x": 48, "y": 64, "w": 16, "h": 16 }
+        {
+          "name": "r1c8",
+          "x": 128,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c9",
+          "x": 144,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c10",
+          "x": 160,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c8",
+          "x": 128,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c9",
+          "x": 144,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c10",
+          "x": 160,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c8",
+          "x": 128,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c9",
+          "x": 144,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c10",
+          "x": 160,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c8",
+          "x": 128,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c9",
+          "x": 144,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c10",
+          "x": 160,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.volcano",
+      "path": "vendor/kenmi/Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c3",
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c22",
+          "x": 352,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c23",
+          "x": 368,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c24",
+          "x": 384,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c1",
+          "x": 16,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c3",
+          "x": 48,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c22",
+          "x": 352,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c23",
+          "x": 368,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c24",
+          "x": 384,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c1",
+          "x": 16,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c2",
+          "x": 32,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c3",
+          "x": 48,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c22",
+          "x": 352,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c23",
+          "x": 368,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c24",
+          "x": 384,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c1",
+          "x": 16,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c22",
+          "x": 352,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c23",
+          "x": 368,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c24",
+          "x": 384,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r4c2",
+          "x": 32,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c6",
+          "x": 96,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r7c1",
+          "x": 16,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r8c2",
+          "x": 32,
+          "y": 128,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.volcanoDim",
+      "path": "vendor/kenmi/Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c3",
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c4",
+          "x": 64,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c5",
+          "x": 80,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c6",
+          "x": 96,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c1",
+          "x": 16,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c2",
+          "x": 32,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c3",
+          "x": 48,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c4",
+          "x": 64,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c5",
+          "x": 80,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r1c6",
+          "x": 96,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c1",
+          "x": 16,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c2",
+          "x": 32,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c3",
+          "x": 48,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c4",
+          "x": 64,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c5",
+          "x": 80,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r2c6",
+          "x": 96,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c22",
+          "x": 352,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c23",
+          "x": 368,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r3c24",
+          "x": 384,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c1",
+          "x": 16,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c3",
+          "x": 48,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c4",
+          "x": 64,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c6",
+          "x": 96,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r7c1",
+          "x": 16,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r7c3",
+          "x": 48,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r8c1",
+          "x": 16,
+          "y": 128,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r8c2",
+          "x": 32,
+          "y": 128,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r8c3",
+          "x": 48,
+          "y": 128,
+          "w": 16,
+          "h": 16
+        }
+      ],
+      "dim": 0.6
+    },
+    {
+      "key": "kenmi.tile.vplants",
+      "path": "vendor/kenmi/Cute_Fantasy_Volcano/Volcano_Props/Volcano_Plants.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r6c0",
+          "x": 0,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c1",
+          "x": 16,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c2",
+          "x": 32,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c3",
+          "x": 48,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c4",
+          "x": 64,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r6c5",
+          "x": 80,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.tile.vrocks",
+      "path": "vendor/kenmi/Cute_Fantasy_Volcano/Volcano_Props/Volcano_Rocks.png",
+      "code": "ground",
+      "rects": [
+        {
+          "name": "r0c0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c3",
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c4",
+          "x": 64,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c5",
+          "x": 80,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c6",
+          "x": 96,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "r0c7",
+          "x": 112,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
       ]
     }
   ]

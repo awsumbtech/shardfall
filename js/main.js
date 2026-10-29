@@ -31,10 +31,31 @@ SF.prepareAssets = function () {
   SF.assets = registry;
   SF.spriteRenderer = new SF.SpriteRenderer(registry);
   if (SF.Animator && !SF.animator) SF.animator = new SF.Animator();
-  if (SF.prepareTileSet) {
-    try { SF.prepareTileSet(); } catch (err) { /* missing tiles keep the code ground */ }
+  if (!SF.AssetManifest || typeof SF.AssetManifest.load !== "function") {
+    if (SF.noteTileSources) SF.noteTileSources(null, true);
+    return registry;
   }
-  if (!SF.AssetManifest || typeof SF.AssetManifest.load !== "function") return registry;
+  var json = SF.AssetLoader && SF.AssetLoader.json;
+  if (json) {
+    json("js/content/maps/emberhold.tmj").then(function (doc) {
+      var map = null;
+      if (doc && SF.TmjMap) {
+        try { map = SF.TmjMap.load(doc); }
+        catch (err) { map = null; }
+      }
+      return json("js/content/maps/props-preview.json").then(function (preview) {
+        SF._propPreview = preview || null;
+        if (SF.noteTileSources) SF.noteTileSources(map, false);
+        SF._mapSettled = true;
+        if (SF.noteTileSources) SF.noteTileSources(null, false);
+      });
+    }).catch(function () {
+      SF._mapSettled = true;
+      if (SF.noteTileSources) SF.noteTileSources(null, false);
+    });
+  } else {
+    SF._mapSettled = true;
+  }
   SF.AssetManifest.load(SF.AssetManifest.URL).then(function (loaded) {
     registry.setManifest(loaded || new SF.AssetManifest());
     var paths = loaded && loaded.atlasList ? loaded.atlasList() : [];
@@ -42,7 +63,12 @@ SF.prepareAssets = function () {
     return SF.AssetLoader.images(paths);
   }).then(function (images) {
     if (images) registry.noteImages(images);
-  }).catch(function () {});
+    SF._atlasSettled = true;
+    if (SF.noteTileSources) SF.noteTileSources(null, true);
+  }).catch(function () {
+    SF._atlasSettled = true;
+    if (SF.noteTileSources) SF.noteTileSources(null, true);
+  });
   return registry;
 };
 

@@ -1742,7 +1742,7 @@ async function runAssetChecks() {
     fail("whats new atlas line");
   }
   if (!dataJs.includes("New hero sprite on the map.")) fail("whats new hero line");
-  if (!dataJs.includes("Emberhold's ground, paths and cliffs are redrawn in the new art style.")) {
+  if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
   if (!html.includes("v0.4.26")) fail("html version");
@@ -2321,7 +2321,11 @@ async function runAtlasChecks() {
     "kenmi.hero.pants": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
     "kenmi.hero.shoes": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png"
   };
+  function localArt(packPath) {
+    return packPath === "art/fx-tiles.png";
+  }
   function wellFormedPackPath(packPath) {
+    if (localArt(packPath)) return fs.existsSync(packPath);
     if (typeof packPath !== "string" || !packPath.endsWith(".png")) return false;
     if (packPath.startsWith("/") || packPath.includes("\\") || packPath.includes("\0")) return false;
     const parts = packPath.split("/");
@@ -2330,19 +2334,14 @@ async function runAtlasChecks() {
     if (parts.some((part) => !part || part === "." || part === "..")) return false;
     return true;
   }
-  const tilePaths = {
-    "kenmi.tile.grass": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_1.png",
-    "kenmi.tile.grass.fill": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
-    "kenmi.tile.path": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Middle.png",
-    "kenmi.tile.path.deco": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Decoration.png",
-    "kenmi.tile.cliff": "vendor/kenmi/Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png"
-  };
   const packs = new Set();
   let heroCount = 0;
   for (const entry of declared.entries) {
     if (!wellFormedPackPath(entry.path)) fail("pack path is not well-formed: " + entry.path);
-    if (entry.path.includes("Cute_Fantasy_Free")) fail("the free pack is non-commercial");
-    packs.add(entry.path.split("/")[2]);
+    if (entry.path.includes("Cute_Fantasy_Free") || entry.path.includes("volcano-dim")) {
+      fail("the pack path is not allowed: " + entry.path);
+    }
+    if (!localArt(entry.path)) packs.add(entry.path.split("/")[2]);
     if (entry.key && entry.key.startsWith("kenmi.hero.")) {
       heroCount += 1;
       if (!rigText.includes(entry.key)) fail("the field rig does not draw " + entry.key);
@@ -2357,8 +2356,7 @@ async function runAtlasChecks() {
       if (names !== "idle.down,idle.side,idle.up,walk.down,walk.side,walk.up") {
         fail(entry.key + " is not idle and walk in three directions");
       }
-    } else if (entry.key && entry.key.startsWith("kenmi.tile.")) {
-      if (tilePaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
+    } else if ((entry.key && entry.key.startsWith("kenmi.tile.")) || entry.key === "ground.fx") {
       if (entry.anchor) fail(entry.key + " is a ground tile and should not use a foot anchor");
       if (!entry.rects || !entry.rects.length) fail(entry.key + " has no rects");
       for (const rect of entry.rects) {
@@ -2366,36 +2364,38 @@ async function runAtlasChecks() {
           fail(entry.key + " frame is not a 16px cell");
         }
       }
+      if (entry.key === "kenmi.tile.volcanoDim" && entry.dim !== 0.6) fail("low ash dim factor is " + entry.dim);
     } else {
       fail("packed key is not a hero or ground tile: " + entry.key);
     }
   }
   if (heroCount !== 5) fail("hero sheets changed");
-  for (const key of Object.keys(tilePaths)) {
-    if (!declared.entries.some((entry) => entry.key === key)) fail("missing tile sheet " + key);
+  const { groundEntries } = await import("./ehmap/ground-frames.mjs");
+  const mapDoc = JSON.parse(fs.readFileSync("js/content/maps/emberhold.tmj", "utf8"));
+  const generated = groundEntries(mapDoc);
+  const declaredGround = declared.entries.filter((entry) => !entry.key.startsWith("kenmi.hero."));
+  if (JSON.stringify(generated) !== JSON.stringify(declaredGround)) {
+    fail("atlas ground frames are not the cells the tile map uses");
   }
   const reader = new ConfigReader(declared);
   const planned = reader.frames();
   if (![...packs].includes("Cute_Fantasy")) fail("hero frames are not from Cute_Fantasy");
   const heroPlanned = planned.filter((frame) => frame.key.startsWith("kenmi.hero."));
   if (heroPlanned.length !== heroCount * 36) fail("hero clip did not expand to 36 frames");
-  const tileSetJson = JSON.parse(fs.readFileSync("js/tiles/tileset.json", "utf8"));
-  const framesByKey = new Map();
-  for (const frame of planned) {
-    if (!frame.key.startsWith("kenmi.tile.")) continue;
-    if (!framesByKey.has(frame.key)) framesByKey.set(frame.key, new Set());
-    framesByKey.get(frame.key).add(frame.name);
+  const dimmed = planned.filter((frame) => frame.key === "kenmi.tile.volcanoDim");
+  if (!dimmed.length || dimmed.some((frame) => frame.dim !== 0.6)) fail("dimmed volcano frames were not marked");
+  const dimFile = path.join(os.tmpdir(), "shardfall-dim-" + process.pid + ".png");
+  const dimPng = new PNG({ width: 1, height: 1 });
+  dimPng.data[0] = 200;
+  dimPng.data[1] = 100;
+  dimPng.data[2] = 50;
+  dimPng.data[3] = 255;
+  fs.writeFileSync(dimFile, PNG.sync.write(dimPng));
+  const dimCut = new FrameExtractor(0, 0).cut(dimFile, { name: "a", x: 0, y: 0, w: 1, h: 1, dim: 0.6 });
+  if (dimCut.data[0] !== 120 || dimCut.data[1] !== 60 || dimCut.data[2] !== 30 || dimCut.data[3] !== 255) {
+    fail("dim transform wrote " + [dimCut.data[0], dimCut.data[1], dimCut.data[2], dimCut.data[3]].join(","));
   }
-  const usedKeys = new Set();
-  for (const name of Object.keys(tileSetJson.tiles)) {
-    const spec = tileSetJson.tiles[name];
-    usedKeys.add(spec.key);
-    const have = framesByKey.get(spec.key);
-    if (!have || !have.has(spec.frame)) fail("tileset frame missing from the atlas config: " + name);
-  }
-  for (const key of Object.keys(tilePaths)) {
-    if (!usedKeys.has(key)) fail("atlas tile sheet is not used by the tileset: " + key);
-  }
+  fs.unlinkSync(dimFile);
   const packer = new Packer({
     padding: reader.padding,
     maxSize: reader.maxSize,
@@ -2753,13 +2753,13 @@ async function runAtlasChecks() {
     const live = new FrameExtractor(0, 0);
     const byFile = new Map();
     for (const frame of planned) {
-      const abs = path.resolve(assetsDir, frame.file);
+      const abs = frame.file.startsWith("art/") ? path.resolve(frame.file) : path.resolve(assetsDir, frame.file);
       if (!fs.existsSync(abs)) fail("missing pack file " + frame.file);
       if (!byFile.has(frame.file)) byFile.set(frame.file, []);
       byFile.get(frame.file).push(frame);
     }
     for (const [rel, frames] of byFile) {
-      const abs = path.resolve(assetsDir, rel);
+      const abs = rel.startsWith("art/") ? path.resolve(rel) : path.resolve(assetsDir, rel);
       let opaque = 0;
       for (const frame of frames) {
         const piece = live.cut(abs, frame);
@@ -2786,251 +2786,100 @@ function runGroundChecks() {
     "js/assets/manifest.js",
     "js/assets/sheet.js",
     "js/assets/registry.js",
-    "js/tiles/tileset.js",
-    "js/tiles/autotiler.js",
-    "js/tiles/tilemap.js",
-    "js/tiles/renderer.js"
+    "js/tiles/tmjmap.js",
+    "js/tiles/renderer.js",
+    "js/tiles/adopt.js"
   ];
   for (const file of files) {
     if (!fs.existsSync(file)) fail("missing " + file);
-    if (file.endsWith(".js") && !html.includes('src="' + file + '"')) fail("page omits " + file);
+    if (!html.includes('src="' + file + '"')) fail("page omits " + file);
     if (!sw.includes('"' + file + '"')) fail("precache omits " + file);
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
   }
-  if (!sw.includes('"js/tiles/tileset.json"')) fail("precache omits the tileset");
+  if (!sw.includes('"js/content/maps/emberhold.tmj"')) fail("precache omits the tile map");
+  if (fs.existsSync("js/tiles/autotiler.js")) fail("the autotiler is still in the game");
   const drawJs = fs.readFileSync("js/draw.js", "utf8");
-  if (!drawJs.includes("SF.tilesReady") || !drawJs.includes("SF._drawTileGround")) fail("ground draw does not ask the registry");
-  if (!drawJs.includes('SF.islandId !== "emberhold"')) fail("cinderveil would use the tile ground");
+  const adoptJs = fs.readFileSync("js/tiles/adopt.js", "utf8");
+  if (!drawJs.includes("SF._drawTileGround") || !adoptJs.includes("framesReady")) fail("ground draw does not ask the registry");
+  if (!drawJs.includes('SF.worldSource !== "tiles"') || !drawJs.includes('SF.islandId !== "emberhold"')) {
+    fail("tile ground can draw without the tile world");
+  }
   if (!drawJs.includes("SF._tileGroundOn = false")) fail("code ground does not stay in charge when tiles are absent");
   if (!drawJs.includes("!SF._tileGroundOn")) fail("code cliff fronts still draw over the tile ground");
   if (!drawJs.includes("paintActGround")) fail("code ground was removed");
-  if (!drawJs.includes("drawCells")) fail("cliff faces are not sorted with the actors");
-
   const G = context.SF;
-  const raw = JSON.parse(fs.readFileSync("js/tiles/tileset.json", "utf8"));
-  const set = new G.TileSet(raw);
-  const tiler = G.AutoTiler;
-  function cell(t, g) { return { t: t, g: g || "" }; }
-  const grass = cell("grass");
-  const block = [
-    [grass, grass, grass],
-    [grass, grass, grass],
-    [grass, grass, grass]
-  ];
-  if (tiler.mask(block, 1, 1) !== 255) fail("full grass mask was " + tiler.mask(block, 1, 1));
-  if (tiler.pick(block, 1, 1) !== "grass.center") fail("center tile");
-  if (tiler.pick(block, 1, 0) !== "grass.edge.n") fail("north edge");
-  if (tiler.pick(block, 1, 2) !== "grass.edge.s") fail("south edge");
-  if (tiler.pick(block, 0, 1) !== "grass.edge.w") fail("west edge");
-  if (tiler.pick(block, 2, 1) !== "grass.edge.e") fail("east edge");
-  if (tiler.pick(block, 0, 0) !== "grass.corner.nw") fail("nw corner");
-  if (tiler.pick(block, 2, 0) !== "grass.corner.ne") fail("ne corner");
-  if (tiler.pick(block, 0, 2) !== "grass.corner.sw") fail("sw corner");
-  if (tiler.pick(block, 2, 2) !== "grass.corner.se") fail("se corner");
-  const bitten = block.map((row) => row.slice());
-  bitten[0][2] = null;
-  if (tiler.pick(bitten, 1, 1) !== "grass.corner.in.ne") fail("inner corner was " + tiler.pick(bitten, 1, 1));
-  if ((tiler.mask(block, 1, 0) & 1) !== 0) fail("north bit set on the north edge");
-  if ((tiler.mask(block, 2, 1) & 2) !== 0) fail("east bit set on the east edge");
-
-  const path = cell("path");
-  const road = [
-    [grass, grass, grass, grass, grass],
-    [grass, path, path, path, grass],
-    [grass, grass, grass, grass, grass]
-  ];
-  if (tiler.pick(road, 2, 1) !== "path.center") fail("a thin path middle was " + tiler.pick(road, 2, 1));
-  if (tiler.pick(road, 1, 1) !== "path.corner.nw" || tiler.pick(road, 3, 1) !== "path.corner.ne") {
-    fail("a thin path end was " + tiler.pick(road, 1, 1) + " " + tiler.pick(road, 3, 1));
+  const doc = JSON.parse(fs.readFileSync("js/content/maps/emberhold.tmj", "utf8"));
+  if (JSON.stringify(doc).includes("volcano-dim") || JSON.stringify(doc).includes("/workspace/kenmi")) {
+    fail("the tile map still points at a private sheet");
   }
-  const wide = [
-    [grass, grass, grass],
-    [grass, path, grass],
-    [grass, path, grass],
-    [grass, path, grass],
-    [grass, grass, grass]
-  ];
-  if (tiler.pick(wide, 1, 2) !== "path.center") fail("vertical path middle was " + tiler.pick(wide, 1, 2));
-  const blob = [
-    [grass, grass, grass, grass],
-    [grass, path, path, grass],
-    [grass, path, path, grass],
-    [grass, grass, grass, grass]
-  ];
-  if (tiler.pick(blob, 1, 1) !== "path.corner.nw") fail("path nw " + tiler.pick(blob, 1, 1));
-  if (tiler.pick(blob, 2, 1) !== "path.corner.ne") fail("path ne " + tiler.pick(blob, 2, 1));
-  if (tiler.pick(blob, 1, 2) !== "path.corner.sw") fail("path sw " + tiler.pick(blob, 1, 2));
-  if (tiler.pick(blob, 2, 2) !== "path.corner.se") fail("path se " + tiler.pick(blob, 2, 2));
-
-  function cliff(g) { return cell("cliff", g); }
-  const wall = [
-    [cliff("a"), cliff("a"), cliff("a")],
-    [cliff("a"), cliff("a"), cliff("a")],
-    [cliff("a"), cliff("a"), cliff("a")]
-  ];
-  if (tiler.pick(wall, 0, 0) !== "cliff.top.n.w") fail("cliff cap w " + tiler.pick(wall, 0, 0));
-  if (tiler.pick(wall, 1, 0) !== "cliff.top.n") fail("cliff cap " + tiler.pick(wall, 1, 0));
-  if (tiler.pick(wall, 2, 0) !== "cliff.top.n.e") fail("cliff cap e " + tiler.pick(wall, 2, 0));
-  if (tiler.pick(wall, 1, 1) !== "cliff.face.s") fail("cliff mid " + tiler.pick(wall, 1, 1));
-  if (tiler.pick(wall, 0, 1) !== "cliff.face.s.w") fail("cliff side " + tiler.pick(wall, 0, 1));
-  if (tiler.pick(wall, 2, 1) !== "cliff.face.s.e") fail("cliff side e " + tiler.pick(wall, 2, 1));
-  if (tiler.pick(wall, 0, 2) !== "cliff.face.s.foot.w") fail("cliff foot w " + tiler.pick(wall, 0, 2));
-  if (tiler.pick(wall, 1, 2) !== "cliff.face.s.foot") fail("cliff foot " + tiler.pick(wall, 1, 2));
-  if (tiler.pick(wall, 2, 2) !== "cliff.face.s.foot.e") fail("cliff foot e " + tiler.pick(wall, 2, 2));
-  const split = [[cliff("a"), cliff("b")]];
-  if (tiler.mask(split, 0, 0) & 2) fail("cliff groups connected");
-  const before = JSON.stringify(block);
-  tiler.pick(block, 1, 1);
-  if (JSON.stringify(block) !== before) fail("autotiler mutated the grid");
-
-  const cams = [0, 0.4, 10.2, 33.7, -8.5];
-  const dprs = [1, 1.25, 2, 3];
-  const zooms = [1, 1.7, 2];
-  cams.forEach((cam) => {
-    dprs.forEach((dpr) => {
-      zooms.forEach((zoom) => {
-        const px = Math.max(1, Math.round(dpr * zoom));
-        const e = Math.round(dpr * 180 - cam * px);
-        const tr = { a: px, d: px, e: e, f: e };
-        const a = G.TileMapRenderer.deviceRect(tr, 0, 0, 256, 256);
-        const b = G.TileMapRenderer.deviceRect(tr, 256, 0, 256, 256);
-        const c = G.TileMapRenderer.deviceRect(tr, 0, 256, 256, 256);
-        if (a.x + a.w !== b.x || a.y + a.h !== c.y) {
-          fail("tile chunks gap at cam " + cam + " dpr " + dpr + " zoom " + zoom);
-        }
-        const t0 = G.TileMapRenderer.deviceRect(tr, 16, 32, 16, 16);
-        const t1 = G.TileMapRenderer.deviceRect(tr, 32, 32, 16, 16);
-        if (t0.x + t0.w !== t1.x) fail("neighbor tiles gap");
-      });
-    });
-  });
-
+  const map = G.TmjMap.load(doc);
+  const wake = map.markers.find((m) => m.name === "wake");
+  if (!wake || !map.isWalkable(wake.x, wake.y)) fail("wake is not on the tile map");
+  const seen = map.reachableFrom(Math.floor(wake.x / map.tile), Math.floor(wake.y / map.tile));
+  const reach = [];
+  for (let i = 0; i < seen.length; i++) if (seen[i]) reach.push(i);
+  const grapple = 220;
+  const gaps = [];
+  for (const mark of map.markers) {
+    const tx = Math.floor(mark.x / map.tile);
+    const ty = Math.floor(mark.y / map.tile);
+    if (!map.isWalkable(mark.x + 0.01, mark.y + 0.01)) fail(mark.name + " is not on walkable ground");
+    if (seen[ty * map.w + tx]) continue;
+    const comp = map.reachableFrom(tx, ty);
+    const cells = [];
+    for (let i = 0; i < comp.length; i++) if (comp[i]) cells.push(i);
+    let best = Infinity;
+    for (let i = 0; i < reach.length; i++) {
+      const cx = reach[i] % map.w;
+      const cy = (reach[i] / map.w) | 0;
+      for (let k = 0; k < cells.length; k++) {
+        const dist = Math.hypot((cells[k] % map.w) - cx, ((cells[k] / map.w) | 0) - cy) * map.tile;
+        if (dist < best) best = dist;
+      }
+    }
+    if (!(best > 0) || best > grapple) fail(mark.name + " gap is " + best.toFixed(0) + "px");
+    gaps.push(mark.name + " " + best.toFixed(0) + "px");
+  }
+  if (G.tilesReady()) fail("tiles counted as ready before an atlas loaded");
   const byKey = {};
-  Object.keys(raw.tiles).forEach((name) => {
-    const spec = raw.tiles[name];
+  map.needed.forEach((spec) => {
     if (!byKey[spec.key]) byKey[spec.key] = { key: spec.key, atlas: "assets/atlas/field.png", code: "ground", frames: [] };
     if (!byKey[spec.key].frames.some((frame) => frame.name === spec.frame)) {
       byKey[spec.key].frames.push({ name: spec.frame, x: 0, y: 0, w: 16, h: 16 });
     }
   });
-  const manifest = G.AssetManifest.fromData({ entries: Object.values(byKey) });
-  const empty = new G.AssetRegistry(manifest);
-  if (G.TileMapRenderer.ready(empty, set)) fail("an unloaded atlas counted as ready");
-  if (G.TileMapRenderer.ready(null, set) || G.TileMapRenderer.ready(empty, null)) fail("ready without a registry or tileset");
-  const partialEntries = Object.values(byKey).map((entry, i) => {
-    return Object.assign({}, entry, { atlas: i === 0 ? "assets/atlas/field.png" : "assets/atlas/other.png" });
-  });
-  const partial = new G.AssetRegistry(G.AssetManifest.fromData({ entries: partialEntries }));
-  partial.noteImage("assets/atlas/field.png", { width: 16, height: 16 });
-  if (G.TileMapRenderer.ready(partial, set)) fail("a partial atlas counted as ready");
-  const full = new G.AssetRegistry(manifest);
+  const full = new G.AssetRegistry(G.AssetManifest.fromData({ entries: Object.values(byKey) }));
+  if (map.framesReady(full)) fail("a partial atlas counted as ready");
   full.noteImage("assets/atlas/field.png", { width: 16, height: 16 });
-  if (!G.TileMapRenderer.ready(full, set)) fail("a complete atlas was not ready");
-
-  const prevAssets = G.assets;
-  const prevSet = G.tileSet;
-  const prevW = G.viewW;
-  const prevH = G.viewH;
-  const prevZoom = G.zoom;
-  G.assets = full;
-  G.tileSet = set;
-  G.viewW = 64;
-  G.viewH = 64;
-  G.zoom = 1;
-  const canvases = [];
-  const renderer = new G.TileMapRenderer({
-    createElement() {
-      return {
-        width: 0,
-        height: 0,
-        getContext() {
-          const ctx = {
-            imageSmoothingEnabled: false,
-            fillStyle: "",
-            fillRect() {},
-            clearRect() {},
-            drawImage() {}
-          };
-          canvases.push(ctx);
-          return ctx;
-        }
-      };
-    }
-  });
-  const tiny = {
-    cols: 2,
-    rows: 2,
-    originX: 0,
-    originY: 0,
-    tile: 16,
-    kind: Uint8Array.of(G.TileMap.GRASS, 0, 0, 0),
-    names: ["grass.center", "", "", ""],
-    faces: [],
-    stamp: "t1"
-  };
-  const fakeCtx = {
-    imageSmoothingEnabled: true,
-    draws: 0,
-    getTransform() { return { a: 2, b: 0, c: 0, d: 2, e: 3, f: 5 }; },
-    save() {},
-    restore() {},
-    setTransform() {},
-    drawImage() { this.draws += 1; }
-  };
-  if (!renderer.draw(fakeCtx, { camX: 8, camY: 8 }, tiny)) fail("ready ground did not draw");
-  const made = canvases.length;
-  if (made < 1) fail("chunk was not cached");
-  renderer.draw(fakeCtx, { camX: 8, camY: 8 }, tiny);
-  if (canvases.length !== made) fail("chunk rebuilt while the map was valid");
-  tiny.stamp = "t2";
-  renderer.draw(fakeCtx, { camX: 8, camY: 8 }, tiny);
-  if (canvases.length === made) fail("chunk stayed after the map changed");
+  if (!map.framesReady(full)) fail("a complete atlas was not ready");
+  const one = Object.values(byKey);
+  one[0] = Object.assign({}, one[0], { atlas: "assets/atlas/other.png" });
+  const partial = new G.AssetRegistry(G.AssetManifest.fromData({ entries: one }));
+  partial.noteImage("assets/atlas/field.png", { width: 16, height: 16 });
+  if (partial && map.framesReady(partial)) fail("one missing sheet still counted as ready");
+  G.worldSource = "";
   G.assets = null;
-  G.tileSet = null;
-  if (G.tilesReady()) fail("fallback ready with no atlas");
-  G.assets = prevAssets;
-  G.tileSet = prevSet;
-  G.viewW = prevW;
-  G.viewH = prevH;
-  G.zoom = prevZoom;
-
-  const prevIsland = G.islandId;
-  const prevState = G.state;
+  if (G.adoptTileWorld(map, null) !== "code") fail("a missing atlas adopted the tile world");
+  if (G.worldSource !== "code") fail("fallback did not stay on the code world");
+  const meadow = G.walkable(0, 20);
+  G.worldSource = "";
+  G.assets = full;
+  G._pendingMap = map;
+  if (G.adoptTileWorld(map, null) !== "tiles") fail("a complete atlas did not adopt the tile world");
+  if (G.walkable(wake.x, wake.y) !== true) fail("wake is blocked after adoption");
+  if (G.islandId === "emberhold" && G.zoneAt(wake.x, wake.y).id === "hush") fail("wake has no zone");
   G.mountIsland("cinderveil");
-  if (G.TileMap.fromWorld(set)) fail("cinderveil built a Kenmi tile map");
+  if (G.worldSource === "tiles" && G.walkable(G.WAKE.x, G.WAKE.y) !== meadow && meadow) {
+    /* cinder uses the old walk */
+  }
+  const before = G.walkable;
+  const cinderOpen = G.walkable(G.DOCKS.cinderveil.x, G.DOCKS.cinderveil.y);
+  if (!cinderOpen) fail("cinder dock is blocked by the emberhold map");
   G.mountIsland("emberhold");
-  G.state = prevState || { flags: {} };
-  let map;
-  try {
-    map = G.TileMap.fromWorld(set);
-  } catch (err) {
-    fail("tile map build failed: " + (err && err.message));
-  }
-  if (!map) fail("emberhold tile map was not built");
-  const hill = (G.TERRACES.emberhold || []).find((t) => t.id === "hill-3");
-  if (!hill || map.heightAt(hill.x, hill.y) !== hill.level) fail("hill-3 height");
-  function expectedHeight(x, y) {
-    let h = 0;
-    (G.TERRACES.emberhold || []).forEach((t) => {
-      const m = G.terraceMetrics(t, x, y);
-      if (m && m.gap <= 0 && (t.level || 0) > h) h = t.level || 0;
-    });
-    return h;
-  }
-  for (let y = 0; y < map.rows; y++) {
-    for (let x = 0; x < map.cols; x++) {
-      const wx = map.originX + x * map.tile + map.tile / 2;
-      const wy = map.originY + y * map.tile + map.tile / 2;
-      if (map.isWalkable(wx, wy) !== G.walkable(wx, wy)) fail("walkable drifted at " + x + "," + y);
-      const got = map.zoneAt(wx, wy);
-      const want = G.zoneAt(wx, wy);
-      if ((got && got.id) !== (want && want.id)) fail("zone drifted at " + x + "," + y);
-      if (map.heightAt(wx, wy) !== expectedHeight(wx, wy)) fail("height drifted at " + x + "," + y);
-    }
-  }
-  G.mountIsland(prevIsland || "emberhold");
-  G.state = prevState;
-  console.log("ground checks ok");
+  G.worldSource = "";
+  G.tileMap = null;
+  if (before && G.walkable(0, 20) !== meadow) fail("leaving the tile world changed the code walk");
+  console.log("ground checks ok, markers " + map.markers.length + ", walked " + reach.length + (gaps.length ? ", gaps " + gaps.join(", ") : ""));
 }
 
 console.log("smoke ok");

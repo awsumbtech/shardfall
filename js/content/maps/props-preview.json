@@ -1,0 +1,443 @@
+{
+ "note": "preview-only Kenmi sprites; not part of the tmj",
+ "props": [
+  {
+   "sprite": "house",
+   "x": 1192.0,
+   "y": 320,
+   "why": "Maren's cottage (live: cottage prop at 73,16)"
+  },
+  {
+   "sprite": "lantern",
+   "x": 1641.6,
+   "y": 201.6,
+   "why": "Lamp Hill lantern beside the lamp checkpoint"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 792.0,
+   "y": 444.8,
+   "why": "live tree at (48, 30) -> (49, 27)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 664.0,
+   "y": 636.8,
+   "why": "live tree at (44, 42) -> (41, 39)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 856.0,
+   "y": 556.8,
+   "why": "live tree at (56, 36) -> (53, 34)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1400.0,
+   "y": 828.8,
+   "why": "live tree at (90, 50) -> (87, 51)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 744.0,
+   "y": 412.8,
+   "why": "live tree at (48, 28) -> (46, 25)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 744.0,
+   "y": 364.8,
+   "why": "live tree at (46, 22) -> (46, 22)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 824.0,
+   "y": 652.8,
+   "why": "live tree at (54, 43) -> (51, 40)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 712.0,
+   "y": 812.8,
+   "why": "live tree at (44, 52) -> (44, 50)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 920.0,
+   "y": 812.8,
+   "why": "live tree at (57, 50) -> (57, 50)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 968.0,
+   "y": 508.8,
+   "why": "live tree at (58, 32) -> (60, 31)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 904.0,
+   "y": 396.8,
+   "why": "live tree at (56, 24) -> (56, 24)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 792.0,
+   "y": 380.8,
+   "why": "live tree at (47, 25) -> (49, 23)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 984.0,
+   "y": 412.8,
+   "why": "live tree at (60, 24) -> (61, 25)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 872.0,
+   "y": 444.8,
+   "why": "live tree at (55, 28) -> (54, 27)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 696.0,
+   "y": 748.8,
+   "why": "live tree at (44, 45) -> (43, 46)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 840.0,
+   "y": 364.8,
+   "why": "live tree at (49, 25) -> (52, 22)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 760.0,
+   "y": 652.8,
+   "why": "live tree at (48, 42) -> (47, 40)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 792.0,
+   "y": 860.8,
+   "why": "live tree at (49, 53) -> (49, 53)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 872.0,
+   "y": 652.8,
+   "why": "live tree at (51, 43) -> (54, 40)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 712.0,
+   "y": 588.8,
+   "why": "live tree at (44, 36) -> (44, 36)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 680.0,
+   "y": 508.8,
+   "why": "live tree at (44, 32) -> (42, 31)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 1000.0,
+   "y": 604.8,
+   "why": "live tree at (62, 37) -> (62, 37)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 888.0,
+   "y": 316.8,
+   "why": "live tree at (55, 19) -> (55, 19)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 824.0,
+   "y": 316.8,
+   "why": "live tree at (51, 19) -> (51, 19)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 648.0,
+   "y": 460.8,
+   "why": "live tree at (40, 27) -> (40, 28)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 952.0,
+   "y": 572.8,
+   "why": "live tree at (60, 36) -> (59, 35)"
+  },
+  {
+   "sprite": "big_oak",
+   "x": 648.0,
+   "y": 588.8,
+   "why": "live tree at (39, 38) -> (40, 36)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1528.0,
+   "y": 604.8,
+   "why": "live tree at (95, 37) -> (95, 37)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1320.0,
+   "y": 988.8,
+   "why": "live tree at (82, 61) -> (82, 61)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1240.0,
+   "y": 1020.8,
+   "why": "live tree at (77, 63) -> (77, 63)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1208.0,
+   "y": 972.8,
+   "why": "live tree at (77, 62) -> (75, 60)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1624.0,
+   "y": 732.8,
+   "why": "live tree at (102, 46) -> (101, 45)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1080.0,
+   "y": 764.8,
+   "why": "live tree at (67, 47) -> (67, 47)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1128.0,
+   "y": 540.8,
+   "why": "live tree at (71, 34) -> (70, 33)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1576.0,
+   "y": 924.8,
+   "why": "live tree at (98, 57) -> (98, 57)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1128.0,
+   "y": 764.8,
+   "why": "live tree at (70, 47) -> (70, 47)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1672.0,
+   "y": 524.8,
+   "why": "live tree at (104, 32) -> (104, 32)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1832.0,
+   "y": 332.8,
+   "why": "live tree at (114, 20) -> (114, 20)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1736.0,
+   "y": 508.8,
+   "why": "live tree at (108, 31) -> (108, 31)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1432.0,
+   "y": 188.8,
+   "why": "live tree at (88, 12) -> (89, 11)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1448.0,
+   "y": 492.8,
+   "why": "live tree at (91, 29) -> (90, 30)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1784.0,
+   "y": 492.8,
+   "why": "live tree at (111, 27) -> (111, 30)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 760.0,
+   "y": 604.8,
+   "why": "tree-1 tree at (49, 34) -> (47, 37)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 712.0,
+   "y": 636.8,
+   "why": "tree-2 tree at (44, 42) -> (44, 39)"
+  },
+  {
+   "sprite": "big_spruce",
+   "x": 856.0,
+   "y": 604.8,
+   "why": "tree-3 tree at (56, 36) -> (53, 37)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1448.0,
+   "y": 860.8,
+   "why": "tree-5 tree at (90, 50) -> (90, 53)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1384.0,
+   "y": 492.8,
+   "why": "scatter tree at (86, 30) -> (86, 30)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1384.0,
+   "y": 396.8,
+   "why": "scatter tree at (86, 24) -> (86, 24)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1400.0,
+   "y": 556.8,
+   "why": "scatter tree at (87, 34) -> (87, 34)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1736.0,
+   "y": 172.8,
+   "why": "scatter tree at (108, 10) -> (108, 10)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1960.0,
+   "y": 236.8,
+   "why": "scatter tree at (122, 14) -> (122, 14)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1512.0,
+   "y": 220.8,
+   "why": "scatter tree at (94, 13) -> (94, 13)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1368.0,
+   "y": 316.8,
+   "why": "scatter tree at (85, 19) -> (85, 19)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1368.0,
+   "y": 236.8,
+   "why": "scatter tree at (85, 14) -> (85, 14)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1432.0,
+   "y": 268.8,
+   "why": "scatter tree at (89, 16) -> (89, 16)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1112.0,
+   "y": 1052.8,
+   "why": "scatter tree at (69, 65) -> (69, 65)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1272.0,
+   "y": 1084.8,
+   "why": "scatter tree at (79, 67) -> (79, 67)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1592.0,
+   "y": 636.8,
+   "why": "scatter tree at (99, 39) -> (99, 39)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1080.0,
+   "y": 876.8,
+   "why": "scatter tree at (67, 54) -> (67, 54)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1480.0,
+   "y": 972.8,
+   "why": "scatter tree at (92, 60) -> (92, 60)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1048.0,
+   "y": 300.8,
+   "why": "scatter tree at (65, 18) -> (65, 18)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1080.0,
+   "y": 204.8,
+   "why": "scatter tree at (67, 12) -> (67, 12)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1288.0,
+   "y": 220.8,
+   "why": "scatter tree at (80, 13) -> (80, 13)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 1656.0,
+   "y": 956.8,
+   "why": "scatter tree at (103, 59) -> (103, 59)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1656.0,
+   "y": 636.8,
+   "why": "scatter tree at (103, 39) -> (103, 39)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 200.0,
+   "y": 796.8,
+   "why": "scatter tree at (12, 49) -> (12, 49)"
+  },
+  {
+   "sprite": "med_spruce",
+   "x": 200.0,
+   "y": 588.8,
+   "why": "scatter tree at (12, 36) -> (12, 36)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 88.0,
+   "y": 652.8,
+   "why": "scatter tree at (5, 40) -> (5, 40)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1448.0,
+   "y": 1436.8,
+   "why": "scatter tree at (90, 89) -> (90, 89)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1624.0,
+   "y": 1516.8,
+   "why": "scatter tree at (101, 94) -> (101, 94)"
+  },
+  {
+   "sprite": "med_oak",
+   "x": 1480.0,
+   "y": 1612.8,
+   "why": "scatter tree at (92, 100) -> (92, 100)"
+  }
+ ]
+}

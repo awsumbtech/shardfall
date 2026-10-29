@@ -1361,17 +1361,12 @@ SF.buildTerrainSheet = function (lit) {
 // Kenmi ground for Emberhold only, and only when every ground frame loaded.
 // Anything short of that, including a partial atlas, keeps today's code ground.
 SF._drawTileGround = function (ctx, s) {
-  if (SF.islandId !== "emberhold" || !SF.tilesReady || !SF.tilesReady()) return false;
-  if (!s || !SF.TileMapRenderer || !SF.emberTileMap) return false;
-  var map = SF.emberTileMap();
-  if (!map) return false;
+  if (SF.worldSource !== "tiles" || SF.islandId !== "emberhold" || !SF.tileMap) return false;
+  if (!s || !SF.TileMapRenderer) return false;
   if (!SF.tileRenderer) SF.tileRenderer = new SF.TileMapRenderer();
-  var drew = false;
-  try { drew = !!SF.tileRenderer.draw(ctx, s, map); }
-  catch (err) { drew = false; }
-  if (!drew) return false;
+  try { SF.tileRenderer.draw(ctx, s, SF.tileMap); }
+  catch (err) { /* a bad frame must not bring back the code ground */ }
   SF._tileGroundOn = true;
-  if (SF.drawBridge) SF.drawBridge(ctx);
   return true;
 };
 
@@ -2520,11 +2515,17 @@ SF.entityList = function (s) {
       ctx.restore();
     }
   });
-  if (SF._tileGroundOn && SF._emberTileMap && SF.tileRenderer) {
-    (SF._emberTileMap.faces || []).forEach(function (face) {
+  if (SF._tileGroundOn && SF.tileMap && SF.tileRenderer) {
+    SF.tileMap.faces.forEach(function (cell) {
       list.push({
-        y: face.y,
-        draw: function (ctx) { SF.tileRenderer.drawCells(ctx, face.cells); }
+        y: cell.sort,
+        draw: function (ctx) { SF.tileRenderer.drawCells(ctx, SF.tileMap, [cell]); }
+      });
+    });
+    SF.tileMap.overlay.forEach(function (cell) {
+      list.push({
+        y: cell.sort,
+        draw: function (ctx) { SF.tileRenderer.drawCells(ctx, SF.tileMap, [cell]); }
       });
     });
   }

@@ -1,0 +1,1799 @@
+{
+ "name": "emberhold-kenmi",
+ "tileSize": 16,
+ "root": "vendor/kenmi",
+ "note": "Kenmi Cute Fantasy, PRIVATE. Paths and cells only; never commit pixels anywhere public.",
+ "sheets": {
+  "grass": "Cute_Fantasy/Tiles/Grass/Grass_Tiles_1.png",
+  "grassMid": "Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
+  "pathMid": "Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+  "pathDecor": "Cute_Fantasy/Tiles/Grass/Path_Decoration.png",
+  "stone": "Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png",
+  "volcano": "Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png",
+  "bridge": "Cute_Fantasy/Tiles/Bridge/Bridge_Wood.png",
+  "grass2": "Cute_Fantasy/Tiles/Grass/Grass_Tiles_2.png",
+  "grass2Mid": "Cute_Fantasy/Tiles/Grass/Grass_2_Middle.png",
+  "grass3": "Cute_Fantasy/Tiles/Grass/Grass_Tiles_3.png",
+  "grass3Mid": "Cute_Fantasy/Tiles/Grass/Grass_3_Middle.png",
+  "odecor": "Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+  "flowers": "Cute_Fantasy/Outdoor decoration/Flowers.png",
+  "vrocks": "Cute_Fantasy_Volcano/Volcano_Props/Volcano_Rocks.png",
+  "vplants": "Cute_Fantasy_Volcano/Volcano_Props/Volcano_Plants.png",
+  "fx": "art/fx-tiles.png",
+  "volcanoDim": "Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png"
+ },
+ "groups": {
+  "grass": "Plain meadow grass and tuft variants",
+  "earth-top": "Top edge of raised grass land (dirt rim), Grass_Tiles_1 cols 8-10 block + rim hole-set corners",
+  "earth-face": "Rock-and-earth cliff face under a south lip, 2.3 tiles tall, Grass_Tiles_1 cols 8-10 rows 2-5",
+  "path": "Dirt path cut into grass, Grass_Tiles_1 rows 5-9 (grass-over-dirt set)",
+  "stair": "Stone steps cut through a cliff face, Stone_Cliff_1 cols 8-10 rows 1-4",
+  "ash": "Volcano ash rock ground and its edges",
+  "basalt": "Volcano basalt column cliff face",
+  "bridge": "Wooden plank bridge (vertical)"
+ },
+ "tiles": {
+  "grass": {
+   "sheet": "grassMid",
+   "c": 0,
+   "r": 0,
+   "group": "grass"
+  },
+  "grass_tuft_a": {
+   "sheet": "grass",
+   "c": 5,
+   "r": 9,
+   "group": "grass"
+  },
+  "grass_tuft_b": {
+   "sheet": "grass",
+   "c": 6,
+   "r": 9,
+   "group": "grass"
+  },
+  "grass_tuft_c": {
+   "sheet": "grass",
+   "c": 7,
+   "r": 9,
+   "group": "grass"
+  },
+  "top_nw": {
+   "sheet": "grass",
+   "c": 8,
+   "r": 0,
+   "group": "earth-top",
+   "desc": "outer corner, open N+W"
+  },
+  "top_n": {
+   "sheet": "grass",
+   "c": 9,
+   "r": 0,
+   "group": "earth-top",
+   "desc": "north rim"
+  },
+  "top_ne": {
+   "sheet": "grass",
+   "c": 10,
+   "r": 0,
+   "group": "earth-top",
+   "desc": "outer corner, open N+E"
+  },
+  "top_w": {
+   "sheet": "grass",
+   "c": 8,
+   "r": 1,
+   "group": "earth-top",
+   "desc": "west rim"
+  },
+  "top_e": {
+   "sheet": "grass",
+   "c": 10,
+   "r": 1,
+   "group": "earth-top",
+   "desc": "east rim"
+  },
+  "lip_sw": {
+   "sheet": "grass",
+   "c": 8,
+   "r": 2,
+   "group": "earth-top",
+   "desc": "south lip, outer corner SW (face starts)"
+  },
+  "lip_s": {
+   "sheet": "grass",
+   "c": 9,
+   "r": 2,
+   "group": "earth-top",
+   "desc": "south lip (grass over face top)"
+  },
+  "lip_se": {
+   "sheet": "grass",
+   "c": 10,
+   "r": 2,
+   "group": "earth-top",
+   "desc": "south lip, outer corner SE"
+  },
+  "in_se": {
+   "sheet": "grass",
+   "c": 3,
+   "r": 0,
+   "group": "earth-top",
+   "desc": "inner corner, lower land to SE"
+  },
+  "in_sw": {
+   "sheet": "grass",
+   "c": 5,
+   "r": 0,
+   "group": "earth-top",
+   "desc": "inner corner, lower land to SW"
+  },
+  "in_ne": {
+   "sheet": "grass",
+   "c": 3,
+   "r": 2,
+   "group": "earth-top",
+   "desc": "inner corner, lower land to NE"
+  },
+  "in_nw": {
+   "sheet": "grass",
+   "c": 5,
+   "r": 2,
+   "group": "earth-top",
+   "desc": "inner corner, lower land to NW"
+  },
+  "face_w": {
+   "sheet": "grass",
+   "c": 8,
+   "r": 3,
+   "group": "earth-face",
+   "desc": "face, west end"
+  },
+  "face": {
+   "sheet": "grass",
+   "c": 9,
+   "r": 3,
+   "group": "earth-face",
+   "desc": "face middle"
+  },
+  "face_e": {
+   "sheet": "grass",
+   "c": 10,
+   "r": 3,
+   "group": "earth-face",
+   "desc": "face, east end"
+  },
+  "foot_w": {
+   "sheet": "grass",
+   "c": 8,
+   "r": 4,
+   "group": "earth-face",
+   "desc": "face foot, west end"
+  },
+  "foot": {
+   "sheet": "grass",
+   "c": 9,
+   "r": 4,
+   "group": "earth-face",
+   "desc": "face foot"
+  },
+  "foot_e": {
+   "sheet": "grass",
+   "c": 10,
+   "r": 4,
+   "group": "earth-face",
+   "desc": "face foot, east end"
+  },
+  "shade_w": {
+   "sheet": "grass",
+   "c": 8,
+   "r": 5,
+   "group": "earth-face",
+   "desc": "cast shadow under foot, west"
+  },
+  "shade": {
+   "sheet": "grass",
+   "c": 9,
+   "r": 5,
+   "group": "earth-face",
+   "desc": "cast shadow under foot"
+  },
+  "shade_e": {
+   "sheet": "grass",
+   "c": 10,
+   "r": 5,
+   "group": "earth-face",
+   "desc": "cast shadow under foot, east"
+  },
+  "path": {
+   "sheet": "pathMid",
+   "c": 0,
+   "r": 0,
+   "group": "path",
+   "desc": "dirt"
+  },
+  "pe_s": {
+   "sheet": "grass",
+   "c": 1,
+   "r": 5,
+   "group": "path",
+   "desc": "grass, dirt to S"
+  },
+  "pe_n": {
+   "sheet": "grass",
+   "c": 1,
+   "r": 7,
+   "group": "path",
+   "desc": "grass, dirt to N"
+  },
+  "pe_e": {
+   "sheet": "grass",
+   "c": 0,
+   "r": 6,
+   "group": "path",
+   "desc": "grass, dirt to E"
+  },
+  "pe_w": {
+   "sheet": "grass",
+   "c": 2,
+   "r": 6,
+   "group": "path",
+   "desc": "grass, dirt to W"
+  },
+  "pe_in_se": {
+   "sheet": "grass",
+   "c": 0,
+   "r": 5,
+   "group": "path",
+   "desc": "grass, dirt only at SE diagonal"
+  },
+  "pe_in_sw": {
+   "sheet": "grass",
+   "c": 2,
+   "r": 5,
+   "group": "path",
+   "desc": "grass, dirt only at SW diagonal"
+  },
+  "pe_in_ne": {
+   "sheet": "grass",
+   "c": 0,
+   "r": 7,
+   "group": "path",
+   "desc": "grass, dirt only at NE diagonal"
+  },
+  "pe_in_nw": {
+   "sheet": "grass",
+   "c": 2,
+   "r": 7,
+   "group": "path",
+   "desc": "grass, dirt only at NW diagonal"
+  },
+  "pe_nw": {
+   "sheet": "grass",
+   "c": 0,
+   "r": 8,
+   "group": "path",
+   "desc": "grass corner, dirt N+W"
+  },
+  "pe_ne": {
+   "sheet": "grass",
+   "c": 1,
+   "r": 8,
+   "group": "path",
+   "desc": "grass corner, dirt N+E"
+  },
+  "pe_sw": {
+   "sheet": "grass",
+   "c": 0,
+   "r": 9,
+   "group": "path",
+   "desc": "grass corner, dirt S+W"
+  },
+  "pe_se": {
+   "sheet": "grass",
+   "c": 1,
+   "r": 9,
+   "group": "path",
+   "desc": "grass corner, dirt S+E"
+  },
+  "pebbles_a": {
+   "sheet": "pathDecor",
+   "c": 0,
+   "r": 0,
+   "group": "path"
+  },
+  "pebbles_b": {
+   "sheet": "pathDecor",
+   "c": 1,
+   "r": 0,
+   "group": "path"
+  },
+  "pebbles_c": {
+   "sheet": "pathDecor",
+   "c": 2,
+   "r": 0,
+   "group": "path"
+  },
+  "stair_tw": {
+   "sheet": "stone",
+   "c": 8,
+   "r": 1,
+   "group": "stair",
+   "desc": "stair top row, west"
+  },
+  "stair_t": {
+   "sheet": "stone",
+   "c": 9,
+   "r": 1,
+   "group": "stair"
+  },
+  "stair_te": {
+   "sheet": "stone",
+   "c": 10,
+   "r": 1,
+   "group": "stair"
+  },
+  "stair_mw": {
+   "sheet": "stone",
+   "c": 8,
+   "r": 2,
+   "group": "stair"
+  },
+  "stair_m": {
+   "sheet": "stone",
+   "c": 9,
+   "r": 2,
+   "group": "stair"
+  },
+  "stair_me": {
+   "sheet": "stone",
+   "c": 10,
+   "r": 2,
+   "group": "stair"
+  },
+  "stair_bw": {
+   "sheet": "stone",
+   "c": 8,
+   "r": 3,
+   "group": "stair"
+  },
+  "stair_b": {
+   "sheet": "stone",
+   "c": 9,
+   "r": 3,
+   "group": "stair"
+  },
+  "stair_be": {
+   "sheet": "stone",
+   "c": 10,
+   "r": 3,
+   "group": "stair"
+  },
+  "stair_rw": {
+   "sheet": "stone",
+   "c": 8,
+   "r": 4,
+   "group": "stair",
+   "desc": "loose stones at stair foot"
+  },
+  "stair_r": {
+   "sheet": "stone",
+   "c": 9,
+   "r": 4,
+   "group": "stair"
+  },
+  "stair_re": {
+   "sheet": "stone",
+   "c": 10,
+   "r": 4,
+   "group": "stair"
+  },
+  "ash_0": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 0,
+   "group": "ash"
+  },
+  "ash_1": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 0,
+   "group": "ash"
+  },
+  "ash_2": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 0,
+   "group": "ash"
+  },
+  "ash_3": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 1,
+   "group": "ash"
+  },
+  "ash_4": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 1,
+   "group": "ash"
+  },
+  "ash_5": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 1,
+   "group": "ash"
+  },
+  "ash_6": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 2,
+   "group": "ash"
+  },
+  "ash_7": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 2,
+   "group": "ash"
+  },
+  "ash_8": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 2,
+   "group": "ash"
+  },
+  "ash_cob_a": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 3,
+   "group": "ash"
+  },
+  "ash_cob_b": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 4,
+   "group": "ash"
+  },
+  "ash_nw": {
+   "sheet": "volcano",
+   "c": 4,
+   "r": 6,
+   "group": "ash",
+   "desc": "ash outer corner N+W"
+  },
+  "ash_n": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 8,
+   "group": "ash"
+  },
+  "ash_ne": {
+   "sheet": "volcano",
+   "c": 6,
+   "r": 6,
+   "group": "ash"
+  },
+  "ash_w": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 7,
+   "group": "ash"
+  },
+  "ash_c": {
+   "sheet": "volcano",
+   "c": 5,
+   "r": 7,
+   "group": "ash"
+  },
+  "ash_e": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 7,
+   "group": "ash"
+  },
+  "ash_sw": {
+   "sheet": "volcano",
+   "c": 4,
+   "r": 8,
+   "group": "ash"
+  },
+  "ash_s": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 6,
+   "group": "ash"
+  },
+  "ash_se": {
+   "sheet": "volcano",
+   "c": 6,
+   "r": 8,
+   "group": "ash"
+  },
+  "ash_in_se": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 6,
+   "group": "ash"
+  },
+  "ash_in_sw": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 6,
+   "group": "ash"
+  },
+  "ash_in_ne": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 8,
+   "group": "ash"
+  },
+  "ash_in_nw": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 8,
+   "group": "ash"
+  },
+  "ash_lip_w": {
+   "sheet": "volcano",
+   "c": 22,
+   "r": 3,
+   "group": "basalt",
+   "desc": "cobbled lip above a basalt face"
+  },
+  "ash_lip": {
+   "sheet": "volcano",
+   "c": 23,
+   "r": 3,
+   "group": "basalt"
+  },
+  "ash_lip_e": {
+   "sheet": "volcano",
+   "c": 24,
+   "r": 3,
+   "group": "basalt"
+  },
+  "bridge_v_top": {
+   "sheet": "bridge",
+   "c": 4,
+   "r": 1,
+   "group": "bridge"
+  },
+  "bridge_v_mid": {
+   "sheet": "bridge",
+   "c": 4,
+   "r": 2,
+   "group": "bridge"
+  },
+  "bridge_v_bot": {
+   "sheet": "bridge",
+   "c": 4,
+   "r": 3,
+   "group": "bridge"
+  },
+  "bas_w0": {
+   "sheet": "volcano",
+   "c": 22,
+   "r": 0,
+   "group": "basalt",
+   "desc": "basalt face, west-lit column, top"
+  },
+  "bas_w1": {
+   "sheet": "volcano",
+   "c": 22,
+   "r": 1,
+   "group": "basalt"
+  },
+  "bas_w2": {
+   "sheet": "volcano",
+   "c": 22,
+   "r": 2,
+   "group": "basalt",
+   "desc": "basalt foot"
+  },
+  "bas_e0": {
+   "sheet": "volcano",
+   "c": 24,
+   "r": 0,
+   "group": "basalt",
+   "desc": "basalt face, east column, top"
+  },
+  "bas_e1": {
+   "sheet": "volcano",
+   "c": 24,
+   "r": 1,
+   "group": "basalt"
+  },
+  "bas_e2": {
+   "sheet": "volcano",
+   "c": 24,
+   "r": 2,
+   "group": "basalt"
+  },
+  "bas_stair_0": {
+   "sheet": "volcano",
+   "c": 23,
+   "r": 0,
+   "group": "basalt",
+   "desc": "basalt stair (1 wide)"
+  },
+  "bas_stair_1": {
+   "sheet": "volcano",
+   "c": 23,
+   "r": 1,
+   "group": "basalt"
+  },
+  "bas_stair_2": {
+   "sheet": "volcano",
+   "c": 23,
+   "r": 2,
+   "group": "basalt"
+  },
+  "g2_mid": {
+   "sheet": "grass2Mid",
+   "c": 0,
+   "r": 0,
+   "group": "grass-patch"
+  },
+  "g2_nw": {
+   "sheet": "grass2",
+   "c": 0,
+   "r": 3,
+   "group": "grass-patch",
+   "desc": "patch nw"
+  },
+  "g2_ne": {
+   "sheet": "grass2",
+   "c": 1,
+   "r": 3,
+   "group": "grass-patch",
+   "desc": "patch ne"
+  },
+  "g2_sw": {
+   "sheet": "grass2",
+   "c": 0,
+   "r": 4,
+   "group": "grass-patch",
+   "desc": "patch sw"
+  },
+  "g2_se": {
+   "sheet": "grass2",
+   "c": 1,
+   "r": 4,
+   "group": "grass-patch",
+   "desc": "patch se"
+  },
+  "g2_n": {
+   "sheet": "grass2",
+   "c": 1,
+   "r": 2,
+   "group": "grass-patch",
+   "desc": "patch n"
+  },
+  "g2_s": {
+   "sheet": "grass2",
+   "c": 1,
+   "r": 0,
+   "group": "grass-patch",
+   "desc": "patch s"
+  },
+  "g2_w": {
+   "sheet": "grass2",
+   "c": 2,
+   "r": 1,
+   "group": "grass-patch",
+   "desc": "patch w"
+  },
+  "g2_e": {
+   "sheet": "grass2",
+   "c": 0,
+   "r": 1,
+   "group": "grass-patch",
+   "desc": "patch e"
+  },
+  "g2_in_se": {
+   "sheet": "grass2",
+   "c": 0,
+   "r": 0,
+   "group": "grass-patch",
+   "desc": "patch in_se"
+  },
+  "g2_in_sw": {
+   "sheet": "grass2",
+   "c": 2,
+   "r": 0,
+   "group": "grass-patch",
+   "desc": "patch in_sw"
+  },
+  "g2_in_ne": {
+   "sheet": "grass2",
+   "c": 0,
+   "r": 2,
+   "group": "grass-patch",
+   "desc": "patch in_ne"
+  },
+  "g2_in_nw": {
+   "sheet": "grass2",
+   "c": 2,
+   "r": 2,
+   "group": "grass-patch",
+   "desc": "patch in_nw"
+  },
+  "g3_mid": {
+   "sheet": "grass3Mid",
+   "c": 0,
+   "r": 0,
+   "group": "grass-patch"
+  },
+  "g3_nw": {
+   "sheet": "grass3",
+   "c": 0,
+   "r": 3,
+   "group": "grass-patch",
+   "desc": "patch nw"
+  },
+  "g3_ne": {
+   "sheet": "grass3",
+   "c": 1,
+   "r": 3,
+   "group": "grass-patch",
+   "desc": "patch ne"
+  },
+  "g3_sw": {
+   "sheet": "grass3",
+   "c": 0,
+   "r": 4,
+   "group": "grass-patch",
+   "desc": "patch sw"
+  },
+  "g3_se": {
+   "sheet": "grass3",
+   "c": 1,
+   "r": 4,
+   "group": "grass-patch",
+   "desc": "patch se"
+  },
+  "g3_n": {
+   "sheet": "grass3",
+   "c": 1,
+   "r": 2,
+   "group": "grass-patch",
+   "desc": "patch n"
+  },
+  "g3_s": {
+   "sheet": "grass3",
+   "c": 1,
+   "r": 0,
+   "group": "grass-patch",
+   "desc": "patch s"
+  },
+  "g3_w": {
+   "sheet": "grass3",
+   "c": 2,
+   "r": 1,
+   "group": "grass-patch",
+   "desc": "patch w"
+  },
+  "g3_e": {
+   "sheet": "grass3",
+   "c": 0,
+   "r": 1,
+   "group": "grass-patch",
+   "desc": "patch e"
+  },
+  "g3_in_se": {
+   "sheet": "grass3",
+   "c": 0,
+   "r": 0,
+   "group": "grass-patch",
+   "desc": "patch in_se"
+  },
+  "g3_in_sw": {
+   "sheet": "grass3",
+   "c": 2,
+   "r": 0,
+   "group": "grass-patch",
+   "desc": "patch in_sw"
+  },
+  "g3_in_ne": {
+   "sheet": "grass3",
+   "c": 0,
+   "r": 2,
+   "group": "grass-patch",
+   "desc": "patch in_ne"
+  },
+  "g3_in_nw": {
+   "sheet": "grass3",
+   "c": 2,
+   "r": 2,
+   "group": "grass-patch",
+   "desc": "patch in_nw"
+  },
+  "d_fl_a": {
+   "sheet": "odecor",
+   "c": 0,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_fl_b": {
+   "sheet": "odecor",
+   "c": 1,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_fl_c": {
+   "sheet": "odecor",
+   "c": 2,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_fl_d": {
+   "sheet": "odecor",
+   "c": 4,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_fl_e": {
+   "sheet": "odecor",
+   "c": 5,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_fl_f": {
+   "sheet": "odecor",
+   "c": 3,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_sp_a": {
+   "sheet": "odecor",
+   "c": 0,
+   "r": 2,
+   "group": "decor"
+  },
+  "d_sp_b": {
+   "sheet": "odecor",
+   "c": 1,
+   "r": 2,
+   "group": "decor"
+  },
+  "d_sp_c": {
+   "sheet": "odecor",
+   "c": 2,
+   "r": 2,
+   "group": "decor"
+  },
+  "d_tuft_a": {
+   "sheet": "odecor",
+   "c": 6,
+   "r": 3,
+   "group": "decor"
+  },
+  "d_tuft_b": {
+   "sheet": "odecor",
+   "c": 7,
+   "r": 3,
+   "group": "decor"
+  },
+  "d_tuft_c": {
+   "sheet": "odecor",
+   "c": 8,
+   "r": 3,
+   "group": "decor"
+  },
+  "d_tuft_d": {
+   "sheet": "odecor",
+   "c": 6,
+   "r": 2,
+   "group": "decor"
+  },
+  "d_rock_a": {
+   "sheet": "odecor",
+   "c": 3,
+   "r": 6,
+   "group": "decor"
+  },
+  "d_rock_b": {
+   "sheet": "odecor",
+   "c": 4,
+   "r": 6,
+   "group": "decor"
+  },
+  "d_stump_s": {
+   "sheet": "odecor",
+   "c": 2,
+   "r": 6,
+   "group": "decor"
+  },
+  "d_stump": {
+   "sheet": "odecor",
+   "c": 1,
+   "r": 6,
+   "group": "decor"
+  },
+  "d_bush_a": {
+   "sheet": "odecor",
+   "c": 5,
+   "r": 5,
+   "group": "decor"
+  },
+  "d_bush_b": {
+   "sheet": "odecor",
+   "c": 3,
+   "r": 9,
+   "group": "decor"
+  },
+  "d_clover_a": {
+   "sheet": "odecor",
+   "c": 5,
+   "r": 9,
+   "group": "decor"
+  },
+  "d_clover_b": {
+   "sheet": "odecor",
+   "c": 6,
+   "r": 9,
+   "group": "decor"
+  },
+  "d_clover_c": {
+   "sheet": "odecor",
+   "c": 7,
+   "r": 9,
+   "group": "decor"
+  },
+  "d_mush_a": {
+   "sheet": "odecor",
+   "c": 6,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_mush_b": {
+   "sheet": "odecor",
+   "c": 7,
+   "r": 1,
+   "group": "decor"
+  },
+  "d_log_l": {
+   "sheet": "odecor",
+   "c": 0,
+   "r": 7,
+   "group": "decor"
+  },
+  "d_log_r": {
+   "sheet": "odecor",
+   "c": 1,
+   "r": 7,
+   "group": "decor"
+  },
+  "fw_0_0": {
+   "sheet": "flowers",
+   "c": 0,
+   "r": 0,
+   "group": "decor"
+  },
+  "fw_0_1": {
+   "sheet": "flowers",
+   "c": 0,
+   "r": 1,
+   "group": "decor"
+  },
+  "fw_0_2": {
+   "sheet": "flowers",
+   "c": 0,
+   "r": 2,
+   "group": "decor"
+  },
+  "fw_0_3": {
+   "sheet": "flowers",
+   "c": 0,
+   "r": 3,
+   "group": "decor"
+  },
+  "fw_0_4": {
+   "sheet": "flowers",
+   "c": 0,
+   "r": 4,
+   "group": "decor"
+  },
+  "fw_0_5": {
+   "sheet": "flowers",
+   "c": 0,
+   "r": 5,
+   "group": "decor"
+  },
+  "fw_1_0": {
+   "sheet": "flowers",
+   "c": 1,
+   "r": 0,
+   "group": "decor"
+  },
+  "fw_1_1": {
+   "sheet": "flowers",
+   "c": 1,
+   "r": 1,
+   "group": "decor"
+  },
+  "fw_1_2": {
+   "sheet": "flowers",
+   "c": 1,
+   "r": 2,
+   "group": "decor"
+  },
+  "fw_1_3": {
+   "sheet": "flowers",
+   "c": 1,
+   "r": 3,
+   "group": "decor"
+  },
+  "fw_1_4": {
+   "sheet": "flowers",
+   "c": 1,
+   "r": 4,
+   "group": "decor"
+  },
+  "fw_1_5": {
+   "sheet": "flowers",
+   "c": 1,
+   "r": 5,
+   "group": "decor"
+  },
+  "fw_2_0": {
+   "sheet": "flowers",
+   "c": 2,
+   "r": 0,
+   "group": "decor"
+  },
+  "fw_2_1": {
+   "sheet": "flowers",
+   "c": 2,
+   "r": 1,
+   "group": "decor"
+  },
+  "fw_2_2": {
+   "sheet": "flowers",
+   "c": 2,
+   "r": 2,
+   "group": "decor"
+  },
+  "fw_2_3": {
+   "sheet": "flowers",
+   "c": 2,
+   "r": 3,
+   "group": "decor"
+  },
+  "fw_2_4": {
+   "sheet": "flowers",
+   "c": 2,
+   "r": 4,
+   "group": "decor"
+  },
+  "fw_2_5": {
+   "sheet": "flowers",
+   "c": 2,
+   "r": 5,
+   "group": "decor"
+  },
+  "fw_3_0": {
+   "sheet": "flowers",
+   "c": 3,
+   "r": 0,
+   "group": "decor"
+  },
+  "fw_3_1": {
+   "sheet": "flowers",
+   "c": 3,
+   "r": 1,
+   "group": "decor"
+  },
+  "fw_3_2": {
+   "sheet": "flowers",
+   "c": 3,
+   "r": 2,
+   "group": "decor"
+  },
+  "fw_3_3": {
+   "sheet": "flowers",
+   "c": 3,
+   "r": 3,
+   "group": "decor"
+  },
+  "fw_3_4": {
+   "sheet": "flowers",
+   "c": 3,
+   "r": 4,
+   "group": "decor"
+  },
+  "fw_3_5": {
+   "sheet": "flowers",
+   "c": 3,
+   "r": 5,
+   "group": "decor"
+  },
+  "fw_4_0": {
+   "sheet": "flowers",
+   "c": 4,
+   "r": 0,
+   "group": "decor"
+  },
+  "fw_4_1": {
+   "sheet": "flowers",
+   "c": 4,
+   "r": 1,
+   "group": "decor"
+  },
+  "fw_4_2": {
+   "sheet": "flowers",
+   "c": 4,
+   "r": 2,
+   "group": "decor"
+  },
+  "fw_4_3": {
+   "sheet": "flowers",
+   "c": 4,
+   "r": 3,
+   "group": "decor"
+  },
+  "fw_4_4": {
+   "sheet": "flowers",
+   "c": 4,
+   "r": 4,
+   "group": "decor"
+  },
+  "fw_4_5": {
+   "sheet": "flowers",
+   "c": 4,
+   "r": 5,
+   "group": "decor"
+  },
+  "vr_0": {
+   "sheet": "vrocks",
+   "c": 0,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vr_1": {
+   "sheet": "vrocks",
+   "c": 1,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vr_2": {
+   "sheet": "vrocks",
+   "c": 2,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vr_3": {
+   "sheet": "vrocks",
+   "c": 3,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vr_4": {
+   "sheet": "vrocks",
+   "c": 4,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vr_5": {
+   "sheet": "vrocks",
+   "c": 5,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vr_6": {
+   "sheet": "vrocks",
+   "c": 6,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vr_7": {
+   "sheet": "vrocks",
+   "c": 7,
+   "r": 0,
+   "group": "scar-decor"
+  },
+  "vp_0": {
+   "sheet": "vplants",
+   "c": 0,
+   "r": 6,
+   "group": "scar-decor"
+  },
+  "vp_1": {
+   "sheet": "vplants",
+   "c": 1,
+   "r": 6,
+   "group": "scar-decor"
+  },
+  "vp_2": {
+   "sheet": "vplants",
+   "c": 2,
+   "r": 6,
+   "group": "scar-decor"
+  },
+  "vp_3": {
+   "sheet": "vplants",
+   "c": 3,
+   "r": 6,
+   "group": "scar-decor"
+  },
+  "vp_4": {
+   "sheet": "vplants",
+   "c": 4,
+   "r": 6,
+   "group": "scar-decor"
+  },
+  "vp_5": {
+   "sheet": "vplants",
+   "c": 5,
+   "r": 6,
+   "group": "scar-decor"
+  },
+  "fx_dim": {
+   "sheet": "fx",
+   "c": 0,
+   "r": 0,
+   "group": "fx",
+   "desc": "own pixels (not Kenmi)"
+  },
+  "fx_foot": {
+   "sheet": "fx",
+   "c": 1,
+   "r": 0,
+   "group": "fx",
+   "desc": "own pixels (not Kenmi)"
+  },
+  "fx_foot_soft": {
+   "sheet": "fx",
+   "c": 2,
+   "r": 0,
+   "group": "fx",
+   "desc": "own pixels (not Kenmi)"
+  },
+  "fx_dim_soft": {
+   "sheet": "fx",
+   "c": 3,
+   "r": 0,
+   "group": "fx",
+   "desc": "own pixels (not Kenmi)"
+  },
+  "lc_nw": {
+   "sheet": "volcano",
+   "c": 4,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "lc_n": {
+   "sheet": "volcano",
+   "c": 5,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "lc_ne": {
+   "sheet": "volcano",
+   "c": 6,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "lc_w": {
+   "sheet": "volcano",
+   "c": 4,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "lc_mid": {
+   "sheet": "volcano",
+   "c": 5,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "lc_e": {
+   "sheet": "volcano",
+   "c": 6,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "lc_sw": {
+   "sheet": "volcano",
+   "c": 4,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "lc_s": {
+   "sheet": "volcano",
+   "c": 5,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "lc_se": {
+   "sheet": "volcano",
+   "c": 6,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "cc_nw": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "cc_n": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "cc_ne": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "cc_w": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "cc_mid": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "cc_e": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "cc_sw": {
+   "sheet": "volcano",
+   "c": 1,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "cc_s": {
+   "sheet": "volcano",
+   "c": 2,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "cc_se": {
+   "sheet": "volcano",
+   "c": 3,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "kc_nw": {
+   "sheet": "volcano",
+   "c": 7,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "kc_n": {
+   "sheet": "volcano",
+   "c": 8,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "kc_ne": {
+   "sheet": "volcano",
+   "c": 9,
+   "r": 0,
+   "group": "ash-patch"
+  },
+  "kc_w": {
+   "sheet": "volcano",
+   "c": 7,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "kc_mid": {
+   "sheet": "volcano",
+   "c": 8,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "kc_e": {
+   "sheet": "volcano",
+   "c": 9,
+   "r": 1,
+   "group": "ash-patch"
+  },
+  "kc_sw": {
+   "sheet": "volcano",
+   "c": 7,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "kc_s": {
+   "sheet": "volcano",
+   "c": 8,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "kc_se": {
+   "sheet": "volcano",
+   "c": 9,
+   "r": 2,
+   "group": "ash-patch"
+  },
+  "ash_0~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_1~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_2~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_3~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_4~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_5~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_6~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_7~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_8~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_cob_a~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 3,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_cob_b~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 4,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_nw~d": {
+   "sheet": "volcanoDim",
+   "c": 4,
+   "r": 6,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_n~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 8,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_ne~d": {
+   "sheet": "volcanoDim",
+   "c": 6,
+   "r": 6,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_w~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 7,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_c~d": {
+   "sheet": "volcanoDim",
+   "c": 5,
+   "r": 7,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_e~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 7,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_sw~d": {
+   "sheet": "volcanoDim",
+   "c": 4,
+   "r": 8,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_s~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 6,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_se~d": {
+   "sheet": "volcanoDim",
+   "c": 6,
+   "r": 8,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_in_se~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 6,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_in_sw~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 6,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_in_ne~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 8,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_in_nw~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 8,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_lip_w~d": {
+   "sheet": "volcanoDim",
+   "c": 22,
+   "r": 3,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_lip~d": {
+   "sheet": "volcanoDim",
+   "c": 23,
+   "r": 3,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "ash_lip_e~d": {
+   "sheet": "volcanoDim",
+   "c": 24,
+   "r": 3,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_nw~d": {
+   "sheet": "volcanoDim",
+   "c": 4,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_n~d": {
+   "sheet": "volcanoDim",
+   "c": 5,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_ne~d": {
+   "sheet": "volcanoDim",
+   "c": 6,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_w~d": {
+   "sheet": "volcanoDim",
+   "c": 4,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_mid~d": {
+   "sheet": "volcanoDim",
+   "c": 5,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_e~d": {
+   "sheet": "volcanoDim",
+   "c": 6,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_sw~d": {
+   "sheet": "volcanoDim",
+   "c": 4,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_s~d": {
+   "sheet": "volcanoDim",
+   "c": 5,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "lc_se~d": {
+   "sheet": "volcanoDim",
+   "c": 6,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_nw~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_n~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_ne~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_w~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_mid~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_e~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_sw~d": {
+   "sheet": "volcanoDim",
+   "c": 1,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_s~d": {
+   "sheet": "volcanoDim",
+   "c": 2,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "cc_se~d": {
+   "sheet": "volcanoDim",
+   "c": 3,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_nw~d": {
+   "sheet": "volcanoDim",
+   "c": 7,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_n~d": {
+   "sheet": "volcanoDim",
+   "c": 8,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_ne~d": {
+   "sheet": "volcanoDim",
+   "c": 9,
+   "r": 0,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_w~d": {
+   "sheet": "volcanoDim",
+   "c": 7,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_mid~d": {
+   "sheet": "volcanoDim",
+   "c": 8,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_e~d": {
+   "sheet": "volcanoDim",
+   "c": 9,
+   "r": 1,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_sw~d": {
+   "sheet": "volcanoDim",
+   "c": 7,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_s~d": {
+   "sheet": "volcanoDim",
+   "c": 8,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  },
+  "kc_se~d": {
+   "sheet": "volcanoDim",
+   "c": 9,
+   "r": 2,
+   "group": "ash-low",
+   "desc": "low ash, darkened copy (private derived sheet)"
+  }
+ }
+}

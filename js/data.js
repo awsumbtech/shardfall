@@ -36,7 +36,7 @@ SF.WHATS_NEW = [
   "Behind the scenes: new art system groundwork, no visible change",
   "Behind the scenes: packed art is ready for the site, with no visible change.",
   "New hero sprite on the map.",
-  "Emberhold's ground, paths and cliffs are redrawn in the new art style."
+  "Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
