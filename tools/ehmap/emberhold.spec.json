@@ -6,7 +6,7 @@
   "A terrace's bottom row is its south lip; the cliff face hangs on the 2 rows below it, shadow on the 3rd.",
   "Keep 3 clear rows of the lower level under every south lip. Keep paths 1 tile off any rim of their own level.",
   "material: grass (Kenmi Grass_Tiles_1) or ash (Kenmi Volcano). paths: centre-line waypoints, orthogonal runs only.",
-  "stairs: the west column x of a 3-wide stone stair cut through a terrace's south face, ash included."
+  "stairs: the west column x of a 3-wide flight. Earth terraces use stone steps; ash terraces use the volcano basalt stair."
  ],
  "width": 152,
  "height": 108,
@@ -245,7 +245,7 @@
    "rects": [
     [
      124,
-     32,
+     30,
      131,
      39
     ]
@@ -271,6 +271,12 @@
      2,
      145,
      28
+    ],
+    [
+     127,
+     21,
+     133,
+     26
     ]
    ]
   },

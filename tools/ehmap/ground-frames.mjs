@@ -30,7 +30,7 @@ function usedGids(doc) {
     for (let i = 0; i < layers.length; i++) {
       const layer = layers[i];
       if (layer.type === "group") walk(layer.layers || []);
-      else if (layer.type === "tilelayer" && layer.name !== "collision" && layer.name !== "height") {
+        else if (layer.type === "tilelayer" && layer.name !== "collision" && layer.name !== "height" && layer.name !== "paths") {
         const data = layer.data || [];
         for (let g = 0; g < data.length; g++) {
           const gid = data[g] & 0x1fffffff;

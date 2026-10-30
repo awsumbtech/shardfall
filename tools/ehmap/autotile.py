@@ -6,6 +6,7 @@ Layer order per level L (bottom to top): ground, ash, path, shadow, cliff.
 from dataclasses import dataclass
 import numpy as np
 from .raster import GRASS, ASH
+from .collision import skirt_rows
 
 DIRS = {"n": (0, -1), "s": (0, 1), "e": (1, 0), "w": (-1, 0),
         "ne": (1, -1), "nw": (-1, -1), "se": (1, 1), "sw": (-1, 1)}
@@ -224,9 +225,9 @@ class Autotiler:
                 if st and st.level != L:
                     st = None
                 basalt = mat[y, x] == ASH
-                # island skirt: level-0 earth over open sky gets a taller face (face, face, foot)
-                sky = L == 0 and all(not land(x, y + r) for r in (1, 2, 3) if y + r < g.h)
-                rows = 3 if basalt or sky else 2
+                # Island skirt: level-0 earth over open sky gets a taller face.
+                # skirt_rows agrees with collision, including the hook ledge's even base.
+                rows = skirt_rows(g, x, y, basalt)
                 for r in range(1, rows + 1):
                     yy = y + r
                     if yy >= g.h:
@@ -236,15 +237,19 @@ class Autotiler:
                         break
                     if L > 0 and g.height[yy, x] >= 0 and g.height[yy, x] < L - 1:
                         self.issues.add("face-over-lower", x, yy, "L%d" % L)
-                    if st:
+                    if st and basalt:
+                        cliff[yy, x] = self._ash_stair(st, r)
+                    elif st:
                         cliff[yy, x] = self._stair_name(st, min(r, 3))
                     elif basalt:
                         cliff[yy, x] = ("bas_w%d" if (x % 2 == 0 and not east_end) or west_end else "bas_e%d") % (r - 1)
                     else:
                         part = "face" if r < rows else "foot"
                         cliff[yy, x] = part + ("_w" if west_end else "_e" if east_end else "")
-                if st:
-                    # Stone steps, including on ash, so the Scar flight reads like the others.
+                if st and basalt:
+                    # Volcano lip stays ash cobble. No meadow-stone cap, no dark foot block.
+                    pass
+                elif st:
                     cliff[y, x] = self._stair_name(st, 0)
                     if y + 3 < g.h and land(x, y + 3):
                         shade[y + 3, x] = self._stair_name(st, 3)
@@ -255,6 +260,15 @@ class Autotiler:
         part = ("t", "m", "b", "r")[r]
         side = "w" if st.col == 0 else "e" if st.col == st.width - 1 else ""
         return "stair_" + part + side
+
+    def _ash_stair(self, st, r):
+        """3-wide volcano stair: basalt sides, stair tread in the middle, no grass trim."""
+        idx = min(max(r, 1), 3) - 1
+        if st.col == 0:
+            return "bas_w%d" % idx
+        if st.col == st.width - 1:
+            return "bas_e%d" % idx
+        return "bas_stair_%d" % idx
 
     def _bridges(self):
         out = self._grid()

@@ -1089,6 +1089,10 @@ SF.updatePlayer = function (dt) {
     if (!aiming && mag > 0.12) {
       var nx = move.x / mag;
       var ny = move.y / mag;
+      if (SF.guideRope) {
+        var guided = SF.guideRope(p.x, p.y, nx, ny);
+        if (guided) { nx = guided.x; ny = guided.y; }
+      }
       var sp = 150 * Math.min(1, mag);
       if (p.swinging && p.swingT < 0.16) sp *= 0.55;
       p.x += nx * sp * dt;

@@ -157,6 +157,8 @@ class Dresser:
         rng = np.random.default_rng(self.seed * 7 + L)
         R, K = rng.random(free.shape), rng.random(free.shape)
         for y, x in zip(*np.nonzero(free)):
+            if self.paths[L][y, x]:
+                continue
             if self._grow_at(taken, x, y):
                 continue
             r, k = R[y, x], K[y, x]

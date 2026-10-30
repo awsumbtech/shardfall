@@ -19,6 +19,7 @@
     this.height = new Int8Array(n);
     this.stair = new Uint8Array(n);
     this.path = new Uint8Array(n);
+    this.bridge = new Uint8Array(n);
     this.layers = [];
     this.faces = [];
     this.overlay = [];
@@ -114,6 +115,11 @@
         for (i = 0; i < layer.data.length; i++) self.blocked[i] = layer.data[i] ? 1 : 0;
         return;
       }
+      if (layer.name === "paths") {
+        var pi;
+        for (pi = 0; pi < layer.data.length; pi++) if (layer.data[pi]) self.path[pi] = 1;
+        return;
+      }
       if (layer.name === "height") {
         var g, v;
         for (g = 0; g < layer.data.length; g++) {
@@ -134,6 +140,7 @@
         data[p] = gid;
         if (gid && self.frames[gid]) self.needed.push(self.frames[gid]);
         if (gid && layer.name.slice(-5) === "/path") self.path[p] = 1;
+        if (gid && layer.name === "bridges") self.bridge[p] = 1;
       }
       self.layers.push({ name: layer.name, role: role, group: group, data: data });
     });
@@ -173,6 +180,30 @@
         else self.faces.push(cell);
       }
     });
+    var span = null;
+    var bi, bx, by, col, sided;
+    for (bi = 0; bi < this.bridge.length; bi++) {
+      if (!this.bridge[bi]) continue;
+      col = bi % this.w;
+      sided = (col > 0 && this.blocked[bi - 1]) || (col + 1 < this.w && this.blocked[bi + 1]);
+      if (!sided) continue;
+      bx = col * tile;
+      by = ((bi / this.w) | 0) * tile;
+      if (!span) span = { x0: bx, x1: bx + tile, y0: by, y1: by + tile };
+      else {
+        if (bx < span.x0) span.x0 = bx;
+        if (bx + tile > span.x1) span.x1 = bx + tile;
+        if (by < span.y0) span.y0 = by;
+        if (by + tile > span.y1) span.y1 = by + tile;
+      }
+    }
+    if (span) span.cx = (span.x0 + span.x1) / 2;
+    this.bridgeSpan = span;
+  };
+
+  TmjMap.prototype.onBridge = function (x, y) {
+    var i = this._cell(x, y);
+    return i >= 0 && this.bridge[i] === 1;
   };
 
   TmjMap.prototype.framesReady = function (registry) {

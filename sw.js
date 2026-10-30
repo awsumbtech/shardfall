@@ -60,6 +60,7 @@ var SHELL = [
   "js/assets/crystal.js",
   "js/tiles/tmjmap.js",
   "js/tiles/renderer.js",
+  "js/tiles/bridge.js",
   "js/tiles/adopt.js",
   "js/content/maps/emberhold.tmj",
   "js/content/maps/props-preview.json",

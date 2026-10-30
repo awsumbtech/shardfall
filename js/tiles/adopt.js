@@ -26,14 +26,23 @@
 
   // Keep the hero's feet off a cliff lip. The whole ground cell stays open in
   // the map; only the last few pixels beside a blocked neighbour are refused.
+  // The rope bridge is one plank tile wide, so its inset is smaller: the
+  // walkable lane is the plank minus about 3px on each side.
   var FOOT_INSET = 5;
+  var BRIDGE_INSET = 3;
+
+  function footInset(map, x, y) {
+    if (map.onBridge && map.onBridge(x, y)) return BRIDGE_INSET;
+    return FOOT_INSET;
+  }
 
   function terrainOpen(map, x, y) {
+    var inset = footInset(map, x, y);
     if (!map.isWalkable(x, y)) return false;
-    if (!map.isWalkable(x - FOOT_INSET, y)) return false;
-    if (!map.isWalkable(x + FOOT_INSET, y)) return false;
-    if (!map.isWalkable(x, y - FOOT_INSET)) return false;
-    if (!map.isWalkable(x, y + FOOT_INSET)) return false;
+    if (!map.isWalkable(x - inset, y)) return false;
+    if (!map.isWalkable(x + inset, y)) return false;
+    if (!map.isWalkable(x, y - inset)) return false;
+    if (!map.isWalkable(x, y + inset)) return false;
     return true;
   }
 

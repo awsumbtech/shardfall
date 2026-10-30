@@ -46,7 +46,7 @@ class TmjWriter:
             d["properties"] = props
         return d
 
-    def write(self, path, grids, layers, collision, zones, markers, props):
+    def write(self, path, grids, layers, collision, zones, markers, path_mask, props):
         w, h = grids.w, grids.h
         lid = 1
         groups = {}
@@ -77,6 +77,10 @@ class TmjWriter:
         mg = self.meta_gid
         coll = [mg if collision[y, x] else 0 for y in range(h) for x in range(w)]
         out_layers.append(self._tilelayer(lid, "collision", w, h, coll, visible=False)); lid += 1
+        pdata = [mg if path_mask[y, x] else 0 for y in range(h) for x in range(w)]
+        out_layers.append(self._tilelayer(lid, "paths", w, h, pdata, visible=False,
+                                          props=[{"name": "legend", "type": "string",
+                                                  "value": "nonzero = path cell; decor must not sit here"}])); lid += 1
         hdata = []
         for y in range(h):
             for x in range(w):

@@ -62,11 +62,14 @@ def main():
         props = pp.plan(at.paths)
     layers = dress(g, base, at.paths, sp, pp.footprint(props))
     blocked = collision.build(g)
+    path_mask = np.zeros((g.h, g.w), bool)
+    for level_paths in at.paths:
+        path_mask |= level_paths
     zones = [(l.id, l.rects) for l in sp.land]
     zones += [(z.id, z.rects) for z in sp.zones]
     zones += [("terrace:" + t.id, t.rects) for t in sp.terraces]
     out = os.path.join(repo, "js", "content", "maps", "emberhold.tmj")
-    TmjWriter(ts, out).write(out, g, layers, blocked, zones, sp.markers,
+    TmjWriter(ts, out).write(out, g, layers, blocked, zones, sp.markers, path_mask,
                               [{"name": "island", "type": "string", "value": "emberhold"},
                                {"name": "private", "type": "string", "value": "Kenmi Cute Fantasy, do not redistribute"}])
     rep = validate.report(sp, g, blocked, at.issues)

@@ -2843,6 +2843,16 @@ SF.draw = function () {
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.imageSmoothingEnabled = true;
+  if (ctx.filter) ctx.filter = "none";
+  // A resized canvas drops its gradient. Reusing the old one shifts sky
+  // samples by a shade. The stops themselves stay the code-art palette.
+  if (SF._skyCanvas !== canvas || SF._skyDpr !== dpr) {
+    SF._skyKey = "";
+    SF._skyCanvas = canvas;
+    SF._skyDpr = dpr;
+  }
   if ((s.mode === "voyage" || s.voyageTalk) && SF.drawVoyage) {
     SF.drawVoyage(ctx, w, h, s);
     SF.drawVignette(ctx, w, h, s);

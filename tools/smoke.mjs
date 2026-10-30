@@ -2788,6 +2788,7 @@ function runGroundChecks() {
     "js/assets/registry.js",
     "js/tiles/tmjmap.js",
     "js/tiles/renderer.js",
+    "js/tiles/bridge.js",
     "js/tiles/adopt.js"
   ];
   for (const file of files) {
@@ -2868,6 +2869,11 @@ function runGroundChecks() {
   const mainZones = ["grove", "meadow", "hill", "scar", "cinder", "ledge", "hookledge", "hollow", "wake", "perch", "west", "lip", "dock", "rope", "cottage", "wake-path"];
   for (const id of mainZones) {
     if (!zoneIds.has(id)) fail("the tile map is missing the " + id + " zone");
+  }
+  const drawJsSky = fs.readFileSync("js/draw.js", "utf8");
+  const skyStops = ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae", "#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"];
+  for (const stop of skyStops) {
+    if (!drawJsSky.includes(stop)) fail("code-art sky is missing main's stop " + stop);
   }
   const ropeCol = 87;
   for (let y = 83; y <= 88; y++) {
@@ -3015,6 +3021,7 @@ function runGroundChecks() {
     return best;
   }
   const gapReport = [];
+  let hookGap = null;
   for (const gap of designed) {
     const mark = map.markers.find((m) => m.name === gap.name);
     const at = mark ? [mark.x, mark.y] : [gap.x, gap.y];
@@ -3024,8 +3031,138 @@ function runGroundChecks() {
     if (gap.reach === baseDash && dist > baseDash) fail(gap.name + " is out of a normal dash (" + dist.toFixed(1) + "px)");
     if (gap.reach === shardDash && dist <= baseDash) fail(gap.name + " no longer needs Shardstep (" + dist.toFixed(1) + "px)");
     if (dist > shardDash) fail(gap.name + " is out of Shardstep (" + dist.toFixed(1) + "px)");
+    if (gap.name === "shard-hook") hookGap = dist;
     gapReport.push(gap.name + " " + dist.toFixed(1) + "px");
   }
+  if (hookGap == null || Math.abs(hookGap - 32) > 4) {
+    fail("hook ledge gap is " + (hookGap == null ? "missing" : hookGap.toFixed(1) + "px") + ", main is 32px edge to edge");
+  }
+  // Lower Cinderstep facing edge: every sample stays within a normal dash of the mainland.
+  const cinBox = [1700, 80, 2450, 480];
+  const cinMark = [2200, 160];
+  const cinInland = [1880, 320];
+  (function lowerEdge() {
+    const step = 4;
+    const x0 = cinBox[0];
+    const y0 = cinBox[1];
+    const cols = Math.ceil((cinBox[2] - x0) / step);
+    const rows = Math.ceil((cinBox[3] - y0) / step);
+    const open = new Uint8Array(cols * rows);
+    for (let y = y0, r = 0; y < cinBox[3]; y += step, r++) {
+      for (let x = x0, c = 0; x < cinBox[2]; x += step, c++) {
+        if (G.walkable(x, y)) open[r * cols + c] = 1;
+      }
+    }
+    const label = new Int16Array(open.length);
+    label.fill(-1);
+    function floodId(sx, sy, id) {
+      const c0 = Math.floor((sx - x0) / step);
+      const r0 = Math.floor((sy - y0) / step);
+      const start = r0 * cols + c0;
+      if (c0 < 0 || r0 < 0 || !open[start] || label[start] >= 0) return;
+      const q = [start];
+      label[start] = id;
+      for (let qi = 0; qi < q.length; qi++) {
+        const i = q[qi];
+        const c = i % cols;
+        const r = (i / cols) | 0;
+        const nb = [i + 1, i - 1, i + cols, i - cols];
+        for (let k = 0; k < 4; k++) {
+          const j = nb[k];
+          if (j < 0 || j >= open.length) continue;
+          if (Math.abs((j % cols) - c) > 1) continue;
+          if (!open[j] || label[j] >= 0) continue;
+          label[j] = id;
+          q.push(j);
+        }
+      }
+    }
+    floodId(cinInland[0], cinInland[1], 1);
+    floodId(cinMark[0], cinMark[1], 2);
+    let worst = 0;
+    let worstAt = "";
+    for (let y = 304; y <= 416; y += 8) {
+      const r = Math.floor((y - y0) / step);
+      if (r < 0 || r >= rows) continue;
+      let mainX = -1;
+      let cinX = 1e9;
+      for (let c = 0; c < cols; c++) {
+        const id = label[r * cols + c];
+        const x = x0 + c * step;
+        if (id === 1 && x > mainX) mainX = x;
+        if (id === 2 && x < cinX) cinX = x;
+      }
+      if (mainX < 0 || cinX > 1e8) continue;
+      const dist = cinX - mainX;
+      if (dist > worst) { worst = dist; worstAt = y + " (" + dist.toFixed(1) + "px)"; }
+      if (dist > 64) fail("Cinderstep lower edge at y " + y + " is " + dist.toFixed(1) + "px, over 64px");
+    }
+    if (!(worst > 0)) fail("Cinderstep lower edge was not measured");
+  })();
+  const plankY = 86 * 16 + 8;
+  const plankCx = 87 * 16 + 8;
+  for (let x = plankCx - 5; x <= plankCx + 4; x++) {
+    if (!G.walkable(x, plankY)) fail("rope plank is not walkable at x " + x);
+  }
+  if (G.walkable(plankCx - 6, plankY) || G.walkable(plankCx + 6, plankY)) {
+    fail("rope plank inset is wider than about 3px");
+  }
+  if (G.walkable(plankCx - 16, plankY) || G.walkable(plankCx + 16, plankY)) {
+    fail("rope bridge is walkable beside the planks");
+  }
+  function crossBridge(startX, startY, nx, ny, label) {
+    const play = G.fresh();
+    play.mode = "play";
+    play.player.x = startX;
+    play.player.y = startY;
+    play.player.fx = nx;
+    play.player.fy = ny;
+    G.state = play;
+    const prevMove = G.readMove;
+    G.readMove = function () { return { x: nx, y: ny }; };
+    let steps = 0;
+    while (steps < 120) {
+      G.updatePlayer(1 / 60);
+      steps += 1;
+      if (ny > 0 && play.player.y > plankY) break;
+      if (ny < 0 && play.player.y < plankY) break;
+    }
+    G.readMove = prevMove;
+    if (Math.abs(play.player.x - plankCx) > 5) {
+      fail(label + " missed the rope centre at " + play.player.x.toFixed(1) + "," + play.player.y.toFixed(1));
+    }
+  }
+  const aim15 = Math.sin(15 * Math.PI / 180);
+  const aim15c = Math.cos(15 * Math.PI / 180);
+  crossBridge(plankCx + 12, 83 * 16 - 28, aim15, aim15c, "north mouth +15deg");
+  crossBridge(plankCx - 12, 83 * 16 - 28, -aim15, aim15c, "north mouth -15deg");
+  crossBridge(plankCx, 83 * 16 - 28, 0, 1, "north mouth straight");
+  crossBridge(plankCx + 12, 89 * 16 + 28, aim15, -aim15c, "south mouth +15deg");
+  crossBridge(plankCx - 12, 89 * 16 + 28, -aim15, -aim15c, "south mouth -15deg");
+  const scarStair = [];
+  (function collectScar(layers) {
+    for (const layer of layers) {
+      if (layer.type === "group") collectScar(layer.layers || []);
+      else if (layer.type === "tilelayer" && layer.name && (layer.name.indexOf("cliff") >= 0 || layer.name.indexOf("shadow") >= 0)) scarStair.push(layer.data);
+    }
+  })(doc.layers);
+  let scarStone = 0;
+  let scarAsh = 0;
+  for (let y = 44; y <= 52; y++) {
+    for (let x = 118; x <= 120; x++) {
+      const i = y * map.w + x;
+      let name = "";
+      for (let layer = scarStair.length - 1; layer >= 0 && !name; layer--) {
+        const gid = scarStair[layer][i] & 0x1fffffff;
+        if (gid && gidName.get(gid)) name = gidName.get(gid).name;
+      }
+      if (!name) continue;
+      if (name.indexOf("stair_") === 0) scarStone += 1;
+      if (name.indexOf("bas_") === 0 || name.indexOf("ash_") === 0) scarAsh += 1;
+    }
+  }
+  if (scarStone) fail("Scar stair still uses meadow stone (" + scarStone + " tiles)");
+  if (scarAsh < 6) fail("Scar stair is missing volcano basalt/ash tiles (" + scarAsh + ")");
   const nameAt = [
     [68 * 16, 18 * 16, "Maren's Cottage"],
     [101 * 16, 13 * 16, "Lamp Hill"],
@@ -3049,6 +3186,24 @@ function runGroundChecks() {
       fail(prop.kind + " still sits on bad footing at " + prop.x + "," + prop.y);
     }
   }
+  let pathFlower = false;
+  for (let p = 0; p < G.PROPS.length; p++) {
+    const prop = G.PROPS[p];
+    if (prop.kind === "flower" && Math.abs(prop.x - 1200) < 3 && Math.abs(prop.y - 799) < 3) pathFlower = true;
+  }
+  if (pathFlower) fail("decor flower stayed on the path at 1200,799");
+  const keptProps = G.PROPS;
+  const keptIsland = G.ISLANDS && G.ISLANDS.emberhold && G.ISLANDS.emberhold.props;
+  G.PROPS = [{ kind: "flower", x: 1200, y: 799, c: "#ffd0e8" }, { kind: "flower", x: wake.x, y: wake.y, c: "#ffe08a" }];
+  G.nudgeProps(map, null);
+  if (G.PROPS.some((prop) => prop.kind === "flower" && Math.abs(prop.x - 1200) < 2 && Math.abs(prop.y - 799) < 2)) {
+    fail("decor placer kept a flower on a path cell");
+  }
+  if (!G.PROPS.some((prop) => prop.kind === "flower" && Math.abs(prop.x - wake.x) < 2)) {
+    fail("decor placer rejected a flower on open grass");
+  }
+  G.PROPS = keptProps;
+  if (G.ISLANDS && G.ISLANDS.emberhold) G.ISLANDS.emberhold.props = keptIsland;
   for (let i = 0; i < badProp.length; i += 2) {
     for (let p = 0; p < G.PROPS.length; p++) {
       const prop = G.PROPS[p];

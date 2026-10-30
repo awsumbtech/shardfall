@@ -9,6 +9,46 @@ import numpy as np
 from .raster import ASH
 
 
+def skirt_rows(g, x, y, ash):
+    """Cliff rows under a south lip. The hook ledge shares one depth so the base stays even."""
+    cap = 3 if ash or _sky_skirt(g, x, y) else 2
+    if _is_hook(g, x, y):
+        return _shared_free(g, x, y, cap)
+    return cap
+
+
+def _is_hook(g, x, y):
+    if not (0 <= y < g.h and 0 <= x < g.w):
+        return False
+    rid = int(g.region[y, x])
+    return rid >= 0 and g.region_ids[rid] == "hookledge"
+
+
+def _shared_free(g, x, y, cap):
+    """Shortest open run under a whole hook-ledge lip, so every column ends together."""
+    x0 = x
+    while x0 > 0 and _lip(g, x0 - 1, y) and _is_hook(g, x0 - 1, y):
+        x0 -= 1
+    x1 = x
+    while x1 + 1 < g.w and _lip(g, x1 + 1, y) and _is_hook(g, x1 + 1, y):
+        x1 += 1
+    free = cap
+    for xx in range(x0, x1 + 1):
+        n = 0
+        for r in range(1, cap + 1):
+            yy = y + r
+            if yy >= g.h or g.height[yy, xx] >= 0:
+                break
+            n += 1
+        if n < free:
+            free = n
+    return free
+
+
+def _lip(g, x, y):
+    return g.height[y, x] >= 0 and (y + 1 >= g.h or g.height[y + 1, x] < 0)
+
+
 def faces(grids):
     """Set of (x, y) covered by a cliff face of any level (stairs excluded)."""
     out = set()
@@ -19,7 +59,7 @@ def faces(grids):
         for y in range(g.h - 1):
             for x in range(g.w):
                 if reg[y, x] and not reg[y + 1, x]:
-                    rows = 3 if mat[y, x] == ASH or _sky_skirt(g, x, y) else 2
+                    rows = skirt_rows(g, x, y, mat[y, x] == ASH)
                     for r in range(1, rows + 1):
                         yy = y + r
                         if yy >= g.h or reg[yy, x]:
