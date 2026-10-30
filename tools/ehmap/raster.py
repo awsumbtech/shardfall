@@ -92,9 +92,9 @@ def build(spec):
     for s in spec.stairs:
         t = spec.terrace(s.terrace)
         mat = MATERIALS[t.material]
-        # Ash stairs used to be one column and disappeared into the basalt.
-        # Every stair is the same 3-wide stone flight as the earth terraces.
-        width = 3
+        # Earth flights are 3 wide. Ash keeps the approved single tread at x;
+        # the basalt columns on either side stay solid cliff.
+        width = 1 if mat == ASH else 3
         lip = _lip_row(height, t, s.x, width)
         for c in range(width):
             for r in range(4):
@@ -123,9 +123,8 @@ def build(spec):
     for i, land in enumerate(spec.land):
         if land.id == "hookledge":
             keep[region == i] = True
-    # Cinderstep's lower west edge is the dash facing. A corner nick here
-    # opens the gap past a normal dash.
-    keep[21:27, 127:133] = True
+    # The few Cinderstep cells that keep the lower west gap inside a normal dash.
+    keep[19:26, 126:133] = True
     height, cuts = shape.round_corners(height, keep)
     region[height < 0] = -1
     path &= height >= 0

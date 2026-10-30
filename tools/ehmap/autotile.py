@@ -227,7 +227,7 @@ class Autotiler:
                 basalt = mat[y, x] == ASH
                 # Island skirt: level-0 earth over open sky gets a taller face.
                 # skirt_rows agrees with collision, including the hook ledge's even base.
-                rows = skirt_rows(g, x, y, basalt)
+                rows = skirt_rows(g, x, y, basalt, L)
                 for r in range(1, rows + 1):
                     yy = y + r
                     if yy >= g.h:
@@ -262,8 +262,10 @@ class Autotiler:
         return "stair_" + part + side
 
     def _ash_stair(self, st, r):
-        """3-wide volcano stair: basalt sides, stair tread in the middle, no grass trim."""
+        """The drawn tread only. Cheek columns are the ordinary basalt face, not steps."""
         idx = min(max(r, 1), 3) - 1
+        if st.width == 1:
+            return "bas_stair_%d" % idx
         if st.col == 0:
             return "bas_w%d" % idx
         if st.col == st.width - 1:

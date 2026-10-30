@@ -20,6 +20,8 @@
     this.stair = new Uint8Array(n);
     this.path = new Uint8Array(n);
     this.bridge = new Uint8Array(n);
+    this.ash = new Uint8Array(n);
+    this.face = new Uint8Array(n);
     this.layers = [];
     this.faces = [];
     this.overlay = [];
@@ -141,6 +143,7 @@
         if (gid && self.frames[gid]) self.needed.push(self.frames[gid]);
         if (gid && layer.name.slice(-5) === "/path") self.path[p] = 1;
         if (gid && layer.name === "bridges") self.bridge[p] = 1;
+        if (gid && (layer.name.slice(-4) === "/ash" || layer.name.slice(-9) === "/ashpatch")) self.ash[p] = 1;
       }
       self.layers.push({ name: layer.name, role: role, group: group, data: data });
     });
@@ -177,7 +180,10 @@
           sort: over ? y : y + tile - 0.25
         };
         if (over) self.overlay.push(cell);
-        else self.faces.push(cell);
+        else {
+          self.faces.push(cell);
+          self.face[((y / tile) | 0) * self.w + ((x / tile) | 0)] = 1;
+        }
       }
     });
     var span = null;
@@ -204,6 +210,30 @@
   TmjMap.prototype.onBridge = function (x, y) {
     var i = this._cell(x, y);
     return i >= 0 && this.bridge[i] === 1;
+  };
+
+  TmjMap.prototype.onAsh = function (x, y) {
+    var i = this._cell(x, y);
+    return i >= 0 && this.ash[i] === 1;
+  };
+
+  // Open sky is a blocked cell with no cliff face drawn on it.
+  TmjMap.prototype.openSky = function (tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h) return true;
+    var i = ty * this.w + tx;
+    return this.blocked[i] === 1 && this.face[i] === 0 && this.height[i] < 0;
+  };
+
+  // The tread, plus the step you take just above it and just below it.
+  TmjMap.prototype.stairMouth = function (x, y) {
+    var i = this._cell(x, y);
+    if (i < 0) return false;
+    if (this.stair[i]) return true;
+    var w = this.w;
+    var ty = (i / w) | 0;
+    if (ty > 0 && this.stair[i - w]) return true;
+    if (ty + 1 < this.h && this.stair[i + w]) return true;
+    return false;
   };
 
   TmjMap.prototype.framesReady = function (registry) {

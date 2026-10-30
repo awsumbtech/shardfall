@@ -9,10 +9,28 @@ import numpy as np
 from .raster import ASH
 
 
-def skirt_rows(g, x, y, ash):
-    """Cliff rows under a south lip. The hook ledge shares one depth so the base stays even."""
-    cap = 3 if ash or _sky_skirt(g, x, y) else 2
-    if _is_hook(g, x, y):
+def skirt_rows(g, x, y, ash, level=0):
+    """Cliff rows under a south lip.
+
+    A level-0 face over open sky is three rows (face, face, foot), including
+    where a higher terrace still casts that skirt. The hook ledge shares one
+    depth so every column of its face ends on the same row.
+    """
+    if level == 0:
+        sky = all(y + r >= g.h or g.height[y + r, x] < 0 for r in (1, 2, 3))
+    else:
+        sky = False
+    cap = 3 if ash or sky else 2
+    # Stop when the next row is the same plateau or a higher one.
+    # A raised lip still hangs its face over the lower ground.
+    open_rows = 0
+    for r in range(1, cap + 1):
+        yy = y + r
+        if yy >= g.h or g.height[yy, x] >= level:
+            break
+        open_rows += 1
+    cap = open_rows
+    if level == 0 and _is_hook(g, x, y):
         return _shared_free(g, x, y, cap)
     return cap
 
@@ -59,7 +77,7 @@ def faces(grids):
         for y in range(g.h - 1):
             for x in range(g.w):
                 if reg[y, x] and not reg[y + 1, x]:
-                    rows = skirt_rows(g, x, y, mat[y, x] == ASH)
+                    rows = skirt_rows(g, x, y, mat[y, x] == ASH, L)
                     for r in range(1, rows + 1):
                         yy = y + r
                         if yy >= g.h or reg[yy, x]:
@@ -67,13 +85,6 @@ def faces(grids):
                         if (x, yy) not in g.stairs:
                             out.add((x, yy))
     return frozenset(out)
-
-
-def _sky_skirt(g, x, y):
-    """Level-0 land over open sky wears a 3-row face, matching the autotiler."""
-    if g.height[y, x] != 0:
-        return False
-    return all(y + r >= g.h or g.height[y + r, x] < 0 for r in (1, 2, 3))
 
 
 def build(grids):

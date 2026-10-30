@@ -2888,7 +2888,7 @@ function runGroundChecks() {
     for (let x = 110; x < 130; x++) if (map.stair[y * map.w + x]) run += 1;
     if (run > stairWide) stairWide = run;
   }
-  if (stairWide < 3) fail("the Scar stair is " + stairWide + " tiles wide");
+  if (stairWide !== 1) fail("the Scar step column is " + stairWide + " tiles wide");
   if (G.tilesReady()) fail("tiles counted as ready before an atlas loaded");
   const byKey = {};
   map.needed.forEach((spec) => {
@@ -2928,9 +2928,9 @@ function runGroundChecks() {
   const baseDash = G.DASH_SPEED * G.DASH_TIME;
   const shardDash = G.DASH_SPEED_PLUS * G.DASH_TIME;
   const designed = [
-    { name: "shard-alcove", x: 2200, y: 160, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 60, reach: baseDash },
-    { name: "wrong-sky", x: 2240, y: 144, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 60, reach: baseDash },
-    { name: "shard-hook", x: 2000, y: 560, inland: [1848, 680], box: [1600, 450, 2300, 860], px: 32, reach: baseDash },
+    { name: "shard-alcove", x: 2200, y: 160, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 52, reach: baseDash },
+    { name: "wrong-sky", x: 2240, y: 144, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 52, reach: baseDash },
+    { name: "shard-hook", x: 2000, y: 560, inland: [1848, 680], box: [1500, 280, 2400, 900], px: 52, reach: baseDash },
     { name: "shard-step", x: 2296, y: 904, inland: [2040, 888], box: [1850, 680, 2450, 1150], px: 116, reach: shardDash }
   ];
   function windowGap(walk, marker, inland, box) {
@@ -3034,8 +3034,8 @@ function runGroundChecks() {
     if (gap.name === "shard-hook") hookGap = dist;
     gapReport.push(gap.name + " " + dist.toFixed(1) + "px");
   }
-  if (hookGap == null || Math.abs(hookGap - 32) > 4) {
-    fail("hook ledge gap is " + (hookGap == null ? "missing" : hookGap.toFixed(1) + "px") + ", main is 32px edge to edge");
+  if (hookGap == null || Math.abs(hookGap - 52) > 4) {
+    fail("hook ledge gap is " + (hookGap == null ? "missing" : hookGap.toFixed(1) + "px") + ", expected 52px");
   }
   // Lower Cinderstep facing edge: every sample stays within a normal dash of the mainland.
   const cinBox = [1700, 80, 2450, 480];
@@ -3163,6 +3163,54 @@ function runGroundChecks() {
   }
   if (scarStone) fail("Scar stair still uses meadow stone (" + scarStone + " tiles)");
   if (scarAsh < 6) fail("Scar stair is missing volcano basalt/ash tiles (" + scarAsh + ")");
+  let stairCol = -1;
+  let cheekOpen = 0;
+  for (let y = 46; y <= 50; y++) {
+    for (let x = 110; x < 130; x++) {
+      if (!map.stair[y * map.w + x]) continue;
+      if (stairCol < 0) stairCol = x;
+      if (x !== 118) fail("Scar step is at x " + x + ", approved is 118");
+      const left = y * map.w + x - 1;
+      const right = y * map.w + x + 1;
+      if (y > 46 && (!map.blocked[left] || !map.blocked[right] || map.stair[left] || map.stair[right])) cheekOpen += 1;
+    }
+  }
+  if (stairCol !== 118) fail("Scar step column is " + stairCol);
+  if (cheekOpen) fail("Scar stair cheeks are walkable");
+  const hookApproved = JSON.parse(fs.readFileSync("tools/ehmap/hook-approved.json", "utf8"));
+  const layerData = new Map();
+  (function indexLayers(layers) {
+    for (const layer of layers) {
+      if (layer.type === "group") indexLayers(layer.layers || []);
+      else if (layer.type === "tilelayer") layerData.set(layer.name, layer.data);
+    }
+  })(doc.layers);
+  for (const cell of hookApproved.cells) {
+    const data = layerData.get(cell.layer);
+    const xx = cell.x + hookApproved.dx;
+    const yy = cell.y + hookApproved.dy;
+    const gid = data[yy * map.w + xx] & 0x1fffffff;
+    const got = gid && gidName.get(gid) ? gidName.get(gid).name : ".";
+    if (got !== cell.tile) fail("hook ledge " + cell.layer + " at " + xx + "," + yy + " is " + got + ", approved " + cell.tile);
+  }
+  const ashSaved = JSON.parse(fs.readFileSync("tools/ehmap/ashpatch-approved.json", "utf8"));
+  const ashData = layerData.get("L0/ashpatch");
+  const ashAt = new Map();
+  for (const cell of ashSaved) ashAt.set(cell.x + "," + cell.y, cell.tile);
+  for (let y = 0; y < map.h; y++) {
+    for (let x = 0; x < 140; x++) {
+      const gid = ashData[y * map.w + x] & 0x1fffffff;
+      const got = gid && gidName.get(gid) ? gidName.get(gid).name : ".";
+      const want = ashAt.get(x + "," + y) || ".";
+      if (got !== want) fail("Scar ashpatch at " + x + "," + y + " is " + got + ", approved " + want);
+    }
+  }
+  const meadowKind = { tuft: 1, flower: 1, bush: 1, rock: 1, tree: 1 };
+  for (let p = 0; p < G.PROPS.length; p++) {
+    const prop = G.PROPS[p];
+    if (map.stairMouth(prop.x, prop.y)) fail(prop.kind + " sits on a stair or its mouth at " + prop.x + "," + prop.y);
+    if (meadowKind[prop.kind] && map.onAsh(prop.x, prop.y)) fail(prop.kind + " sits on ash at " + prop.x + "," + prop.y);
+  }
   const nameAt = [
     [68 * 16, 18 * 16, "Maren's Cottage"],
     [101 * 16, 13 * 16, "Lamp Hill"],
@@ -3230,12 +3278,18 @@ function runGroundChecks() {
     if (!G.walkable(spot.x, spot.y)) fail("snap left the hero unwalkable at " + pt[0] + "," + pt[1]);
     return spot;
   }
-  const stay = [[2200, 120], [2040, 580]];
+  const stay = [[2200, 120]];
   for (const pt of stay) {
     play.player.shardstep = false;
     play.flags.shardstep = false;
     const spot = landedHome(pt, baseDash);
     if (Math.hypot(spot.x - pt[0], spot.y - pt[1]) > 24) fail("a base-dash island save moved off " + pt[0] + "," + pt[1]);
+  }
+  play.player.shardstep = false;
+  play.flags.shardstep = false;
+  const hookSave = landedHome([2040, 580], baseDash);
+  if (Math.hypot(hookSave.x - 2040, hookSave.y - 580) > 64 || hookSave.y > 560) {
+    fail("hook ledge save left the moved lawn at " + hookSave.x + "," + hookSave.y);
   }
   play.player.shardstep = false;
   play.flags.shardstep = false;

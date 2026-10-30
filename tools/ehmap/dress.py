@@ -157,7 +157,7 @@ class Dresser:
         rng = np.random.default_rng(self.seed * 7 + L)
         R, K = rng.random(free.shape), rng.random(free.shape)
         for y, x in zip(*np.nonzero(free)):
-            if self.paths[L][y, x]:
+            if self.paths[L][y, x] or self._stair_or_mouth(x, y):
                 continue
             if self._grow_at(taken, x, y):
                 continue
@@ -178,6 +178,13 @@ class Dresser:
                 out[y, x] = t
                 taken[y, x] = True
         return out
+
+    def _stair_or_mouth(self, x, y):
+        """The tread itself, and the cell you step on just above or below it."""
+        stairs = self.g.stairs
+        if (x, y) in stairs:
+            return True
+        return (x, y - 1) in stairs or (x, y + 1) in stairs
 
     @staticmethod
     def _grow_at(m, x, y):
@@ -231,6 +238,8 @@ class Dresser:
         rng2 = np.random.default_rng(self.seed * 13 + L)
         R2, K2 = rng2.random(free.shape), rng2.random(free.shape)
         for y, x in zip(*np.nonzero(free)):
+            if self._stair_or_mouth(x, y):
+                continue
             if self._grow_at(deco != None, x, y):
                 continue
             r, k = R2[y, x], K2[y, x]

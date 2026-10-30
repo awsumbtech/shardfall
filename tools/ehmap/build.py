@@ -34,6 +34,42 @@ def dress(g, base, paths, sp, prop_cells):
     return tuple(_dim_low_ash(l, g) for l in out)
 
 
+def _stamp_ashpatch(layers):
+    """Scar and Cinderstep low-ash cracks, copied from the approved map.
+
+    Regenerating the cracks shifts the whole field. The shardstep ledge keeps
+    the cracks the generator just placed, because that islet was moved on purpose.
+    """
+    cells = {layer.name: layer for layer in layers}["L0/ashpatch"].cells
+    h, w = cells.shape
+    for y in range(h):
+        for x in range(min(140, w)):
+            cells[y, x] = None
+    path = os.path.join(HERE, "ashpatch-approved.json")
+    with open(path) as f:
+        saved = json.load(f)
+    for item in saved:
+        cells[item["y"], item["x"]] = item["tile"]
+
+
+def _stamp_hook(layers):
+    """Approved hook tufts, shifted north by 2 tiles with the whole ledge.
+
+    The autotile hash is tied to coordinates, so a rigid move would otherwise
+    regrow the tufts. These cells are the approved block, translated by (0, -2).
+    """
+    by = {layer.name: layer for layer in layers}
+    ground = by["L0/ground"].cells
+    ground[29, 128] = "grass_tuft_a"
+    ground[29, 129] = "grass_tuft_b"
+    ground[31, 128] = "grass"
+    ground[31, 129] = "grass"
+    ground[33, 127] = "grass_tuft_c"
+    ground[33, 128] = "grass_tuft_a"
+    ground[33, 129] = "grass_tuft_b"
+    by["L0/decor"].cells[30, 127] = "d_tuft_d"
+
+
 def _dim_low_ash(layer, g):
     """Low (level-0) ash uses Volcano_Tiles darkened by tileset.DIM so the raised platform reads."""
     if layer.level != 0 or layer.name.split("/")[-1] not in ("ash", "ashpatch"):
@@ -61,6 +97,8 @@ def main():
     else:
         props = pp.plan(at.paths)
     layers = dress(g, base, at.paths, sp, pp.footprint(props))
+    _stamp_hook(layers)
+    _stamp_ashpatch(layers)
     blocked = collision.build(g)
     path_mask = np.zeros((g.h, g.w), bool)
     for level_paths in at.paths:

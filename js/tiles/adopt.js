@@ -36,13 +36,32 @@
     return FOOT_INSET;
   }
 
+  // Edge tiles leave a couple of clear pixels before the drawn ground.
+  // Against open sky, keep the feet on that drawn edge. The bridge stays at 3.
+  var SKY_INSET = 8;
+
+  function dirInset(map, x, y, sx, sy) {
+    var base = footInset(map, x, y);
+    if (base < FOOT_INSET || !map.openSky) return base;
+    var tx = Math.floor(x / map.tile);
+    var ty = Math.floor(y / map.tile);
+    // Cinderstep's west shore, and the hook ledge's two top corners.
+    // Other edges keep the usual inset so the dash gaps stay put.
+    if (sx === -1 && sy === 0 && tx >= 120 && tx <= 145 && ty >= 2 && ty <= 32 && map.openSky(tx - 1, ty)) {
+      return SKY_INSET;
+    }
+    if ((tx === 124 && ty === 28 && (sx === -1 || sy === -1)) || (tx === 130 && ty === 28 && (sx === 1 || sy === -1))) {
+      if (map.openSky(tx + (sx || 0), ty + (sy || 0))) return SKY_INSET;
+    }
+    return base;
+  }
+
   function terrainOpen(map, x, y) {
-    var inset = footInset(map, x, y);
     if (!map.isWalkable(x, y)) return false;
-    if (!map.isWalkable(x - inset, y)) return false;
-    if (!map.isWalkable(x + inset, y)) return false;
-    if (!map.isWalkable(x, y - inset)) return false;
-    if (!map.isWalkable(x, y + inset)) return false;
+    if (!map.isWalkable(x - dirInset(map, x, y, -1, 0), y)) return false;
+    if (!map.isWalkable(x + dirInset(map, x, y, 1, 0), y)) return false;
+    if (!map.isWalkable(x, y - dirInset(map, x, y, 0, -1))) return false;
+    if (!map.isWalkable(x, y + dirInset(map, x, y, 0, 1))) return false;
     return true;
   }
 
@@ -152,6 +171,7 @@
           px = cx * tile + tile / 2;
           py = cy * tile + tile / 2;
           if (map.badFooting(px, py)) continue;
+          if (map.stairMouth && map.stairMouth(px, py)) continue;
           d = (px - x) * (px - x) + (py - y) * (py - y);
           if (d < bestD) {
             bestD = d;
@@ -171,6 +191,16 @@
     return "";
   }
 
+  function meadowProp(p) {
+    return p.kind === "tuft" || p.kind === "flower" || p.kind === "bush" || p.kind === "rock" || p.kind === "tree";
+  }
+
+  function rejectProp(map, p) {
+    if (map.stairMouth && map.stairMouth(p.x, p.y)) return true;
+    if (meadowProp(p) && map.onAsh && map.onAsh(p.x, p.y)) return true;
+    return false;
+  }
+
   SF.nudgeProps = function (map, preview) {
     if (!map || !SF.PROPS) return;
     var moves = parseMoves(preview);
@@ -178,6 +208,7 @@
     var i, p, k, move, spot, tx, ty, kind;
     for (i = 0; i < SF.PROPS.length; i++) {
       p = SF.PROPS[i];
+      if (rejectProp(map, p)) continue;
       kind = propClass(p);
       if (kind === "decor") {
         if (map.badFooting(p.x, p.y)) continue;
