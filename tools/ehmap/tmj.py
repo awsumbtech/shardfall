@@ -46,7 +46,7 @@ class TmjWriter:
             d["properties"] = props
         return d
 
-    def write(self, path, grids, layers, collision, zones, markers, path_mask, props):
+    def write(self, path, grids, layers, collision, zones, markers, path_mask, insets, props):
         w, h = grids.w, grids.h
         lid = 1
         groups = {}
@@ -106,6 +106,21 @@ class TmjWriter:
             oid += 1
         out_layers.append({"id": lid, "name": "markers", "type": "objectgroup", "draworder": "topdown",
                            "opacity": 1, "visible": False, "x": 0, "y": 0, "objects": mobjs}); lid += 1
+        iobjs = []
+        for box in insets or []:
+            props_i = [{"name": "inset", "type": "int", "value": int(box["inset"])},
+                       {"name": "side", "type": "string", "value": box["side"]},
+                       {"name": "sky", "type": "bool", "value": bool(box.get("sky"))}]
+            iobjs.append({"id": oid, "name": box["name"], "type": "inset",
+                          "x": box["x"] * 16, "y": box["y"] * 16,
+                          "width": box["w"] * 16, "height": box["h"] * 16,
+                          "rotation": 0, "visible": True, "properties": props_i})
+            oid += 1
+        out_layers.append({"id": lid, "name": "edge-insets", "type": "objectgroup", "draworder": "topdown",
+                           "opacity": 1, "visible": False, "x": 0, "y": 0, "objects": iobjs,
+                           "properties": [{"name": "legend", "type": "string",
+                                           "value": "walk inset in pixels; side is w/e/n/s/nw/ne; sky limits it to open sky"}]})
+        lid += 1
         doc = {"type": "map", "version": "1.10", "tiledversion": "1.10.2", "orientation": "orthogonal",
                "renderorder": "right-down", "width": w, "height": h, "tilewidth": 16, "tileheight": 16,
                "infinite": False, "nextlayerid": lid, "nextobjectid": oid, "layers": out_layers,

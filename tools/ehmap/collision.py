@@ -31,8 +31,37 @@ def skirt_rows(g, x, y, ash, level=0):
         open_rows += 1
     cap = open_rows
     if level == 0 and _is_hook(g, x, y):
-        return _shared_free(g, x, y, cap)
-    return cap
+        cap = _shared_free(g, x, y, cap)
+    return _clear_of_hook(g, x, y, cap)
+
+
+def _beside_hook(g, x, y):
+    """A skirt cell that touches the hook lawn, including a diagonal corner."""
+    for dx, dy in ((-1, 0), (1, 0), (0, 1), (-1, 1), (1, 1), (-1, -1), (1, -1)):
+        if _is_hook(g, x + dx, y + dy):
+            return True
+    return False
+
+
+def _clear_of_hook(g, x, y, cap):
+    """Stop a skirt one tile short of the hook lawn.
+
+    The column above the ledge, and the column beside its top corners, used
+    to end on the grass. The hook's own face is below its lip, so it is kept.
+    """
+    limit = cap
+    for r in range(1, cap + 1):
+        yy = y + r
+        if yy >= g.h:
+            break
+        if g.height[yy, x] >= 0:
+            if _is_hook(g, x, yy):
+                limit = min(limit, max(0, r - 2))
+            break
+        if _beside_hook(g, x, yy):
+            limit = min(limit, r - 1)
+            break
+    return max(0, limit)
 
 
 def _is_hook(g, x, y):

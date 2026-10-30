@@ -34,40 +34,131 @@ def dress(g, base, paths, sp, prop_cells):
     return tuple(_dim_low_ash(l, g) for l in out)
 
 
-def _stamp_ashpatch(layers):
-    """Scar and Cinderstep low-ash cracks, copied from the approved map.
+def _stamp_ashpatch(layers, grids):
+    """Approved ash cracks, with nothing regenerated on top.
 
-    Regenerating the cracks shifts the whole field. The shardstep ledge keeps
-    the cracks the generator just placed, because that islet was moved on purpose.
+    A crack that sits on an islet the spec moved is translated with that islet.
+    Every other cell stays on its approved coordinate.
     """
-    cells = {layer.name: layer for layer in layers}["L0/ashpatch"].cells
-    h, w = cells.shape
-    for y in range(h):
-        for x in range(min(140, w)):
-            cells[y, x] = None
+    by = {layer.name: layer for layer in layers}
     path = os.path.join(HERE, "ashpatch-approved.json")
     with open(path) as f:
         saved = json.load(f)
-    for item in saved:
-        cells[item["y"], item["x"]] = item["tile"]
+    for name in ("L0/ashpatch", "L1/ashpatch"):
+        layer = by.get(name)
+        if layer is not None:
+            layer.cells[:, :] = None
+    off = []
+    for item in saved["cells"]:
+        x, y = item["x"], item["y"]
+        for move in saved.get("moves", []):
+            if move["x0"] <= x < move["x1"] and move["y0"] <= y < move["y1"]:
+                x += move["dx"]
+                y += move["dy"]
+                break
+        layer = by.get(item["layer"])
+        if layer is None or not (0 <= x < grids.w and 0 <= y < grids.h):
+            continue
+        if grids.height[y, x] < 0:
+            off.append((item["layer"], x, y, item["tile"]))
+            continue
+        layer.cells[y, x] = item["tile"]
+    if off:
+        print("ashpatch off land:", off)
 
 
-def _stamp_hook(layers):
-    """Approved hook tufts, shifted north by 2 tiles with the whole ledge.
+def _stamp_hook(layers, grids):
+    """Approved hook block, translated as one unit.
 
-    The autotile hash is tied to coordinates, so a rigid move would otherwise
-    regrow the tufts. These cells are the approved block, translated by (0, -2).
+    The autotile hash is tied to coordinates, so a move would otherwise regrow
+    the tufts and the centre patch. Overlap with another islet is reported
+    and left in place.
     """
     by = {layer.name: layer for layer in layers}
-    ground = by["L0/ground"].cells
-    ground[29, 128] = "grass_tuft_a"
-    ground[29, 129] = "grass_tuft_b"
-    ground[31, 128] = "grass"
-    ground[31, 129] = "grass"
-    ground[33, 127] = "grass_tuft_c"
-    ground[33, 128] = "grass_tuft_a"
-    ground[33, 129] = "grass_tuft_b"
-    by["L0/decor"].cells[30, 127] = "d_tuft_d"
+    path = os.path.join(HERE, "hook-approved.json")
+    with open(path) as f:
+        saved = json.load(f)
+    dx, dy = int(saved["dx"]), int(saved["dy"])
+    overlaps = []
+    for item in saved["cells"]:
+        x, y = item["x"] + dx, item["y"] + dy
+        layer = by.get(item["layer"])
+        if layer is None or not (0 <= x < grids.w and 0 <= y < grids.h):
+            continue
+        rid = int(grids.region[y, x])
+        hook = rid >= 0 and grids.region_ids[rid] == "hookledge"
+        foreign = grids.height[y, x] >= 0 and not hook
+        if foreign:
+            overlaps.append((item["layer"], x, y, item["tile"],
+                             grids.region_ids[rid] if rid >= 0 else "raised"))
+            continue
+        layer.cells[y, x] = None if item["tile"] == "." else item["tile"]
+    if overlaps:
+        print("hook overlaps:", overlaps)
+    return overlaps
+
+
+def _edge_insets(g):
+    """Shore insets live in the map, so a later edit moves them with the tiles.
+
+    Cinderstep's west shore is 6px: enough for the feet to stop on the drawn
+    edge. The hook's two top corners stay at 8px. The Lamp Hill lip that
+    faces the hook uses 3px so that approach stays a normal dash.
+    """
+    h, w = g.h, g.w
+    ids = g.region_ids
+    out = []
+    cin = ids.index("cinder") if "cinder" in ids else -1
+    west = []
+    for y in range(h):
+        for x in range(w):
+            if cin < 0 or int(g.region[y, x]) != cin or g.height[y, x] < 0:
+                continue
+            if x > 0 and g.height[y, x - 1] >= 0:
+                continue
+            west.append((x, y))
+    west.sort()
+    i = 0
+    while i < len(west):
+        x, y0 = west[i]
+        y1 = y0
+        while i + 1 < len(west) and west[i + 1] == (x, y1 + 1):
+            i += 1
+            y1 = west[i][1]
+        out.append({"name": "cinder-west", "x": x, "y": y0, "w": 1, "h": y1 - y0 + 1,
+                    "inset": 6, "side": "w", "sky": True})
+        i += 1
+    hook = ids.index("hookledge") if "hookledge" in ids else -1
+    cells = [(x, y) for y in range(h) for x in range(w)
+             if hook >= 0 and int(g.region[y, x]) == hook and g.height[y, x] >= 0]
+    if cells:
+        top = min(y for x, y in cells)
+        row = [x for x, y in cells if y == top]
+        out.append({"name": "hook-nw", "x": min(row), "y": top, "w": 1, "h": 1,
+                    "inset": 8, "side": "nw", "sky": True})
+        out.append({"name": "hook-ne", "x": max(row), "y": top, "w": 1, "h": 1,
+                    "inset": 8, "side": "ne", "sky": True})
+        # The new south lip of Lamp Hill, only where it faces this ledge.
+        face = []
+        for x in range(min(row) - 6, max(row) + 1):
+            for y in range(max(0, top - 4), top):
+                if not (0 <= x < w and 0 <= y < h):
+                    continue
+                if g.height[y, x] <= 0 or y + 1 >= h or g.height[y + 1, x] >= g.height[y, x]:
+                    continue
+                face.append((x, y))
+        face.sort()
+        j = 0
+        while j < len(face):
+            x, y0 = face[j]
+            y1 = y0
+            while j + 1 < len(face) and face[j + 1] == (x, y1 + 1):
+                j += 1
+                y1 = face[j][1]
+            out.append({"name": "hill-approach", "x": x, "y": y0, "w": 1, "h": y1 - y0 + 1,
+                        "inset": 3, "side": "s", "sky": False})
+            j += 1
+    return out
 
 
 def _dim_low_ash(layer, g):
@@ -97,9 +188,10 @@ def main():
     else:
         props = pp.plan(at.paths)
     layers = dress(g, base, at.paths, sp, pp.footprint(props))
-    _stamp_hook(layers)
-    _stamp_ashpatch(layers)
+    _stamp_hook(layers, g)
+    _stamp_ashpatch(layers, g)
     blocked = collision.build(g)
+    insets = _edge_insets(g)
     path_mask = np.zeros((g.h, g.w), bool)
     for level_paths in at.paths:
         path_mask |= level_paths
@@ -107,7 +199,7 @@ def main():
     zones += [(z.id, z.rects) for z in sp.zones]
     zones += [("terrace:" + t.id, t.rects) for t in sp.terraces]
     out = os.path.join(repo, "js", "content", "maps", "emberhold.tmj")
-    TmjWriter(ts, out).write(out, g, layers, blocked, zones, sp.markers, path_mask,
+    TmjWriter(ts, out).write(out, g, layers, blocked, zones, sp.markers, path_mask, insets,
                               [{"name": "island", "type": "string", "value": "emberhold"},
                                {"name": "private", "type": "string", "value": "Kenmi Cute Fantasy, do not redistribute"}])
     rep = validate.report(sp, g, blocked, at.issues)

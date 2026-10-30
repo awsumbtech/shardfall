@@ -36,22 +36,33 @@
     return FOOT_INSET;
   }
 
-  // Edge tiles leave a couple of clear pixels before the drawn ground.
-  // Against open sky, keep the feet on that drawn edge. The bridge stays at 3.
-  var SKY_INSET = 8;
+  // Extra shore insets are rectangles on the map (edge-insets). Editing the
+  // tiles without those rectangles would change the dash gaps, so the numbers
+  // live next to the shore they describe. The bridge stays at 3.
+  function sideHits(side, sx, sy) {
+    if (side === "w") return sx < 0 && sy === 0;
+    if (side === "e") return sx > 0 && sy === 0;
+    if (side === "n") return sy < 0 && sx === 0;
+    if (side === "s") return sy > 0 && sx === 0;
+    if (side === "nw") return (sx < 0 && sy === 0) || (sy < 0 && sx === 0);
+    if (side === "ne") return (sx > 0 && sy === 0) || (sy < 0 && sx === 0);
+    return false;
+  }
 
   function dirInset(map, x, y, sx, sy) {
     var base = footInset(map, x, y);
-    if (base < FOOT_INSET || !map.openSky) return base;
+    if (base < FOOT_INSET) return base;
+    var boxes = map.edgeInsets;
+    if (!boxes || !boxes.length) return base;
     var tx = Math.floor(x / map.tile);
     var ty = Math.floor(y / map.tile);
-    // Cinderstep's west shore, and the hook ledge's two top corners.
-    // Other edges keep the usual inset so the dash gaps stay put.
-    if (sx === -1 && sy === 0 && tx >= 120 && tx <= 145 && ty >= 2 && ty <= 32 && map.openSky(tx - 1, ty)) {
-      return SKY_INSET;
-    }
-    if ((tx === 124 && ty === 28 && (sx === -1 || sy === -1)) || (tx === 130 && ty === 28 && (sx === 1 || sy === -1))) {
-      if (map.openSky(tx + (sx || 0), ty + (sy || 0))) return SKY_INSET;
+    var i, box;
+    for (i = 0; i < boxes.length; i++) {
+      box = boxes[i];
+      if (tx < box.x || ty < box.y || tx >= box.x + box.w || ty >= box.y + box.h) continue;
+      if (!sideHits(box.side, sx, sy)) continue;
+      if (box.sky && (!map.openSky || !map.openSky(tx + (sx || 0), ty + (sy || 0)))) continue;
+      return box.inset;
     }
     return base;
   }
@@ -172,6 +183,8 @@
           py = cy * tile + tile / 2;
           if (map.badFooting(px, py)) continue;
           if (map.stairMouth && map.stairMouth(px, py)) continue;
+          if (map.onAsh && map.onAsh(px, py)) continue;
+          if (map.onPath && map.onPath(px, py)) continue;
           d = (px - x) * (px - x) + (py - y) * (py - y);
           if (d < bestD) {
             bestD = d;
@@ -191,18 +204,27 @@
     return "";
   }
 
-  function meadowProp(p) {
-    return p.kind === "tuft" || p.kind === "flower" || p.kind === "bush" || p.kind === "rock" || p.kind === "tree";
+  // Meadow dressing is every prop that is not a placed structure. A new
+  // scatter kind is included without extending a list of tufts and rocks.
+  function isStructure(p) {
+    var k = p.kind || "";
+    if (k.indexOf("fence") === 0) return true;
+    return k === "cottage" || k === "stones" || k === "airship" || k === "stake" ||
+      k === "hut" || k === "stall" || k === "ruin" || k === "plank" || k === "skiff" ||
+      k === "signpost" || k === "crate" || k === "barrel" || k === "chest" ||
+      k === "chest_open" || k === "stilt" || k === "wreckhull";
   }
 
   function rejectProp(map, p) {
+    if (isStructure(p)) return false;
     if (map.stairMouth && map.stairMouth(p.x, p.y)) return true;
-    if (meadowProp(p) && map.onAsh && map.onAsh(p.x, p.y)) return true;
+    if (map.onAsh && map.onAsh(p.x, p.y)) return true;
+    if (map.onPath && map.onPath(p.x, p.y)) return true;
     return false;
   }
 
   SF.nudgeProps = function (map, preview) {
-    if (!map || !SF.PROPS) return;
+    if (SF.worldSource !== "tiles" || !map || !SF.PROPS) return;
     var moves = parseMoves(preview);
     var keep = [];
     var i, p, k, move, spot, tx, ty, kind;

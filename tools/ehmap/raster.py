@@ -118,13 +118,11 @@ def build(spec):
         keep[max(0, int(my) - 2): int(my) + 3, max(0, int(mx) - 2): int(mx) + 3] = True
     for b in spec.bridges:
         keep[max(0, b.y0 - 2): b.y1 + 3, b.x - 2: b.x + 3] = True
-    # The hook ledge is moved as one rectangle. Corner cuts would shorten its
-    # top or stagger its base, so the whole islet is kept.
+    # These islets are the approved rectangles, translated as a block.
+    # Corner cuts would change the hook, the Cinderstep steps, or the ledge.
     for i, land in enumerate(spec.land):
-        if land.id == "hookledge":
+        if land.id in ("hookledge", "cinder", "ledge"):
             keep[region == i] = True
-    # The few Cinderstep cells that keep the lower west gap inside a normal dash.
-    keep[19:26, 126:133] = True
     height, cuts = shape.round_corners(height, keep)
     region[height < 0] = -1
     path &= height >= 0

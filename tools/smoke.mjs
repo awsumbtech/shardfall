@@ -2870,6 +2870,9 @@ function runGroundChecks() {
   for (const id of mainZones) {
     if (!zoneIds.has(id)) fail("the tile map is missing the " + id + " zone");
   }
+  const layoutDiff = spawnSync("git", ["diff", "--exit-code", "origin/main", "--", "js/content/maps/v2layout.js"], { encoding: "utf8" });
+  if (layoutDiff.status !== 0) fail("code-art v2layout.js differs from main");
+  if (/SKY_INSET|tx === 124|tx >= 120/.test(adoptJs)) fail("edge insets are still hard-coded in adopt.js");
   const drawJsSky = fs.readFileSync("js/draw.js", "utf8");
   const skyStops = ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae", "#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"];
   for (const stop of skyStops) {
@@ -2925,13 +2928,22 @@ function runGroundChecks() {
   const cinderOpen = G.walkable(G.DOCKS.cinderveil.x, G.DOCKS.cinderveil.y);
   if (!cinderOpen) fail("cinder dock is blocked by the emberhold map");
   G.mountIsland("emberhold");
+  if (!map.edgeInsets || !map.edgeInsets.length) fail("the map has no edge-insets");
+  const cinderWest = map.edgeInsets.find((box) => box.side === "w" && box.inset === 6 && box.x === 127);
+  if (!cinderWest) fail("Cinderstep west shore inset is not 6px in the map");
+  const shoreY = (cinderWest.y + 4) * map.tile + 8;
+  const shoreX = cinderWest.x * map.tile;
+  if (!G.walkable(shoreX + 6, shoreY)) fail("Cinderstep west shore is closed 6px in");
+  if (G.walkable(shoreX + 5, shoreY)) fail("Cinderstep west shore still walks 5px from the sky");
+  const hookCorner = map.edgeInsets.find((box) => box.name === "hook-nw" || (box.side === "nw" && box.inset === 8));
+  if (!hookCorner) fail("hook corner inset is missing from the map");
   const baseDash = G.DASH_SPEED * G.DASH_TIME;
   const shardDash = G.DASH_SPEED_PLUS * G.DASH_TIME;
   const designed = [
-    { name: "shard-alcove", x: 2200, y: 160, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 52, reach: baseDash },
-    { name: "wrong-sky", x: 2240, y: 144, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 52, reach: baseDash },
-    { name: "shard-hook", x: 2000, y: 560, inland: [1848, 680], box: [1500, 280, 2400, 900], px: 52, reach: baseDash },
-    { name: "shard-step", x: 2296, y: 904, inland: [2040, 888], box: [1850, 680, 2450, 1150], px: 116, reach: shardDash }
+    { name: "shard-alcove", x: 2200, y: 160, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 48, reach: baseDash },
+    { name: "wrong-sky", x: 2240, y: 144, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 48, reach: baseDash },
+    { name: "shard-hook", x: 2000, y: 560, inland: [1848, 680], box: [1500, 280, 2400, 900], px: 44, reach: baseDash },
+    { name: "shard-step", x: 2296, y: 904, inland: [2040, 888], box: [1850, 680, 2450, 1150], px: 112, reach: shardDash }
   ];
   function windowGap(walk, marker, inland, box) {
     const step = 4;
@@ -3029,13 +3041,16 @@ function runGroundChecks() {
     if (!(dist > 0)) fail(gap.name + " is connected to the mainland");
     if (Math.abs(dist - gap.px) > 4) fail(gap.name + " gap is " + dist.toFixed(1) + "px, main is " + gap.px + "px");
     if (gap.reach === baseDash && dist > baseDash) fail(gap.name + " is out of a normal dash (" + dist.toFixed(1) + "px)");
+    if (gap.reach === baseDash && dist > baseDash - 30) {
+      fail(gap.name + " gap is " + dist.toFixed(1) + "px, normal dash keeps 30px (" + (baseDash - 30) + "px)");
+    }
     if (gap.reach === shardDash && dist <= baseDash) fail(gap.name + " no longer needs Shardstep (" + dist.toFixed(1) + "px)");
     if (dist > shardDash) fail(gap.name + " is out of Shardstep (" + dist.toFixed(1) + "px)");
     if (gap.name === "shard-hook") hookGap = dist;
     gapReport.push(gap.name + " " + dist.toFixed(1) + "px");
   }
-  if (hookGap == null || Math.abs(hookGap - 52) > 4) {
-    fail("hook ledge gap is " + (hookGap == null ? "missing" : hookGap.toFixed(1) + "px") + ", expected 52px");
+  if (hookGap == null || hookGap < 34 || hookGap > 44) {
+    fail("hook ledge gap is " + (hookGap == null ? "missing" : hookGap.toFixed(1) + "px") + ", expected 34-44px");
   }
   // Lower Cinderstep facing edge: every sample stays within a normal dash of the mainland.
   const cinBox = [1700, 80, 2450, 480];
@@ -3194,22 +3209,52 @@ function runGroundChecks() {
     if (got !== cell.tile) fail("hook ledge " + cell.layer + " at " + xx + "," + yy + " is " + got + ", approved " + cell.tile);
   }
   const ashSaved = JSON.parse(fs.readFileSync("tools/ehmap/ashpatch-approved.json", "utf8"));
-  const ashData = layerData.get("L0/ashpatch");
-  const ashAt = new Map();
-  for (const cell of ashSaved) ashAt.set(cell.x + "," + cell.y, cell.tile);
-  for (let y = 0; y < map.h; y++) {
-    for (let x = 0; x < 140; x++) {
-      const gid = ashData[y * map.w + x] & 0x1fffffff;
-      const got = gid && gidName.get(gid) ? gidName.get(gid).name : ".";
-      const want = ashAt.get(x + "," + y) || ".";
-      if (got !== want) fail("Scar ashpatch at " + x + "," + y + " is " + got + ", approved " + want);
+  const ashWant = new Map();
+  for (const cell of ashSaved.cells) {
+    let x = cell.x;
+    let y = cell.y;
+    for (const move of ashSaved.moves || []) {
+      if (x >= move.x0 && x < move.x1 && y >= move.y0 && y < move.y1) {
+        x += move.dx;
+        y += move.dy;
+        break;
+      }
+    }
+    if (!ashWant.has(cell.layer)) ashWant.set(cell.layer, new Map());
+    ashWant.get(cell.layer).set(x + "," + y, cell.tile);
+  }
+  for (const [name, cells] of ashWant) {
+    const ashData = layerData.get(name);
+    if (!ashData) fail("map is missing " + name);
+    for (let y = 0; y < map.h; y++) {
+      for (let x = 0; x < map.w; x++) {
+        const gid = ashData[y * map.w + x] & 0x1fffffff;
+        const got = gid && gidName.get(gid) ? gidName.get(gid).name : ".";
+        const want = cells.get(x + "," + y) || ".";
+        if (got !== want) fail(name + " at " + x + "," + y + " is " + got + ", approved " + want);
+      }
     }
   }
-  const meadowKind = { tuft: 1, flower: 1, bush: 1, rock: 1, tree: 1 };
+  function structureProp(prop) {
+    const k = prop.kind || "";
+    if (k.indexOf("fence") === 0) return true;
+    return k === "cottage" || k === "stones" || k === "airship" || k === "stake" || k === "hut" || k === "stall";
+  }
   for (let p = 0; p < G.PROPS.length; p++) {
     const prop = G.PROPS[p];
-    if (map.stairMouth(prop.x, prop.y)) fail(prop.kind + " sits on a stair or its mouth at " + prop.x + "," + prop.y);
-    if (meadowKind[prop.kind] && map.onAsh(prop.x, prop.y)) fail(prop.kind + " sits on ash at " + prop.x + "," + prop.y);
+    if (structureProp(prop)) continue;
+    if (map.stairMouth(prop.x, prop.y)) fail(prop.kind + " sits on a stair or its apron at " + prop.x + "," + prop.y);
+    if (map.onAsh(prop.x, prop.y)) fail(prop.kind + " sits on ash at " + prop.x + "," + prop.y);
+    if (map.onPath(prop.x, prop.y)) fail(prop.kind + " sits on a path at " + prop.x + "," + prop.y);
+  }
+  const stumpAt = [[1912, 808], [1878, 666], [1722, 938]];
+  for (let s = 0; s < stumpAt.length; s++) {
+    for (let p = 0; p < G.PROPS.length; p++) {
+      const prop = G.PROPS[p];
+      if (Math.abs(prop.x - stumpAt[s][0]) < 8 && Math.abs(prop.y - stumpAt[s][1]) < 8) {
+        fail(prop.kind + " stayed at " + stumpAt[s][0] + "," + stumpAt[s][1]);
+      }
+    }
   }
   const nameAt = [
     [68 * 16, 18 * 16, "Maren's Cottage"],
@@ -3288,7 +3333,7 @@ function runGroundChecks() {
   play.player.shardstep = false;
   play.flags.shardstep = false;
   const hookSave = landedHome([2040, 580], baseDash);
-  if (Math.hypot(hookSave.x - 2040, hookSave.y - 580) > 64 || hookSave.y > 560) {
+  if (Math.hypot(hookSave.x - 2040, hookSave.y - 580) > 64 || hookSave.y >= 576) {
     fail("hook ledge save left the moved lawn at " + hookSave.x + "," + hookSave.y);
   }
   play.player.shardstep = false;

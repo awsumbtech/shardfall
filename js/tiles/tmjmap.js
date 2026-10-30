@@ -27,6 +27,7 @@
     this.overlay = [];
     this.zones = [];
     this.markers = [];
+    this.edgeInsets = [];
     this.frames = {};
     this.needed = [];
     this._index(doc.tilesets || []);
@@ -108,6 +109,30 @@
       if (layer.type === "objectgroup" && layer.name === "markers") {
         (layer.objects || []).forEach(function (obj) {
           self.markers.push({ kind: obj.type, name: obj.name, x: obj.x, y: obj.y });
+        });
+        return;
+      }
+      if (layer.type === "objectgroup" && layer.name === "edge-insets") {
+        (layer.objects || []).forEach(function (obj) {
+          var inset = 0;
+          var side = "";
+          var sky = false;
+          var props = obj.properties || [];
+          var p;
+          for (p = 0; p < props.length; p++) {
+            if (props[p].name === "inset") inset = +props[p].value;
+            else if (props[p].name === "side") side = String(props[p].value);
+            else if (props[p].name === "sky") sky = !!props[p].value;
+          }
+          self.edgeInsets.push({
+            x: Math.round(obj.x / self.tile),
+            y: Math.round(obj.y / self.tile),
+            w: Math.max(1, Math.round(obj.width / self.tile)),
+            h: Math.max(1, Math.round(obj.height / self.tile)),
+            inset: inset,
+            side: side,
+            sky: sky
+          });
         });
         return;
       }
@@ -205,6 +230,59 @@
     }
     if (span) span.cx = (span.x0 + span.x1) / 2;
     this.bridgeSpan = span;
+    this._buildApron();
+  };
+
+  // Two clear tiles past each end of a flight, wide enough to cover the cheeks.
+  TmjMap.prototype._buildApron = function () {
+    var w = this.w;
+    var h = this.h;
+    var apron = new Uint8Array(w * h);
+    var seen = new Uint8Array(w * h);
+    var x, y, i, q, qi, cx, cy, minX, maxX, minY, maxY, xx, yy, n;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!this.stair[i] || seen[i]) continue;
+        q = [i];
+        seen[i] = 1;
+        minX = maxX = x;
+        minY = maxY = y;
+        for (qi = 0; qi < q.length; qi++) {
+          cx = q[qi] % w;
+          cy = (q[qi] / w) | 0;
+          if (cx < minX) minX = cx;
+          if (cx > maxX) maxX = cx;
+          if (cy < minY) minY = cy;
+          if (cy > maxY) maxY = cy;
+          if (cx > 0) {
+            n = q[qi] - 1;
+            if (this.stair[n] && !seen[n]) { seen[n] = 1; q.push(n); }
+          }
+          if (cx + 1 < w) {
+            n = q[qi] + 1;
+            if (this.stair[n] && !seen[n]) { seen[n] = 1; q.push(n); }
+          }
+          if (cy > 0) {
+            n = q[qi] - w;
+            if (this.stair[n] && !seen[n]) { seen[n] = 1; q.push(n); }
+          }
+          if (cy + 1 < h) {
+            n = q[qi] + w;
+            if (this.stair[n] && !seen[n]) { seen[n] = 1; q.push(n); }
+          }
+        }
+        for (qi = 0; qi < q.length; qi++) apron[q[qi]] = 1;
+        for (yy = minY - 2; yy <= maxY + 2; yy++) {
+          if (yy < 0 || yy >= h || (yy >= minY && yy <= maxY)) continue;
+          for (xx = minX - 2; xx <= maxX + 2; xx++) {
+            if (xx < 0 || xx >= w) continue;
+            apron[yy * w + xx] = 1;
+          }
+        }
+      }
+    }
+    this.apron = apron;
   };
 
   TmjMap.prototype.onBridge = function (x, y) {
@@ -224,16 +302,15 @@
     return this.blocked[i] === 1 && this.face[i] === 0 && this.height[i] < 0;
   };
 
-  // The tread, plus the step you take just above it and just below it.
+  TmjMap.prototype.onPath = function (x, y) {
+    var i = this._cell(x, y);
+    return i >= 0 && this.path[i] === 1;
+  };
+
+  // The tread, plus a two-tile apron past each end of the flight.
   TmjMap.prototype.stairMouth = function (x, y) {
     var i = this._cell(x, y);
-    if (i < 0) return false;
-    if (this.stair[i]) return true;
-    var w = this.w;
-    var ty = (i / w) | 0;
-    if (ty > 0 && this.stair[i - w]) return true;
-    if (ty + 1 < this.h && this.stair[i + w]) return true;
-    return false;
+    return i >= 0 && this.apron && this.apron[i] === 1;
   };
 
   TmjMap.prototype.framesReady = function (registry) {
