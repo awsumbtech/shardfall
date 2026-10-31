@@ -34,6 +34,7 @@ for (const file of [
   "js/sfx.js",
   "js/save.js",
   "js/sim.js",
+  "js/tiles/dashassist.js",
   "js/cinder.js",
   "js/content/maps/kinds.js",
   "js/content/maps/chart.js",
@@ -44,6 +45,7 @@ for (const file of [
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
   "js/content/maps/v2layout.js",
+  "js/vaultgate.js",
   "js/grapple.js",
   "js/battle/battle.js",
   "js/menu/field.js",
@@ -532,6 +534,295 @@ function fail(msg) {
   process.exit(1);
 }
 
+function checkVaultGate() {
+  const savedState = SF.state;
+  const savedIsland = SF.islandId;
+  const probe = SF.fresh();
+  probe.mode = "play";
+  probe.player.shardstep = true;
+  probe.flags.shardstep = true;
+  probe.encounterGrace = 80;
+  SF.state = probe;
+  const reach = SF.DASH_REACH_PLUS;
+  const hook = SF.circle("hookledge");
+  if (hook) {
+    let overshoot = null;
+    for (let ring = 48; ring <= 180 && !overshoot; ring += 16) {
+      for (let a = 0; a < 36 && !overshoot; a++) {
+        const ang = a * Math.PI / 18;
+        const x = hook.x + Math.cos(ang) * (hook.rx + ring);
+        const y = hook.y + Math.sin(ang) * (hook.ry + ring);
+        if (!SF.walkable(x, y)) continue;
+        const aim = Math.atan2(hook.y - y, hook.x - x);
+        const ex = x + Math.cos(aim) * reach;
+        const ey = y + Math.sin(aim) * reach;
+        if (SF.walkable(ex, ey)) continue;
+        let crossed = false;
+        for (let t = 0.2; t <= 0.9; t += 0.1) {
+          const px = x + (ex - x) * t;
+          const py = y + (ey - y) * t;
+          const dx = (px - hook.x) / hook.rx;
+          const dy = (py - hook.y) / hook.ry;
+          if (dx * dx + dy * dy <= 1 && SF.groundWalkable(px, py)) crossed = true;
+        }
+        if (crossed) overshoot = { x, y, fx: Math.cos(aim), fy: Math.sin(aim) };
+      }
+    }
+    if (overshoot) {
+      probe.player.x = overshoot.x;
+      probe.player.y = overshoot.y;
+      probe.player.fx = overshoot.fx;
+      probe.player.fy = overshoot.fy;
+      probe.player.safeX = overshoot.x;
+      probe.player.safeY = overshoot.y;
+      probe.player.dashCd = 0;
+      probe.player.dashT = 0;
+      probe.player.hp = probe.player.maxHp;
+      const hp = probe.player.hp;
+      if (!SF.startDash(probe.player)) fail("hook overshoot dash did not start");
+      let steps = 0;
+      while (probe.player.dashT > 0 && steps < 40) {
+        SF.updatePlayer(0.016);
+        steps += 1;
+      }
+      if (!SF.walkable(probe.player.x, probe.player.y)) fail("hook overshoot left the hero in the sky");
+      if (probe.player.hp < hp) fail("hook overshoot cost health");
+      const landed = Math.hypot(probe.player.x - hook.x, probe.player.y - hook.y);
+      const started = Math.hypot(overshoot.x - hook.x, overshoot.y - hook.y);
+      if (landed >= started) fail("hook overshoot stopped on the near shore");
+    }
+  }
+
+  SF.mountIsland("cinderveil");
+  SF.state = probe;
+  probe.island = "cinderveil";
+  probe.flags.vaultOpen = false;
+  probe.enemies = [];
+  const shapes = (SF.WALK.circles || []).concat(SF.WALK.rects || []);
+  const gated = shapes.filter((sh) => sh.seal === "vaultOpen");
+  if (gated.length < 4) fail("vault seal shapes missing");
+  const maw = SF.circle("maw");
+  if (!maw || maw.seal) fail("the maw chamber was sealed");
+  const vledge = SF.circle("vledge");
+  const vault = SF.circle("vault");
+  const ledgeX = vledge.x + vledge.w / 2;
+  const ledgeY = vledge.y + vledge.h / 2;
+  const vaultX = vault.x + vault.w / 2;
+  const vaultY = vault.y + vault.h / 2;
+  if (SF.walkable(ledgeX, ledgeY) || SF.walkable(vaultX, vaultY)) fail("vault ground is walkable before it opens");
+  if (!SF.groundWalkable(ledgeX, ledgeY) || !SF.groundWalkable(vaultX, vaultY)) {
+    fail("vault gate hid the drawn ground");
+  }
+  if (SF.zoneAt(ledgeX, ledgeY).id !== "hush" || SF.zoneAt(vaultX, vaultY).id !== "hush") {
+    fail("vault zone stayed open before the trial");
+  }
+  gated.forEach((sh) => {
+    const x = sh.w != null && sh.rx == null ? sh.x + sh.w / 2 : sh.x;
+    const y = sh.h != null && sh.ry == null ? sh.y + sh.h / 2 : sh.y;
+    if (SF.walkable(x, y)) fail("sealed shape is walkable " + sh.id);
+  });
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  gated.forEach((sh) => {
+    const x0 = sh.w != null && sh.rx == null ? sh.x : sh.x - (sh.rx || sh.r);
+    const y0 = sh.h != null && sh.ry == null ? sh.y : sh.y - (sh.ry || sh.r);
+    const x1 = sh.w != null && sh.rx == null ? sh.x + sh.w : sh.x + (sh.rx || sh.r);
+    const y1 = sh.h != null && sh.ry == null ? sh.y + sh.h : sh.y + (sh.ry || sh.r);
+    minX = Math.min(minX, x0);
+    minY = Math.min(minY, y0);
+    maxX = Math.max(maxX, x1);
+    maxY = Math.max(maxY, y1);
+  });
+  const pad = reach + 16;
+  for (let y = minY - pad; y <= maxY + pad; y += 16) {
+    for (let x = minX - pad; x <= maxX + pad; x += 16) {
+      if (!SF.walkable(x, y)) continue;
+      if (SF.vaultSealedAt(x, y)) fail("walkable point is inside the sealed vault");
+      for (let a = 0; a < 24; a++) {
+        const ang = a * Math.PI / 12;
+        const ex = x + Math.cos(ang) * reach;
+        const ey = y + Math.sin(ang) * reach;
+        for (let t = 0.25; t <= 1; t += 0.25) {
+          const px = x + (ex - x) * t;
+          const py = y + (ey - y) * t;
+          if (SF.vaultSealedAt(px, py) && SF.walkable(px, py)) {
+            fail("shardstep reaches the vault from " + x + "," + y);
+          }
+        }
+      }
+    }
+  }
+  let shoreY = ledgeY;
+  while (shoreY < 90 * 16 && !SF.walkable(ledgeX, shoreY)) shoreY += 1;
+  if (!SF.walkable(ledgeX, shoreY)) fail("no mainland south of the vault ledge");
+  probe.player.x = ledgeX;
+  probe.player.y = shoreY;
+  probe.player.fx = 0;
+  probe.player.fy = -1;
+  probe.player.safeX = ledgeX;
+  probe.player.safeY = shoreY;
+  probe.player.dashCd = 0;
+  probe.player.dashT = 0;
+  probe.player.hp = probe.player.maxHp;
+  probe.player.grappleT = 0;
+  const beforeHp = probe.player.hp;
+  if (!SF.startDash(probe.player)) fail("vault shardstep did not start");
+  let hopped = 0;
+  while (probe.player.dashT > 0 && hopped < 40) {
+    SF.updatePlayer(0.016);
+    hopped += 1;
+  }
+  if (SF.vaultSealedAt(probe.player.x, probe.player.y)) fail("shardstep landed in the vault");
+  if (!SF.walkable(probe.player.x, probe.player.y)) fail("shardstep into the vault fell");
+  if (probe.player.hp < beforeHp) fail("shardstep into the vault took damage");
+
+  function loadParked(version, x, y, flags, quest) {
+    const s = SF.fresh();
+    s.mode = "play";
+    const data = {
+      v: version,
+      quest: quest,
+      island: "cinderveil",
+      flags: Object.assign({ vaultOpen: false, metTamsin: true, grapple: true, shardstep: true }, flags || {}),
+      player: {
+        x: x, y: y, fx: 1, fy: 0, hp: 40, maxHp: 40, xp: 0, level: 1, atk: 12,
+        shardstep: true, grapple: true
+      },
+      enemies: [],
+      checkpoint: { x: x, y: y, island: "cinderveil", kind: "post" },
+      checkpoints: { cinderveil: { x: x, y: y, island: "cinderveil", kind: "post" } }
+    };
+    SF.state = s;
+    if (!SF.applySave(s, data)) fail("vault save did not load");
+    return s;
+  }
+  const dock = SF.DOCKS.cinderveil;
+  [[1, "vault"], [3, "trial"], [4, "quay"]].forEach((row) => {
+    const parked = loadParked(row[0], row[0] < 4 ? ledgeX : vaultX, row[0] < 4 ? ledgeY : vaultY, { vaultOpen: false }, row[1]);
+    SF.state = parked;
+    if (Math.hypot(parked.player.x - dock.x, parked.player.y - dock.y) > 1) {
+      fail("v" + row[0] + " save stayed in the vault at " + parked.player.x + "," + parked.player.y);
+    }
+    if (!SF.walkable(parked.player.x, parked.player.y) || SF.vaultSealedAt(parked.player.x, parked.player.y)) {
+      fail("v" + row[0] + " save did not reach legal ground");
+    }
+    if (SF.vaultSealedAt(parked.checkpoint.x, parked.checkpoint.y, "cinderveil")) {
+      fail("v" + row[0] + " checkpoint stayed in the vault");
+    }
+  });
+  const opened = loadParked(4, vaultX, vaultY, { vaultOpen: true }, "seal");
+  SF.state = opened;
+  if (Math.hypot(opened.player.x - vaultX, opened.player.y - vaultY) > 1) fail("open vault save was moved");
+  if (!SF.walkable(vaultX, vaultY) || !SF.walkable(ledgeX, ledgeY)) fail("vault stayed shut after vaultOpen");
+  if (SF.zoneAt(vaultX, vaultY).id !== "vault") fail("vault zone stayed shut after vaultOpen");
+  const cliff = SF.HOOKS.find((h) => h.id === "hook1-cliff");
+  const lip = SF.HOOKS.find((h) => h.id === "hook1-ledge");
+  const up = SF.HOOKS.find((h) => h.id === "hook2-ledge");
+  const door = SF.HOOKS.find((h) => h.id === "hook2-vault");
+  if (!SF.hookLive(cliff) || !SF.hookLive(lip) || !SF.hookLive(up) || !SF.hookLive(door)) {
+    fail("grapple route stayed shut after the trial");
+  }
+  opened.mode = "play";
+  opened.player.x = cliff.x;
+  opened.player.y = cliff.y;
+  opened.player.fx = 0;
+  opened.player.fy = -1;
+  opened.player.grapple = true;
+  opened.player.grappleCd = 0;
+  opened.player.grappleT = 0;
+  opened.player.safeX = cliff.x;
+  opened.player.safeY = cliff.y;
+  opened.player.hp = opened.player.maxHp;
+  opened.enemies = [];
+  opened.ghosts = [];
+  if (!SF.fireGrapple(opened.player, { x: 0, y: -1 })) fail("grapple route did not fire after the trial");
+  let pulls = 0;
+  while (opened.player.grappleT > 0 && pulls < 40) {
+    SF.update(0.02);
+    pulls += 1;
+  }
+  if (!SF.walkable(opened.player.x, opened.player.y) || SF.dist(opened.player.x, opened.player.y, lip.x, lip.y) > 36) {
+    fail("grapple route missed the vault ledge " + opened.player.x + "," + opened.player.y);
+  }
+  opened.player.x = up.x;
+  opened.player.y = up.y;
+  opened.player.fx = 0;
+  opened.player.fy = -1;
+  opened.player.grappleCd = 0;
+  opened.player.grappleT = 0;
+  opened.player.safeX = up.x;
+  opened.player.safeY = up.y;
+  if (!SF.fireGrapple(opened.player, { x: 0, y: -1 })) fail("second grapple did not fire after the trial");
+  pulls = 0;
+  while (opened.player.grappleT > 0 && pulls < 40) {
+    SF.update(0.02);
+    pulls += 1;
+  }
+  if (!SF.walkable(opened.player.x, opened.player.y) || SF.dist(opened.player.x, opened.player.y, door.x, door.y) > 36) {
+    fail("grapple route missed the vault " + opened.player.x + "," + opened.player.y);
+  }
+
+  SF.mountIsland(savedIsland || "emberhold");
+  SF.state = savedState;
+}
+
+function checkRescueFallback() {
+  const savedState = SF.state;
+  const savedIsland = SF.islandId;
+  const probe = SF.fresh();
+  probe.mode = "play";
+  probe.enemies = [];
+  probe.flags.vaultOpen = false;
+  SF.mountIsland("cinderveil");
+  SF.state = probe;
+  probe.island = "cinderveil";
+  const ledge = SF.circle("vledge");
+  const lx = ledge.x + ledge.w / 2;
+  const ly = ledge.y + ledge.h / 2;
+  const ash = SF.circle("ash");
+  const dock = SF.DOCKS.cinderveil;
+  if (SF.walkable(lx, ly) || !SF.walkable(ash.x, ash.y) || !SF.walkable(dock.x, dock.y)) {
+    fail("rescue fallback ground is not where the vault seal left it");
+  }
+  function fallFrom(checkpoint) {
+    probe.player.x = lx;
+    probe.player.y = ly;
+    probe.player.px = lx;
+    probe.player.py = ly;
+    probe.player.safeX = lx;
+    probe.player.safeY = ly;
+    probe.player.hp = 40;
+    probe.player.maxHp = 40;
+    probe.player.iFrames = 0;
+    probe.player.fall = 0.3;
+    probe.player.dashT = 0;
+    probe.player.grappleT = 0;
+    probe.player.hx = 0;
+    probe.player.hy = 0;
+    probe.checkpoint = checkpoint;
+    probe.checkpoints = { cinderveil: checkpoint };
+    SF.rescue(probe.player);
+    const landed = { x: probe.player.x, y: probe.player.y, hp: probe.player.hp };
+    let i;
+    for (i = 0; i < 80; i++) SF.updatePlayer(0.02);
+    return landed;
+  }
+  const toCheckpoint = fallFrom({ x: ash.x, y: ash.y, island: "cinderveil", kind: "post" });
+  if (Math.hypot(toCheckpoint.x - ash.x, toCheckpoint.y - ash.y) > 1) {
+    fail("rescue ignored a walkable checkpoint");
+  }
+  if (toCheckpoint.hp !== 36 || probe.player.hp !== 36) fail("rescue from sealed ground looped the damage");
+  if (Math.hypot(probe.player.x - ash.x, probe.player.y - ash.y) > 1) fail("rescue left the checkpoint");
+  const toDock = fallFrom({ x: lx, y: ly, island: "cinderveil", kind: "post" });
+  if (Math.hypot(toDock.x - dock.x, toDock.y - dock.y) > 1) fail("rescue skipped the dock when the checkpoint was sealed");
+  if (toDock.hp !== 36 || probe.player.hp !== 36) fail("rescue from a sealed checkpoint looped the damage");
+  if (Math.hypot(probe.player.x - dock.x, probe.player.y - dock.y) > 1) fail("rescue left the dock");
+  SF.mountIsland(savedIsland || "emberhold");
+  SF.state = savedState;
+}
+
 function finishTalk(state) {
   let guard = 0;
   while (state.mode === "dialogue" && guard < 80) {
@@ -607,6 +898,8 @@ SF.tryInteract();
 finishTalk(road);
 if (!road.player.grapple || road.quest !== "vault") fail("grapple was not granted");
 needMarker("vault");
+checkVaultGate();
+checkRescueFallback();
 
 const ilsaFirst = SF.npcById("ilsa");
 road.player.x = ilsaFirst.x;
@@ -1485,7 +1778,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.25"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.26"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -1721,6 +2014,8 @@ SF.mountIsland("emberhold");
   if (play.battle._rows.length > play.battle._visible && !play.battle._moreBelow) fail("item list hides rows with no hint");
 }
 
+runGroundChecks();
+
 await runAssetChecks();
 
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
@@ -1732,15 +2027,25 @@ if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit", env: childEnv });
 if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
+if (fs.existsSync("assets/atlas/manifest.json")) {
+  const skyMask = spawnSync(process.execPath, ["tools/sky-mask.mjs"], { stdio: "inherit", env: childEnv });
+  if (skyMask.status !== 0) process.exit(skyMask.status || 1);
+} else {
+  console.log("sky mask check skipped (no atlas on disk)");
+}
+
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.25"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.26"')) fail("version was not bumped");
   if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
   if (!dataJs.includes("Behind the scenes: packed art is ready for the site, with no visible change.")) {
     fail("whats new atlas line");
   }
   if (!dataJs.includes("New hero sprite on the map.")) fail("whats new hero line");
-  if (!html.includes("v0.4.25")) fail("html version");
+  if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
+    fail("whats new ground line");
+  }
+  if (!html.includes("v0.4.26")) fail("html version");
   const drawJs = fs.readFileSync("js/draw.js", "utf8");
   if (!drawJs.includes('id === "wayfarer"') || !drawJs.includes("SF.spriteRenderer")) {
     fail("the field hero is not routed through the asset registry");
@@ -2316,7 +2621,11 @@ async function runAtlasChecks() {
     "kenmi.hero.pants": "vendor/kenmi/Cute_Fantasy/Player/Legs/OG_Pants/Pants_1_Brown.png",
     "kenmi.hero.shoes": "vendor/kenmi/Cute_Fantasy/Player/Feet/Shoes_1_Brown.png"
   };
+  function localArt(packPath) {
+    return packPath === "art/fx-tiles.png";
+  }
   function wellFormedPackPath(packPath) {
+    if (localArt(packPath)) return fs.existsSync(packPath);
     if (typeof packPath !== "string" || !packPath.endsWith(".png")) return false;
     if (packPath.startsWith("/") || packPath.includes("\\") || packPath.includes("\0")) return false;
     const parts = packPath.split("/");
@@ -2326,28 +2635,67 @@ async function runAtlasChecks() {
     return true;
   }
   const packs = new Set();
+  let heroCount = 0;
   for (const entry of declared.entries) {
-    if (!entry.key || !entry.key.startsWith("kenmi.hero.")) fail("packed key is visible to the game: " + entry.key);
-    if (!rigText.includes(entry.key)) fail("the field rig does not draw " + entry.key);
-    for (const file of gameFiles) {
-      if (file === "js/assets/rig.js") continue;
-      if (fs.readFileSync(file, "utf8").includes(entry.key)) fail(file + " references " + entry.key);
-    }
     if (!wellFormedPackPath(entry.path)) fail("pack path is not well-formed: " + entry.path);
-    if (packPaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
-    if (!entry.anchor || entry.anchor[0] !== 32 || entry.anchor[1] !== 39) fail(entry.key + " foot anchor is not the measured foot line");
-    packs.add(entry.path.split("/")[2]);
-    if (entry.path.includes("Cute_Fantasy_Free")) fail("the free pack is non-commercial");
-    const clips = entry.grid && entry.grid.clips || [];
-    const names = clips.map((clip) => clip.name).sort().join(",");
-    if (names !== "idle.down,idle.side,idle.up,walk.down,walk.side,walk.up") {
-      fail(entry.key + " is not idle and walk in three directions");
+    if (entry.path.includes("Cute_Fantasy_Free") || entry.path.includes("volcano-dim")) {
+      fail("the pack path is not allowed: " + entry.path);
     }
+    if (!localArt(entry.path)) packs.add(entry.path.split("/")[2]);
+    if (entry.key && entry.key.startsWith("kenmi.hero.")) {
+      heroCount += 1;
+      if (!rigText.includes(entry.key)) fail("the field rig does not draw " + entry.key);
+      for (const file of gameFiles) {
+        if (file === "js/assets/rig.js") continue;
+        if (fs.readFileSync(file, "utf8").includes(entry.key)) fail(file + " references " + entry.key);
+      }
+      if (packPaths[entry.key] !== entry.path) fail("pack path for " + entry.key + " is " + entry.path);
+      if (!entry.anchor || entry.anchor[0] !== 32 || entry.anchor[1] !== 39) fail(entry.key + " foot anchor is not the measured foot line");
+      const clips = entry.grid && entry.grid.clips || [];
+      const names = clips.map((clip) => clip.name).sort().join(",");
+      if (names !== "idle.down,idle.side,idle.up,walk.down,walk.side,walk.up") {
+        fail(entry.key + " is not idle and walk in three directions");
+      }
+    } else if ((entry.key && entry.key.startsWith("kenmi.tile.")) || entry.key === "ground.fx") {
+      if (entry.anchor) fail(entry.key + " is a ground tile and should not use a foot anchor");
+      if (!entry.rects || !entry.rects.length) fail(entry.key + " has no rects");
+      for (const rect of entry.rects) {
+        if (!rect || !rect.name || rect.w !== 16 || rect.h !== 16 || (rect.x % 16) || (rect.y % 16)) {
+          fail(entry.key + " frame is not a 16px cell");
+        }
+      }
+      if (entry.key === "kenmi.tile.volcanoDim" && entry.dim !== 0.6) fail("low ash dim factor is " + entry.dim);
+    } else {
+      fail("packed key is not a hero or ground tile: " + entry.key);
+    }
+  }
+  if (heroCount !== 5) fail("hero sheets changed");
+  const { groundEntries } = await import("./ehmap/ground-frames.mjs");
+  const mapDoc = JSON.parse(fs.readFileSync("js/content/maps/emberhold.tmj", "utf8"));
+  const generated = groundEntries(mapDoc);
+  const declaredGround = declared.entries.filter((entry) => !entry.key.startsWith("kenmi.hero."));
+  if (JSON.stringify(generated) !== JSON.stringify(declaredGround)) {
+    fail("atlas ground frames are not the cells the tile map uses");
   }
   const reader = new ConfigReader(declared);
   const planned = reader.frames();
   if (![...packs].includes("Cute_Fantasy")) fail("hero frames are not from Cute_Fantasy");
-  if (planned.length !== declared.entries.length * 36) fail("hero clip did not expand to 36 frames");
+  const heroPlanned = planned.filter((frame) => frame.key.startsWith("kenmi.hero."));
+  if (heroPlanned.length !== heroCount * 36) fail("hero clip did not expand to 36 frames");
+  const dimmed = planned.filter((frame) => frame.key === "kenmi.tile.volcanoDim");
+  if (!dimmed.length || dimmed.some((frame) => frame.dim !== 0.6)) fail("dimmed volcano frames were not marked");
+  const dimFile = path.join(os.tmpdir(), "shardfall-dim-" + process.pid + ".png");
+  const dimPng = new PNG({ width: 1, height: 1 });
+  dimPng.data[0] = 200;
+  dimPng.data[1] = 100;
+  dimPng.data[2] = 50;
+  dimPng.data[3] = 255;
+  fs.writeFileSync(dimFile, PNG.sync.write(dimPng));
+  const dimCut = new FrameExtractor(0, 0).cut(dimFile, { name: "a", x: 0, y: 0, w: 1, h: 1, dim: 0.6 });
+  if (dimCut.data[0] !== 120 || dimCut.data[1] !== 60 || dimCut.data[2] !== 30 || dimCut.data[3] !== 255) {
+    fail("dim transform wrote " + [dimCut.data[0], dimCut.data[1], dimCut.data[2], dimCut.data[3]].join(","));
+  }
+  fs.unlinkSync(dimFile);
   const packer = new Packer({
     padding: reader.padding,
     maxSize: reader.maxSize,
@@ -2705,13 +3053,13 @@ async function runAtlasChecks() {
     const live = new FrameExtractor(0, 0);
     const byFile = new Map();
     for (const frame of planned) {
-      const abs = path.resolve(assetsDir, frame.file);
+      const abs = frame.file.startsWith("art/") ? path.resolve(frame.file) : path.resolve(assetsDir, frame.file);
       if (!fs.existsSync(abs)) fail("missing pack file " + frame.file);
       if (!byFile.has(frame.file)) byFile.set(frame.file, []);
       byFile.get(frame.file).push(frame);
     }
     for (const [rel, frames] of byFile) {
-      const abs = path.resolve(assetsDir, rel);
+      const abs = rel.startsWith("art/") ? path.resolve(rel) : path.resolve(assetsDir, rel);
       let opaque = 0;
       for (const frame of frames) {
         const piece = live.cut(abs, frame);
@@ -2731,6 +3079,863 @@ async function runAtlasChecks() {
 
   fs.rmSync(dir, { recursive: true, force: true });
   console.log("atlas checks ok");
+}
+
+function runGroundChecks() {
+  const files = [
+    "js/assets/manifest.js",
+    "js/assets/sheet.js",
+    "js/assets/registry.js",
+    "js/tiles/tmjmap.js",
+    "js/tiles/renderer.js",
+    "js/tiles/skyedge.js",
+    "js/tiles/skymask.js",
+    "js/tiles/bridge.js",
+    "js/tiles/dashassist.js",
+    "js/tiles/adopt.js"
+  ];
+  for (const file of files) {
+    if (!fs.existsSync(file)) fail("missing " + file);
+    if (!html.includes('src="' + file + '"')) fail("page omits " + file);
+    if (!sw.includes('"' + file + '"')) fail("precache omits " + file);
+    vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  }
+  if (!sw.includes('"js/content/maps/emberhold.tmj"')) fail("precache omits the tile map");
+  if (fs.existsSync("js/tiles/autotiler.js")) fail("the autotiler is still in the game");
+  const drawJs = fs.readFileSync("js/draw.js", "utf8");
+  const adoptJs = fs.readFileSync("js/tiles/adopt.js", "utf8");
+  if (!drawJs.includes("SF._drawTileGround") || !adoptJs.includes("framesReady")) fail("ground draw does not ask the registry");
+  if (!drawJs.includes('SF.worldSource !== "tiles"') || !drawJs.includes('SF.islandId !== "emberhold"')) {
+    fail("tile ground can draw without the tile world");
+  }
+  if (!drawJs.includes("SF._tileGroundOn = false")) fail("code ground does not stay in charge when tiles are absent");
+  if (!drawJs.includes("!SF._tileGroundOn")) fail("code cliff fronts still draw over the tile ground");
+  if (!drawJs.includes("paintActGround")) fail("code ground was removed");
+  const G = context.SF;
+  const doc = JSON.parse(fs.readFileSync("js/content/maps/emberhold.tmj", "utf8"));
+  if (JSON.stringify(doc).includes("volcano-dim") || JSON.stringify(doc).includes("/workspace/kenmi")) {
+    fail("the tile map still points at a private sheet");
+  }
+  const map = G.TmjMap.load(doc);
+  const wake = map.markers.find((m) => m.name === "wake");
+  if (!wake || !map.isWalkable(wake.x, wake.y)) fail("wake is not on the tile map");
+  const seen = map.reachableFrom(Math.floor(wake.x / map.tile), Math.floor(wake.y / map.tile));
+  const reach = [];
+  for (let i = 0; i < seen.length; i++) if (seen[i]) reach.push(i);
+  for (const mark of map.markers) {
+    if (!map.isWalkable(mark.x + 0.01, mark.y + 0.01)) fail(mark.name + " is not on walkable ground");
+  }
+  const plainGroups = new Set(["grass", "earth-top", "path", "ash", "grass-patch", "decor", "scar-decor", "fx", "ash-patch", "ash-low"]);
+  const plainNames = new Set(["shade", "shade_w", "shade_e"]);
+  const tileDoc = JSON.parse(fs.readFileSync("tools/ehmap/tileset.json", "utf8"));
+  const gidName = new Map();
+  const sheetHeaders = new Map();
+  for (const header of doc.tilesets) {
+    if (!header.name || !header.name.startsWith("kenmi-")) continue;
+    sheetHeaders.set(header.name.slice("kenmi-".length), header);
+  }
+  for (const [name, tile] of Object.entries(tileDoc.tiles)) {
+    const header = sheetHeaders.get(tile.sheet);
+    if (!header) fail("tile " + name + " has no sheet header");
+    const gid = header.firstgid + tile.r * header.columns + tile.c;
+    const group = tile.group || "";
+    gidName.set(gid, { name, group, plain: plainGroups.has(group) || plainNames.has(name) });
+  }
+  const visual = [];
+  function collectVisual(layers) {
+    for (const layer of layers) {
+      if (layer.type === "group") collectVisual(layer.layers || []);
+      else if (layer.type === "tilelayer" && layer.name !== "collision" && layer.name !== "height") visual.push(layer.data);
+    }
+  }
+  collectVisual(doc.layers);
+  let invisible = 0;
+  let samplePlain = "";
+  for (let i = 0; i < map.blocked.length; i++) {
+    if (!map.blocked[i]) continue;
+    let top = null;
+    for (let layer = visual.length - 1; layer >= 0 && !top; layer--) {
+      const gid = visual[layer][i] & 0x1fffffff;
+      if (gid) top = gidName.get(gid) || { name: "gid" + gid, plain: true };
+    }
+    if (top && top.plain) {
+      invisible += 1;
+      if (!samplePlain) samplePlain = top.name + " @ " + (i % map.w) + "," + ((i / map.w) | 0);
+    }
+  }
+  if (invisible) fail(invisible + " blocked cells are drawn as walkable ground (" + samplePlain + ")");
+  const zoneIds = new Set();
+  for (const zone of map.zones) {
+    if (zone.id.indexOf("terrace:") === 0) continue;
+    zoneIds.add(zone.id);
+  }
+  const mainZones = ["grove", "meadow", "hill", "scar", "cinder", "ledge", "hookledge", "hollow", "wake", "perch", "west", "lip", "dock", "rope", "cottage", "wake-path"];
+  for (const id of mainZones) {
+    if (!zoneIds.has(id)) fail("the tile map is missing the " + id + " zone");
+  }
+  const layoutDiff = spawnSync("git", ["diff", "origin/main", "--", "js/content/maps/v2layout.js"], { encoding: "utf8" });
+  if (layoutDiff.status !== 0 && layoutDiff.status !== 1) fail("could not diff v2layout.js");
+  const layoutLines = (layoutDiff.stdout || "").split("\n").filter((line) => (
+    (line.startsWith("+") || line.startsWith("-")) && !line.startsWith("+++") && !line.startsWith("---")
+  ));
+  layoutLines.forEach((line) => {
+    if (!/vault|vledge|stampTrail\(cinderCircles/.test(line)) fail("code-art v2layout.js changed outside the vault gate: " + line);
+  });
+  if (!layoutLines.some((line) => line.includes('seal: "vaultOpen"'))) fail("v2layout is missing the vault collision seal");
+  if (/SKY_INSET|tx === 124|tx >= 120/.test(adoptJs)) fail("edge insets are still hard-coded in adopt.js");
+  const drawJsSky = fs.readFileSync("js/draw.js", "utf8");
+  const skyStops = ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae", "#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"];
+  for (const stop of skyStops) {
+    if (!drawJsSky.includes(stop)) fail("code-art sky is missing main's stop " + stop);
+  }
+  const ropeCol = 87;
+  for (let y = 83; y <= 88; y++) {
+    if (map.blocked[y * map.w + ropeCol]) fail("the drawn rope bridge is blocked at row " + y);
+    if (!map.blocked[y * map.w + ropeCol - 1] || !map.blocked[y * map.w + ropeCol + 1]) {
+      fail("the rope bridge is walkable beside the planks at row " + y);
+    }
+  }
+  let stairWide = 0;
+  for (let y = 46; y <= 48; y++) {
+    let run = 0;
+    for (let x = 110; x < 130; x++) if (map.stair[y * map.w + x]) run += 1;
+    if (run > stairWide) stairWide = run;
+  }
+  if (stairWide !== 1) fail("the Scar step column is " + stairWide + " tiles wide");
+  if (G.tilesReady()) fail("tiles counted as ready before an atlas loaded");
+  const byKey = {};
+  map.needed.forEach((spec) => {
+    if (!byKey[spec.key]) byKey[spec.key] = { key: spec.key, atlas: "assets/atlas/field.png", code: "ground", frames: [] };
+    if (!byKey[spec.key].frames.some((frame) => frame.name === spec.frame)) {
+      byKey[spec.key].frames.push({ name: spec.frame, x: 0, y: 0, w: 16, h: 16 });
+    }
+  });
+  const full = new G.AssetRegistry(G.AssetManifest.fromData({ entries: Object.values(byKey) }));
+  if (map.framesReady(full)) fail("a partial atlas counted as ready");
+  full.noteImage("assets/atlas/field.png", { width: 16, height: 16 });
+  if (!map.framesReady(full)) fail("a complete atlas was not ready");
+  const one = Object.values(byKey);
+  one[0] = Object.assign({}, one[0], { atlas: "assets/atlas/other.png" });
+  const partial = new G.AssetRegistry(G.AssetManifest.fromData({ entries: one }));
+  partial.noteImage("assets/atlas/field.png", { width: 16, height: 16 });
+  if (partial && map.framesReady(partial)) fail("one missing sheet still counted as ready");
+  G.worldSource = "";
+  G.assets = null;
+  if (G.adoptTileWorld(map, null) !== "code") fail("a missing atlas adopted the tile world");
+  if (G.worldSource !== "code") fail("fallback did not stay on the code world");
+  const meadow = G.walkable(0, 20);
+  G.worldSource = "";
+  G.assets = full;
+  G._pendingMap = map;
+  if (G.adoptTileWorld(map, null) !== "tiles") fail("a complete atlas did not adopt the tile world");
+  if (G.walkable(wake.x, wake.y) !== true) fail("wake is blocked after adoption");
+  if (G.islandId === "emberhold" && G.zoneAt(wake.x, wake.y).id === "hush") fail("wake has no zone");
+  G.mountIsland("cinderveil");
+  if (G.worldSource === "tiles" && G.walkable(G.WAKE.x, G.WAKE.y) !== meadow && meadow) {
+    /* cinder uses the old walk */
+  }
+  const before = G.walkable;
+  const cinderOpen = G.walkable(G.DOCKS.cinderveil.x, G.DOCKS.cinderveil.y);
+  if (!cinderOpen) fail("cinder dock is blocked by the emberhold map");
+  G.mountIsland("emberhold");
+  if (!map.edgeInsets || !map.edgeInsets.length) fail("the map has no edge-insets");
+  const cinderWest = map.edgeInsets.find((box) => box.side === "w" && box.inset === 6 && box.x === 127);
+  if (!cinderWest) fail("Cinderstep west shore inset is not 6px in the map");
+  const shoreY = (cinderWest.y + 4) * map.tile + 8;
+  const shoreX = cinderWest.x * map.tile;
+  if (!G.walkable(shoreX + 6, shoreY)) fail("Cinderstep west shore is closed 6px in");
+  if (G.walkable(shoreX + 5, shoreY)) fail("Cinderstep west shore still walks 5px from the sky");
+  const hookCorner = map.edgeInsets.find((box) => box.name === "hook-nw" || (box.side === "nw" && box.inset === 8));
+  if (!hookCorner) fail("hook corner inset is missing from the map");
+  const baseDash = G.DASH_REACH;
+  if (Math.abs(G.DASH_SPEED * G.DASH_TIME - G.DASH_REACH) > 1e-6) fail("dash speed is not derived from DASH_REACH");
+  const shardDash = G.DASH_SPEED_PLUS * G.DASH_TIME;
+  // Tile edge to tile edge, plus the 5px foot inset on each shore.
+  const FOOT_INSET = 5;
+  const designed = [
+    { name: "shard-alcove", x: 2200, y: 160, inland: [1880, 296], px: 58, reach: baseDash },
+    { name: "wrong-sky", x: 2240, y: 144, inland: [1880, 296], px: 58, reach: baseDash },
+    { name: "shard-hook", x: 2000, y: 560, inland: [1848, 680], px: 58, reach: baseDash },
+    { name: "shard-step", x: 2296, y: 904, inland: [2040, 888], px: 122, reach: shardDash }
+  ];
+  function openComponent(tx, ty) {
+    const w = map.w;
+    const h = map.h;
+    const seen = new Uint8Array(w * h);
+    tx = tx | 0;
+    ty = ty | 0;
+    if (tx < 0 || ty < 0 || tx >= w || ty >= h || map.blocked[ty * w + tx]) return seen;
+    const q = [ty * w + tx];
+    seen[q[0]] = 1;
+    for (let qi = 0; qi < q.length; qi++) {
+      const i = q[qi];
+      const x = i % w;
+      const y = (i / w) | 0;
+      if (x + 1 < w && !seen[i + 1] && !map.blocked[i + 1]) { seen[i + 1] = 1; q.push(i + 1); }
+      if (x > 0 && !seen[i - 1] && !map.blocked[i - 1]) { seen[i - 1] = 1; q.push(i - 1); }
+      if (y + 1 < h && !seen[i + w] && !map.blocked[i + w]) { seen[i + w] = 1; q.push(i + w); }
+      if (y > 0 && !seen[i - w] && !map.blocked[i - w]) { seen[i - w] = 1; q.push(i - w); }
+    }
+    return seen;
+  }
+  function shoresOf(mask) {
+    const w = map.w;
+    const h = map.h;
+    const out = [];
+    for (let i = 0; i < mask.length; i++) {
+      if (!mask[i]) continue;
+      const x = i % w;
+      const y = (i / w) | 0;
+      const edge = x === 0 || y === 0 || x + 1 === w || y + 1 === h ||
+        !mask[i - 1] || !mask[i + 1] || !mask[i - w] || !mask[i + w];
+      if (edge) out.push(x, y);
+    }
+    return out;
+  }
+  function tileSep(ax, ay, bx, by) {
+    const tile = map.tile;
+    const aL = ax * tile;
+    const aR = aL + tile;
+    const aT = ay * tile;
+    const aB = aT + tile;
+    const bL = bx * tile;
+    const bR = bL + tile;
+    const bT = by * tile;
+    const bB = bT + tile;
+    const dx = aL > bR ? aL - bR : bL > aR ? bL - aR : 0;
+    const dy = aT > bB ? aT - bB : bT > aB ? bT - aB : 0;
+    return Math.hypot(dx, dy);
+  }
+  function insetGap(marker, inland) {
+    const tile = map.tile;
+    const island = openComponent(Math.floor(marker[0] / tile), Math.floor(marker[1] / tile));
+    const main = openComponent(Math.floor(inland[0] / tile), Math.floor(inland[1] / tile));
+    if (!island[Math.floor(marker[1] / tile) * map.w + Math.floor(marker[0] / tile)]) fail("gap marker is not on open ground");
+    if (!main[Math.floor(inland[1] / tile) * map.w + Math.floor(inland[0] / tile)]) fail("gap mainland sample is not on open ground");
+    const a = shoresOf(island);
+    const b = shoresOf(main);
+    let best = Infinity;
+    for (let i = 0; i < a.length; i += 2) {
+      for (let j = 0; j < b.length; j += 2) {
+        const dist = tileSep(a[i], a[i + 1], b[j], b[j + 1]) + FOOT_INSET * 2;
+        if (dist > 0 && dist < best) best = dist;
+      }
+    }
+    return best;
+  }
+  const gapReport = [];
+  let hookGap = null;
+  let stepGap = null;
+  for (const gap of designed) {
+    const mark = map.markers.find((m) => m.name === gap.name);
+    const at = mark ? [mark.x, mark.y] : [gap.x, gap.y];
+    const dist = insetGap(at, gap.inland);
+    if (!(dist > 0)) fail(gap.name + " is connected to the mainland");
+    if (Math.abs(dist - gap.px) > 4) fail(gap.name + " gap is " + dist.toFixed(1) + "px, expected " + gap.px + "px");
+    if (gap.reach === baseDash && dist > baseDash) fail(gap.name + " is out of a normal dash (" + dist.toFixed(1) + "px)");
+    if (gap.reach === shardDash && dist <= baseDash) fail(gap.name + " no longer needs Shardstep (" + dist.toFixed(1) + "px)");
+    if (dist > shardDash) fail(gap.name + " is out of Shardstep (" + dist.toFixed(1) + "px)");
+    if (gap.name === "shard-hook") hookGap = dist;
+    if (gap.name === "shard-step") stepGap = dist;
+    gapReport.push(gap.name + " " + dist.toFixed(1) + "px");
+  }
+  if (hookGap == null || hookGap > baseDash) fail("hook ledge is not a normal dash");
+  if (Math.abs(shardDash - G.DASH_REACH_PLUS) > 1e-6) fail("Shardstep speed is not derived from DASH_REACH_PLUS");
+  if (G.DASH_REACH_PLUS < 145) fail("Shardstep reach is under 145px");
+  const longReach = baseDash * G.LONGSTEP;
+  if (stepGap == null || stepGap <= longReach) fail("long step can cross the Shardstep ledge (" + stepGap + "px, long step " + longReach + ")");
+  if (stepGap == null || baseDash + FOOT_INSET * 2 >= stepGap - FOOT_INSET * 2) {
+    fail("normal dash plus foot insets reaches the Shardstep ledge");
+  }
+  const skyPx = new Uint8Array(16 * 16);
+  skyPx.fill(255);
+  for (let sy = 0; sy < 16; sy++) for (let sx = 0; sx < 7; sx++) skyPx[sy * 16 + sx] = 0;
+  const skyEdge = G.skyDepths(skyPx, 16, 16);
+  if (!skyEdge || skyEdge[0] !== 7 || skyEdge[1] || skyEdge[2] || skyEdge[3]) {
+    fail("sky depth missed a 7px transparent west edge " + skyEdge);
+  }
+  if (skyEdge[0] + G.SKY_CLEAR !== 12) fail("feet would not keep 5px of paint past drawn sky");
+  const skyGrid = new Uint8Array(20 * 20);
+  skyGrid.fill(1);
+  skyGrid[10 * 20 + 10] = 0;
+  const grown = G.growSkyMask(skyGrid, 20, 20);
+  if (!grown.near5[10 * 20 + 15]) fail("a pixel 5px from sky stayed open");
+  if (grown.near5[10 * 20 + 16]) fail("a pixel 6px from sky was closed");
+  if (!grown.near3[10 * 20 + 13] || grown.near3[10 * 20 + 14]) fail("bridge clearance is not 3px");
+  if (!grown.near5[14 * 20 + 13]) fail("a diagonal within 5px of sky stayed open");
+  if (G.SKY_ALPHA !== 64) fail("SKY_ALPHA is " + G.SKY_ALPHA + ", drop shadow would count as ground");
+  const shadowPx = new Uint8Array(16 * 16);
+  for (let sy = 0; sy < 16; sy++) {
+    shadowPx[sy * 16 + 8] = 255;
+    shadowPx[sy * 16 + 7] = 40;
+    shadowPx[sy * 16 + 6] = 40;
+    shadowPx[sy * 16 + 5] = 40;
+  }
+  const shadowGround = new Uint8Array(16 * 16);
+  for (let si = 0; si < shadowPx.length; si++) if (shadowPx[si] > G.SKY_ALPHA) shadowGround[si] = 1;
+  if (shadowGround[7]) fail("drop shadow at alpha 40 counted as ground");
+  if (!shadowGround[8]) fail("island paint was not opaque");
+  const shadowNear = G.growSkyMask(shadowGround, 16, 16);
+  if (!shadowNear.near5[7]) fail("a foot on the drop shadow was not within 5px of sky");
+  const keepWalk = G.walkable;
+  G.walkable = function (x, y) { return x >= 70 && x <= 180 && y >= -40 && y <= 40; };
+  const aimIn = 40 * Math.PI / 180;
+  const turned = G.guideDash(0, 0, Math.cos(aimIn), Math.sin(aimIn), baseDash);
+  if (!turned) fail("dash assist ignored a miss inside 20 degrees");
+  if (!G.walkable(turned.x * baseDash, turned.y * baseDash)) fail("dash assist aimed off the ground");
+  const aimWide = 80 * Math.PI / 180;
+  if (G.guideDash(0, 0, Math.cos(aimWide), Math.sin(aimWide), baseDash)) fail("dash assist turned more than its angle");
+  G.walkable = keepWalk;
+  let walkCliff = 0;
+  for (let li = 0; li < map.layers.length; li++) {
+    const layer = map.layers[li];
+    if (layer.role !== "cliffs") continue;
+    for (let i = 0; i < layer.data.length; i++) if (layer.data[i] && !map.blocked[i]) walkCliff += 1;
+  }
+  if (walkCliff < 100) fail("walkable cliff art is missing from the ground pass");
+  for (let fi = 0; fi < map.faces.length; fi++) {
+    const cell = map.faces[fi];
+    const ci = (cell.y / map.tile) * map.w + cell.x / map.tile;
+    if (!map.blocked[ci]) fail("a walkable cliff still sorts over the hero");
+  }
+  // Cinderstep jump rows. y416 is cliff face, so the scan stops at y408.
+  // The close shore is the jump; the approved steps further along stay wider.
+  (function lowerEdge() {
+    const tile = map.tile;
+    const main = openComponent(Math.floor(1880 / tile), Math.floor(320 / tile));
+    const cin = openComponent(Math.floor(2200 / tile), Math.floor(160 / tile));
+    let best = Infinity;
+    let measured = 0;
+    for (let y = 304; y <= 408; y += 8) {
+      const ty = Math.floor(y / tile);
+      let mainE = -1;
+      let cinW = 1e9;
+      for (let x = 0; x < map.w; x++) {
+        const i = ty * map.w + x;
+        if (main[i] && x > mainE) mainE = x;
+        if (cin[i] && x < cinW) cinW = x;
+      }
+      if (mainE < 0 || cinW > 1e8 || cinW <= mainE) fail("Cinderstep jump row y " + y + " has no facing shores");
+      const dist = (cinW - mainE - 1) * tile + FOOT_INSET * 2;
+      if (dist < best) best = dist;
+      measured += 1;
+    }
+    if (measured !== 14) fail("Cinderstep scan did not cover y304-408");
+    if (best > baseDash) fail("Cinderstep jump is " + best + "px, past a normal dash");
+  })();
+  const plankY = 86 * 16 + 8;
+  const plankCx = 87 * 16 + 8;
+  for (let x = plankCx - 5; x <= plankCx + 4; x++) {
+    if (!G.walkable(x, plankY)) fail("rope plank is not walkable at x " + x);
+  }
+  if (G.walkable(plankCx - 6, plankY) || G.walkable(plankCx + 6, plankY)) {
+    fail("rope plank inset is wider than about 3px");
+  }
+  if (G.walkable(plankCx - 16, plankY) || G.walkable(plankCx + 16, plankY)) {
+    fail("rope bridge is walkable beside the planks");
+  }
+  function crossBridge(startX, startY, nx, ny, label) {
+    const play = G.fresh();
+    play.mode = "play";
+    play.player.x = startX;
+    play.player.y = startY;
+    play.player.fx = nx;
+    play.player.fy = ny;
+    G.state = play;
+    const prevMove = G.readMove;
+    G.readMove = function () { return { x: nx, y: ny }; };
+    let steps = 0;
+    while (steps < 120) {
+      G.updatePlayer(1 / 60);
+      steps += 1;
+      if (ny > 0 && play.player.y > plankY) break;
+      if (ny < 0 && play.player.y < plankY) break;
+    }
+    G.readMove = prevMove;
+    if (Math.abs(play.player.x - plankCx) > 5) {
+      fail(label + " missed the rope centre at " + play.player.x.toFixed(1) + "," + play.player.y.toFixed(1));
+    }
+  }
+  const aim15 = Math.sin(15 * Math.PI / 180);
+  const aim15c = Math.cos(15 * Math.PI / 180);
+  crossBridge(plankCx + 12, 83 * 16 - 28, aim15, aim15c, "north mouth +15deg");
+  crossBridge(plankCx - 12, 83 * 16 - 28, -aim15, aim15c, "north mouth -15deg");
+  crossBridge(plankCx, 83 * 16 - 28, 0, 1, "north mouth straight");
+  crossBridge(plankCx + 12, 89 * 16 + 28, aim15, -aim15c, "south mouth +15deg");
+  crossBridge(plankCx - 12, 89 * 16 + 28, -aim15, -aim15c, "south mouth -15deg");
+  const scarStair = [];
+  (function collectScar(layers) {
+    for (const layer of layers) {
+      if (layer.type === "group") collectScar(layer.layers || []);
+      else if (layer.type === "tilelayer" && layer.name && (layer.name.indexOf("cliff") >= 0 || layer.name.indexOf("shadow") >= 0)) scarStair.push(layer.data);
+    }
+  })(doc.layers);
+  let scarStone = 0;
+  let scarAsh = 0;
+  for (let y = 44; y <= 52; y++) {
+    for (let x = 118; x <= 120; x++) {
+      const i = y * map.w + x;
+      let name = "";
+      for (let layer = scarStair.length - 1; layer >= 0 && !name; layer--) {
+        const gid = scarStair[layer][i] & 0x1fffffff;
+        if (gid && gidName.get(gid)) name = gidName.get(gid).name;
+      }
+      if (!name) continue;
+      if (name.indexOf("stair_") === 0) scarStone += 1;
+      if (name.indexOf("bas_") === 0 || name.indexOf("ash_") === 0) scarAsh += 1;
+    }
+  }
+  if (scarStone) fail("Scar stair still uses meadow stone (" + scarStone + " tiles)");
+  if (scarAsh < 6) fail("Scar stair is missing volcano basalt/ash tiles (" + scarAsh + ")");
+  let stairCol = -1;
+  let cheekOpen = 0;
+  for (let y = 46; y <= 50; y++) {
+    for (let x = 110; x < 130; x++) {
+      if (!map.stair[y * map.w + x]) continue;
+      if (stairCol < 0) stairCol = x;
+      if (x !== 118) fail("Scar step is at x " + x + ", approved is 118");
+      const left = y * map.w + x - 1;
+      const right = y * map.w + x + 1;
+      if (y > 46 && (!map.blocked[left] || !map.blocked[right] || map.stair[left] || map.stair[right])) cheekOpen += 1;
+    }
+  }
+  if (stairCol !== 118) fail("Scar step column is " + stairCol);
+  if (cheekOpen) fail("Scar stair cheeks are walkable");
+  const hookApproved = JSON.parse(fs.readFileSync("tools/ehmap/hook-approved.json", "utf8"));
+  const layerData = new Map();
+  (function indexLayers(layers) {
+    for (const layer of layers) {
+      if (layer.type === "group") indexLayers(layer.layers || []);
+      else if (layer.type === "tilelayer") layerData.set(layer.name, layer.data);
+    }
+  })(doc.layers);
+  for (const cell of hookApproved.cells) {
+    const data = layerData.get(cell.layer);
+    const xx = cell.x + hookApproved.dx;
+    const yy = cell.y + hookApproved.dy;
+    const gid = data[yy * map.w + xx] & 0x1fffffff;
+    const got = gid && gidName.get(gid) ? gidName.get(gid).name : ".";
+    if (got !== cell.tile) fail("hook ledge " + cell.layer + " at " + xx + "," + yy + " is " + got + ", approved " + cell.tile);
+  }
+  const ashSaved = JSON.parse(fs.readFileSync("tools/ehmap/ashpatch-approved.json", "utf8"));
+  const ashWant = new Map();
+  for (const cell of ashSaved.cells) {
+    let x = cell.x;
+    let y = cell.y;
+    for (const move of ashSaved.moves || []) {
+      if (x >= move.x0 && x < move.x1 && y >= move.y0 && y < move.y1) {
+        x += move.dx;
+        y += move.dy;
+        break;
+      }
+    }
+    if (!ashWant.has(cell.layer)) ashWant.set(cell.layer, new Map());
+    ashWant.get(cell.layer).set(x + "," + y, cell.tile);
+  }
+  for (const [name, cells] of ashWant) {
+    const ashData = layerData.get(name);
+    if (!ashData) fail("map is missing " + name);
+    for (let y = 0; y < map.h; y++) {
+      for (let x = 0; x < map.w; x++) {
+        const gid = ashData[y * map.w + x] & 0x1fffffff;
+        const got = gid && gidName.get(gid) ? gidName.get(gid).name : ".";
+        const want = cells.get(x + "," + y) || ".";
+        if (got !== want) fail(name + " at " + x + "," + y + " is " + got + ", approved " + want);
+      }
+    }
+  }
+  function structureProp(prop) {
+    const k = prop.kind || "";
+    if (k.indexOf("fence") === 0) return true;
+    return k === "cottage" || k === "stones" || k === "airship" || k === "stake" || k === "hut" || k === "stall";
+  }
+  for (let p = 0; p < G.PROPS.length; p++) {
+    const prop = G.PROPS[p];
+    if (structureProp(prop)) continue;
+    if (map.stairMouth(prop.x, prop.y)) fail(prop.kind + " sits on a stair or its apron at " + prop.x + "," + prop.y);
+    if (map.onAsh(prop.x, prop.y)) fail(prop.kind + " sits on ash at " + prop.x + "," + prop.y);
+    if (map.onPath(prop.x, prop.y)) fail(prop.kind + " sits on a path at " + prop.x + "," + prop.y);
+  }
+  const stumpAt = [[1912, 808], [1878, 666], [1722, 938]];
+  for (let s = 0; s < stumpAt.length; s++) {
+    for (let p = 0; p < G.PROPS.length; p++) {
+      const prop = G.PROPS[p];
+      if (Math.abs(prop.x - stumpAt[s][0]) < 8 && Math.abs(prop.y - stumpAt[s][1]) < 8) {
+        fail(prop.kind + " stayed at " + stumpAt[s][0] + "," + stumpAt[s][1]);
+      }
+    }
+  }
+  const nameAt = [
+    [68 * 16, 18 * 16, "Maren's Cottage"],
+    [101 * 16, 13 * 16, "Lamp Hill"],
+    [118 * 16, 50 * 16, "The Scar"],
+    [97 * 16, 95 * 16, "Vane's Perch"],
+    [53 * 16, 65 * 16, "The Waking Stones"],
+    [8 * 16, 41 * 16, "Whisper Hollow"],
+    [87 * 16 + 8, 86 * 16, "The Rope Bridge"],
+    [120 * 16, 18 * 16, "The Broken Span"],
+    [88 * 16, 74 * 16, "The Dock Trail"],
+    [30 * 16, 43 * 16, "The West Ledge"]
+  ];
+  for (const spot of nameAt) {
+    const zone = G.zoneAt(spot[0], spot[1]);
+    if (!zone || zone.name !== spot[2]) fail("zone at " + spot[0] + "," + spot[1] + " is " + (zone && zone.name) + ", main says " + spot[2]);
+  }
+  const badProp = [770, 522, 1819, 759, 1418, 447, 1544, 445, 2000, 768, 1577, 325, 1442, 435, 1737, 426, 809, 504, 1690, 375, 1200, 799];
+  for (let i = 0; i < G.PROPS.length; i++) {
+    const prop = G.PROPS[i];
+    if ((prop.kind === "tuft" || prop.kind === "flower" || prop.kind === "bush" || prop.kind === "stump" || prop.kind === "log" || prop.kind === "tree" || prop.kind === "rock") && map.badFooting(prop.x, prop.y)) {
+      fail(prop.kind + " still sits on bad footing at " + prop.x + "," + prop.y);
+    }
+  }
+  let pathFlower = false;
+  for (let p = 0; p < G.PROPS.length; p++) {
+    const prop = G.PROPS[p];
+    if (prop.kind === "flower" && Math.abs(prop.x - 1200) < 3 && Math.abs(prop.y - 799) < 3) pathFlower = true;
+  }
+  if (pathFlower) fail("decor flower stayed on the path at 1200,799");
+  const keptProps = G.PROPS;
+  const keptIsland = G.ISLANDS && G.ISLANDS.emberhold && G.ISLANDS.emberhold.props;
+  G.PROPS = [{ kind: "flower", x: 1200, y: 799, c: "#ffd0e8" }, { kind: "flower", x: wake.x, y: wake.y, c: "#ffe08a" }];
+  G.nudgeProps(map, null);
+  if (G.PROPS.some((prop) => prop.kind === "flower" && Math.abs(prop.x - 1200) < 2 && Math.abs(prop.y - 799) < 2)) {
+    fail("decor placer kept a flower on a path cell");
+  }
+  if (!G.PROPS.some((prop) => prop.kind === "flower" && Math.abs(prop.x - wake.x) < 2)) {
+    fail("decor placer rejected a flower on open grass");
+  }
+  G.PROPS = keptProps;
+  if (G.ISLANDS && G.ISLANDS.emberhold) G.ISLANDS.emberhold.props = keptIsland;
+  for (let i = 0; i < badProp.length; i += 2) {
+    for (let p = 0; p < G.PROPS.length; p++) {
+      const prop = G.PROPS[p];
+      if (Math.abs(prop.x - badProp[i]) < 2 && Math.abs(prop.y - badProp[i + 1]) < 2 && map.badFooting(prop.x, prop.y)) {
+        fail("prop stayed on a cliff or path at " + badProp[i] + "," + badProp[i + 1]);
+      }
+    }
+  }
+  const play = G.fresh();
+  play.mode = "play";
+  G.state = play;
+  const saves = [[2200, 120], [2040, 580], [2306, 850], [1586, 82], [1114, 182], [2012, 772]];
+  for (let y = 0; y < map.h * 16; y += 16) {
+    for (let x = 0; x < map.w * 16; x += 16) {
+      G.worldSource = "code";
+      if (G.walkable(x, y)) saves.push([x, y]);
+      G.worldSource = "tiles";
+    }
+  }
+  function landedHome(pt, reach) {
+    play.player.shardstep = reach > baseDash;
+    play.flags.shardstep = play.player.shardstep;
+    const spot = G.snapToWalkable(pt[0], pt[1]);
+    if (!G.walkable(spot.x, spot.y)) fail("snap left the hero unwalkable at " + pt[0] + "," + pt[1]);
+    return spot;
+  }
+  const stay = [[2200, 120]];
+  for (const pt of stay) {
+    play.player.shardstep = false;
+    play.flags.shardstep = false;
+    const spot = landedHome(pt, baseDash);
+    if (Math.hypot(spot.x - pt[0], spot.y - pt[1]) > 24) fail("a base-dash island save moved off " + pt[0] + "," + pt[1]);
+  }
+  play.player.shardstep = false;
+  play.flags.shardstep = false;
+  const hookSave = landedHome([2040, 580], baseDash);
+  if (Math.hypot(hookSave.x - 2040, hookSave.y - 580) > 24) {
+    fail("hook ledge save left the approved lawn at " + hookSave.x + "," + hookSave.y);
+  }
+  play.player.shardstep = false;
+  play.flags.shardstep = false;
+  const trapped = landedHome([2306, 850], baseDash);
+  if (Math.hypot(trapped.x - 2306, trapped.y - 850) < 80) fail("Shardstep ledge save stayed without Shardstep");
+  play.player.shardstep = true;
+  play.flags.shardstep = true;
+  const freed = landedHome([2306, 850], shardDash);
+  if (Math.hypot(freed.x - 2306, freed.y - 850) > 24) fail("Shardstep ledge save moved even with Shardstep");
+  let checked = 0;
+  for (const pt of saves) {
+    for (const plus of [false, true]) {
+      play.player.shardstep = plus;
+      play.flags.shardstep = plus;
+      const spot = G.snapToWalkable(pt[0], pt[1]);
+      if (!G.walkable(spot.x, spot.y)) fail("old save snap is blocked");
+      const again = G.snapToWalkable(spot.x, spot.y);
+      if (again.x !== spot.x || again.y !== spot.y) fail("old save snap did not settle");
+      checked += 1;
+    }
+  }
+  const keptState = G.state;
+  const occupied = G.fresh();
+  occupied.mode = "play";
+  occupied.enemies = [];
+  occupied.player.shardstep = true;
+  occupied.flags.shardstep = true;
+  occupied.encounterGrace = 100;
+  G.state = occupied;
+  G.mountIsland("emberhold");
+  G.tileMap = map;
+  G.worldSource = "tiles";
+  G.islandId = "emberhold";
+  [[1989, 656, 0.117, -0.993], [2035, 656, -0.247, -0.969]].forEach((row) => {
+    occupied.player.x = row[0];
+    occupied.player.y = row[1];
+    occupied.player.px = row[0];
+    occupied.player.py = row[1];
+    occupied.player.safeX = row[0];
+    occupied.player.safeY = row[1];
+    occupied.player.fx = row[2];
+    occupied.player.fy = row[3];
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.maxHp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.walkable(row[0], row[1])) fail("occupied dash start is sky " + row[0] + "," + row[1]);
+    if (!G.startDash(occupied.player)) fail("occupied dash did not start");
+    let steps = 0;
+    while (occupied.player.dashT > 0 && steps < 30) {
+      G.updatePlayer(0.02);
+      steps += 1;
+    }
+    let later = 0;
+    for (later = 0; later < 40; later++) G.updatePlayer(0.02);
+    if (occupied.player.hp !== 40) fail("occupied dash rescued for " + (40 - occupied.player.hp) + " from " + row[0] + "," + row[1]);
+    if (!G.walkable(occupied.player.x, occupied.player.y) || (G.vaultSealedAt && G.vaultSealedAt(occupied.player.x, occupied.player.y))) {
+      fail("occupied dash stopped in the sky at " + occupied.player.x.toFixed(0) + "," + occupied.player.y.toFixed(0));
+    }
+    const moved = G.dist(occupied.player.x, occupied.player.y, row[0], row[1]);
+    const cap = (occupied.player.dashReach || G.DASH_REACH_PLUS) + 1;
+    if (moved > cap) fail("occupied dash moved " + moved.toFixed(0) + "px, reach is " + cap.toFixed(0));
+    if (moved < 90) fail("hook-forward dash stopped short at " + moved.toFixed(0) + "px");
+    if (G.dashInside(occupied.player.x, occupied.player.y)) fail("hook-forward dash ended inside a solid");
+  });
+  const hookPost = (G.HOOKS || []).find((hook) => hook.id === "hook-ledge");
+  if (!hookPost) fail("hook post missing");
+  const fpsEnds = [];
+  [1 / 20, 1 / 30, 1 / 60].forEach((dt) => {
+    const aimX = hookPost.x - 1989;
+    const aimY = hookPost.y - 656;
+    const aim = Math.hypot(aimX, aimY);
+    occupied.player.shardstep = true;
+    occupied.flags.shardstep = true;
+    occupied.upgrades = {};
+    occupied.player.x = 1989;
+    occupied.player.y = 656;
+    occupied.player.px = 1989;
+    occupied.player.py = 656;
+    occupied.player.safeX = 1989;
+    occupied.player.safeY = 656;
+    occupied.player.fx = aimX / aim;
+    occupied.player.fy = aimY / aim;
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.startDash(occupied.player)) fail("hook-forward dash did not start");
+    let n = 0;
+    while (occupied.player.dashT > 0 && n < 40) {
+      G.updatePlayer(dt);
+      n += 1;
+    }
+    const gone = G.dist(occupied.player.x, occupied.player.y, 1989, 656);
+    if (gone > G.DASH_REACH_PLUS + 1) fail("hook-forward moved " + gone.toFixed(1) + "px");
+    if (gone < 100) fail("hook-forward missed the ledge (" + gone.toFixed(1) + "px)");
+    if (!G.dashLegal(occupied.player.x, occupied.player.y)) fail("hook-forward ended illegal");
+    fpsEnds.push(occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2));
+  });
+  if (fpsEnds[0] !== fpsEnds[1] || fpsEnds[1] !== fpsEnds[2]) {
+    fail("hook-forward changed with the frame rate " + fpsEnds.join(" "));
+  }
+  const rateEnds = [];
+  [1 / 20, 1 / 60, 1 / 120, 1 / 240].forEach((dt) => {
+    occupied.player.shardstep = true;
+    occupied.flags.shardstep = true;
+    occupied.upgrades = {};
+    occupied.player.x = 1818;
+    occupied.player.y = 553;
+    occupied.player.px = 1818;
+    occupied.player.py = 553;
+    occupied.player.safeX = 1818;
+    occupied.player.safeY = 553;
+    occupied.player.fx = 1;
+    occupied.player.fy = 0;
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.walkable(1818, 553)) fail("rate dash start is sky");
+    if (!G.startDash(occupied.player)) fail("rate dash did not start");
+    let n = 0;
+    while (occupied.player.dashT > 0 && n < 80) {
+      G.updatePlayer(dt);
+      n += 1;
+    }
+    rateEnds.push(occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2));
+  });
+  occupied.player.shardstep = true;
+  occupied.flags.shardstep = true;
+  occupied.upgrades = {};
+  occupied.player.x = 1818;
+  occupied.player.y = 553;
+  occupied.player.px = 1818;
+  occupied.player.py = 553;
+  occupied.player.safeX = 1818;
+  occupied.player.safeY = 553;
+  occupied.player.fx = 1;
+  occupied.player.fy = 0;
+  occupied.player.dashCd = 0;
+  occupied.player.dashT = 0;
+  occupied.player.hp = 40;
+  occupied.player.iFrames = 0;
+  occupied.player.fall = 0;
+  occupied.player.grappleT = 0;
+  occupied.player.hx = 0;
+  occupied.player.hy = 0;
+  occupied.ghosts = [];
+  occupied.particles = [];
+  if (!G.startDash(occupied.player)) fail("uneven rate dash did not start");
+  [0.003, 0.02, 0.001, 0.011, 0.04, 0.008, 0.09].forEach((dt) => {
+    if (occupied.player.dashT > 0) G.updatePlayer(dt);
+  });
+  rateEnds.push(occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2));
+  if (rateEnds.some((end) => end !== rateEnds[0])) fail("Shardstep from 1818,553 changed with the frame rate " + rateEnds.join(" "));
+  [[1088, 360, 1088, 288, "npc"], [G.LAMP.x, G.LAMP.y + 80, G.LAMP.x, G.LAMP.y, "lamp"], [1856, 528, 1856, 448, "post"]].forEach((row) => {
+    occupied.player.shardstep = true;
+    occupied.flags.shardstep = true;
+    occupied.upgrades = {};
+    occupied.player.x = row[0];
+    occupied.player.y = row[1];
+    occupied.player.px = row[0];
+    occupied.player.py = row[1];
+    occupied.player.safeX = row[0];
+    occupied.player.safeY = row[1];
+    occupied.player.fx = 0;
+    occupied.player.fy = -1;
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.walkable(row[0], row[1])) fail(row[4] + " tunnel start is sky");
+    if (!G.startDash(occupied.player)) fail(row[4] + " tunnel dash did not start");
+    let n = 0;
+    while (occupied.player.dashT > 0 && n < 40) {
+      G.updatePlayer(1 / 20);
+      n += 1;
+    }
+    if (G.dashInside(occupied.player.x, occupied.player.y)) fail(row[4] + " dash ended inside a solid");
+    if (occupied.player.y < row[3]) fail(row[4] + " dash tunnelled through at 20fps");
+    const gone = G.dist(occupied.player.x, occupied.player.y, row[0], row[1]);
+    if (gone > G.DASH_REACH_PLUS + 1) fail(row[4] + " dash exceeded its reach");
+  });
+  const hollowAng = 160 * Math.PI / 180;
+  occupied.player.shardstep = false;
+  occupied.flags.shardstep = false;
+  occupied.upgrades = {};
+  occupied.player.x = 243.6;
+  occupied.player.y = 613.9;
+  occupied.player.px = 243.6;
+  occupied.player.py = 613.9;
+  occupied.player.safeX = 243.6;
+  occupied.player.safeY = 613.9;
+  occupied.player.fx = Math.cos(hollowAng);
+  occupied.player.fy = Math.sin(hollowAng);
+  occupied.player.dashCd = 0;
+  occupied.player.dashT = 0;
+  occupied.player.hp = 40;
+  occupied.player.iFrames = 0;
+  occupied.player.fall = 0;
+  occupied.player.grappleT = 0;
+  occupied.player.hx = 0;
+  occupied.player.hy = 0;
+  if (!G.walkable(243.6, 613.9)) fail("hollow dash start is sky");
+  if (!G.startDash(occupied.player)) fail("hollow dash did not start");
+  let hollowSteps = 0;
+  while (occupied.player.dashT > 0 && hollowSteps < 30) {
+    G.updatePlayer(0.02);
+    hollowSteps += 1;
+  }
+  const hollowMoved = G.dist(occupied.player.x, occupied.player.y, 243.6, 613.9);
+  if (hollowMoved > G.DASH_REACH + 1) fail("base dash past the hollow NPC moved " + hollowMoved.toFixed(0) + "px");
+  if (!G.walkable(occupied.player.x, occupied.player.y)) fail("hollow dash ended off the ground");
+  const reachOf = { base: G.DASH_REACH, long: G.DASH_REACH * G.LONGSTEP, plus: G.DASH_REACH_PLUS };
+  let sampled = 0;
+  for (const mode of ["base", "long", "plus"]) {
+    occupied.player.shardstep = mode === "plus";
+    occupied.flags.shardstep = mode === "plus";
+    occupied.upgrades = mode === "long" ? { longstep: true } : {};
+    for (let y = 8; y < map.h * 16; y += 96) {
+      for (let x = 8; x < map.w * 16; x += 96) {
+        if (!G.dashLegal(x, y)) continue;
+        for (let a = 0; a < 8; a++) {
+          const ang = a * Math.PI / 4;
+          occupied.player.x = x;
+          occupied.player.y = y;
+          occupied.player.px = x;
+          occupied.player.py = y;
+          occupied.player.safeX = x;
+          occupied.player.safeY = y;
+          occupied.player.fx = Math.cos(ang);
+          occupied.player.fy = Math.sin(ang);
+          occupied.player.dashCd = 0;
+          occupied.player.dashT = 0;
+          occupied.player.hp = 40;
+          occupied.player.iFrames = 0;
+          occupied.player.fall = 0;
+          occupied.player.grappleT = 0;
+          occupied.player.hx = 0;
+          occupied.player.hy = 0;
+          occupied.ghosts = [];
+          occupied.particles = [];
+          if (!G.startDash(occupied.player)) fail("sample dash did not start");
+          let n = 0;
+          while (occupied.player.dashT > 0 && n < 12) {
+            G.updatePlayer(0.02);
+            n += 1;
+          }
+          const gone = G.dist(occupied.player.x, occupied.player.y, x, y);
+          const allowed = reachOf[mode] + 1;
+          if (gone > allowed) {
+            fail(mode + " dash moved " + gone.toFixed(1) + "px from " + x + "," + y + " (reach " + allowed + ")");
+          }
+          if (!G.dashLegal(occupied.player.x, occupied.player.y)) {
+            fail(mode + " dash ended illegal at " + occupied.player.x.toFixed(0) + "," + occupied.player.y.toFixed(0));
+          }
+          sampled += 1;
+        }
+      }
+    }
+  }
+  if (sampled < 100) fail("dash reach sample was too small (" + sampled + ")");
+  G.state = keptState;
+  G.worldSource = "";
+  G.tileMap = null;
+  if (before && G.walkable(0, 20) !== meadow) fail("leaving the tile world changed the code walk");
+  console.log("ground checks ok, markers " + map.markers.length + ", walked " + reach.length + ", gaps " + gapReport.join(", ") + ", old saves " + checked);
 }
 
 console.log("smoke ok");

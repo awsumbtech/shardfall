@@ -1088,11 +1088,21 @@ SF.auditWorld = function () {
     SF.state.flags = heldFlags;
   }
   if (SF.walkable(40, -460)) issues.push("past the highspire gate is walkable");
+  var placeFlags = SF.state && SF.state.flags;
   ["emberhold", "cinderveil"].forEach(function (id) {
     SF.mountIsland(id);
+    if (id === "cinderveil" && SF.state) SF.state.flags = Object.assign({}, placeFlags, { vaultOpen: true });
     (SF.EXTRAS || []).forEach(function (ex) {
       if (!SF.walkable(ex.x, ex.y)) issues.push(id + " " + ex.id + " not walkable");
     });
+    if (id === "cinderveil" && SF.state) {
+      SF.state.flags = Object.assign({}, placeFlags, { vaultOpen: false });
+      (SF.EXTRAS || []).forEach(function (ex) {
+        if (ex.id !== "chest-vault" && ex.id !== "vault-stone") return;
+        if (SF.walkable(ex.x, ex.y)) issues.push(id + " " + ex.id + " is walkable before the vault opens");
+      });
+      SF.state.flags = placeFlags;
+    }
   });
   var seen = {};
   function noteItems(list) {

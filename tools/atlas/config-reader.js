@@ -68,10 +68,17 @@ export class ConfigReader {
     return out;
   }
 
+  _dim(entry) {
+    if (entry.dim == null || entry.dim === "") return null;
+    const n = Number(entry.dim);
+    if (!Number.isFinite(n) || n <= 0 || n > 1) throw new Error(entry.key + " dim must be greater than 0 and at most 1");
+    return n;
+  }
+
   _push(out, entry, file, code, anchor, name, x, y, w, h) {
     if (!name) throw new Error(entry.key + " has a frame with no name");
     if (!(w > 0) || !(h > 0)) throw new Error(entry.key + " frame " + name + " has no size");
-    out.push({
+    const frame = {
       key: entry.key,
       file,
       code,
@@ -82,7 +89,10 @@ export class ConfigReader {
       w: w | 0,
       h: h | 0,
       order: out.length
-    });
+    };
+    const dim = this._dim(entry);
+    if (dim != null && dim !== 1) frame.dim = dim;
+    out.push(frame);
   }
 
   _rects(out, entry, file, code, anchor) {

@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.25";
+SF.VERSION = "0.4.26";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -11,8 +11,22 @@ SF.reduceFlash = true;
 SF.QUEST_SHARDS = 5;
 SF.WALK_MARGIN = 6;
 SF.DASH_TIME = 0.16;
-SF.DASH_SPEED = 500;
-SF.DASH_SPEED_PLUS = 780;
+// Normal dash length, in pixels. Speed is derived from this so movement,
+// audits, and the tile-gap checks share one number.
+SF.DASH_REACH = 90;
+SF.DASH_SPEED = SF.DASH_REACH / SF.DASH_TIME;
+// Shardstep. Covers the mainland-lip launches onto the ledge (about 155–172px).
+// Normal dash and Long Step stay short of that ledge.
+SF.DASH_REACH_PLUS = 175;
+SF.DASH_SPEED_PLUS = SF.DASH_REACH_PLUS / SF.DASH_TIME;
+// Bonus length for the Long Step upgrade, as a multiple of the normal dash.
+SF.LONGSTEP = 1.2;
+// Dash aim assist: how far the aim may turn, in degrees, toward land.
+SF.DASH_ASSIST_ANGLE = 20;
+// Opaque ground kept between the feet and a drawn-sky pixel.
+SF.SKY_CLEAR = 5;
+// Paint at or below this alpha is sky. The island drop shadow is about 40.
+SF.SKY_ALPHA = 64;
 SF.DASH_CD = 1.15;
 SF.DASH_CD_PLUS = 0.78;
 SF.STRIKE_REACH = 58;
@@ -35,7 +49,8 @@ SF.WHATS_NEW = [
   "Resting heals you fully, a loss sends you back in front of the last stop, people are solid, fences connect, and the Cinder Maw asks before the fight.",
   "Behind the scenes: new art system groundwork, no visible change",
   "Behind the scenes: packed art is ready for the site, with no visible change.",
-  "New hero sprite on the map."
+  "New hero sprite on the map.",
+  "Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

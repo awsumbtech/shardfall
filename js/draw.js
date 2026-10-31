@@ -1131,7 +1131,8 @@ SF._stampPath = function (wx, wy, radius, colors, mask, data, minX, minY, w, h) 
 };
 
 SF._pullWalkable = function (sx, sy, px, py) {
-  if (!SF.walkable || SF.walkable(px, py)) return { x: px, y: py };
+  var open = SF.groundWalkable || SF.walkable;
+  if (!open || open(px, py)) return { x: px, y: py };
   var lo = 0;
   var hi = 1;
   var t, ax, ay, i;
@@ -1139,7 +1140,7 @@ SF._pullWalkable = function (sx, sy, px, py) {
     t = (lo + hi) * 0.5;
     ax = sx + (px - sx) * t;
     ay = sy + (py - sy) * t;
-    if (SF.walkable(ax, ay)) lo = t;
+    if (open(ax, ay)) lo = t;
     else hi = t;
   }
   return { x: sx + (px - sx) * lo, y: sy + (py - sy) * lo };
@@ -1358,8 +1359,22 @@ SF.buildTerrainSheet = function (lit) {
   SF._terrainKey = SF.terrainKey(lit);
 };
 
+// Kenmi ground for Emberhold only, and only when every ground frame loaded.
+// Anything short of that, including a partial atlas, keeps today's code ground.
+SF._drawTileGround = function (ctx, s) {
+  if (SF.worldSource !== "tiles" || SF.islandId !== "emberhold" || !SF.tileMap) return false;
+  if (!s || !SF.TileMapRenderer) return false;
+  if (!SF.tileRenderer) SF.tileRenderer = new SF.TileMapRenderer();
+  try { SF.tileRenderer.draw(ctx, s, SF.tileMap); }
+  catch (err) { /* a bad frame must not bring back the code ground */ }
+  SF._tileGroundOn = true;
+  return true;
+};
+
 SF.drawTerrain = function (ctx, s) {
+  SF._tileGroundOn = false;
   if (!SF.groups || !SF.specks || !SF.blobs || !SF.WALK) return;
+  if (SF._drawTileGround(ctx, s)) return;
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!(s.flags && s.flags.lampLit);
   var key = SF.terrainKey(lit);
   if (!SF._terrain || SF._terrainKey !== key) SF.buildTerrainSheet(lit);
@@ -2501,7 +2516,21 @@ SF.entityList = function (s) {
       ctx.restore();
     }
   });
-  if (SF.TERRACES && SF._terrain) {
+  if (SF._tileGroundOn && SF.tileMap && SF.tileRenderer) {
+    SF.tileMap.faces.forEach(function (cell) {
+      list.push({
+        y: cell.sort,
+        draw: function (ctx) { SF.tileRenderer.drawCells(ctx, SF.tileMap, [cell]); }
+      });
+    });
+    SF.tileMap.overlay.forEach(function (cell) {
+      list.push({
+        y: cell.sort,
+        draw: function (ctx) { SF.tileRenderer.drawCells(ctx, SF.tileMap, [cell]); }
+      });
+    });
+  }
+  if (SF.TERRACES && SF._terrain && !SF._tileGroundOn) {
     SF._terraceList().forEach(function (t) {
       if (!t.block) return;
       list.push({
@@ -2815,6 +2844,16 @@ SF.draw = function () {
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.imageSmoothingEnabled = true;
+  if (ctx.filter) ctx.filter = "none";
+  // A resized canvas drops its gradient. Reusing the old one shifts sky
+  // samples by a shade. The stops themselves stay the code-art palette.
+  if (SF._skyCanvas !== canvas || SF._skyDpr !== dpr) {
+    SF._skyKey = "";
+    SF._skyCanvas = canvas;
+    SF._skyDpr = dpr;
+  }
   if ((s.mode === "voyage" || s.voyageTalk) && SF.drawVoyage) {
     SF.drawVoyage(ctx, w, h, s);
     SF.drawVignette(ctx, w, h, s);

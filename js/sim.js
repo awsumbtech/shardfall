@@ -370,13 +370,31 @@ SF.hurtPlayer = function (dmg, nx, ny, softLine) {
   }
 };
 
+SF.rescueSpot = function (p) {
+  var s = SF.state;
+  var island = SF.islandId || (s && s.island) || "emberhold";
+  var rec = s && s.checkpoints && s.checkpoints[island];
+  if ((!rec || rec.x == null) && s && s.checkpoint && s.checkpoint.island === island) rec = s.checkpoint;
+  if (rec && rec.x != null && SF.walkable(rec.x, rec.y)) return { x: rec.x, y: rec.y };
+  var dock = SF.DOCKS && SF.DOCKS[island];
+  if (dock && SF.walkable(dock.x, dock.y)) return { x: dock.x, y: dock.y };
+  if (p && SF.walkable(p.x, p.y)) return { x: p.x, y: p.y };
+  return null;
+};
+
 SF.rescue = function (p) {
-  p.x = p.safeX;
-  p.y = p.safeY;
+  var spot = SF.walkable(p.safeX, p.safeY) ? { x: p.safeX, y: p.safeY } : SF.rescueSpot(p);
   p.fall = 0;
   p.dashT = 0;
   p.hx = 0;
   p.hy = 0;
+  if (!spot) return;
+  p.x = spot.x;
+  p.y = spot.y;
+  p.safeX = spot.x;
+  p.safeY = spot.y;
+  p.px = spot.x;
+  p.py = spot.y;
   SF.burst(p.x, p.y, "#d9c7ff", 10, 40);
   if (p.iFrames <= 0) SF.hurtPlayer(4, 0, 0, "The gap is too wide. Try Dash.");
 };
@@ -414,13 +432,199 @@ SF.applySwing = function (p) {
   });
 };
 
+SF.dashInside = function (x, y) {
+  var props, i, p, r, dx, dy;
+  if (SF.blocksFoot && SF.blocksFoot(x, y)) return true;
+  props = SF.PROPS;
+  if (!props) return false;
+  for (i = 0; i < props.length; i++) {
+    p = props[i];
+    r = p.block;
+    if (!r) continue;
+    dx = x - p.x;
+    dy = y - p.y;
+    if (dx * dx + dy * dy < r * r) return true;
+  }
+  return false;
+};
+
+SF.dashLegal = function (x, y) {
+  if (!SF.walkable(x, y)) return false;
+  if (SF.vaultSealedAt && SF.vaultSealedAt(x, y)) return false;
+  if (SF.dashInside(x, y)) return false;
+  return true;
+};
+
+SF.dashCircles = function () {
+  var list = SF.solidList ? SF.solidList().slice() : [];
+  var props = SF.PROPS;
+  var i, p;
+  if (!props) return list;
+  for (i = 0; i < props.length; i++) {
+    p = props[i];
+    if (!p.block) continue;
+    list.push({ x: p.x, y: p.y, r: p.block, kind: "prop" });
+  }
+  return list;
+};
+
+SF.raySolid = function (x, y, ux, uy, maxDist) {
+  var list = SF.dashCircles();
+  var best = null;
+  var i, solid, fx, fy, b, c, disc, root, enter, exit;
+  for (i = 0; i < list.length; i++) {
+    solid = list[i];
+    if (!solid.r) continue;
+    fx = x - solid.x;
+    fy = y - solid.y;
+    b = 2 * (fx * ux + fy * uy);
+    c = fx * fx + fy * fy - solid.r * solid.r;
+    disc = b * b - 4 * c;
+    if (disc < 0) continue;
+    root = Math.sqrt(disc);
+    enter = (-b - root) * 0.5;
+    exit = (-b + root) * 0.5;
+    if (enter < 0.001) enter = exit;
+    if (enter < 0.001 || enter > maxDist) continue;
+    if (!best || enter < best.dist) best = { dist: enter, exit: exit, solid: solid };
+  }
+  return best;
+};
+
+SF.dashPastBlock = function (p, hit, limit) {
+  var speed, ux, uy, fromX, fromY, exit, ex, ey, jumped, sealed, d, px, py, inside, steps;
+  if (!hit || !hit.solid) return null;
+  if (hit.exit > limit) return null;
+  speed = Math.hypot(p.dvx, p.dvy) || 1;
+  ux = p.dvx / speed;
+  uy = p.dvy / speed;
+  fromX = p.dashFromX;
+  fromY = p.dashFromY;
+  exit = hit.exit;
+  ex = fromX + ux * exit;
+  ey = fromY + uy * exit;
+  while (exit < limit && SF.dashInside(ex, ey)) {
+    exit += 0.5;
+    ex = fromX + ux * exit;
+    ey = fromY + uy * exit;
+  }
+  if (exit > limit || !SF.dashLegal(ex, ey)) return null;
+  jumped = false;
+  steps = Math.ceil(Math.max(hit.dist, exit));
+  for (d = 0; d <= steps; d += 1) {
+    if (d > exit) break;
+    px = fromX + ux * d;
+    py = fromY + uy * d;
+    sealed = SF.vaultSealedAt && SF.vaultSealedAt(px, py);
+    if (sealed) return null;
+    inside = (px - hit.solid.x) * (px - hit.solid.x) + (py - hit.solid.y) * (py - hit.solid.y) <= hit.solid.r * hit.solid.r + 0.01;
+    if (d < hit.dist) {
+      if (!SF.walkable(px, py)) jumped = true;
+      continue;
+    }
+    if (inside) continue;
+    if (!SF.dashLegal(px, py)) return null;
+  }
+  if (!jumped) return null;
+  return { x: ex, y: ey };
+};
+
+SF.settleDash = function (p, stopX, stopY) {
+  var fromX = p.dashFromX != null ? p.dashFromX : stopX;
+  var fromY = p.dashFromY != null ? p.dashFromY : stopY;
+  var reach = p.dashReach;
+  var limit, dx, dy, dist, land, far, x, y;
+  if (reach == null) {
+    reach = p.shardstep ? SF.DASH_REACH_PLUS : SF.DASH_REACH;
+    if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) reach *= SF.LONGSTEP || 1;
+  }
+  limit = reach + 1;
+  if (p.dashHit) {
+    far = SF.dashPastBlock(p, p.dashHit, limit);
+    if (far) {
+      p.x = far.x;
+      p.y = far.y;
+      return;
+    }
+  }
+  dx = stopX - fromX;
+  dy = stopY - fromY;
+  dist = Math.hypot(dx, dy);
+  if (dist > limit) {
+    stopX = fromX + dx * (limit / dist);
+    stopY = fromY + dy * (limit / dist);
+  }
+  land = SF.dashLegal(stopX, stopY) ? { x: stopX, y: stopY } : SF.dashLanding(fromX, fromY, stopX, stopY);
+  x = land.x;
+  y = land.y;
+  dx = x - fromX;
+  dy = y - fromY;
+  dist = Math.hypot(dx, dy);
+  if (dist > limit) {
+    x = fromX + dx * (limit / dist);
+    y = fromY + dy * (limit / dist);
+    if (!SF.dashLegal(x, y)) land = SF.dashLanding(fromX, fromY, x, y);
+    else land = { x: x, y: y };
+    x = land.x;
+    y = land.y;
+  }
+  if (!SF.dashLegal(x, y) && SF.dashLegal(fromX, fromY)) {
+    x = fromX;
+    y = fromY;
+  }
+  p.x = x;
+  p.y = y;
+};
+
+SF.dashLanding = function (x0, y0, x1, y1) {
+  var len = Math.hypot(x1 - x0, y1 - y0);
+  var steps = Math.max(1, Math.ceil(len));
+  var best = -1;
+  var i, t, x, y, lo, hi;
+  for (i = 0; i <= steps; i++) {
+    t = i / steps;
+    x = x0 + (x1 - x0) * t;
+    y = y0 + (y1 - y0) * t;
+    if (SF.dashInside(x, y)) break;
+    if (SF.dashLegal(x, y)) best = t;
+  }
+  if (best < 0) return { x: x0, y: y0 };
+  lo = best;
+  hi = Math.min(1, best + 1 / steps);
+  for (i = 0; i < 8; i++) {
+    t = (lo + hi) * 0.5;
+    x = x0 + (x1 - x0) * t;
+    y = y0 + (y1 - y0) * t;
+    if (SF.dashLegal(x, y)) lo = t;
+    else hi = t;
+  }
+  return { x: x0 + (x1 - x0) * lo, y: y0 + (y1 - y0) * lo };
+};
+
 SF.startDash = function (p) {
   if (p.dashCd > 0 || p.dashT > 0) return false;
   var speed = p.shardstep ? SF.DASH_SPEED_PLUS : SF.DASH_SPEED;
-  if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= 1.2;
+  if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= SF.LONGSTEP || 1;
+  var dirx = p.fx || 0;
+  var diry = p.fy || 0;
+  var dir = Math.hypot(dirx, diry) || 1;
+  dirx /= dir;
+  diry /= dir;
+  var reach = speed * SF.DASH_TIME;
+  p.dashReach = reach;
+  if (SF.guideDash) {
+    var turned = SF.guideDash(p.x, p.y, dirx, diry, reach);
+    if (turned) { dirx = turned.x; diry = turned.y; }
+  }
+  p.fx = dirx;
+  p.fy = diry;
+  p.dashFromX = p.x;
+  p.dashFromY = p.y;
+  p.dashGone = 0;
   p.dashT = SF.DASH_TIME;
-  p.dvx = p.fx * speed;
-  p.dvy = p.fy * speed;
+  p.dvx = dirx * speed;
+  p.dvy = diry * speed;
+  p.dashHit = SF.raySolid(p.x, p.y, dirx, diry, reach);
   p.dashCd = p.shardstep ? SF.DASH_CD_PLUS : SF.DASH_CD;
   p.dashId += 1;
   p.iFrames = Math.max(p.iFrames, SF.DASH_TIME);
@@ -1068,27 +1272,37 @@ SF.updatePlayer = function (dt) {
   var aiming = !!(SF.inputState && SF.inputState.grappleHold && p.grapple && s.mode === "play");
   if (!hooked && p.dashT > 0) {
     var step = Math.min(dt, p.dashT);
-    var dashX = p.x + p.dvx * step;
-    var dashY = p.y + p.dvy * step;
-    if (SF.occupied && SF.occupied(dashX, dashY, p.x, p.y)) {
-      p.dashT = 0;
-    } else {
-    p.dashT -= step;
-    p.x = dashX;
-    p.y = dashY;
-    p.trail -= step;
-    if (p.trail <= 0) {
-      p.trail = 0.025;
-      SF.spawnParticle(p.x, p.y, p.shardstep ? "#fff1b8" : "#9af6ff", 20, 0.28, 3);
-      if (s.ghosts.length < 7) s.ghosts.push({ x: p.x, y: p.y, fx: p.fx, fy: p.fy, a: 0.45 });
-    }
-    SF.dashSing(p);
+    var finishing = step === p.dashT;
+    var dashSpeed = Math.hypot(p.dvx, p.dvy) || 1;
+    var dashUx = p.dvx / dashSpeed;
+    var dashUy = p.dvy / dashSpeed;
+    var dashDist = finishing ? p.dashReach : Math.min(p.dashReach, (p.dashGone || 0) + dashSpeed * step);
+    var blocked = p.dashHit && p.dashHit.dist <= dashDist;
+    if (blocked) dashDist = p.dashHit.dist;
+    p.dashGone = dashDist;
+    p.x = p.dashFromX + dashUx * dashDist;
+    p.y = p.dashFromY + dashUy * dashDist;
+    if (blocked || finishing) p.dashT = 0;
+    else p.dashT -= step;
+    if (p.dashT <= 0) SF.settleDash(p, p.x, p.y);
+    else {
+      p.trail -= step;
+      if (p.trail <= 0) {
+        p.trail = 0.025;
+        SF.spawnParticle(p.x, p.y, p.shardstep ? "#fff1b8" : "#9af6ff", 20, 0.28, 3);
+        if (s.ghosts.length < 7) s.ghosts.push({ x: p.x, y: p.y, fx: p.fx, fy: p.fy, a: 0.45 });
+      }
+      SF.dashSing(p);
     }
   } else if (!hooked) {
     var mag = Math.hypot(move.x, move.y);
     if (!aiming && mag > 0.12) {
       var nx = move.x / mag;
       var ny = move.y / mag;
+      if (SF.guideRope) {
+        var guided = SF.guideRope(p.x, p.y, nx, ny);
+        if (guided) { nx = guided.x; ny = guided.y; }
+      }
       var sp = 150 * Math.min(1, mag);
       if (p.swinging && p.swingT < 0.16) sp *= 0.55;
       p.x += nx * sp * dt;
