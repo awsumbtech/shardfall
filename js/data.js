@@ -15,7 +15,16 @@ SF.DASH_TIME = 0.16;
 // audits, and the tile-gap checks share one number.
 SF.DASH_REACH = 90;
 SF.DASH_SPEED = SF.DASH_REACH / SF.DASH_TIME;
-SF.DASH_SPEED_PLUS = 780;
+// Shardstep. Long enough to clear the ledge after the foot inset, and the
+// only tile gap between a normal dash and this reach.
+SF.DASH_REACH_PLUS = 145;
+SF.DASH_SPEED_PLUS = SF.DASH_REACH_PLUS / SF.DASH_TIME;
+// Bonus length for the Long Step upgrade, as a multiple of the normal dash.
+SF.LONGSTEP = 1.2;
+// Dash aim assist: how far the aim may turn, in degrees, toward land.
+SF.DASH_ASSIST_ANGLE = 20;
+// Opaque ground kept between the feet and a drawn-sky pixel.
+SF.SKY_CLEAR = 5;
 SF.DASH_CD = 1.15;
 SF.DASH_CD_PLUS = 0.78;
 SF.STRIKE_REACH = 58;

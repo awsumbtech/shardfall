@@ -34,6 +34,7 @@ for (const file of [
   "js/sfx.js",
   "js/save.js",
   "js/sim.js",
+  "js/tiles/dashassist.js",
   "js/cinder.js",
   "js/content/maps/kinds.js",
   "js/content/maps/chart.js",
@@ -2788,7 +2789,9 @@ function runGroundChecks() {
     "js/assets/registry.js",
     "js/tiles/tmjmap.js",
     "js/tiles/renderer.js",
+    "js/tiles/skyedge.js",
     "js/tiles/bridge.js",
+    "js/tiles/dashassist.js",
     "js/tiles/adopt.js"
   ];
   for (const file of files) {
@@ -3030,8 +3033,41 @@ function runGroundChecks() {
     gapReport.push(gap.name + " " + dist.toFixed(1) + "px");
   }
   if (hookGap == null || hookGap > baseDash) fail("hook ledge is not a normal dash");
+  if (Math.abs(shardDash - G.DASH_REACH_PLUS) > 1e-6) fail("Shardstep speed is not derived from DASH_REACH_PLUS");
+  if (G.DASH_REACH_PLUS < 145) fail("Shardstep reach is under 145px");
+  const longReach = baseDash * G.LONGSTEP;
+  if (stepGap == null || stepGap <= longReach) fail("long step can cross the Shardstep ledge (" + stepGap + "px, long step " + longReach + ")");
   if (stepGap == null || baseDash + FOOT_INSET * 2 >= stepGap - FOOT_INSET * 2) {
     fail("normal dash plus foot insets reaches the Shardstep ledge");
+  }
+  const skyPx = new Uint8Array(16 * 16);
+  skyPx.fill(255);
+  for (let sy = 0; sy < 16; sy++) for (let sx = 0; sx < 7; sx++) skyPx[sy * 16 + sx] = 0;
+  const skyEdge = G.skyDepths(skyPx, 16, 16);
+  if (!skyEdge || skyEdge[0] !== 7 || skyEdge[1] || skyEdge[2] || skyEdge[3]) {
+    fail("sky depth missed a 7px transparent west edge " + skyEdge);
+  }
+  if (skyEdge[0] + G.SKY_CLEAR !== 12) fail("feet would not keep 5px of paint past drawn sky");
+  const keepWalk = G.walkable;
+  G.walkable = function (x, y) { return x >= 70 && x <= 180 && y >= -40 && y <= 40; };
+  const aimIn = 40 * Math.PI / 180;
+  const turned = G.guideDash(0, 0, Math.cos(aimIn), Math.sin(aimIn), baseDash);
+  if (!turned) fail("dash assist ignored a miss inside 20 degrees");
+  if (!G.walkable(turned.x * baseDash, turned.y * baseDash)) fail("dash assist aimed off the ground");
+  const aimWide = 80 * Math.PI / 180;
+  if (G.guideDash(0, 0, Math.cos(aimWide), Math.sin(aimWide), baseDash)) fail("dash assist turned more than its angle");
+  G.walkable = keepWalk;
+  let walkCliff = 0;
+  for (let li = 0; li < map.layers.length; li++) {
+    const layer = map.layers[li];
+    if (layer.role !== "cliffs") continue;
+    for (let i = 0; i < layer.data.length; i++) if (layer.data[i] && !map.blocked[i]) walkCliff += 1;
+  }
+  if (walkCliff < 100) fail("walkable cliff art is missing from the ground pass");
+  for (let fi = 0; fi < map.faces.length; fi++) {
+    const cell = map.faces[fi];
+    const ci = (cell.y / map.tile) * map.w + cell.x / map.tile;
+    if (!map.blocked[ci]) fail("a walkable cliff still sorts over the hero");
   }
   // Cinderstep jump rows. y416 is cliff face, so the scan stops at y408.
   // The close shore is the jump; the approved steps further along stay wider.

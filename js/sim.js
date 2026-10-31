@@ -417,10 +417,22 @@ SF.applySwing = function (p) {
 SF.startDash = function (p) {
   if (p.dashCd > 0 || p.dashT > 0) return false;
   var speed = p.shardstep ? SF.DASH_SPEED_PLUS : SF.DASH_SPEED;
-  if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= 1.2;
+  if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= SF.LONGSTEP || 1;
+  var dirx = p.fx || 0;
+  var diry = p.fy || 0;
+  var dir = Math.hypot(dirx, diry) || 1;
+  dirx /= dir;
+  diry /= dir;
+  var reach = speed * SF.DASH_TIME;
+  if (SF.guideDash) {
+    var turned = SF.guideDash(p.x, p.y, dirx, diry, reach);
+    if (turned) { dirx = turned.x; diry = turned.y; }
+  }
+  p.fx = dirx;
+  p.fy = diry;
   p.dashT = SF.DASH_TIME;
-  p.dvx = p.fx * speed;
-  p.dvy = p.fy * speed;
+  p.dvx = dirx * speed;
+  p.dvy = diry * speed;
   p.dashCd = p.shardstep ? SF.DASH_CD_PLUS : SF.DASH_CD;
   p.dashId += 1;
   p.iFrames = Math.max(p.iFrames, SF.DASH_TIME);

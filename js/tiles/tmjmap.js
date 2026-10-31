@@ -196,6 +196,8 @@
       for (i = 0; i < layer.data.length; i++) {
         gid = layer.data[i];
         if (!gid || !self.frames[gid]) continue;
+        // A cliff graphic on a walkable cell is baked with the ground.
+        if (cliff && !self.blocked[i]) continue;
         x = (i % self.w) * tile;
         y = ((i / self.w) | 0) * tile;
         cell = {
@@ -283,6 +285,18 @@
       }
     }
     this.apron = apron;
+  };
+
+  // Transparent run, in pixels, on the side facing (sx, sy). 0 until art is measured.
+  TmjMap.prototype.skyDepth = function (tx, ty, sx, sy) {
+    var recs = this._sky;
+    if (!recs || tx < 0 || ty < 0 || tx >= this.w || ty >= this.h) return 0;
+    var rec = recs[ty * this.w + tx];
+    if (!rec) return 0;
+    if (sx < 0) return rec[0];
+    if (sx > 0) return rec[1];
+    if (sy < 0) return rec[2];
+    return rec[3];
   };
 
   TmjMap.prototype.onBridge = function (x, y) {

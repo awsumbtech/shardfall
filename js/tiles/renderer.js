@@ -76,10 +76,13 @@
     var li, layer, y, x, idx, gid;
     for (li = 0; li < map.layers.length; li++) {
       layer = map.layers[li];
-      if (layer.role === "cliffs" || layer.name === "bridges") continue;
+      if (layer.name === "bridges") continue;
       for (y = 0; y < th; y++) {
         for (x = 0; x < tw; x++) {
           idx = (y0 + y) * map.w + (x0 + x);
+          // Cliff art on open ground is part of the ground pass. A sorted
+          // face would paint over the bridge planks and the hero.
+          if (layer.role === "cliffs" && map.blocked[idx]) continue;
           gid = layer.data[idx];
           if (!gid) continue;
           if (this._paintGid(g, map, gid, x * tile, y * tile)) ink = true;
