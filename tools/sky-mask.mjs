@@ -84,6 +84,11 @@ const report = await page.evaluate(() => {
   const SF = window.SF;
   const map = SF.tileMap;
   const mask = map._skyMask;
+  const limit = SF.SKY_ALPHA;
+  const painted = new Uint8Array(mask.alpha.length);
+  let ai;
+  for (ai = 0; ai < painted.length; ai++) if (mask.alpha[ai] > limit) painted[ai] = 1;
+  const grown = SF.growSkyMask(painted, mask.w, mask.h);
   let onSky = 0;
   let near = 0;
   let cornerNear = 0;
@@ -99,13 +104,13 @@ const report = await page.evaluate(() => {
       px = x + 0.5;
       py = y + 0.5;
       bridge = map.onBridge(px, py);
-      bad = bridge ? mask.near3[i] === 1 : mask.near5[i] === 1;
-      if (!bad && mask.ground[i]) continue;
+      bad = bridge ? grown.near3[i] === 1 : grown.near5[i] === 1;
+      if (!bad && painted[i]) continue;
       if (!SF.walkable(px, py)) continue;
-      if (!mask.ground[i]) onSky += 1;
+      if (!painted[i]) onSky += 1;
       if (bad) near += 1;
       corner = x >= tx0 && x < tx1 && y >= ty0 && y < ty1;
-      if (corner && !mask.ground[i]) cornerOn += 1;
+      if (corner && !painted[i]) cornerOn += 1;
       if (corner && bad) cornerNear += 1;
     }
   }
@@ -183,6 +188,7 @@ const report = await page.evaluate(() => {
     near: near,
     cornerOn: cornerOn,
     cornerNear: cornerNear,
+    alpha: limit,
     clear: SF.SKY_CLEAR,
     reach: SF.DASH_REACH,
     longStep: SF.DASH_REACH * SF.LONGSTEP,

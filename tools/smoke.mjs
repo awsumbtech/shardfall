@@ -3064,6 +3064,20 @@ function runGroundChecks() {
   if (grown.near5[10 * 20 + 16]) fail("a pixel 6px from sky was closed");
   if (!grown.near3[10 * 20 + 13] || grown.near3[10 * 20 + 14]) fail("bridge clearance is not 3px");
   if (!grown.near5[14 * 20 + 13]) fail("a diagonal within 5px of sky stayed open");
+  if (G.SKY_ALPHA !== 64) fail("SKY_ALPHA is " + G.SKY_ALPHA + ", drop shadow would count as ground");
+  const shadowPx = new Uint8Array(16 * 16);
+  for (let sy = 0; sy < 16; sy++) {
+    shadowPx[sy * 16 + 8] = 255;
+    shadowPx[sy * 16 + 7] = 40;
+    shadowPx[sy * 16 + 6] = 40;
+    shadowPx[sy * 16 + 5] = 40;
+  }
+  const shadowGround = new Uint8Array(16 * 16);
+  for (let si = 0; si < shadowPx.length; si++) if (shadowPx[si] > G.SKY_ALPHA) shadowGround[si] = 1;
+  if (shadowGround[7]) fail("drop shadow at alpha 40 counted as ground");
+  if (!shadowGround[8]) fail("island paint was not opaque");
+  const shadowNear = G.growSkyMask(shadowGround, 16, 16);
+  if (!shadowNear.near5[7]) fail("a foot on the drop shadow was not within 5px of sky");
   const keepWalk = G.walkable;
   G.walkable = function (x, y) { return x >= 70 && x <= 180 && y >= -40 && y <= 40; };
   const aimIn = 40 * Math.PI / 180;

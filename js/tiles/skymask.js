@@ -7,7 +7,6 @@
   var SF = window.SF || {};
   window.SF = SF;
 
-  var ALPHA = 16;
   var CLEAR = 5;
   var BRIDGE_CLEAR = 3;
 
@@ -93,10 +92,14 @@
     }
   }
 
+  function skyAlpha() {
+    return SF.SKY_ALPHA == null ? 64 : SF.SKY_ALPHA;
+  }
+
   function paint(acc, src) {
     var i;
     for (i = 0; i < acc.length && i < src.length; i++) {
-      if (src[i] > ALPHA) acc[i] = src[i];
+      if (src[i] > acc[i]) acc[i] = src[i];
     }
   }
 
@@ -123,6 +126,7 @@
     var pw = map.w * tile;
     var ph = map.h * tile;
     var ground = new Uint8Array(pw * ph);
+    var alphaPlane = new Uint8Array(pw * ph);
     var x, y, i, li, layer, src, acc, p, ox, oy;
     for (y = 0; y < map.h; y++) {
       for (x = 0; x < map.w; x++) {
@@ -141,7 +145,9 @@
         ox = x * tile;
         oy = y * tile;
         for (p = 0; p < acc.length; p++) {
-          if (acc[p] > ALPHA) ground[oy * pw + ox + (p % tile) + ((p / tile) | 0) * pw] = 1;
+          var di = oy * pw + ox + (p % tile) + ((p / tile) | 0) * pw;
+          if (acc[p] > alphaPlane[di]) alphaPlane[di] = acc[p];
+          if (acc[p] > skyAlpha()) ground[di] = 1;
         }
       }
     }
@@ -150,6 +156,7 @@
       w: pw,
       h: ph,
       tile: tile,
+      alpha: alphaPlane,
       ground: ground,
       near5: grown.near5,
       near3: grown.near3

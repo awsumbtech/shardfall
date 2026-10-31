@@ -15,9 +15,9 @@ SF.DASH_TIME = 0.16;
 // audits, and the tile-gap checks share one number.
 SF.DASH_REACH = 90;
 SF.DASH_SPEED = SF.DASH_REACH / SF.DASH_TIME;
-// Shardstep. Long enough to clear the ledge after the foot inset, and the
-// only tile gap between a normal dash and this reach.
-SF.DASH_REACH_PLUS = 145;
+// Shardstep. Covers the mainland-lip launches onto the ledge (about 155–172px).
+// Normal dash and Long Step stay short of that ledge.
+SF.DASH_REACH_PLUS = 175;
 SF.DASH_SPEED_PLUS = SF.DASH_REACH_PLUS / SF.DASH_TIME;
 // Bonus length for the Long Step upgrade, as a multiple of the normal dash.
 SF.LONGSTEP = 1.2;
@@ -25,6 +25,8 @@ SF.LONGSTEP = 1.2;
 SF.DASH_ASSIST_ANGLE = 20;
 // Opaque ground kept between the feet and a drawn-sky pixel.
 SF.SKY_CLEAR = 5;
+// Paint at or below this alpha is sky. The island drop shadow is about 40.
+SF.SKY_ALPHA = 64;
 SF.DASH_CD = 1.15;
 SF.DASH_CD_PLUS = 0.78;
 SF.STRIKE_REACH = 58;
