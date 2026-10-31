@@ -3713,6 +3713,85 @@ function runGroundChecks() {
     const moved = G.dist(occupied.player.x, occupied.player.y, row[0], row[1]);
     const cap = (occupied.player.dashReach || G.DASH_REACH_PLUS) + 1;
     if (moved > cap) fail("occupied dash moved " + moved.toFixed(0) + "px, reach is " + cap.toFixed(0));
+    if (moved < 90) fail("hook-forward dash stopped short at " + moved.toFixed(0) + "px");
+    if (G.dashInside(occupied.player.x, occupied.player.y)) fail("hook-forward dash ended inside a solid");
+  });
+  const hookPost = (G.HOOKS || []).find((hook) => hook.id === "hook-ledge");
+  if (!hookPost) fail("hook post missing");
+  const fpsEnds = [];
+  [1 / 20, 1 / 30, 1 / 60].forEach((dt) => {
+    const aimX = hookPost.x - 1989;
+    const aimY = hookPost.y - 656;
+    const aim = Math.hypot(aimX, aimY);
+    occupied.player.shardstep = true;
+    occupied.flags.shardstep = true;
+    occupied.upgrades = {};
+    occupied.player.x = 1989;
+    occupied.player.y = 656;
+    occupied.player.px = 1989;
+    occupied.player.py = 656;
+    occupied.player.safeX = 1989;
+    occupied.player.safeY = 656;
+    occupied.player.fx = aimX / aim;
+    occupied.player.fy = aimY / aim;
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.startDash(occupied.player)) fail("hook-forward dash did not start");
+    let n = 0;
+    while (occupied.player.dashT > 0 && n < 40) {
+      G.updatePlayer(dt);
+      n += 1;
+    }
+    const gone = G.dist(occupied.player.x, occupied.player.y, 1989, 656);
+    if (gone > G.DASH_REACH_PLUS + 1) fail("hook-forward moved " + gone.toFixed(1) + "px");
+    if (gone < 100) fail("hook-forward missed the ledge (" + gone.toFixed(1) + "px)");
+    if (!G.dashLegal(occupied.player.x, occupied.player.y)) fail("hook-forward ended illegal");
+    fpsEnds.push(occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2));
+  });
+  if (fpsEnds[0] !== fpsEnds[1] || fpsEnds[1] !== fpsEnds[2]) {
+    fail("hook-forward changed with the frame rate " + fpsEnds.join(" "));
+  }
+  [[1088, 360, 1088, 288, "npc"], [G.LAMP.x, G.LAMP.y + 80, G.LAMP.x, G.LAMP.y, "lamp"], [1856, 528, 1856, 448, "post"]].forEach((row) => {
+    occupied.player.shardstep = true;
+    occupied.flags.shardstep = true;
+    occupied.upgrades = {};
+    occupied.player.x = row[0];
+    occupied.player.y = row[1];
+    occupied.player.px = row[0];
+    occupied.player.py = row[1];
+    occupied.player.safeX = row[0];
+    occupied.player.safeY = row[1];
+    occupied.player.fx = 0;
+    occupied.player.fy = -1;
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.walkable(row[0], row[1])) fail(row[4] + " tunnel start is sky");
+    if (!G.startDash(occupied.player)) fail(row[4] + " tunnel dash did not start");
+    let n = 0;
+    while (occupied.player.dashT > 0 && n < 40) {
+      G.updatePlayer(1 / 20);
+      n += 1;
+    }
+    if (G.dashInside(occupied.player.x, occupied.player.y)) fail(row[4] + " dash ended inside a solid");
+    if (occupied.player.y < row[3]) fail(row[4] + " dash tunnelled through at 20fps");
+    const gone = G.dist(occupied.player.x, occupied.player.y, row[0], row[1]);
+    if (gone > G.DASH_REACH_PLUS + 1) fail(row[4] + " dash exceeded its reach");
   });
   const hollowAng = 160 * Math.PI / 180;
   occupied.player.shardstep = false;
@@ -3752,7 +3831,7 @@ function runGroundChecks() {
     occupied.upgrades = mode === "long" ? { longstep: true } : {};
     for (let y = 8; y < map.h * 16; y += 96) {
       for (let x = 8; x < map.w * 16; x += 96) {
-        if (!G.walkable(x, y)) continue;
+        if (!G.dashLegal(x, y)) continue;
         for (let a = 0; a < 8; a++) {
           const ang = a * Math.PI / 4;
           occupied.player.x = x;
