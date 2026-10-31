@@ -3759,6 +3759,65 @@ function runGroundChecks() {
   if (fpsEnds[0] !== fpsEnds[1] || fpsEnds[1] !== fpsEnds[2]) {
     fail("hook-forward changed with the frame rate " + fpsEnds.join(" "));
   }
+  const rateEnds = [];
+  [1 / 20, 1 / 60, 1 / 120, 1 / 240].forEach((dt) => {
+    occupied.player.shardstep = true;
+    occupied.flags.shardstep = true;
+    occupied.upgrades = {};
+    occupied.player.x = 1818;
+    occupied.player.y = 553;
+    occupied.player.px = 1818;
+    occupied.player.py = 553;
+    occupied.player.safeX = 1818;
+    occupied.player.safeY = 553;
+    occupied.player.fx = 1;
+    occupied.player.fy = 0;
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.walkable(1818, 553)) fail("rate dash start is sky");
+    if (!G.startDash(occupied.player)) fail("rate dash did not start");
+    let n = 0;
+    while (occupied.player.dashT > 0 && n < 80) {
+      G.updatePlayer(dt);
+      n += 1;
+    }
+    rateEnds.push(occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2));
+  });
+  occupied.player.shardstep = true;
+  occupied.flags.shardstep = true;
+  occupied.upgrades = {};
+  occupied.player.x = 1818;
+  occupied.player.y = 553;
+  occupied.player.px = 1818;
+  occupied.player.py = 553;
+  occupied.player.safeX = 1818;
+  occupied.player.safeY = 553;
+  occupied.player.fx = 1;
+  occupied.player.fy = 0;
+  occupied.player.dashCd = 0;
+  occupied.player.dashT = 0;
+  occupied.player.hp = 40;
+  occupied.player.iFrames = 0;
+  occupied.player.fall = 0;
+  occupied.player.grappleT = 0;
+  occupied.player.hx = 0;
+  occupied.player.hy = 0;
+  occupied.ghosts = [];
+  occupied.particles = [];
+  if (!G.startDash(occupied.player)) fail("uneven rate dash did not start");
+  [0.003, 0.02, 0.001, 0.011, 0.04, 0.008, 0.09].forEach((dt) => {
+    if (occupied.player.dashT > 0) G.updatePlayer(dt);
+  });
+  rateEnds.push(occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2));
+  if (rateEnds.some((end) => end !== rateEnds[0])) fail("Shardstep from 1818,553 changed with the frame rate " + rateEnds.join(" "));
   [[1088, 360, 1088, 288, "npc"], [G.LAMP.x, G.LAMP.y + 80, G.LAMP.x, G.LAMP.y, "lamp"], [1856, 528, 1856, 448, "post"]].forEach((row) => {
     occupied.player.shardstep = true;
     occupied.flags.shardstep = true;

@@ -1272,16 +1272,17 @@ SF.updatePlayer = function (dt) {
   var aiming = !!(SF.inputState && SF.inputState.grappleHold && p.grapple && s.mode === "play");
   if (!hooked && p.dashT > 0) {
     var step = Math.min(dt, p.dashT);
+    var finishing = step === p.dashT;
     var dashSpeed = Math.hypot(p.dvx, p.dvy) || 1;
     var dashUx = p.dvx / dashSpeed;
     var dashUy = p.dvy / dashSpeed;
-    var dashDist = Math.min(p.dashReach, (p.dashGone || 0) + dashSpeed * step);
+    var dashDist = finishing ? p.dashReach : Math.min(p.dashReach, (p.dashGone || 0) + dashSpeed * step);
     var blocked = p.dashHit && p.dashHit.dist <= dashDist;
     if (blocked) dashDist = p.dashHit.dist;
     p.dashGone = dashDist;
     p.x = p.dashFromX + dashUx * dashDist;
     p.y = p.dashFromY + dashUy * dashDist;
-    if (blocked) p.dashT = 0;
+    if (blocked || finishing) p.dashT = 0;
     else p.dashT -= step;
     if (p.dashT <= 0) SF.settleDash(p, p.x, p.y);
     else {
