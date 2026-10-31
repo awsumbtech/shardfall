@@ -432,63 +432,72 @@ SF.applySwing = function (p) {
   });
 };
 
-SF.dashBlocker = function (x, y, ox, oy) {
-  var list = SF.solidList ? SF.solidList() : [];
-  var i, solid, dx, dy, r, odx, ody;
-  for (i = 0; i < list.length; i++) {
-    solid = list[i];
-    r = solid.r || 0;
-    dx = x - solid.x;
-    dy = y - solid.y;
-    if (dx * dx + dy * dy >= r * r) continue;
-    if (ox != null && oy != null) {
-      odx = ox - solid.x;
-      ody = oy - solid.y;
-      if (odx * odx + ody * ody < r * r) continue;
-    }
-    return solid;
-  }
-  return null;
+SF.dashLegal = function (x, y) {
+  if (!SF.walkable(x, y)) return false;
+  if (SF.vaultSealedAt && SF.vaultSealedAt(x, y)) return false;
+  return true;
 };
 
-SF.dashFarSide = function (dirx, diry, blocker) {
-  if (!blocker || (!dirx && !diry)) return null;
-  var len = Math.hypot(dirx, diry) || 1;
-  var base = Math.atan2(diry / len, dirx / len);
-  var pad, off, signs, i, ang, px, py;
-  for (pad = 2; pad <= 36; pad += 2) {
-    for (off = 0; off <= 90; off += 6) {
-      signs = off === 0 ? [0] : [-1, 1];
-      for (i = 0; i < signs.length; i++) {
-        ang = base + signs[i] * off * Math.PI / 180;
-        px = blocker.x + Math.cos(ang) * (blocker.r + pad);
-        py = blocker.y + Math.sin(ang) * (blocker.r + pad);
-        if (!SF.walkable(px, py)) continue;
-        if (SF.blocksFoot && SF.blocksFoot(px, py)) continue;
-        return { x: px, y: py };
+SF.dashNear = function (x0, y0, x1, y1) {
+  var len = Math.hypot(x1 - x0, y1 - y0);
+  var steps = Math.max(1, Math.ceil(len));
+  var bestX = x0;
+  var bestY = y0;
+  var i, t, x, y;
+  for (i = 1; i <= steps; i++) {
+    t = i / steps;
+    x = x0 + (x1 - x0) * t;
+    y = y0 + (y1 - y0) * t;
+    if (!SF.dashLegal(x, y)) break;
+    if (SF.blocksFoot && SF.blocksFoot(x, y)) break;
+    bestX = x;
+    bestY = y;
+  }
+  return { x: bestX, y: bestY };
+};
+
+SF.settleDash = function (p, stopX, stopY) {
+  var fromX = p.dashFromX != null ? p.dashFromX : stopX;
+  var fromY = p.dashFromY != null ? p.dashFromY : stopY;
+  var reach = p.dashReach;
+  var dx, dy, dist, limit, land, x, y;
+  if (reach == null) {
+    reach = p.shardstep ? SF.DASH_REACH_PLUS : SF.DASH_REACH;
+    if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) reach *= SF.LONGSTEP || 1;
+  }
+  limit = reach + 1;
+  dx = stopX - fromX;
+  dy = stopY - fromY;
+  dist = Math.hypot(dx, dy);
+  if (dist > limit) {
+    stopX = fromX + dx * (limit / dist);
+    stopY = fromY + dy * (limit / dist);
+  }
+  x = stopX;
+  y = stopY;
+  if (!SF.dashLegal(x, y)) {
+    land = SF.dashLanding(fromX, fromY, x, y);
+    x = land.x;
+    y = land.y;
+    dx = x - fromX;
+    dy = y - fromY;
+    dist = Math.hypot(dx, dy);
+    if (dist > limit) {
+      x = fromX + dx * (limit / dist);
+      y = fromY + dy * (limit / dist);
+      if (!SF.dashLegal(x, y)) {
+        land = SF.dashLanding(fromX, fromY, x, y);
+        x = land.x;
+        y = land.y;
       }
     }
   }
-  return null;
-};
-
-SF.settleDash = function (p, stopX, stopY, hitX, hitY) {
-  var clear = SF.walkable(stopX, stopY) && !(SF.blocksFoot && SF.blocksFoot(stopX, stopY));
-  var far, land;
-  if (clear) {
-    p.x = stopX;
-    p.y = stopY;
-    return;
+  if (!SF.dashLegal(x, y) && SF.dashLegal(fromX, fromY)) {
+    x = fromX;
+    y = fromY;
   }
-  far = SF.dashFarSide(p.dvx || p.fx || 0, p.dvy || p.fy || 0, SF.dashBlocker(hitX, hitY, stopX, stopY));
-  if (far) {
-    p.x = far.x;
-    p.y = far.y;
-    return;
-  }
-  land = SF.dashLanding(p.dashFromX != null ? p.dashFromX : stopX, p.dashFromY != null ? p.dashFromY : stopY, stopX, stopY);
-  p.x = land.x;
-  p.y = land.y;
+  p.x = x;
+  p.y = y;
 };
 
 SF.dashLanding = function (x0, y0, x1, y1) {
@@ -526,6 +535,7 @@ SF.startDash = function (p) {
   dirx /= dir;
   diry /= dir;
   var reach = speed * SF.DASH_TIME;
+  p.dashReach = reach;
   if (SF.guideDash) {
     var turned = SF.guideDash(p.x, p.y, dirx, diry, reach);
     if (turned) { dirx = turned.x; diry = turned.y; }
@@ -1188,12 +1198,13 @@ SF.updatePlayer = function (dt) {
     var dashY = p.y + p.dvy * step;
     if (SF.occupied && SF.occupied(dashX, dashY, p.x, p.y)) {
       p.dashT = 0;
-      SF.settleDash(p, p.x, p.y, dashX, dashY);
+      var near = SF.dashNear(p.x, p.y, dashX, dashY);
+      SF.settleDash(p, near.x, near.y);
     } else {
       p.dashT -= step;
       p.x = dashX;
       p.y = dashY;
-      if (p.dashT <= 0) SF.settleDash(p, p.x, p.y, p.x, p.y);
+      if (p.dashT <= 0) SF.settleDash(p, p.x, p.y);
       p.trail -= step;
       if (p.trail <= 0) {
         p.trail = 0.025;

@@ -3677,8 +3677,6 @@ function runGroundChecks() {
   G.tileMap = map;
   G.worldSource = "tiles";
   G.islandId = "emberhold";
-  const post = (G.HOOKS || []).find((hook) => hook.id === "hook-ledge");
-  if (!post) fail("hook post missing");
   [[1989, 656, 0.117, -0.993], [2035, 656, -0.247, -0.969]].forEach((row) => {
     occupied.player.x = row[0];
     occupied.player.y = row[1];
@@ -3709,13 +3707,92 @@ function runGroundChecks() {
     let later = 0;
     for (later = 0; later < 40; later++) G.updatePlayer(0.02);
     if (occupied.player.hp !== 40) fail("occupied dash rescued for " + (40 - occupied.player.hp) + " from " + row[0] + "," + row[1]);
-    if (!G.walkable(occupied.player.x, occupied.player.y)) {
+    if (!G.walkable(occupied.player.x, occupied.player.y) || (G.vaultSealedAt && G.vaultSealedAt(occupied.player.x, occupied.player.y))) {
       fail("occupied dash stopped in the sky at " + occupied.player.x.toFixed(0) + "," + occupied.player.y.toFixed(0));
     }
-    if (G.dist(occupied.player.x, occupied.player.y, post.x, post.y) > 36) {
-      fail("occupied dash missed the hook ledge at " + occupied.player.x.toFixed(0) + "," + occupied.player.y.toFixed(0));
-    }
+    const moved = G.dist(occupied.player.x, occupied.player.y, row[0], row[1]);
+    const cap = (occupied.player.dashReach || G.DASH_REACH_PLUS) + 1;
+    if (moved > cap) fail("occupied dash moved " + moved.toFixed(0) + "px, reach is " + cap.toFixed(0));
   });
+  const hollowAng = 160 * Math.PI / 180;
+  occupied.player.shardstep = false;
+  occupied.flags.shardstep = false;
+  occupied.upgrades = {};
+  occupied.player.x = 243.6;
+  occupied.player.y = 613.9;
+  occupied.player.px = 243.6;
+  occupied.player.py = 613.9;
+  occupied.player.safeX = 243.6;
+  occupied.player.safeY = 613.9;
+  occupied.player.fx = Math.cos(hollowAng);
+  occupied.player.fy = Math.sin(hollowAng);
+  occupied.player.dashCd = 0;
+  occupied.player.dashT = 0;
+  occupied.player.hp = 40;
+  occupied.player.iFrames = 0;
+  occupied.player.fall = 0;
+  occupied.player.grappleT = 0;
+  occupied.player.hx = 0;
+  occupied.player.hy = 0;
+  if (!G.walkable(243.6, 613.9)) fail("hollow dash start is sky");
+  if (!G.startDash(occupied.player)) fail("hollow dash did not start");
+  let hollowSteps = 0;
+  while (occupied.player.dashT > 0 && hollowSteps < 30) {
+    G.updatePlayer(0.02);
+    hollowSteps += 1;
+  }
+  const hollowMoved = G.dist(occupied.player.x, occupied.player.y, 243.6, 613.9);
+  if (hollowMoved > G.DASH_REACH + 1) fail("base dash past the hollow NPC moved " + hollowMoved.toFixed(0) + "px");
+  if (!G.walkable(occupied.player.x, occupied.player.y)) fail("hollow dash ended off the ground");
+  const reachOf = { base: G.DASH_REACH, long: G.DASH_REACH * G.LONGSTEP, plus: G.DASH_REACH_PLUS };
+  let sampled = 0;
+  for (const mode of ["base", "long", "plus"]) {
+    occupied.player.shardstep = mode === "plus";
+    occupied.flags.shardstep = mode === "plus";
+    occupied.upgrades = mode === "long" ? { longstep: true } : {};
+    for (let y = 8; y < map.h * 16; y += 96) {
+      for (let x = 8; x < map.w * 16; x += 96) {
+        if (!G.walkable(x, y)) continue;
+        for (let a = 0; a < 8; a++) {
+          const ang = a * Math.PI / 4;
+          occupied.player.x = x;
+          occupied.player.y = y;
+          occupied.player.px = x;
+          occupied.player.py = y;
+          occupied.player.safeX = x;
+          occupied.player.safeY = y;
+          occupied.player.fx = Math.cos(ang);
+          occupied.player.fy = Math.sin(ang);
+          occupied.player.dashCd = 0;
+          occupied.player.dashT = 0;
+          occupied.player.hp = 40;
+          occupied.player.iFrames = 0;
+          occupied.player.fall = 0;
+          occupied.player.grappleT = 0;
+          occupied.player.hx = 0;
+          occupied.player.hy = 0;
+          occupied.ghosts = [];
+          occupied.particles = [];
+          if (!G.startDash(occupied.player)) fail("sample dash did not start");
+          let n = 0;
+          while (occupied.player.dashT > 0 && n < 12) {
+            G.updatePlayer(0.02);
+            n += 1;
+          }
+          const gone = G.dist(occupied.player.x, occupied.player.y, x, y);
+          const allowed = reachOf[mode] + 1;
+          if (gone > allowed) {
+            fail(mode + " dash moved " + gone.toFixed(1) + "px from " + x + "," + y + " (reach " + allowed + ")");
+          }
+          if (!G.dashLegal(occupied.player.x, occupied.player.y)) {
+            fail(mode + " dash ended illegal at " + occupied.player.x.toFixed(0) + "," + occupied.player.y.toFixed(0));
+          }
+          sampled += 1;
+        }
+      }
+    }
+  }
+  if (sampled < 100) fail("dash reach sample was too small (" + sampled + ")");
   G.state = keptState;
   G.worldSource = "";
   G.tileMap = null;
