@@ -322,7 +322,8 @@
     }
     var edges = [];
     for (id = 0; id < n; id++) edges.push([]);
-    var step = 4;
+    // One pixel, so a gap that clears on the foot inset is not rounded past the dash.
+    var step = 1;
     var px, py;
     for (py = 0; py < h * tile; py += step) {
       for (px = 0; px < w * tile; px += step) {

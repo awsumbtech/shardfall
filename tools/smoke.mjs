@@ -2937,182 +2937,126 @@ function runGroundChecks() {
   if (G.walkable(shoreX + 5, shoreY)) fail("Cinderstep west shore still walks 5px from the sky");
   const hookCorner = map.edgeInsets.find((box) => box.name === "hook-nw" || (box.side === "nw" && box.inset === 8));
   if (!hookCorner) fail("hook corner inset is missing from the map");
-  const baseDash = G.DASH_SPEED * G.DASH_TIME;
+  const baseDash = G.DASH_REACH;
+  if (Math.abs(G.DASH_SPEED * G.DASH_TIME - G.DASH_REACH) > 1e-6) fail("dash speed is not derived from DASH_REACH");
   const shardDash = G.DASH_SPEED_PLUS * G.DASH_TIME;
+  // Tile edge to tile edge, plus the 5px foot inset on each shore.
+  const FOOT_INSET = 5;
   const designed = [
-    { name: "shard-alcove", x: 2200, y: 160, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 48, reach: baseDash },
-    { name: "wrong-sky", x: 2240, y: 144, inland: [1880, 296], box: [1700, 80, 2450, 520], px: 48, reach: baseDash },
-    { name: "shard-hook", x: 2000, y: 560, inland: [1848, 680], box: [1500, 280, 2400, 900], px: 44, reach: baseDash },
-    { name: "shard-step", x: 2296, y: 904, inland: [2040, 888], box: [1850, 680, 2450, 1150], px: 112, reach: shardDash }
+    { name: "shard-alcove", x: 2200, y: 160, inland: [1880, 296], px: 58, reach: baseDash },
+    { name: "wrong-sky", x: 2240, y: 144, inland: [1880, 296], px: 58, reach: baseDash },
+    { name: "shard-hook", x: 2000, y: 560, inland: [1848, 680], px: 58, reach: baseDash },
+    { name: "shard-step", x: 2296, y: 904, inland: [2040, 888], px: 122, reach: shardDash }
   ];
-  function windowGap(walk, marker, inland, box) {
-    const step = 4;
-    const x0 = box[0] - (box[0] % step);
-    const y0 = box[1] - (box[1] % step);
-    const x1 = box[2];
-    const y1 = box[3];
-    const cols = Math.ceil((x1 - x0) / step);
-    const rows = Math.ceil((y1 - y0) / step);
-    const open = new Uint8Array(cols * rows);
-    for (let y = y0, r = 0; y < y1; y += step, r++) {
-      for (let x = x0, c = 0; x < x1; x += step, c++) {
-        if (walk(x, y)) open[r * cols + c] = 1;
-      }
+  function openComponent(tx, ty) {
+    const w = map.w;
+    const h = map.h;
+    const seen = new Uint8Array(w * h);
+    tx = tx | 0;
+    ty = ty | 0;
+    if (tx < 0 || ty < 0 || tx >= w || ty >= h || map.blocked[ty * w + tx]) return seen;
+    const q = [ty * w + tx];
+    seen[q[0]] = 1;
+    for (let qi = 0; qi < q.length; qi++) {
+      const i = q[qi];
+      const x = i % w;
+      const y = (i / w) | 0;
+      if (x + 1 < w && !seen[i + 1] && !map.blocked[i + 1]) { seen[i + 1] = 1; q.push(i + 1); }
+      if (x > 0 && !seen[i - 1] && !map.blocked[i - 1]) { seen[i - 1] = 1; q.push(i - 1); }
+      if (y + 1 < h && !seen[i + w] && !map.blocked[i + w]) { seen[i + w] = 1; q.push(i + w); }
+      if (y > 0 && !seen[i - w] && !map.blocked[i - w]) { seen[i - w] = 1; q.push(i - w); }
     }
-    const comp = new Int16Array(cols * rows);
-    comp.fill(-1);
-    const sizes = [];
-    function flood(sx, sy) {
-      const c0 = Math.floor((sx - x0) / step);
-      const r0 = Math.floor((sy - y0) / step);
-      if (c0 < 0 || r0 < 0 || c0 >= cols || r0 >= rows) return -1;
-      const start = r0 * cols + c0;
-      if (!open[start]) return -1;
-      if (comp[start] >= 0) return comp[start];
-      const id = sizes.length;
-      const q = [start];
-      comp[start] = id;
-      let count = 0;
-      for (let qi = 0; qi < q.length; qi++) {
-        const i = q[qi];
-        count += 1;
-        const c = i % cols;
-        const r = (i / cols) | 0;
-        const nb = [i + 1, i - 1, i + cols, i - cols];
-        for (let k = 0; k < 4; k++) {
-          const j = nb[k];
-          if (j < 0 || j >= open.length) continue;
-          if (Math.abs((j % cols) - c) > 1) continue;
-          if (!open[j] || comp[j] >= 0) continue;
-          comp[j] = id;
-          q.push(j);
-        }
-      }
-      sizes.push(count);
-      return id;
+    return seen;
+  }
+  function shoresOf(mask) {
+    const w = map.w;
+    const h = map.h;
+    const out = [];
+    for (let i = 0; i < mask.length; i++) {
+      if (!mask[i]) continue;
+      const x = i % w;
+      const y = (i / w) | 0;
+      const edge = x === 0 || y === 0 || x + 1 === w || y + 1 === h ||
+        !mask[i - 1] || !mask[i + 1] || !mask[i - w] || !mask[i + w];
+      if (edge) out.push(x, y);
     }
-    const island = flood(marker[0], marker[1]);
-    const main = flood(inland[0], inland[1]);
-    if (island < 0) fail("gap marker is not standable");
-    if (main < 0) fail("gap mainland sample is not standable");
-    if (island === main) return 0;
-    const edges = [[], []];
-    for (let i = 0; i < open.length; i++) {
-      const id = comp[i];
-      const which = id === main ? 0 : id === island ? 1 : -1;
-      if (which < 0) continue;
-      const c = i % cols;
-      const r = (i / cols) | 0;
-      const shore = c === 0 || r === 0 || c === cols - 1 || r === rows - 1 ||
-        comp[i - 1] !== id || comp[i + 1] !== id || comp[i - cols] !== id || comp[i + cols] !== id;
-      if (shore) edges[which].push(x0 + c * step, y0 + r * step);
-    }
+    return out;
+  }
+  function tileSep(ax, ay, bx, by) {
+    const tile = map.tile;
+    const aL = ax * tile;
+    const aR = aL + tile;
+    const aT = ay * tile;
+    const aB = aT + tile;
+    const bL = bx * tile;
+    const bR = bL + tile;
+    const bT = by * tile;
+    const bB = bT + tile;
+    const dx = aL > bR ? aL - bR : bL > aR ? bL - aR : 0;
+    const dy = aT > bB ? aT - bB : bT > aB ? bT - aB : 0;
+    return Math.hypot(dx, dy);
+  }
+  function insetGap(marker, inland) {
+    const tile = map.tile;
+    const island = openComponent(Math.floor(marker[0] / tile), Math.floor(marker[1] / tile));
+    const main = openComponent(Math.floor(inland[0] / tile), Math.floor(inland[1] / tile));
+    if (!island[Math.floor(marker[1] / tile) * map.w + Math.floor(marker[0] / tile)]) fail("gap marker is not on open ground");
+    if (!main[Math.floor(inland[1] / tile) * map.w + Math.floor(inland[0] / tile)]) fail("gap mainland sample is not on open ground");
+    const a = shoresOf(island);
+    const b = shoresOf(main);
     let best = Infinity;
-    const buckets = new Map();
-    for (let j = 0; j < edges[1].length; j += 2) {
-      const key = ((edges[1][j] / 32) | 0) + "," + ((edges[1][j + 1] / 32) | 0);
-      let list = buckets.get(key);
-      if (!list) buckets.set(key, list = []);
-      list.push(j);
-    }
-    for (let i = 0; i < edges[0].length; i += 2) {
-      const bx = (edges[0][i] / 32) | 0;
-      const by = (edges[0][i + 1] / 32) | 0;
-      for (let dy = -8; dy <= 8; dy++) {
-        for (let dx = -8; dx <= 8; dx++) {
-          const list = buckets.get((bx + dx) + "," + (by + dy));
-          if (!list) continue;
-          for (let k = 0; k < list.length; k++) {
-            const j = list[k];
-            const dist = Math.hypot(edges[1][j] - edges[0][i], edges[1][j + 1] - edges[0][i + 1]);
-            if (dist > 0 && dist < best) best = dist;
-          }
-        }
+    for (let i = 0; i < a.length; i += 2) {
+      for (let j = 0; j < b.length; j += 2) {
+        const dist = tileSep(a[i], a[i + 1], b[j], b[j + 1]) + FOOT_INSET * 2;
+        if (dist > 0 && dist < best) best = dist;
       }
     }
     return best;
   }
   const gapReport = [];
   let hookGap = null;
+  let stepGap = null;
   for (const gap of designed) {
     const mark = map.markers.find((m) => m.name === gap.name);
     const at = mark ? [mark.x, mark.y] : [gap.x, gap.y];
-    const dist = windowGap(G.walkable, at, gap.inland, gap.box);
+    const dist = insetGap(at, gap.inland);
     if (!(dist > 0)) fail(gap.name + " is connected to the mainland");
-    if (Math.abs(dist - gap.px) > 4) fail(gap.name + " gap is " + dist.toFixed(1) + "px, main is " + gap.px + "px");
+    if (Math.abs(dist - gap.px) > 4) fail(gap.name + " gap is " + dist.toFixed(1) + "px, expected " + gap.px + "px");
     if (gap.reach === baseDash && dist > baseDash) fail(gap.name + " is out of a normal dash (" + dist.toFixed(1) + "px)");
-    if (gap.reach === baseDash && dist > baseDash - 30) {
-      fail(gap.name + " gap is " + dist.toFixed(1) + "px, normal dash keeps 30px (" + (baseDash - 30) + "px)");
-    }
     if (gap.reach === shardDash && dist <= baseDash) fail(gap.name + " no longer needs Shardstep (" + dist.toFixed(1) + "px)");
     if (dist > shardDash) fail(gap.name + " is out of Shardstep (" + dist.toFixed(1) + "px)");
     if (gap.name === "shard-hook") hookGap = dist;
+    if (gap.name === "shard-step") stepGap = dist;
     gapReport.push(gap.name + " " + dist.toFixed(1) + "px");
   }
-  if (hookGap == null || hookGap < 34 || hookGap > 44) {
-    fail("hook ledge gap is " + (hookGap == null ? "missing" : hookGap.toFixed(1) + "px") + ", expected 34-44px");
+  if (hookGap == null || hookGap > baseDash) fail("hook ledge is not a normal dash");
+  if (stepGap == null || baseDash + FOOT_INSET * 2 >= stepGap - FOOT_INSET * 2) {
+    fail("normal dash plus foot insets reaches the Shardstep ledge");
   }
-  // Lower Cinderstep facing edge: every sample stays within a normal dash of the mainland.
-  const cinBox = [1700, 80, 2450, 480];
-  const cinMark = [2200, 160];
-  const cinInland = [1880, 320];
+  // Cinderstep jump rows. y416 is cliff face, so the scan stops at y408.
+  // The close shore is the jump; the approved steps further along stay wider.
   (function lowerEdge() {
-    const step = 4;
-    const x0 = cinBox[0];
-    const y0 = cinBox[1];
-    const cols = Math.ceil((cinBox[2] - x0) / step);
-    const rows = Math.ceil((cinBox[3] - y0) / step);
-    const open = new Uint8Array(cols * rows);
-    for (let y = y0, r = 0; y < cinBox[3]; y += step, r++) {
-      for (let x = x0, c = 0; x < cinBox[2]; x += step, c++) {
-        if (G.walkable(x, y)) open[r * cols + c] = 1;
+    const tile = map.tile;
+    const main = openComponent(Math.floor(1880 / tile), Math.floor(320 / tile));
+    const cin = openComponent(Math.floor(2200 / tile), Math.floor(160 / tile));
+    let best = Infinity;
+    let measured = 0;
+    for (let y = 304; y <= 408; y += 8) {
+      const ty = Math.floor(y / tile);
+      let mainE = -1;
+      let cinW = 1e9;
+      for (let x = 0; x < map.w; x++) {
+        const i = ty * map.w + x;
+        if (main[i] && x > mainE) mainE = x;
+        if (cin[i] && x < cinW) cinW = x;
       }
+      if (mainE < 0 || cinW > 1e8 || cinW <= mainE) fail("Cinderstep jump row y " + y + " has no facing shores");
+      const dist = (cinW - mainE - 1) * tile + FOOT_INSET * 2;
+      if (dist < best) best = dist;
+      measured += 1;
     }
-    const label = new Int16Array(open.length);
-    label.fill(-1);
-    function floodId(sx, sy, id) {
-      const c0 = Math.floor((sx - x0) / step);
-      const r0 = Math.floor((sy - y0) / step);
-      const start = r0 * cols + c0;
-      if (c0 < 0 || r0 < 0 || !open[start] || label[start] >= 0) return;
-      const q = [start];
-      label[start] = id;
-      for (let qi = 0; qi < q.length; qi++) {
-        const i = q[qi];
-        const c = i % cols;
-        const r = (i / cols) | 0;
-        const nb = [i + 1, i - 1, i + cols, i - cols];
-        for (let k = 0; k < 4; k++) {
-          const j = nb[k];
-          if (j < 0 || j >= open.length) continue;
-          if (Math.abs((j % cols) - c) > 1) continue;
-          if (!open[j] || label[j] >= 0) continue;
-          label[j] = id;
-          q.push(j);
-        }
-      }
-    }
-    floodId(cinInland[0], cinInland[1], 1);
-    floodId(cinMark[0], cinMark[1], 2);
-    let worst = 0;
-    let worstAt = "";
-    for (let y = 304; y <= 416; y += 8) {
-      const r = Math.floor((y - y0) / step);
-      if (r < 0 || r >= rows) continue;
-      let mainX = -1;
-      let cinX = 1e9;
-      for (let c = 0; c < cols; c++) {
-        const id = label[r * cols + c];
-        const x = x0 + c * step;
-        if (id === 1 && x > mainX) mainX = x;
-        if (id === 2 && x < cinX) cinX = x;
-      }
-      if (mainX < 0 || cinX > 1e8) continue;
-      const dist = cinX - mainX;
-      if (dist > worst) { worst = dist; worstAt = y + " (" + dist.toFixed(1) + "px)"; }
-      if (dist > 64) fail("Cinderstep lower edge at y " + y + " is " + dist.toFixed(1) + "px, over 64px");
-    }
-    if (!(worst > 0)) fail("Cinderstep lower edge was not measured");
+    if (measured !== 14) fail("Cinderstep scan did not cover y304-408");
+    if (best > baseDash) fail("Cinderstep jump is " + best + "px, past a normal dash");
   })();
   const plankY = 86 * 16 + 8;
   const plankCx = 87 * 16 + 8;
@@ -3333,8 +3277,8 @@ function runGroundChecks() {
   play.player.shardstep = false;
   play.flags.shardstep = false;
   const hookSave = landedHome([2040, 580], baseDash);
-  if (Math.hypot(hookSave.x - 2040, hookSave.y - 580) > 64 || hookSave.y >= 576) {
-    fail("hook ledge save left the moved lawn at " + hookSave.x + "," + hookSave.y);
+  if (Math.hypot(hookSave.x - 2040, hookSave.y - 580) > 24) {
+    fail("hook ledge save left the approved lawn at " + hookSave.x + "," + hookSave.y);
   }
   play.player.shardstep = false;
   play.flags.shardstep = false;

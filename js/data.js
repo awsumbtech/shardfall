@@ -11,7 +11,10 @@ SF.reduceFlash = true;
 SF.QUEST_SHARDS = 5;
 SF.WALK_MARGIN = 6;
 SF.DASH_TIME = 0.16;
-SF.DASH_SPEED = 500;
+// Normal dash length, in pixels. Speed is derived from this so movement,
+// audits, and the tile-gap checks share one number.
+SF.DASH_REACH = 90;
+SF.DASH_SPEED = SF.DASH_REACH / SF.DASH_TIME;
 SF.DASH_SPEED_PLUS = 780;
 SF.DASH_CD = 1.15;
 SF.DASH_CD_PLUS = 0.78;

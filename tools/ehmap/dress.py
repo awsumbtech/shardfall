@@ -157,7 +157,7 @@ class Dresser:
         rng = np.random.default_rng(self.seed * 7 + L)
         R, K = rng.random(free.shape), rng.random(free.shape)
         for y, x in zip(*np.nonzero(free)):
-            if self.paths[L][y, x] or self._stair_apron(x, y):
+            if self.paths[L][y, x]:
                 continue
             if self._grow_at(taken, x, y):
                 continue
@@ -178,27 +178,6 @@ class Dresser:
                 out[y, x] = t
                 taken[y, x] = True
         return out
-
-    def _stair_apron(self, x, y):
-        """The tread, plus a two-tile apron past each end, wide enough for the cheeks."""
-        return (x, y) in self._apron_cells()
-
-    def _apron_cells(self):
-        cached = getattr(self, "_apron", None)
-        if cached is not None:
-            return cached
-        cols = {}
-        for sx, sy in self.g.stairs:
-            lo, hi = cols.get(sx, (sy, sy))
-            cols[sx] = (min(lo, sy), max(hi, sy))
-        apron = set(self.g.stairs)
-        for sx, (y0, y1) in cols.items():
-            for dx in (-2, -1, 0, 1, 2):
-                for dy in (1, 2):
-                    apron.add((sx + dx, y0 - dy))
-                    apron.add((sx + dx, y1 + dy))
-        self._apron = apron
-        return apron
 
     @staticmethod
     def _grow_at(m, x, y):
@@ -252,8 +231,6 @@ class Dresser:
         rng2 = np.random.default_rng(self.seed * 13 + L)
         R2, K2 = rng2.random(free.shape), rng2.random(free.shape)
         for y, x in zip(*np.nonzero(free)):
-            if self._stair_apron(x, y):
-                continue
             if self._grow_at(deco != None, x, y):
                 continue
             r, k = R2[y, x], K2[y, x]
