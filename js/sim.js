@@ -370,13 +370,31 @@ SF.hurtPlayer = function (dmg, nx, ny, softLine) {
   }
 };
 
+SF.rescueSpot = function (p) {
+  var s = SF.state;
+  var island = SF.islandId || (s && s.island) || "emberhold";
+  var rec = s && s.checkpoints && s.checkpoints[island];
+  if ((!rec || rec.x == null) && s && s.checkpoint && s.checkpoint.island === island) rec = s.checkpoint;
+  if (rec && rec.x != null && SF.walkable(rec.x, rec.y)) return { x: rec.x, y: rec.y };
+  var dock = SF.DOCKS && SF.DOCKS[island];
+  if (dock && SF.walkable(dock.x, dock.y)) return { x: dock.x, y: dock.y };
+  if (p && SF.walkable(p.x, p.y)) return { x: p.x, y: p.y };
+  return null;
+};
+
 SF.rescue = function (p) {
-  p.x = p.safeX;
-  p.y = p.safeY;
+  var spot = SF.walkable(p.safeX, p.safeY) ? { x: p.safeX, y: p.safeY } : SF.rescueSpot(p);
   p.fall = 0;
   p.dashT = 0;
   p.hx = 0;
   p.hy = 0;
+  if (!spot) return;
+  p.x = spot.x;
+  p.y = spot.y;
+  p.safeX = spot.x;
+  p.safeY = spot.y;
+  p.px = spot.x;
+  p.py = spot.y;
   SF.burst(p.x, p.y, "#d9c7ff", 10, 40);
   if (p.iFrames <= 0) SF.hurtPlayer(4, 0, 0, "The gap is too wide. Try Dash.");
 };
@@ -412,6 +430,65 @@ SF.applySwing = function (p) {
     e.lastSwing = p.swingId;
     SF.damageEnemy(e, p.atk, p.fx, p.fy, 1);
   });
+};
+
+SF.dashBlocker = function (x, y, ox, oy) {
+  var list = SF.solidList ? SF.solidList() : [];
+  var i, solid, dx, dy, r, odx, ody;
+  for (i = 0; i < list.length; i++) {
+    solid = list[i];
+    r = solid.r || 0;
+    dx = x - solid.x;
+    dy = y - solid.y;
+    if (dx * dx + dy * dy >= r * r) continue;
+    if (ox != null && oy != null) {
+      odx = ox - solid.x;
+      ody = oy - solid.y;
+      if (odx * odx + ody * ody < r * r) continue;
+    }
+    return solid;
+  }
+  return null;
+};
+
+SF.dashFarSide = function (dirx, diry, blocker) {
+  if (!blocker || (!dirx && !diry)) return null;
+  var len = Math.hypot(dirx, diry) || 1;
+  var base = Math.atan2(diry / len, dirx / len);
+  var pad, off, signs, i, ang, px, py;
+  for (pad = 2; pad <= 36; pad += 2) {
+    for (off = 0; off <= 90; off += 6) {
+      signs = off === 0 ? [0] : [-1, 1];
+      for (i = 0; i < signs.length; i++) {
+        ang = base + signs[i] * off * Math.PI / 180;
+        px = blocker.x + Math.cos(ang) * (blocker.r + pad);
+        py = blocker.y + Math.sin(ang) * (blocker.r + pad);
+        if (!SF.walkable(px, py)) continue;
+        if (SF.blocksFoot && SF.blocksFoot(px, py)) continue;
+        return { x: px, y: py };
+      }
+    }
+  }
+  return null;
+};
+
+SF.settleDash = function (p, stopX, stopY, hitX, hitY) {
+  var clear = SF.walkable(stopX, stopY) && !(SF.blocksFoot && SF.blocksFoot(stopX, stopY));
+  var far, land;
+  if (clear) {
+    p.x = stopX;
+    p.y = stopY;
+    return;
+  }
+  far = SF.dashFarSide(p.dvx || p.fx || 0, p.dvy || p.fy || 0, SF.dashBlocker(hitX, hitY, stopX, stopY));
+  if (far) {
+    p.x = far.x;
+    p.y = far.y;
+    return;
+  }
+  land = SF.dashLanding(p.dashFromX != null ? p.dashFromX : stopX, p.dashFromY != null ? p.dashFromY : stopY, stopX, stopY);
+  p.x = land.x;
+  p.y = land.y;
 };
 
 SF.dashLanding = function (x0, y0, x1, y1) {
@@ -1111,15 +1188,12 @@ SF.updatePlayer = function (dt) {
     var dashY = p.y + p.dvy * step;
     if (SF.occupied && SF.occupied(dashX, dashY, p.x, p.y)) {
       p.dashT = 0;
+      SF.settleDash(p, p.x, p.y, dashX, dashY);
     } else {
       p.dashT -= step;
       p.x = dashX;
       p.y = dashY;
-      if (p.dashT <= 0 && !SF.walkable(p.x, p.y)) {
-        var land = SF.dashLanding(p.dashFromX != null ? p.dashFromX : p.px, p.dashFromY != null ? p.dashFromY : p.py, p.x, p.y);
-        p.x = land.x;
-        p.y = land.y;
-      }
+      if (p.dashT <= 0) SF.settleDash(p, p.x, p.y, p.x, p.y);
       p.trail -= step;
       if (p.trail <= 0) {
         p.trail = 0.025;

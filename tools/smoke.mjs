@@ -768,6 +768,61 @@ function checkVaultGate() {
   SF.state = savedState;
 }
 
+function checkRescueFallback() {
+  const savedState = SF.state;
+  const savedIsland = SF.islandId;
+  const probe = SF.fresh();
+  probe.mode = "play";
+  probe.enemies = [];
+  probe.flags.vaultOpen = false;
+  SF.mountIsland("cinderveil");
+  SF.state = probe;
+  probe.island = "cinderveil";
+  const ledge = SF.circle("vledge");
+  const lx = ledge.x + ledge.w / 2;
+  const ly = ledge.y + ledge.h / 2;
+  const ash = SF.circle("ash");
+  const dock = SF.DOCKS.cinderveil;
+  if (SF.walkable(lx, ly) || !SF.walkable(ash.x, ash.y) || !SF.walkable(dock.x, dock.y)) {
+    fail("rescue fallback ground is not where the vault seal left it");
+  }
+  function fallFrom(checkpoint) {
+    probe.player.x = lx;
+    probe.player.y = ly;
+    probe.player.px = lx;
+    probe.player.py = ly;
+    probe.player.safeX = lx;
+    probe.player.safeY = ly;
+    probe.player.hp = 40;
+    probe.player.maxHp = 40;
+    probe.player.iFrames = 0;
+    probe.player.fall = 0.3;
+    probe.player.dashT = 0;
+    probe.player.grappleT = 0;
+    probe.player.hx = 0;
+    probe.player.hy = 0;
+    probe.checkpoint = checkpoint;
+    probe.checkpoints = { cinderveil: checkpoint };
+    SF.rescue(probe.player);
+    const landed = { x: probe.player.x, y: probe.player.y, hp: probe.player.hp };
+    let i;
+    for (i = 0; i < 80; i++) SF.updatePlayer(0.02);
+    return landed;
+  }
+  const toCheckpoint = fallFrom({ x: ash.x, y: ash.y, island: "cinderveil", kind: "post" });
+  if (Math.hypot(toCheckpoint.x - ash.x, toCheckpoint.y - ash.y) > 1) {
+    fail("rescue ignored a walkable checkpoint");
+  }
+  if (toCheckpoint.hp !== 36 || probe.player.hp !== 36) fail("rescue from sealed ground looped the damage");
+  if (Math.hypot(probe.player.x - ash.x, probe.player.y - ash.y) > 1) fail("rescue left the checkpoint");
+  const toDock = fallFrom({ x: lx, y: ly, island: "cinderveil", kind: "post" });
+  if (Math.hypot(toDock.x - dock.x, toDock.y - dock.y) > 1) fail("rescue skipped the dock when the checkpoint was sealed");
+  if (toDock.hp !== 36 || probe.player.hp !== 36) fail("rescue from a sealed checkpoint looped the damage");
+  if (Math.hypot(probe.player.x - dock.x, probe.player.y - dock.y) > 1) fail("rescue left the dock");
+  SF.mountIsland(savedIsland || "emberhold");
+  SF.state = savedState;
+}
+
 function finishTalk(state) {
   let guard = 0;
   while (state.mode === "dialogue" && guard < 80) {
@@ -844,6 +899,7 @@ finishTalk(road);
 if (!road.player.grapple || road.quest !== "vault") fail("grapple was not granted");
 needMarker("vault");
 checkVaultGate();
+checkRescueFallback();
 
 const ilsaFirst = SF.npcById("ilsa");
 road.player.x = ilsaFirst.x;
@@ -3609,6 +3665,58 @@ function runGroundChecks() {
       checked += 1;
     }
   }
+  const keptState = G.state;
+  const occupied = G.fresh();
+  occupied.mode = "play";
+  occupied.enemies = [];
+  occupied.player.shardstep = true;
+  occupied.flags.shardstep = true;
+  occupied.encounterGrace = 100;
+  G.state = occupied;
+  G.mountIsland("emberhold");
+  G.tileMap = map;
+  G.worldSource = "tiles";
+  G.islandId = "emberhold";
+  const post = (G.HOOKS || []).find((hook) => hook.id === "hook-ledge");
+  if (!post) fail("hook post missing");
+  [[1989, 656, 0.117, -0.993], [2035, 656, -0.247, -0.969]].forEach((row) => {
+    occupied.player.x = row[0];
+    occupied.player.y = row[1];
+    occupied.player.px = row[0];
+    occupied.player.py = row[1];
+    occupied.player.safeX = row[0];
+    occupied.player.safeY = row[1];
+    occupied.player.fx = row[2];
+    occupied.player.fy = row[3];
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.maxHp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.walkable(row[0], row[1])) fail("occupied dash start is sky " + row[0] + "," + row[1]);
+    if (!G.startDash(occupied.player)) fail("occupied dash did not start");
+    let steps = 0;
+    while (occupied.player.dashT > 0 && steps < 30) {
+      G.updatePlayer(0.02);
+      steps += 1;
+    }
+    let later = 0;
+    for (later = 0; later < 40; later++) G.updatePlayer(0.02);
+    if (occupied.player.hp !== 40) fail("occupied dash rescued for " + (40 - occupied.player.hp) + " from " + row[0] + "," + row[1]);
+    if (!G.walkable(occupied.player.x, occupied.player.y)) {
+      fail("occupied dash stopped in the sky at " + occupied.player.x.toFixed(0) + "," + occupied.player.y.toFixed(0));
+    }
+    if (G.dist(occupied.player.x, occupied.player.y, post.x, post.y) > 36) {
+      fail("occupied dash missed the hook ledge at " + occupied.player.x.toFixed(0) + "," + occupied.player.y.toFixed(0));
+    }
+  });
+  G.state = keptState;
   G.worldSource = "";
   G.tileMap = null;
   if (before && G.walkable(0, 20) !== meadow) fail("leaving the tile world changed the code walk");
