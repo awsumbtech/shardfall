@@ -56,7 +56,7 @@
     var ty = Math.floor(y / map.tile);
     var need = base;
     var boxes = map.edgeInsets;
-    var i, box, nx, ny, depth, clear;
+    var i, box;
     if (boxes && boxes.length) {
       for (i = 0; i < boxes.length; i++) {
         box = boxes[i];
@@ -66,21 +66,12 @@
         if (box.inset > need) need = box.inset;
       }
     }
-    // Drawn sky is the transparent margin of this tile. Feet stay SKY_CLEAR past it.
-    if (map.skyDepth && map.blocked) {
-      nx = tx + (sx || 0);
-      ny = ty + (sy || 0);
-      if (nx < 0 || ny < 0 || nx >= map.w || ny >= map.h || map.blocked[ny * map.w + nx]) {
-        depth = map.skyDepth(tx, ty, sx, sy);
-        clear = SF.SKY_CLEAR == null ? 5 : SF.SKY_CLEAR;
-        if (depth > 0 && depth + clear > need) need = depth + clear;
-      }
-    }
     return need;
   }
 
   function terrainOpen(map, x, y) {
     if (!map.isWalkable(x, y)) return false;
+    if (SF.skyMaskBlocks && SF.skyMaskBlocks(map, x, y)) return false;
     if (!map.isWalkable(x - dirInset(map, x, y, -1, 0), y)) return false;
     if (!map.isWalkable(x + dirInset(map, x, y, 1, 0), y)) return false;
     if (!map.isWalkable(x, y - dirInset(map, x, y, 0, -1))) return false;
@@ -482,7 +473,7 @@
     SF.tileMap = map;
     SF._pendingMap = map;
     SF.worldSource = "tiles";
-    if (SF.buildSkyEdges) SF.buildSkyEdges(map);
+    if (SF.buildSkyMask) SF.buildSkyMask(map);
     SF.applyTileMarkers(map);
     SF.nudgeProps(map, preview);
     var player = SF.state && SF.state.player;

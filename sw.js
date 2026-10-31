@@ -61,6 +61,7 @@ var SHELL = [
   "js/tiles/tmjmap.js",
   "js/tiles/renderer.js",
   "js/tiles/skyedge.js",
+  "js/tiles/skymask.js",
   "js/tiles/bridge.js",
   "js/tiles/dashassist.js",
   "js/tiles/adopt.js",

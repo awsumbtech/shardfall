@@ -1735,6 +1735,13 @@ if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit", env: childEnv });
 if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
+if (fs.existsSync("assets/atlas/manifest.json")) {
+  const skyMask = spawnSync(process.execPath, ["tools/sky-mask.mjs"], { stdio: "inherit", env: childEnv });
+  if (skyMask.status !== 0) process.exit(skyMask.status || 1);
+} else {
+  console.log("sky mask check skipped (no atlas on disk)");
+}
+
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
   if (!dataJs.includes('SF.VERSION = "0.4.26"')) fail("version was not bumped");
@@ -2790,6 +2797,7 @@ function runGroundChecks() {
     "js/tiles/tmjmap.js",
     "js/tiles/renderer.js",
     "js/tiles/skyedge.js",
+    "js/tiles/skymask.js",
     "js/tiles/bridge.js",
     "js/tiles/dashassist.js",
     "js/tiles/adopt.js"
@@ -3048,6 +3056,14 @@ function runGroundChecks() {
     fail("sky depth missed a 7px transparent west edge " + skyEdge);
   }
   if (skyEdge[0] + G.SKY_CLEAR !== 12) fail("feet would not keep 5px of paint past drawn sky");
+  const skyGrid = new Uint8Array(20 * 20);
+  skyGrid.fill(1);
+  skyGrid[10 * 20 + 10] = 0;
+  const grown = G.growSkyMask(skyGrid, 20, 20);
+  if (!grown.near5[10 * 20 + 15]) fail("a pixel 5px from sky stayed open");
+  if (grown.near5[10 * 20 + 16]) fail("a pixel 6px from sky was closed");
+  if (!grown.near3[10 * 20 + 13] || grown.near3[10 * 20 + 14]) fail("bridge clearance is not 3px");
+  if (!grown.near5[14 * 20 + 13]) fail("a diagonal within 5px of sky stayed open");
   const keepWalk = G.walkable;
   G.walkable = function (x, y) { return x >= 70 && x <= 180 && y >= -40 && y <= 40; };
   const aimIn = 40 * Math.PI / 180;

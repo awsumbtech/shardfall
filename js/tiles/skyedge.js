@@ -64,17 +64,17 @@
     return el;
   }
 
-  function readFrame(image, frame, scratch) {
-    var w = frame.w || 0;
-    var h = frame.h || 0;
-    if (!image || w < 1 || h < 1) return null;
+  function readFrame(image, frame, scratch, tile) {
+    var w = tile;
+    var h = tile;
+    if (!image || !(frame.w > 0) || !(frame.h > 0)) return null;
     scratch.width = w;
     scratch.height = h;
     var g = scratch.getContext("2d", { willReadFrequently: true });
     if (!g) return null;
     g.clearRect(0, 0, w, h);
     try {
-      g.drawImage(image, frame.x, frame.y, w, h, 0, 0, w, h);
+      g.drawImage(image, frame.x, frame.y, frame.w, frame.h, frame.ox || 0, frame.oy || 0, frame.w, frame.h);
       var data = g.getImageData(0, 0, w, h).data;
       var alpha = new Uint8Array(w * h);
       var i;
@@ -107,8 +107,8 @@
       try { desc = SF.assets.lookup(spec.key, { name: spec.frame }); }
       catch (err) { desc = null; }
       if (!desc || !desc.ready || !desc.image || !desc.frame) continue;
-      alpha = readFrame(desc.image, desc.frame, scratch);
-      if (alpha) frames[gid] = { a: alpha, w: desc.frame.w, h: desc.frame.h };
+      alpha = readFrame(desc.image, desc.frame, scratch, tile);
+      if (alpha) frames[gid] = { a: alpha, w: tile, h: tile };
     }
     if (!Object.keys(frames).length) return false;
     var sky = new Array(map.w * map.h);
