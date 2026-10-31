@@ -181,7 +181,7 @@ await page.evaluate(() => {
   SF.state.player.fy = 0;
   SF.state.player.dashT = 0;
   SF.state.player.dashCd = 0;
-  SF.debug.goTile(6, 30);
+  SF.debug.goTile(80, 50);
   const p = SF.state.player;
   p.fx = 1;
   p.fy = 0;

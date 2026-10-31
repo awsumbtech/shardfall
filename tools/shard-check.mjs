@@ -37,6 +37,7 @@ for (const file of [
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
   "js/content/maps/v2layout.js",
+  "js/vaultgate.js",
   "js/grapple.js",
   "js/battle/battle.js",
   "js/menu/field.js",
@@ -302,4 +303,32 @@ cinderShards.forEach((item) => {
 });
 if (SF.handMeter(cinder) !== "Hand ✦✦✦ 3/3") fail("cinder meter was " + SF.handMeter(cinder));
 
-console.log("shard check ok — Emberhold " + emberShards.length + ", Cinderveil " + cinderShards.length);
+vm.runInContext(fs.readFileSync("js/tiles/tmjmap.js", "utf8"), context, { filename: "js/tiles/tmjmap.js" });
+vm.runInContext(fs.readFileSync("js/tiles/adopt.js", "utf8"), context, { filename: "js/tiles/adopt.js" });
+const tileDoc = JSON.parse(fs.readFileSync("js/content/maps/emberhold.tmj", "utf8"));
+const tileMap = SF.TmjMap.load(tileDoc);
+SF.tileMap = tileMap;
+SF.worldSource = "tiles";
+play.player.shardstep = false;
+play.player.grapple = false;
+play.flags.shardstep = false;
+play.flags.grapple = false;
+SF.mountIsland("emberhold");
+const tileShards = openShards();
+if (tileShards.length !== emberShards.length) {
+  fail("tile world has " + tileShards.length + " walked shards, code world has " + emberShards.length);
+}
+tileShards.forEach((item) => {
+  if (!findPath(SF.WAKE.x, SF.WAKE.y, item.x, item.y)) fail(item.id + " cannot be walked on the tile map");
+});
+["shard-step", "shard-alcove", "shard-hook"].forEach((id) => {
+  const item = SF.PICKUPS.find((p) => p.id === id);
+  if (item && findPath(SF.WAKE.x, SF.WAKE.y, item.x, item.y)) fail(id + " can be walked across its dash gap");
+});
+SF.mountIsland("cinderveil");
+const tileCinder = openShards();
+if (tileCinder.length !== cinderShards.length) {
+  fail("Cinderveil changed under the tile map (" + tileCinder.length + ")");
+}
+
+console.log("shard check ok — Emberhold " + emberShards.length + ", Cinderveil " + cinderShards.length + ", tile map " + tileShards.length);

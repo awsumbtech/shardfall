@@ -127,6 +127,14 @@ export class FrameExtractor {
         png.data.copy(data, di, si, si + 4);
       }
     }
+    const dim = rect && rect.dim;
+    if (typeof dim === "number" && dim !== 1) {
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.max(0, Math.min(255, Math.round(data[i] * dim)));
+        data[i + 1] = Math.max(0, Math.min(255, Math.round(data[i + 1] * dim)));
+        data[i + 2] = Math.max(0, Math.min(255, Math.round(data[i + 2] * dim)));
+      }
+    }
     return {
       w, h, data, extrude: e, innerW: cw, innerH: ch, ox, oy, empty, source: png
     };

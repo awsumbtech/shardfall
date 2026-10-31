@@ -1,6 +1,7 @@
 // One job: run the packer from the command line. It does not talk to the network.
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { ConfigReader } from "./config-reader.js";
 import { FrameExtractor } from "./frame-extractor.js";
 import { Packer } from "./packer.js";
@@ -22,6 +23,7 @@ function inside(root, file) {
   return rel !== "" && !rel.startsWith(".." + path.sep) && rel !== ".." && !path.isAbsolute(rel);
 }
 
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const configPath = arg("--config", "art/atlas.config.json");
 const assets = arg("--assets", process.env.ASSETS_DIR || "");
 const outDir = arg("--out", "assets/atlas");
@@ -56,8 +58,10 @@ const sources = [];
 try {
   for (let i = 0; i < requests.length; i++) {
     const req = requests[i];
-    const file = path.resolve(assetsRoot, req.file);
-    if (!inside(assetsRoot, file)) die("path escapes the assets dir: " + req.file);
+    const localArt = req.file.startsWith("art/") || req.file.startsWith("js/");
+    const root = localArt ? repoRoot : assetsRoot;
+    const file = path.resolve(root, req.file);
+    if (!inside(root, file)) die("path escapes " + (localArt ? "the repo" : "the assets dir") + ": " + req.file);
     if (!fs.existsSync(file)) die("missing " + req.file + " for " + req.key);
     const cut = extractor.cut(file, req);
     if (!sources.includes(cut.source)) sources.push(cut.source);
