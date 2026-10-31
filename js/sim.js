@@ -414,6 +414,31 @@ SF.applySwing = function (p) {
   });
 };
 
+SF.dashLanding = function (x0, y0, x1, y1) {
+  if (SF.walkable(x1, y1)) return { x: x1, y: y1 };
+  var len = Math.hypot(x1 - x0, y1 - y0);
+  var steps = Math.max(1, Math.ceil(len));
+  var best = -1;
+  var i, t, x, y;
+  for (i = 0; i <= steps; i++) {
+    t = i / steps;
+    x = x0 + (x1 - x0) * t;
+    y = y0 + (y1 - y0) * t;
+    if (SF.walkable(x, y)) best = t;
+  }
+  if (best < 0) return { x: x0, y: y0 };
+  var lo = best;
+  var hi = Math.min(1, best + 1 / steps);
+  for (i = 0; i < 8; i++) {
+    t = (lo + hi) * 0.5;
+    x = x0 + (x1 - x0) * t;
+    y = y0 + (y1 - y0) * t;
+    if (SF.walkable(x, y)) lo = t;
+    else hi = t;
+  }
+  return { x: x0 + (x1 - x0) * lo, y: y0 + (y1 - y0) * lo };
+};
+
 SF.startDash = function (p) {
   if (p.dashCd > 0 || p.dashT > 0) return false;
   var speed = p.shardstep ? SF.DASH_SPEED_PLUS : SF.DASH_SPEED;
@@ -430,6 +455,8 @@ SF.startDash = function (p) {
   }
   p.fx = dirx;
   p.fy = diry;
+  p.dashFromX = p.x;
+  p.dashFromY = p.y;
   p.dashT = SF.DASH_TIME;
   p.dvx = dirx * speed;
   p.dvy = diry * speed;
@@ -1085,16 +1112,21 @@ SF.updatePlayer = function (dt) {
     if (SF.occupied && SF.occupied(dashX, dashY, p.x, p.y)) {
       p.dashT = 0;
     } else {
-    p.dashT -= step;
-    p.x = dashX;
-    p.y = dashY;
-    p.trail -= step;
-    if (p.trail <= 0) {
-      p.trail = 0.025;
-      SF.spawnParticle(p.x, p.y, p.shardstep ? "#fff1b8" : "#9af6ff", 20, 0.28, 3);
-      if (s.ghosts.length < 7) s.ghosts.push({ x: p.x, y: p.y, fx: p.fx, fy: p.fy, a: 0.45 });
-    }
-    SF.dashSing(p);
+      p.dashT -= step;
+      p.x = dashX;
+      p.y = dashY;
+      if (p.dashT <= 0 && !SF.walkable(p.x, p.y)) {
+        var land = SF.dashLanding(p.dashFromX != null ? p.dashFromX : p.px, p.dashFromY != null ? p.dashFromY : p.py, p.x, p.y);
+        p.x = land.x;
+        p.y = land.y;
+      }
+      p.trail -= step;
+      if (p.trail <= 0) {
+        p.trail = 0.025;
+        SF.spawnParticle(p.x, p.y, p.shardstep ? "#fff1b8" : "#9af6ff", 20, 0.28, 3);
+        if (s.ghosts.length < 7) s.ghosts.push({ x: p.x, y: p.y, fx: p.fx, fy: p.fy, a: 0.45 });
+      }
+      SF.dashSing(p);
     }
   } else if (!hooked) {
     var mag = Math.hypot(move.x, move.y);

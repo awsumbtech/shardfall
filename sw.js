@@ -42,6 +42,7 @@ var SHELL = [
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
   "js/content/maps/v2layout.js",
+  "js/vaultgate.js",
   "js/grapple.js",
   "js/art/core.js",
   "js/art/actors.js",

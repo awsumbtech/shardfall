@@ -1131,7 +1131,8 @@ SF._stampPath = function (wx, wy, radius, colors, mask, data, minX, minY, w, h) 
 };
 
 SF._pullWalkable = function (sx, sy, px, py) {
-  if (!SF.walkable || SF.walkable(px, py)) return { x: px, y: py };
+  var open = SF.groundWalkable || SF.walkable;
+  if (!open || open(px, py)) return { x: px, y: py };
   var lo = 0;
   var hi = 1;
   var t, ax, ay, i;
@@ -1139,7 +1140,7 @@ SF._pullWalkable = function (sx, sy, px, py) {
     t = (lo + hi) * 0.5;
     ax = sx + (px - sx) * t;
     ay = sy + (py - sy) * t;
-    if (SF.walkable(ax, ay)) lo = t;
+    if (open(ax, ay)) lo = t;
     else hi = t;
   }
   return { x: sx + (px - sx) * lo, y: sy + (py - sy) * lo };

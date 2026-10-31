@@ -37,6 +37,7 @@ for (const file of [
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
   "js/content/maps/v2layout.js",
+  "js/vaultgate.js",
   "js/grapple.js",
   "js/battle/battle.js",
   "js/menu/field.js",

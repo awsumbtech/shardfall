@@ -99,7 +99,7 @@ SF.migrateSpot = function (s) {
   if (island === "cinderveil") {
     if (f.needsEpilogue || f.epilogueHeard || q === "act1") spot = SF.DOCKS.cinderveil;
     else if (f.mawDead || q === "relight" || q === "cantor" || f.cinderLit) spot = (SF.ISLANDS.cinderveil.spots || {}).lamp || SF.LAMP;
-    else if (q === "vault" || q === "trial" || q === "seal" || q === "maw" || f.vaultOpen) spot = (SF.ISLANDS.cinderveil.spots || {}).vledge;
+    else if (f.vaultOpen) spot = (SF.ISLANDS.cinderveil.spots || {}).vledge;
     else spot = SF.DOCKS.cinderveil;
   } else if (f.lampLit || q === "stirring" || q === "hooked" || q === "sail" || q === "road") {
     spot = SF.DOCKS.emberhold;
@@ -175,6 +175,8 @@ SF.applySave = function (s, data) {
   s.encounterGrace = 10;
   s.stepAcc = 0;
   s.zoneId = null;
+  var prevState = SF.state;
+  if (prevState !== s) SF.state = s;
   if (SF.worldSource === "tiles" && s.island === "emberhold" && SF.snapToWalkable) {
     var snapped = SF.snapToWalkable(p.x, p.y);
     p.x = snapped.x;
@@ -184,6 +186,21 @@ SF.applySave = function (s, data) {
     p.x = dock ? dock.x : SF.WAKE.x;
     p.y = dock ? dock.y : SF.WAKE.y;
   }
+  function clearSealedPark(rec, isle) {
+    if (!rec || rec.x == null || !SF.vaultSealedAt) return;
+    if (!SF.vaultSealedAt(rec.x, rec.y, isle)) return;
+    var home = SF.DOCKS && SF.DOCKS[isle];
+    if (!home) return;
+    rec.x = home.x;
+    rec.y = home.y;
+  }
+  clearSealedPark(s.checkpoint, (s.checkpoint && s.checkpoint.island) || s.island);
+  if (s.checkpoints) {
+    Object.keys(s.checkpoints).forEach(function (id) {
+      clearSealedPark(s.checkpoints[id], id);
+    });
+  }
+  if (prevState !== s) SF.state = prevState;
   p.safeX = p.x;
   p.safeY = p.y;
   p.px = p.x;

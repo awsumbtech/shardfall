@@ -168,10 +168,10 @@ window.SF = SF;
 
   var cinderRects = [
     rec("ash-link", "The Ashfields", "ash", [14, 50, 24, 54]),
-    rec("vault", "Ember Vault", "vault", [78, 2, 120, 22]),
+    rec("vault", "Ember Vault", "vault", [78, 2, 120, 22], { seal: "vaultOpen" }),
     rec("rubble", "The Ridge", "ridge", [70, 9, 80, 14], { opens: "mawDead" }),
     rec("down", "The Ridge Path", "ridge", [38, 22, 44, 34], { opens: "mawDead" }),
-    rec("vledge", "Vault Ledge", "vault", [84, 30, 112, 38]),
+    rec("vledge", "Vault Ledge", "vault", [84, 30, 112, 38], { seal: "vaultOpen" }),
     rec("quay", "Lowmoor Quay", "quay", [26, 74, 92, 98]),
     rec("pier", "The Pier", "quay", [54, 98, 68, 107])
   ];
@@ -231,7 +231,7 @@ window.SF = SF;
     [[[96, 34], [90, 34]], "vault"],
     [[[118, 12], [128, 13]], "vault"],
     [[[34, 86], [84, 90]], "quay"]
-  ].forEach(function (row) { stampTrail(cinderCircles, row[0], row[1]); });
+  ].forEach(function (row) { stampTrail(cinderCircles, row[0], row[1], row[1] === "vault" ? { seal: "vaultOpen" } : null); });
   [
     [[90, 12], [75, 12], [52, 10], [41, 8]],
     [[41, 8], [41, 14], [41, 30]]
@@ -951,12 +951,12 @@ window.SF = SF;
     nook: zone(30, 7, "cinderveil_ash", nookForms),
     nw: zone(30, 7, "cinderveil_ash", nookForms),
     cliff: zone(35, 8, "cinderveil_ash", cliffForms),
-    vault: zone(25, 8, "ember_vault", vaultForms, { carrierRegion: "vault" }),
+    vault: zone(25, 8, "ember_vault", vaultForms, { carrierRegion: "vault", opens: "vaultOpen" }),
     maw: { safe: true },
     ridge: { safe: true, opens: "mawDead" },
     rubble: { safe: true, opens: "mawDead" },
     down: { safe: true, opens: "mawDead" },
-    vledge: { safe: true },
+    vledge: { safe: true, opens: "vaultOpen" },
     quay: { safe: true },
     pier: { safe: true },
     "sm-town": { safe: true },

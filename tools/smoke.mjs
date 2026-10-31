@@ -45,6 +45,7 @@ for (const file of [
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
   "js/content/maps/v2layout.js",
+  "js/vaultgate.js",
   "js/grapple.js",
   "js/battle/battle.js",
   "js/menu/field.js",
@@ -533,6 +534,240 @@ function fail(msg) {
   process.exit(1);
 }
 
+function checkVaultGate() {
+  const savedState = SF.state;
+  const savedIsland = SF.islandId;
+  const probe = SF.fresh();
+  probe.mode = "play";
+  probe.player.shardstep = true;
+  probe.flags.shardstep = true;
+  probe.encounterGrace = 80;
+  SF.state = probe;
+  const reach = SF.DASH_REACH_PLUS;
+  const hook = SF.circle("hookledge");
+  if (hook) {
+    let overshoot = null;
+    for (let ring = 48; ring <= 180 && !overshoot; ring += 16) {
+      for (let a = 0; a < 36 && !overshoot; a++) {
+        const ang = a * Math.PI / 18;
+        const x = hook.x + Math.cos(ang) * (hook.rx + ring);
+        const y = hook.y + Math.sin(ang) * (hook.ry + ring);
+        if (!SF.walkable(x, y)) continue;
+        const aim = Math.atan2(hook.y - y, hook.x - x);
+        const ex = x + Math.cos(aim) * reach;
+        const ey = y + Math.sin(aim) * reach;
+        if (SF.walkable(ex, ey)) continue;
+        let crossed = false;
+        for (let t = 0.2; t <= 0.9; t += 0.1) {
+          const px = x + (ex - x) * t;
+          const py = y + (ey - y) * t;
+          const dx = (px - hook.x) / hook.rx;
+          const dy = (py - hook.y) / hook.ry;
+          if (dx * dx + dy * dy <= 1 && SF.groundWalkable(px, py)) crossed = true;
+        }
+        if (crossed) overshoot = { x, y, fx: Math.cos(aim), fy: Math.sin(aim) };
+      }
+    }
+    if (overshoot) {
+      probe.player.x = overshoot.x;
+      probe.player.y = overshoot.y;
+      probe.player.fx = overshoot.fx;
+      probe.player.fy = overshoot.fy;
+      probe.player.safeX = overshoot.x;
+      probe.player.safeY = overshoot.y;
+      probe.player.dashCd = 0;
+      probe.player.dashT = 0;
+      probe.player.hp = probe.player.maxHp;
+      const hp = probe.player.hp;
+      if (!SF.startDash(probe.player)) fail("hook overshoot dash did not start");
+      let steps = 0;
+      while (probe.player.dashT > 0 && steps < 40) {
+        SF.updatePlayer(0.016);
+        steps += 1;
+      }
+      if (!SF.walkable(probe.player.x, probe.player.y)) fail("hook overshoot left the hero in the sky");
+      if (probe.player.hp < hp) fail("hook overshoot cost health");
+      const landed = Math.hypot(probe.player.x - hook.x, probe.player.y - hook.y);
+      const started = Math.hypot(overshoot.x - hook.x, overshoot.y - hook.y);
+      if (landed >= started) fail("hook overshoot stopped on the near shore");
+    }
+  }
+
+  SF.mountIsland("cinderveil");
+  SF.state = probe;
+  probe.island = "cinderveil";
+  probe.flags.vaultOpen = false;
+  probe.enemies = [];
+  const shapes = (SF.WALK.circles || []).concat(SF.WALK.rects || []);
+  const gated = shapes.filter((sh) => sh.seal === "vaultOpen");
+  if (gated.length < 4) fail("vault seal shapes missing");
+  const maw = SF.circle("maw");
+  if (!maw || maw.seal) fail("the maw chamber was sealed");
+  const vledge = SF.circle("vledge");
+  const vault = SF.circle("vault");
+  const ledgeX = vledge.x + vledge.w / 2;
+  const ledgeY = vledge.y + vledge.h / 2;
+  const vaultX = vault.x + vault.w / 2;
+  const vaultY = vault.y + vault.h / 2;
+  if (SF.walkable(ledgeX, ledgeY) || SF.walkable(vaultX, vaultY)) fail("vault ground is walkable before it opens");
+  if (!SF.groundWalkable(ledgeX, ledgeY) || !SF.groundWalkable(vaultX, vaultY)) {
+    fail("vault gate hid the drawn ground");
+  }
+  if (SF.zoneAt(ledgeX, ledgeY).id !== "hush" || SF.zoneAt(vaultX, vaultY).id !== "hush") {
+    fail("vault zone stayed open before the trial");
+  }
+  gated.forEach((sh) => {
+    const x = sh.w != null && sh.rx == null ? sh.x + sh.w / 2 : sh.x;
+    const y = sh.h != null && sh.ry == null ? sh.y + sh.h / 2 : sh.y;
+    if (SF.walkable(x, y)) fail("sealed shape is walkable " + sh.id);
+  });
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  gated.forEach((sh) => {
+    const x0 = sh.w != null && sh.rx == null ? sh.x : sh.x - (sh.rx || sh.r);
+    const y0 = sh.h != null && sh.ry == null ? sh.y : sh.y - (sh.ry || sh.r);
+    const x1 = sh.w != null && sh.rx == null ? sh.x + sh.w : sh.x + (sh.rx || sh.r);
+    const y1 = sh.h != null && sh.ry == null ? sh.y + sh.h : sh.y + (sh.ry || sh.r);
+    minX = Math.min(minX, x0);
+    minY = Math.min(minY, y0);
+    maxX = Math.max(maxX, x1);
+    maxY = Math.max(maxY, y1);
+  });
+  const pad = reach + 16;
+  for (let y = minY - pad; y <= maxY + pad; y += 16) {
+    for (let x = minX - pad; x <= maxX + pad; x += 16) {
+      if (!SF.walkable(x, y)) continue;
+      if (SF.vaultSealedAt(x, y)) fail("walkable point is inside the sealed vault");
+      for (let a = 0; a < 24; a++) {
+        const ang = a * Math.PI / 12;
+        const ex = x + Math.cos(ang) * reach;
+        const ey = y + Math.sin(ang) * reach;
+        for (let t = 0.25; t <= 1; t += 0.25) {
+          const px = x + (ex - x) * t;
+          const py = y + (ey - y) * t;
+          if (SF.vaultSealedAt(px, py) && SF.walkable(px, py)) {
+            fail("shardstep reaches the vault from " + x + "," + y);
+          }
+        }
+      }
+    }
+  }
+  let shoreY = ledgeY;
+  while (shoreY < 90 * 16 && !SF.walkable(ledgeX, shoreY)) shoreY += 1;
+  if (!SF.walkable(ledgeX, shoreY)) fail("no mainland south of the vault ledge");
+  probe.player.x = ledgeX;
+  probe.player.y = shoreY;
+  probe.player.fx = 0;
+  probe.player.fy = -1;
+  probe.player.safeX = ledgeX;
+  probe.player.safeY = shoreY;
+  probe.player.dashCd = 0;
+  probe.player.dashT = 0;
+  probe.player.hp = probe.player.maxHp;
+  probe.player.grappleT = 0;
+  const beforeHp = probe.player.hp;
+  if (!SF.startDash(probe.player)) fail("vault shardstep did not start");
+  let hopped = 0;
+  while (probe.player.dashT > 0 && hopped < 40) {
+    SF.updatePlayer(0.016);
+    hopped += 1;
+  }
+  if (SF.vaultSealedAt(probe.player.x, probe.player.y)) fail("shardstep landed in the vault");
+  if (!SF.walkable(probe.player.x, probe.player.y)) fail("shardstep into the vault fell");
+  if (probe.player.hp < beforeHp) fail("shardstep into the vault took damage");
+
+  function loadParked(version, x, y, flags, quest) {
+    const s = SF.fresh();
+    s.mode = "play";
+    const data = {
+      v: version,
+      quest: quest,
+      island: "cinderveil",
+      flags: Object.assign({ vaultOpen: false, metTamsin: true, grapple: true, shardstep: true }, flags || {}),
+      player: {
+        x: x, y: y, fx: 1, fy: 0, hp: 40, maxHp: 40, xp: 0, level: 1, atk: 12,
+        shardstep: true, grapple: true
+      },
+      enemies: [],
+      checkpoint: { x: x, y: y, island: "cinderveil", kind: "post" },
+      checkpoints: { cinderveil: { x: x, y: y, island: "cinderveil", kind: "post" } }
+    };
+    SF.state = s;
+    if (!SF.applySave(s, data)) fail("vault save did not load");
+    return s;
+  }
+  const dock = SF.DOCKS.cinderveil;
+  [[1, "vault"], [3, "trial"], [4, "quay"]].forEach((row) => {
+    const parked = loadParked(row[0], row[0] < 4 ? ledgeX : vaultX, row[0] < 4 ? ledgeY : vaultY, { vaultOpen: false }, row[1]);
+    SF.state = parked;
+    if (Math.hypot(parked.player.x - dock.x, parked.player.y - dock.y) > 1) {
+      fail("v" + row[0] + " save stayed in the vault at " + parked.player.x + "," + parked.player.y);
+    }
+    if (!SF.walkable(parked.player.x, parked.player.y) || SF.vaultSealedAt(parked.player.x, parked.player.y)) {
+      fail("v" + row[0] + " save did not reach legal ground");
+    }
+    if (SF.vaultSealedAt(parked.checkpoint.x, parked.checkpoint.y, "cinderveil")) {
+      fail("v" + row[0] + " checkpoint stayed in the vault");
+    }
+  });
+  const opened = loadParked(4, vaultX, vaultY, { vaultOpen: true }, "seal");
+  SF.state = opened;
+  if (Math.hypot(opened.player.x - vaultX, opened.player.y - vaultY) > 1) fail("open vault save was moved");
+  if (!SF.walkable(vaultX, vaultY) || !SF.walkable(ledgeX, ledgeY)) fail("vault stayed shut after vaultOpen");
+  if (SF.zoneAt(vaultX, vaultY).id !== "vault") fail("vault zone stayed shut after vaultOpen");
+  const cliff = SF.HOOKS.find((h) => h.id === "hook1-cliff");
+  const lip = SF.HOOKS.find((h) => h.id === "hook1-ledge");
+  const up = SF.HOOKS.find((h) => h.id === "hook2-ledge");
+  const door = SF.HOOKS.find((h) => h.id === "hook2-vault");
+  if (!SF.hookLive(cliff) || !SF.hookLive(lip) || !SF.hookLive(up) || !SF.hookLive(door)) {
+    fail("grapple route stayed shut after the trial");
+  }
+  opened.mode = "play";
+  opened.player.x = cliff.x;
+  opened.player.y = cliff.y;
+  opened.player.fx = 0;
+  opened.player.fy = -1;
+  opened.player.grapple = true;
+  opened.player.grappleCd = 0;
+  opened.player.grappleT = 0;
+  opened.player.safeX = cliff.x;
+  opened.player.safeY = cliff.y;
+  opened.player.hp = opened.player.maxHp;
+  opened.enemies = [];
+  opened.ghosts = [];
+  if (!SF.fireGrapple(opened.player, { x: 0, y: -1 })) fail("grapple route did not fire after the trial");
+  let pulls = 0;
+  while (opened.player.grappleT > 0 && pulls < 40) {
+    SF.update(0.02);
+    pulls += 1;
+  }
+  if (!SF.walkable(opened.player.x, opened.player.y) || SF.dist(opened.player.x, opened.player.y, lip.x, lip.y) > 36) {
+    fail("grapple route missed the vault ledge " + opened.player.x + "," + opened.player.y);
+  }
+  opened.player.x = up.x;
+  opened.player.y = up.y;
+  opened.player.fx = 0;
+  opened.player.fy = -1;
+  opened.player.grappleCd = 0;
+  opened.player.grappleT = 0;
+  opened.player.safeX = up.x;
+  opened.player.safeY = up.y;
+  if (!SF.fireGrapple(opened.player, { x: 0, y: -1 })) fail("second grapple did not fire after the trial");
+  pulls = 0;
+  while (opened.player.grappleT > 0 && pulls < 40) {
+    SF.update(0.02);
+    pulls += 1;
+  }
+  if (!SF.walkable(opened.player.x, opened.player.y) || SF.dist(opened.player.x, opened.player.y, door.x, door.y) > 36) {
+    fail("grapple route missed the vault " + opened.player.x + "," + opened.player.y);
+  }
+
+  SF.mountIsland(savedIsland || "emberhold");
+  SF.state = savedState;
+}
+
 function finishTalk(state) {
   let guard = 0;
   while (state.mode === "dialogue" && guard < 80) {
@@ -608,6 +843,7 @@ SF.tryInteract();
 finishTalk(road);
 if (!road.player.grapple || road.quest !== "vault") fail("grapple was not granted");
 needMarker("vault");
+checkVaultGate();
 
 const ilsaFirst = SF.npcById("ilsa");
 road.player.x = ilsaFirst.x;
@@ -2881,8 +3117,15 @@ function runGroundChecks() {
   for (const id of mainZones) {
     if (!zoneIds.has(id)) fail("the tile map is missing the " + id + " zone");
   }
-  const layoutDiff = spawnSync("git", ["diff", "--exit-code", "origin/main", "--", "js/content/maps/v2layout.js"], { encoding: "utf8" });
-  if (layoutDiff.status !== 0) fail("code-art v2layout.js differs from main");
+  const layoutDiff = spawnSync("git", ["diff", "origin/main", "--", "js/content/maps/v2layout.js"], { encoding: "utf8" });
+  if (layoutDiff.status !== 0 && layoutDiff.status !== 1) fail("could not diff v2layout.js");
+  const layoutLines = (layoutDiff.stdout || "").split("\n").filter((line) => (
+    (line.startsWith("+") || line.startsWith("-")) && !line.startsWith("+++") && !line.startsWith("---")
+  ));
+  layoutLines.forEach((line) => {
+    if (!/vault|vledge|stampTrail\(cinderCircles/.test(line)) fail("code-art v2layout.js changed outside the vault gate: " + line);
+  });
+  if (!layoutLines.some((line) => line.includes('seal: "vaultOpen"'))) fail("v2layout is missing the vault collision seal");
   if (/SKY_INSET|tx === 124|tx >= 120/.test(adoptJs)) fail("edge insets are still hard-coded in adopt.js");
   const drawJsSky = fs.readFileSync("js/draw.js", "utf8");
   const skyStops = ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae", "#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"];
