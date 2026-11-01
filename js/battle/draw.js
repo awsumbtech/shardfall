@@ -353,6 +353,9 @@ function layoutBattle(w, h, phase, nParty) {
   var y0 = strip.y + stripH + gap;
 
   if (phase === "result") {
+    // The strip is not drawn on the result, so the card can use that height.
+    strip = { x: margin, y: margin, w: w - margin * 2, h: 0 };
+    y0 = margin;
     if (land) {
       var rightW = Math.max(260, Math.min(340, Math.round(w * 0.38)));
       var stageW = w - rightW - margin * 3;
@@ -470,7 +473,7 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   var party = b.actors.filter(function (a) { return a.side === "party"; });
   var lay = layoutBattle(w, h, b.phase, party.length);
   if (b.phase !== "result") drawStrip(ctx, b, lay.strip.x, lay.strip.y, lay.strip.w, lay.strip.h);
-  drawStage(ctx, b, foes, party, lay.stage, w, h);
+  drawStage(ctx, b, foes, party, lay.stage, w, h, lay.commands || lay.dock || null);
   if (b.phase === "result") {
     drawResult(ctx, b, lay.result);
     return;
@@ -897,24 +900,61 @@ function plantFeet(spots, feet) {
   }
 }
 
-// Nameplates used to sit above the head, in the trees. Park any plate that
-// crosses the sky line on the lower body instead, under the horizon.
-function seatFoeLabels(spots, horizon) {
-  var sky = (horizon || 0) + 4;
+function clampBox(box, bounds) {
+  if (box.x < bounds.left) box.x = bounds.left;
+  if (box.y < bounds.top) box.y = bounds.top;
+  if (box.x + box.w > bounds.right) box.x = Math.max(bounds.left, bounds.right - box.w);
+  if (box.y + box.h > bounds.bottom) box.y = Math.max(bounds.top, bounds.bottom - box.h);
+}
+
+// Plates sit just under the feet and the shadow. They stay on screen,
+// clear of each other, and clear of the command dock.
+function seatFoeLabels(spots, view) {
+  var placed = [];
+  var screen = view.screen;
   spots.forEach(function (spot) {
     if (!spot.label || !spot.label.h) return;
-    // Always sit the plate on the lower body. Above the head it covers the trees.
-    var y = spot.hit.y + Math.round(spot.hit.h * 0.62);
-    if (y < sky) y = sky;
-    if (y + spot.label.h > spot.feet - 2) y = Math.max(spot.hit.y + 4, spot.feet - spot.label.h - 2);
-    spot.label.y = y;
+    var box = spot.label;
+    box.h = 40;
+    box.w = Math.max(72, Math.min(box.w || 96, 140));
+    box.x = Math.round(spot.x - box.w / 2);
+    box.y = Math.round(spot.feet + 8);
+    clampBox(box, screen);
+    var guard = 0;
+    while (view.dock && rectsOverlap(box, view.dock) && guard < 10) {
+      guard += 1;
+      if (box.x + box.w > view.dock.x && box.x < view.dock.x + view.dock.w) {
+        box.x = view.dock.x - box.w - 6;
+      } else {
+        box.y = view.dock.y - box.h - 6;
+      }
+      clampBox(box, screen);
+    }
+    placed.forEach(function (other) {
+      var n = 0;
+      while (rectsOverlap(box, other) && n < 8) {
+        n += 1;
+        if (spot.x >= other.x + other.w / 2) box.x = other.x + other.w + 6;
+        else box.x = other.x - box.w - 6;
+        clampBox(box, screen);
+      }
+    });
+    if (box.y < spot.feet + 2) box.y = spot.feet + 2;
+    clampBox(box, screen);
+    placed.push({ x: box.x, y: box.y, w: box.w, h: box.h, feet: spot.feet, id: spot.actor.id });
   });
+  SF.Battle.foePlates = placed;
 }
 
 function hitFlashAlpha(b, actor) {
   if (!b.art || !b.art.flash || b.art.flash.indexOf(actor.id) < 0) return 0;
-  // Reduce flashing keeps the core glow steady and skips the white hit flash.
-  if (SF.calm && SF.calm()) return 0;
+  // Reduce flashing is the default. One soft tint, then nothing. No strobe.
+  if (SF.reduceFlash) {
+    if (!b.art._tintOnce) b.art._tintOnce = {};
+    if (b.art._tintOnce[actor.id]) return 0;
+    b.art._tintOnce[actor.id] = true;
+    return SF.BattleFeel && SF.BattleFeel.FLASH_TINT != null ? SF.BattleFeel.FLASH_TINT : 0.35;
+  }
   if (b.hitPause > 0) return 0.78;
   var p = animP(b);
   if (p > 0.28) return 0;
@@ -924,20 +964,24 @@ function hitFlashAlpha(b, actor) {
 function drawHitFlash(ctx, b, actor, spot, nudge) {
   var alpha = hitFlashAlpha(b, actor);
   if (!(alpha > 0)) return;
-  // A glint on the body. The sprite's box is mostly empty, so filling it
-  // reads as a white panel instead of a hit.
   var cx = Math.round(spot.x + nudge.x);
   var cy = Math.round(spot.hit.y + spot.hit.h * 0.42 + nudge.y);
-  var s = Math.max(6, Math.round(Math.min(spot.hit.w, spot.hit.h) * 0.16));
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.fillStyle = "#fff";
-  ctx.fillRect(cx - s, cy - Math.round(s / 2), s * 2, s);
-  ctx.fillRect(cx - Math.round(s / 2), cy - s, s, s * 2);
+  if (alpha <= 0.4) {
+    var bw = Math.max(8, Math.round(spot.hit.w * 0.5));
+    var bh = Math.max(8, Math.round(spot.hit.h * 0.42));
+    ctx.fillRect(cx - Math.round(bw / 2), cy - Math.round(bh / 2), bw, bh);
+  } else {
+    var s = Math.max(6, Math.round(Math.min(spot.hit.w, spot.hit.h) * 0.16));
+    ctx.fillRect(cx - s, cy - Math.round(s / 2), s * 2, s);
+    ctx.fillRect(cx - Math.round(s / 2), cy - s, s, s * 2);
+  }
   ctx.restore();
 }
 
-function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
+function drawStage(ctx, b, foes, party, stage, canvasW, canvasH, dock) {
   if (!stage) return;
   var split = party.length > 1 ? 0.56 : 0.62;
   var foeZone = {
@@ -970,7 +1014,15 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
   plantFeet(foeSpots, groundY);
   plantFeet(partySpots, groundY);
   fitStandingHeight(partySpots, stage.y + 4);
-  seatFoeLabels(foeSpots, floor.horizon);
+  seatFoeLabels(foeSpots, {
+    screen: {
+      left: 4,
+      top: 4,
+      right: Math.max(40, (canvasW || stage.w) - 4),
+      bottom: Math.max(40, (canvasH || (stage.y + stage.h)) - 4)
+    },
+    dock: dock
+  });
   SF.Battle.partyBoxes = partySpots.map(function (spot) {
     return {
       id: spot.actor.id,
@@ -1479,25 +1531,28 @@ function drawItemList(ctx, b, dock) {
   }, null, null);
 }
 
-function resultLines(row) {
-  var lines = [];
-  if (row.fled) {
-    lines.push({ text: "Back on the road.", color: "#f4f7ff" });
-    return lines;
+function resultMetrics(panel, row) {
+  var levels = row.levels || [];
+  var items = row.win && !row.fled ? (row.items || []) : [];
+  var head = 1;
+  if (row.win && !row.fled) head += 1 + Math.ceil(items.length / 2);
+  var metrics = { title: 26, body: 15, line: 20 };
+  function height(m) {
+    var block = 0;
+    var i;
+    for (i = 0; i < levels.length; i += 2) {
+      var skill = (levels[i] && levels[i].skill) || (levels[i + 1] && levels[i + 1].skill);
+      block += (skill ? m.line * 2 : m.line) + 4;
+    }
+    return 16 + m.title + 8 + head * m.line + block + 12;
   }
-  if (!row.win) {
-    lines.push({ text: "The party is at half HP.", color: "#f4f7ff" });
-    return lines;
+  while (height(metrics) > panel.h && metrics.body > 11) {
+    metrics.body -= 1;
+    metrics.line -= 1;
+    if (metrics.title > 18) metrics.title -= 1;
   }
-  lines.push({ text: "+" + (row.xp || 0) + " XP    +" + (row.gold || 0) + " Marks", color: "#f4f7ff" });
-  (row.items || []).forEach(function (name) {
-    lines.push({ text: name, color: "#f4f7ff" });
-  });
-  (row.levels || []).forEach(function (lv) {
-    lines.push({ text: lv.name + " reached Lv " + lv.level, color: "#ffd37a" });
-    if (lv.skill) lines.push({ text: "Learned " + lv.skill, color: "#f4f7ff" });
-  });
-  return lines;
+  metrics.cardH = Math.min(panel.h, Math.max(72, height(metrics)));
+  return metrics;
 }
 
 function drawResult(ctx, b, panel) {
@@ -1507,34 +1562,70 @@ function drawResult(ctx, b, panel) {
   var panelW = panel.w;
   var panelH = Math.max(48, panel.h);
   var btnH = panel.btnH || 48;
-  var lines = resultLines(row);
+  var levels = row.levels || [];
+  var items = row.win && !row.fled ? (row.items || []) : [];
   var title = row.fled ? "Got away" : (row.win ? "Victory" : "Defeat");
-  var titleSize = 28;
-  var bodySize = 16;
-  var cardH = 18 + titleSize + 8 + lines.length * 24 + 12;
-  if (cardH > panelH) cardH = panelH;
-  if (cardH < 72) cardH = Math.min(panelH, 72);
+  var metrics = resultMetrics({ h: panelH, w: panelW }, row);
+  var cardH = metrics.cardH;
+  var lineH = metrics.line;
   artWindow(ctx, x, y, panelW, cardH);
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x + 8, y + 6, panelW - 16, cardH - 12);
+  ctx.rect(x + 6, y + 4, panelW - 12, cardH - 8);
   ctx.clip();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = "#ffd37a";
-  ctx.font = "700 " + titleSize + "px system-ui, sans-serif";
-  ctx.fillText(title, x + 16, y + 12);
-  var ly = y + 12 + titleSize + 6;
-  var limit = y + cardH - 8;
-  lines.forEach(function (line) {
-    if (ly + bodySize > limit) return;
-    ctx.fillStyle = line.color;
-    ctx.font = "700 " + bodySize + "px system-ui, sans-serif";
-    ctx.fillText(line.text, x + 16, ly);
-    ly += 24;
-  });
+  ctx.font = "700 " + metrics.title + "px system-ui, sans-serif";
+  ctx.fillText(title, x + 14, y + 10);
+  var ly = y + 10 + metrics.title + 6;
+  var painted = [title];
+  ctx.font = "700 " + metrics.body + "px system-ui, sans-serif";
+  function write(text, color, maxW) {
+    ctx.fillStyle = color;
+    ctx.font = "700 " + metrics.body + "px system-ui, sans-serif";
+    var shown = text;
+    if (maxW && ctx.measureText(shown).width > maxW) shown = fitLine(ctx, shown, maxW);
+    ctx.fillText(shown, x + 14, ly);
+    painted.push(shown);
+  }
+  if (row.fled) {
+    write("Back on the road.", "#f4f7ff");
+  } else if (!row.win) {
+    write("The party is at half HP.", "#f4f7ff");
+  } else {
+    write("+" + (row.xp || 0) + " XP    +" + (row.gold || 0) + " Marks", "#f4f7ff");
+    ly += lineH;
+    var c;
+    for (c = 0; c < items.length; c += 2) {
+      var leftItem = items[c];
+      var rightItem = items[c + 1];
+      write(rightItem ? leftItem + "    " + rightItem : leftItem, "#f4f7ff", panelW - 28);
+      ly += lineH;
+    }
+    var colW = Math.floor((panelW - 36) / 2);
+    var i;
+    for (i = 0; i < levels.length; i += 2) {
+      var pair = [levels[i], levels[i + 1]];
+      var tall = (pair[0] && pair[0].skill) || (pair[1] && pair[1].skill);
+      pair.forEach(function (lv, col) {
+        if (!lv) return;
+        var lx = x + 14 + col * (colW + 8);
+        ctx.fillStyle = "#ffd37a";
+        ctx.font = "700 " + metrics.body + "px system-ui, sans-serif";
+        ctx.fillText(fitLine(ctx, lv.name + " Lv " + lv.level, colW), lx, ly);
+        if (lv.skill) {
+          ctx.fillStyle = "#f4f7ff";
+          var learned = fitLine(ctx, "Learned " + lv.skill, colW);
+          ctx.fillText(learned, lx, ly + lineH);
+          painted.push(learned);
+        }
+      });
+      ly += tall ? lineH * 2 + 4 : lineH + 4;
+    }
+  }
+  SF.Battle.resultLines = painted;
   ctx.restore();
-  // Continue stays at the bottom of the column so a thumb can reach it.
   var by = y + panelH + 8;
   button(ctx, x, by, panelW, btnH, "Continue", true, false);
   addHit("result", x, by, panelW, btnH);
@@ -1585,6 +1676,7 @@ function listIds(b) {
 SF.Battle.moveSel = function (dir) {
   var b = SF.state && SF.state.battle;
   if (!b || b.phase === "readout" || b.phase === "result" || b.phase === "done") return;
+  if (SF.Battle.menuLocked && SF.Battle.menuLocked(b)) return;
   var n = 0;
   if (b.phase === "menu") n = menuCount(b);
   else if (b.phase === "skills" || b.phase === "items") n = listIds(b).length;
@@ -1603,6 +1695,7 @@ SF.Battle.confirm = function () {
     SF.Battle.skipReadout();
     return;
   }
+  if (SF.Battle.menuLocked && SF.Battle.menuLocked(b)) return;
   if (b.phase === "result") {
     SF.Battle.confirmResult();
     return;
@@ -1651,9 +1744,11 @@ SF.Battle.activate = function (id) {
   if (!b || !id) return;
   if (window.Sfx) Sfx.play("ui");
   if (b.phase === "readout") {
+    b._gestureSkipped = true;
     SF.Battle.skipReadout();
     return;
   }
+  if (SF.Battle.menuLocked && SF.Battle.menuLocked(b)) return;
   if (b.phase === "result") {
     if (id === "result" || id === "skip") SF.Battle.confirmResult();
     return;
@@ -1753,18 +1848,21 @@ SF.Battle.readPad = function (b) {
   var ay = i.padY || 0;
   var vert = ay < -0.45 ? -1 : (ay > 0.45 ? 1 : 0);
   var horiz = ax < -0.45 ? -1 : (ax > 0.45 ? 1 : 0);
-  if (vert && vert !== b._padV) SF.Battle.moveSel(vert);
-  if (horiz && horiz !== b._padH) SF.Battle.moveSel(horiz);
+  var locked = SF.Battle.menuLocked && SF.Battle.menuLocked(b);
+  if (!locked) {
+    if (vert && vert !== b._padV) SF.Battle.moveSel(vert);
+    if (horiz && horiz !== b._padH) SF.Battle.moveSel(horiz);
+  }
   b._padV = vert;
   b._padH = horiz;
-  if (i.padA) {
-    if (!b.padHoldSince) b.padHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
-  } else {
-    b.padHoldSince = 0;
+  // Arm hold-to-skip only on a fresh A press during an enemy or system readout.
+  if (i.padAEdge && SF.Battle.enemyReadout(b)) {
+    b.padHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
   }
+  if (!i.padA) b.padHoldSince = 0;
   if (i.padAEdge) {
     i.padAEdge = false;
-    SF.Battle.confirm();
+    if (!locked) SF.Battle.confirm();
   }
   if (i.padBEdge || i.padXEdge) {
     i.padBEdge = false;
@@ -1803,8 +1901,14 @@ function bindBattlePointer() {
       moved: false
     };
     if (b) {
-      b.pointerHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      b._gestureReadout = b.phase === "readout";
+      b._gestureSkipped = false;
       b._holdSkips = 0;
+      if (SF.Battle.enemyReadout && SF.Battle.enemyReadout(b)) {
+        b.pointerHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      } else {
+        b.pointerHoldSince = 0;
+      }
     }
     try { view.setPointerCapture(e.pointerId); } catch (err) { /* canvas may already own it */ }
     e.preventDefault();
@@ -1832,14 +1936,20 @@ function bindBattlePointer() {
     if (!s || (s.mode !== "battle" && s.mode !== "results") || !e) return;
     var pt = toView(e);
     var moved = start.moved || Math.abs(pt.y - start.y) > 10 || Math.abs(pt.x - start.x) > 10;
-    var skips = 0;
+    var gesture = false;
     if (s.battle) {
-      skips = s.battle._holdSkips || 0;
+      gesture = !!s.battle._gestureReadout || !!s.battle._gestureSkipped || !!(s.battle._holdSkips);
+      s.battle._gestureReadout = false;
       s.battle.pointerHoldSince = 0;
       s.battle._holdSkips = 0;
     }
-    // A hold already fast-forwarded the readout. Don't also tap whatever is under the finger now.
-    if (moved || skips) return;
+    if (moved) return;
+    // The finger that skipped a readout must not also press the menu that appears.
+    if (gesture) {
+      if (s.battle && s.battle.phase === "readout") SF.Battle.onPointer(pt.x, pt.y);
+      return;
+    }
+    if (s.battle && SF.Battle.menuLocked && SF.Battle.menuLocked(s.battle)) return;
     SF.Battle.onPointer(pt.x, pt.y);
   }
   view.addEventListener("pointerup", endDrag);
@@ -1858,10 +1968,15 @@ function bindBattlePointer() {
     if (!confirm && !cancel && !arrow && code.indexOf("Digit") !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    if (confirm && !s.battle.keyHoldSince) {
-      s.battle.keyHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+    if (confirm) {
+      if (SF.Battle.enemyReadout && SF.Battle.enemyReadout(s.battle)) {
+        if (!s.battle.keyHoldSince) s.battle.keyHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      } else {
+        s.battle.keyHoldSince = 0;
+      }
     }
     if (e.repeat && !arrow) return;
+    if (SF.Battle.menuLocked && SF.Battle.menuLocked(s.battle)) return;
     if (arrow) SF.Battle.moveSel(code === "ArrowUp" || code === "ArrowLeft" ? -1 : 1);
     else if (confirm) SF.Battle.confirm();
     else if (cancel) SF.Battle.cancel();
@@ -1876,18 +1991,19 @@ function bindBattlePointer() {
 }
 
 var baseDraw = SF.draw;
+// BattleUI is the screen. SF.draw goes through it whenever a battle is up.
+SF.BattleUI = {
+  draw: function (ctx, w, h, dpr) { SF.drawBattle(ctx, w, h, dpr); }
+};
+SF.Battle.UI = SF.BattleUI;
+
 SF.draw = function () {
   var s = SF.state;
   if (s && s.battle && (s.mode === "battle" || s.mode === "results") && SF.view && SF.ctx) {
-    SF.drawBattle(SF.ctx, SF.viewW || 1, SF.viewH || 1, SF.dpr || 1);
+    SF.BattleUI.draw(SF.ctx, SF.viewW || 1, SF.viewH || 1, SF.dpr || 1);
     return;
   }
   if (baseDraw) baseDraw();
-};
-
-// BattleUI draws from the event record. It does not wrap resolve or diff HP.
-SF.BattleUI = {
-  draw: function (ctx, w, h, dpr) { SF.drawBattle(ctx, w, h, dpr); }
 };
 
 bindBattlePointer();

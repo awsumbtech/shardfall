@@ -2,10 +2,12 @@
 
 // BattleRenderer turns combat events into the presentation record on the
 // battle (pops, hurt ids, WEAK/RESIST tags, the flash list, hit pause).
-// It never reads HP. BattleUI draws that record.
+// It never reads HP. BattleUI draws that record. Rules emit "action"
+// before they apply a command; this module opens the record.
 var SF = window.SF || {};
 window.SF = SF;
 
+(function () {
 function battle() {
   return SF.state && SF.state.battle;
 }
@@ -17,7 +19,7 @@ function artOf() {
 }
 
 SF.BattleRenderer = {
-  // Called by Battle.resolve before the action, so later events fill a clean record.
+  // Opens a clean record when the rules emit "action", before the hits.
   begin: function (b, actor, action) {
     if (!b) return;
     var skill = null;
@@ -76,7 +78,17 @@ SF.BattleRenderer = {
       if (SF.Battle && SF.Battle.instant) return;
       b.hitPause = Math.max(0, (p.ms || 0) / 1000);
     });
+    ev.on("action", function (p) {
+      var b = battle();
+      if (!b || !p) return;
+      var actor = SF.BattleState.actorById(b, p.actorId);
+      SF.BattleRenderer.begin(b, actor, p.action);
+    });
   }
 };
 
 SF.BattleRenderer.install();
+  SF.Battle = SF.Battle || {};
+  SF.Battle.Renderer = SF.BattleRenderer;
+  SF.Battle.screen = { battle: battle, artOf: artOf };
+})();

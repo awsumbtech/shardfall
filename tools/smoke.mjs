@@ -57,6 +57,7 @@ for (const file of [
   "js/battle/resolver.js",
   "js/battle/battle.js",
   "js/battle/renderer.js",
+  "js/battle/audio.js",
   "js/menu/field.js",
   "js/world.js"
 ]) {
@@ -1952,7 +1953,7 @@ SF.mountIsland("emberhold");
     "js/battle/events.js", "js/battle/formula.js", "js/battle/state.js",
     "js/battle/timeline.js", "js/battle/ai.js", "js/battle/rewards.js",
     "js/battle/feel.js", "js/battle/resolver.js", "js/battle/battle.js",
-    "js/battle/renderer.js", "js/battle/draw.js"
+    "js/battle/renderer.js", "js/battle/audio.js", "js/battle/draw.js"
   ]) {
     vm.runInContext(fs.readFileSync(file, "utf8"), layout, { filename: file });
   }

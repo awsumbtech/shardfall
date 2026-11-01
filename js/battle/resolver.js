@@ -1,10 +1,12 @@
 "use strict";
 
 // ActionResolver applies one command and emits BattleEvents. The numbers come
-// from Formula and Timeline. It does not draw. SF.Battle.resolve is the public
-// wrapper: it lets BattleRenderer open a presentation record, then calls resolve.
+// from Formula and Timeline. It does not draw, and it does not call audio,
+// haptics, or the renderer. Those subscribe to the events.
 var SF = window.SF || {};
 window.SF = SF;
+
+(function () {
 
 function emit(type, payload) {
   if (SF.BattleEvents) SF.BattleEvents.emit(type, payload || {});
@@ -53,7 +55,7 @@ function checkPhases(target) {
   return ph.log || "";
 }
 
-function emitStrike(actor, target, hit, skill, pause) {
+function emitStrike(actor, target, hit, skill, pause, cue) {
   var payload = {
     src: actor.id,
     tgt: target.id,
@@ -62,8 +64,12 @@ function emitStrike(actor, target, hit, skill, pause) {
     weak: hit.note === "weak",
     resist: hit.note === "resist",
     skillId: skill && skill.id || "",
-    dead: !!hit.dead
+    dead: !!hit.dead,
+    tgtSide: target.side,
+    cue: !!cue
   };
+  var live = SF.state && SF.state.battle;
+  if (live) live._landedHit = true;
   emit("hit", payload);
   if (hit.note === "weak") emit("weak", payload);
   if (hit.note === "resist") emit("resist", payload);
@@ -121,7 +127,7 @@ function openResult(b, row) {
     b.art.flash = [];
     b.art.element = null;
   }
-  if (row.levels && row.levels.length && window.Sfx) Sfx.play("level");
+  if (row.levels && row.levels.length) emit("levelup", { levels: row.levels });
 }
 
 function victory(b) {
@@ -328,8 +334,6 @@ SF.ActionResolver = {
       for (i = 0; i < hits; i++) {
         if (!t.alive) break;
         hit = applySkillHit(actor, t, strikeSkill);
-        if (window.Sfx) Sfx.play(t.side === "party" ? "hurt" : "impact");
-        if (window.Haptics) Haptics.pulse(12);
         if (!announced) {
           if (t.core && (skill.id === "attack" || !skill.element)) lines.push(actor.name + " attacks the core!");
           else if (skill.id === "attack") lines.push(actor.name + " attacks!");
@@ -340,7 +344,7 @@ SF.ActionResolver = {
         if (hit.note === "weak" && hit.element) lines.push(t.name + " is weak to " + SF.BattleFormula.elementName(hit.element) + ".");
         if (hit.note === "resist" && hit.element) lines.push(t.name + " resists " + SF.BattleFormula.elementName(hit.element) + ".");
         if (hit.dead) lines.push(t.name + " is defeated.");
-        emitStrike(actor, t, hit, strikeSkill, pause);
+        emitStrike(actor, t, hit, strikeSkill, pause, true);
         if (t.boss) {
           var phaseLine = checkPhases(t);
           if (phaseLine) lines.push(phaseLine);
@@ -354,6 +358,7 @@ SF.ActionResolver = {
   },
 
   resolve: function (b, actor, action) {
+    b._landedHit = false;
     var lines = SF.ActionResolver.apply(b, actor, action);
     lines.forEach(function (line) { SF.BattleState.log(b, line); });
     b.actors.forEach(function (a) {
@@ -365,11 +370,9 @@ SF.ActionResolver = {
     }
     if (checkEnd(b)) return;
     b.phase = "readout";
-    var seconds = SF.BattleFeel ? SF.BattleFeel.readoutSeconds(actor) : (SF.Battle.instant ? 0 : 0.55);
-    b.readoutT = seconds;
-    b.readoutDur = seconds > 0 ? seconds : (SF.BattleFeel ? SF.BattleFeel.READOUT : 0.55);
-    // Hold the impact frame. The pause itself does not eat the readout.
-    if (b.hitPause > 0 && b.readoutT > 0) b.readoutT = b.readoutT * 0.8;
+    var plan = SF.BattleFeel.readoutPlan(!!b._landedHit);
+    b.readoutT = plan.shown;
+    b.readoutDur = plan.full > 0 ? plan.full : SF.BattleFeel.READOUT;
     b.order = SF.Battle.forecast(b, 8);
     if (b.readoutT <= 0) SF.Battle.afterReadout(b);
   },
@@ -400,5 +403,27 @@ SF.ActionResolver = {
     }
     b.phase = "menu";
     b.pending = null;
+    b.menuLockUntil = (SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now()) + SF.BattleFeel.MENU_LOCK_MS;
+    emit("command-menu", { actorId: actor.id });
   }
 };
+
+  SF.Battle = SF.Battle || {};
+  SF.Battle.Resolver = SF.ActionResolver;
+  SF.Battle.rules = {
+    emit: emit,
+    remember: remember,
+    targetsFor: targetsFor,
+    spendTurn: spendTurn,
+    checkPhases: checkPhases,
+    emitStrike: emitStrike,
+    emitHeal: emitHeal,
+    applySkillHit: applySkillHit,
+    openResult: openResult,
+    victory: victory,
+    defeat: defeat,
+    fled: fled,
+    checkEnd: checkEnd,
+    notePhase: notePhase
+  };
+})();

@@ -79,6 +79,7 @@ var SHELL = [
   "js/battle/resolver.js",
   "js/battle/battle.js",
   "js/battle/renderer.js",
+  "js/battle/audio.js",
   "js/battle/draw.js",
   "js/input.js",
   "js/ui.js",

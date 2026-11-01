@@ -15,6 +15,14 @@ SF.BattleFeel = {
   READOUT: 0.55,
   HIT_PAUSE_MS: 60,
   HOLD_SKIP_MS: 180,
+  // After a readout, the command menu ignores input this long so the
+  // finger that skipped cannot land on Attack.
+  MENU_LOCK_MS: 250,
+  // Share of a damaging readout spent on the impact frame. The turn
+  // machine reads this. It does not read anything the renderer stored.
+  IMPACT_PORTION: 0.2,
+  // Reduce flashing (on by default) uses one soft white tint, not a strobe.
+  FLASH_TINT: 0.35,
 
   now: function () {
     if (typeof performance !== "undefined" && performance.now) return performance.now();
@@ -22,8 +30,20 @@ SF.BattleFeel = {
   },
 
   readoutSeconds: function () {
-    if (SF.Battle && SF.Battle.instant) return 0;
-    return SF.BattleFeel.READOUT;
+    return SF.BattleFeel.readoutPlan(false).shown;
+  },
+
+  // full is the animation length. shown is how much of the clock is left
+  // when a hit also asks for a frame freeze. Both come from this config.
+  readoutPlan: function (hitLanded) {
+    var full = SF.Battle && SF.Battle.instant ? 0 : SF.BattleFeel.READOUT;
+    var shown = full;
+    var pause = 0;
+    if (!(SF.Battle && SF.Battle.instant)) pause = SF.BattleFeel.hitPauseMs();
+    if (hitLanded && pause > 0 && full > 0) {
+      shown = full * (1 - SF.BattleFeel.IMPACT_PORTION);
+    }
+    return { full: full, shown: shown };
   },
 
   prefersReducedMotion: function () {

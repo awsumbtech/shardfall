@@ -5,6 +5,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
+(function () {
 var GAUGE = 1000;
 
 SF.BattleTimeline = {
@@ -103,3 +104,6 @@ SF.BattleTimeline = {
     return null;
   }
 };
+  SF.Battle = SF.Battle || {};
+  SF.Battle.Timeline = SF.BattleTimeline;
+})();

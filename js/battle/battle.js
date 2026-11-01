@@ -5,48 +5,66 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-function battleRng(seed) {
-  var next = SF.mulberry32 ? SF.mulberry32(seed || 1) : Math.random;
-  return function () { return next(); };
-}
+SF.Battle = SF.Battle || {};
+SF.Battle.instant = false;
+SF.Battle.rngSeed = 1;
+// Frame freeze on a hit, in milliseconds. 0 disables it. prefers-reduced-motion
+// forces 0 inside BattleFeel.hitPauseMs even when this stays at 60.
+SF.Battle.hitPauseMs = 60;
 
-function nowMs() {
-  return SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
-}
-
-function holdAge(b) {
-  var now = nowMs();
-  var best = 0;
-  ["pointerHoldSince", "keyHoldSince", "padHoldSince"].forEach(function (key) {
-    if (!b[key]) return;
-    var age = now - b[key];
-    if (age > best) best = age;
-  });
-  return best;
-}
-
-function holdingLong(b) {
-  var need = SF.BattleFeel && SF.BattleFeel.HOLD_SKIP_MS != null ? SF.BattleFeel.HOLD_SKIP_MS : 180;
-  return holdAge(b) >= need;
-}
-
-function fastForward(b) {
-  var guard = 0;
-  while (b && b.phase === "readout" && holdingLong(b) && guard < 16) {
-    guard += 1;
-    b._holdSkips = (b._holdSkips || 0) + 1;
-    b.hitPause = 0;
-    SF.Battle.skipReadout();
+SF.Battle.flow = {
+  rng: function (seed) {
+    var next = SF.mulberry32 ? SF.mulberry32(seed || 1) : Math.random;
+    return function () { return next(); };
+  },
+  now: function () {
+    return SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+  },
+  // A hold skips only an enemy or system readout, and only after the press
+  // began during that readout. The confirm that starts your own hit does not.
+  enemyReadout: function (b) {
+    if (!b || b.phase !== "readout") return false;
+    var id = (b.art && b.art.id) || b.actorId;
+    var actor = SF.BattleState.actorById(b, id);
+    if (!actor) return true;
+    return actor.side !== "party";
+  },
+  menuLocked: function (b) {
+    if (!b || b.phase !== "menu" || !b.menuLockUntil) return false;
+    return SF.Battle.flow.now() < b.menuLockUntil;
+  },
+  holdAge: function (b) {
+    var now = SF.Battle.flow.now();
+    var best = 0;
+    ["pointerHoldSince", "keyHoldSince", "padHoldSince"].forEach(function (key) {
+      if (!b[key]) return;
+      var age = now - b[key];
+      if (age > best) best = age;
+    });
+    return best;
+  },
+  holdingLong: function (b) {
+    if (!SF.Battle.flow.enemyReadout(b)) return false;
+    var need = SF.BattleFeel && SF.BattleFeel.HOLD_SKIP_MS != null ? SF.BattleFeel.HOLD_SKIP_MS : 180;
+    return SF.Battle.flow.holdAge(b) >= need;
+  },
+  fastForward: function (b) {
+    var guard = 0;
+    while (b && SF.Battle.flow.holdingLong(b) && guard < 16) {
+      guard += 1;
+      b._holdSkips = (b._holdSkips || 0) + 1;
+      b._gestureSkipped = true;
+      b.hitPause = 0;
+      SF.Battle.skipReadout();
+    }
+  },
+  lowest: function (list) {
+    return list.slice().sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
   }
-}
-
-SF.Battle = {
-  instant: false,
-  rngSeed: 1,
-  // Frame freeze on a hit, in milliseconds. 0 disables it. prefers-reduced-motion
-  // forces 0 inside BattleFeel.hitPauseMs even when this stays at 60.
-  hitPauseMs: 60
 };
+
+SF.Battle.menuLocked = function (b) { return SF.Battle.flow.menuLocked(b); };
+SF.Battle.enemyReadout = function (b) { return SF.Battle.flow.enemyReadout(b); };
 
 SF.Battle.makePartyActor = function (s, id, index) {
   return SF.BattleState.makePartyActor(s, id, index);
@@ -69,7 +87,7 @@ SF.Battle.foeAction = function (b, actor) {
 };
 
 SF.Battle.resolve = function (b, actor, action) {
-  if (SF.BattleRenderer && SF.BattleRenderer.begin) SF.BattleRenderer.begin(b, actor, action);
+  if (SF.BattleEvents) SF.BattleEvents.emit("action", { actorId: actor && actor.id, action: action });
   SF.ActionResolver.resolve(b, actor, action);
 };
 
@@ -91,7 +109,7 @@ SF.Battle.playerAct = function (action) {
   return true;
 };
 
-function finishBattle(win) {
+SF.Battle.flow.finish = function (win) {
   var s = SF.state;
   var b = s.battle;
   if (!b || b.closed) return;
@@ -123,7 +141,7 @@ function finishBattle(win) {
     });
   }
   if (win && !fledOut) {
-    if (window.Sfx) Sfx.play("fanfare");
+    if (SF.BattleEvents) SF.BattleEvents.emit("battle-win", { id: b.id });
     if (fieldId) {
       var foe = null;
       s.enemies.forEach(function (e) { if (e.id === fieldId) foe = e; });
@@ -139,7 +157,7 @@ function finishBattle(win) {
   if (s.mode === "play" && SF.cuePlaceMusic) SF.cuePlaceMusic(s);
   if (SF.releaseHolds) SF.releaseHolds();
   SF.saveGame({ silent: true });
-}
+};
 
 SF.Battle.applyLoss = function (s) {
   SF.activeParty(s).forEach(function (id) {
@@ -206,8 +224,8 @@ SF.Battle.confirmResult = function () {
   var win = b.result && b.result.win && !b.result.fled;
   var fledOut = b.result && b.result.fled;
   SF._lastResult = b.result;
-  if (fledOut) finishBattle(true);
-  else finishBattle(!!win);
+  if (fledOut) SF.Battle.flow.finish(true);
+  else SF.Battle.flow.finish(!!win);
 };
 
 SF.Battle.skipReadout = function () {
@@ -231,8 +249,8 @@ SF.Battle.update = function (dt) {
   }
   if (dt > 0) b.t += dt;
   if (SF.Battle.readPad) SF.Battle.readPad(b);
-  if (holdingLong(b) && b.phase === "readout") {
-    fastForward(b);
+  if (SF.Battle.flow.holdingLong(b)) {
+    SF.Battle.flow.fastForward(b);
     return;
   }
   if (b.phase === "readout" && dt > 0) {
@@ -245,9 +263,6 @@ SF.Battle.update = function (dt) {
   }
 };
 
-function lowest(list) {
-  return list.slice().sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
-}
 
 SF.Battle.autoPick = function () {
   var s = SF.state;
@@ -264,7 +279,7 @@ SF.Battle.autoPick = function () {
   var actor = SF.BattleState.actorById(b, b.actorId);
   if (!actor) return;
   var allies = SF.BattleState.living(b, "party");
-  var hurt = lowest(allies);
+  var hurt = SF.Battle.flow.lowest(allies);
   var dead = b.actors.filter(function (a) { return a.side === "party" && !a.alive; })[0];
   if (dead && SF.itemCount("phoenix_shard") > 0) {
     SF.Battle.playerAct({ type: "item", itemId: "phoenix_shard", targetId: dead.id });
@@ -297,7 +312,7 @@ SF.Battle.autoPick = function () {
     return;
   }
   var foes = SF.BattleState.living(b, "foe");
-  var foe = lowest(foes);
+  var foe = SF.Battle.flow.lowest(foes);
   var best = null;
   var bestPower = 9;
   actor.skills.forEach(function (id) {
@@ -365,7 +380,7 @@ SF.Battle.start = function (encounterId, opts) {
     carrierRegion: opts.carrierRegion || null,
     onWin: opts.onWin || null,
     onLose: opts.onLose || null,
-    rng: battleRng(SF.Battle.rngSeed++),
+    rng: SF.Battle.flow.rng(SF.Battle.rngSeed++),
     actors: [],
     log: [],
     phase: "menu",
@@ -399,8 +414,7 @@ SF.Battle.start = function (encounterId, opts) {
   s.mode = "battle";
   if (SF.releaseHolds) SF.releaseHolds();
   SF.BattleState.log(b, b.boss ? b.name + " attacks." : b.name + ".");
-  if (window.Music) Music.play(b.boss ? "boss" : "battle");
-  if (b.boss && window.Sfx) Sfx.play("roar");
+  if (SF.BattleEvents) SF.BattleEvents.emit("battle-start", { boss: !!b.boss, id: b.id });
   SF.ActionResolver.beginTurn(b);
   SF.noteHint && SF.noteHint("strike");
   return true;
@@ -513,7 +527,7 @@ SF.migrateBattleSave = function (s, data) {
   SF.grantActEndParty(s);
 };
 
-function installHooks() {
+SF.Battle.flow.install = function () {
   var baseFresh = SF.fresh;
   SF.fresh = function () {
     var s = baseFresh();
@@ -631,6 +645,12 @@ function installHooks() {
   });
 }
 
-installHooks();
+SF.Battle.flow.install();
 
+SF.Battle.Events = SF.BattleEvents;
+SF.Battle.State = SF.BattleState;
+SF.Battle.Formula = SF.BattleFormula;
+SF.Battle.AI = SF.EnemyAI;
+SF.Battle.Rewards = SF.BattleRewards;
+SF.Battle.Feel = SF.BattleFeel;
 window.Battle = SF.Battle;

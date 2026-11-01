@@ -49,6 +49,7 @@ for (const file of [
   "js/battle/resolver.js",
   "js/battle/battle.js",
   "js/battle/renderer.js",
+  "js/battle/audio.js",
   "js/menu/field.js",
   "js/world.js"
 ]) {
