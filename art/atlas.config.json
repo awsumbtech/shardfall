@@ -1550,6 +1550,1440 @@
           "h": 16
         }
       ]
+    },
+    {
+      "key": "kenmi.prop.tree_oak",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Big_Oak_Tree.png",
+      "code": "tree_oak",
+      "anchor": [
+        32,
+        63
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 0,
+          "w": 64,
+          "h": 80
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_broad",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Big_Oak_Tree.png",
+      "code": "tree_broad",
+      "anchor": [
+        32,
+        63
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 0,
+          "w": 64,
+          "h": 80
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_oak_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Medium_Oak_Tree.png",
+      "code": "tree_oak_b",
+      "anchor": [
+        16,
+        31
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 48
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_broad_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Medium_Oak_Tree.png",
+      "code": "tree_broad_b",
+      "anchor": [
+        16,
+        31
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 48
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_pine",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Big_Spruce_tree.png",
+      "code": "tree_pine",
+      "anchor": [
+        32,
+        63
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 0,
+          "w": 64,
+          "h": 80
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_pine_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Medium_Spruce_Tree.png",
+      "code": "tree_pine_b",
+      "anchor": [
+        16,
+        31
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 48
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_birch",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Big_Fruit_Tree.png",
+      "code": "tree_birch",
+      "anchor": [
+        15,
+        47
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 64
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_birch_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Trees/Medium_Fruit_Tree.png",
+      "code": "tree_birch_b",
+      "anchor": [
+        15,
+        47
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 64
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tree_apple",
+      "path": "vendor/kenmi/Cute_Fantasy/Crops/Apple_Tree.png",
+      "code": "tree_apple",
+      "anchor": [
+        15,
+        47
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 0,
+          "w": 32,
+          "h": 64
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bush",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bush",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 80,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bush_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bush_b",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 80,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bush_c",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bush_c",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bush_d",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bush_d",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 96,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bush_e",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bush_e",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 112,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.rock",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "rock",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 96,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.rock_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "rock_b",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.rock_c",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "rock_c",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.rock_moss_sm",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "rock_moss_sm",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.rock_moss_sm_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "rock_moss_sm_b",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 16,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.pebble",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "pebble",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 112,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.rock_cluster",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "rock_cluster",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 128,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.rock_round",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "rock_round",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.boulder",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "boulder",
+      "anchor": [
+        16,
+        28
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 176,
+          "w": 32,
+          "h": 32
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.stump",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "stump",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 16,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.stump_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "stump_b",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 144,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.log",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "log",
+      "anchor": [
+        16,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 112,
+          "w": 32,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.log_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "log_b",
+      "anchor": [
+        16,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 112,
+          "w": 32,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tuft",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "tuft",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tuft_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "tuft_b",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tuft_c",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "tuft_c",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 16,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.tuft_bloom",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "tuft_bloom",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 96,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_gold",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_gold",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_tide",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_tide",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_tide_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_tide_b",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_tide_c",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_tide_c",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.blossom",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "blossom",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.daisy",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "daisy",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.daisy_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "daisy_b",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 80,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_white",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_white",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 16,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_white_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_white_b",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_pink",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_pink",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_pink_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_pink_b",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 80,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_gold_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_gold_b",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.flower_gold_c",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "flower_gold_c",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 80,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bud_red",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bud_red",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 96,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bud_purple",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bud_purple",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 112,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.bud_blue",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "bud_blue",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 128,
+          "y": 16,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.fern",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "fern",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 96,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.fern_b",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "fern_b",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 96,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_tan",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_tan",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 112,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_tan_sm",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_tan_sm",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 128,
+          "y": 32,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_red",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_red",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_purple",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_purple",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 16,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_blue",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_blue",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 48,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_tiny_red",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_tiny_red",
+      "anchor": [
+        8,
+        10
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_tiny_purple",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_tiny_purple",
+      "anchor": [
+        8,
+        10
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 16,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.mushroom_pair",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "code": "mushroom_pair",
+      "anchor": [
+        8,
+        12
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_red",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_red",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_pink",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_pink",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_violet",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_violet",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 64,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_gold",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_gold",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_blue",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_blue",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 80,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_pair_red",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_pair_red",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_pair_pink",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_pair_pink",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_pair_violet",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_pair_violet",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 96,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_pair_gold",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_pair_gold",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 32,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.wild_pair_blue",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "code": "wild_pair_blue",
+      "anchor": [
+        8,
+        14
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 64,
+          "y": 112,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.cottage",
+      "path": "vendor/kenmi/Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_1_Wood_Base_Red.png",
+      "code": "cottage",
+      "anchor": [
+        48,
+        112
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 0,
+          "w": 96,
+          "h": 128
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.lamp_lit",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Lanter_Posts.png",
+      "code": "lamp_lit",
+      "anchor": [
+        8,
+        46
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 144,
+          "w": 16,
+          "h": 48
+        },
+        {
+          "name": "1",
+          "x": 16,
+          "y": 144,
+          "w": 16,
+          "h": 48
+        },
+        {
+          "name": "2",
+          "x": 32,
+          "y": 144,
+          "w": 16,
+          "h": 48
+        },
+        {
+          "name": "3",
+          "x": 48,
+          "y": 144,
+          "w": 16,
+          "h": 48
+        },
+        {
+          "name": "4",
+          "x": 64,
+          "y": 144,
+          "w": 16,
+          "h": 48
+        },
+        {
+          "name": "5",
+          "x": 80,
+          "y": 144,
+          "w": 16,
+          "h": 48
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.lamp_cold",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Lanter_Posts.png",
+      "code": "lamp_cold",
+      "anchor": [
+        8,
+        46
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 144,
+          "w": 16,
+          "h": 48
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.chest",
+      "path": "vendor/kenmi/Cute_Fantasy/Buildings/House_Decor/Chest_Anim.png",
+      "code": "chest",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "1",
+          "x": 16,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "2",
+          "x": 32,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        {
+          "name": "3",
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.chest_open",
+      "path": "vendor/kenmi/Cute_Fantasy/Buildings/House_Decor/Chest_Anim.png",
+      "code": "chest_open",
+      "anchor": [
+        8,
+        13
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 48,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.fence",
+      "path": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Fences.png",
+      "code": "fence",
+      "anchor": [
+        8,
+        62
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 62
+        }
+      ]
+    },
+    {
+      "key": "kenmi.prop.smoke",
+      "path": "vendor/kenmi/Cute_Fantasy/Buildings/House_Decor/Chimney_smoke_Anim.png",
+      "code": "smoke",
+      "anchor": [
+        16,
+        20
+      ],
+      "rects": [
+        {
+          "name": "0",
+          "x": 0,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "name": "1",
+          "x": 32,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "name": "2",
+          "x": 64,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "name": "3",
+          "x": 96,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "name": "4",
+          "x": 128,
+          "y": 0,
+          "w": 32,
+          "h": 32
+        }
+      ]
     }
   ]
 }

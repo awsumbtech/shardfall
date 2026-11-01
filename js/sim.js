@@ -435,10 +435,12 @@ SF.applySwing = function (p) {
 SF.dashInside = function (x, y) {
   var props, i, p, r, dx, dy;
   if (SF.blocksFoot && SF.blocksFoot(x, y)) return true;
+  if (SF.propGrid && SF.worldSource === "tiles") return SF.propGrid.blocks(x, y);
   props = SF.PROPS;
   if (!props) return false;
   for (i = 0; i < props.length; i++) {
     p = props[i];
+    if (p.dense && SF.worldSource !== "tiles") continue;
     r = p.block;
     if (!r) continue;
     dx = x - p.x;
@@ -459,11 +461,18 @@ SF.dashCircles = function () {
   var list = SF.solidList ? SF.solidList().slice() : [];
   var props = SF.PROPS;
   var i, p;
+  if (SF.propGrid && SF.worldSource === "tiles") return SF.propGrid.appendCircles(list);
   if (!props) return list;
   for (i = 0; i < props.length; i++) {
     p = props[i];
+    if (p.dense && SF.worldSource !== "tiles") continue;
     if (!p.block) continue;
     list.push({ x: p.x, y: p.y, r: p.block, kind: "prop" });
+  }
+  if (SF.worldSource === "tiles" && SF.propFootprints) {
+    for (i = 0; i < SF.propFootprints.length; i++) {
+      if (SF.propFootprints[i].solid) list.push(SF.propFootprints[i].solid());
+    }
   }
   return list;
 };
