@@ -85,6 +85,7 @@
     shapeWalk = SF.walkable;
     shapeZone = SF.zoneAt;
     SF.walkable = function (x, y) {
+      if (SF.footprintBlocks && SF.footprintBlocks(x, y)) return false;
       if (SF.worldSource === "tiles" && SF.islandId === "emberhold" && SF.tileMap) {
         if (!terrainOpen(SF.tileMap, x, y)) return false;
         if (propBlocks(x, y)) return false;

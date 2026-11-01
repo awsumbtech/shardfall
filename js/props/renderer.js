@@ -106,7 +106,15 @@
       image: canvas,
       anchor: desc.anchor,
       flip: desc.flip,
-      frame: { name: frame.name, x: 0, y: 0, w: frame.w, h: frame.h }
+      frame: {
+        name: frame.name,
+        x: 0,
+        y: 0,
+        w: frame.w,
+        h: frame.h,
+        ox: frame.ox || 0,
+        oy: frame.oy || 0
+      }
     };
     this.coldCache.push({ image: desc.image, frame: frame, desc: copy });
     return copy;
@@ -156,7 +164,8 @@
 
   PropRenderer.prototype.draw = function (ctx, prop, lit) {
     if (!ctx || !prop) return false;
-    if (prop.dense && SF.worldSource !== "tiles") return true;
+    // No sheet: the dense layer is neither drawn nor a code-art stand-in.
+    if (prop.dense && (SF.worldSource !== "tiles" || !(SF.propAtlasReady && SF.propAtlasReady()))) return true;
     if (!this.forIsland(SF.islandId)) return !!prop.dense;
     if (prop.kind === "fence_up") {
       if (this.fence.draw(ctx, prop)) return true;
@@ -224,20 +233,43 @@
     var y0 = Math.round(top);
     var y1 = Math.round(prop.y);
     var image = desc.image;
-    var ox = desc.frame.x;
-    var oy = desc.frame.y;
+    var frame = desc.frame;
     var y, srcY;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     for (y = y0; y < y1; y++) {
       srcY = 16 + (((y - y0) % 32) + 32) % 32;
-      ctx.drawImage(image, ox, oy + srcY, 16, 1, x, y, 16, 1);
+      blitCell(ctx, image, frame, 0, srcY, 16, 1, x, y);
     }
-    if (at === 0) ctx.drawImage(image, ox, oy, 16, 12, x, y0 - 12, 16, 12);
-    if (at === ys.length - 1) ctx.drawImage(image, ox, oy + 48, 16, 14, x, y1 - 6, 16, 14);
+    if (at === 0) blitCell(ctx, image, frame, 0, 0, 16, 12, x, y0 - 12);
+    if (at === ys.length - 1) blitCell(ctx, image, frame, 0, 48, 16, 14, x, y1 - 6);
     ctx.restore();
     return true;
   };
+
+  // cellX/cellY are inside the declared fence cell. ox/oy is where the
+  // packer trimmed that cell, so the sample must stay inside the packed frame
+  // and the leftover margin stays on the same world pixel as the full cell.
+  function blitCell(ctx, image, frame, cellX, cellY, cellW, cellH, destX, destY) {
+    var fox = frame.ox || 0;
+    var foy = frame.oy || 0;
+    var x0 = cellX > fox ? cellX : fox;
+    var y0 = cellY > foy ? cellY : foy;
+    var x1 = cellX + cellW;
+    var y1 = cellY + cellH;
+    var fx1 = fox + frame.w;
+    var fy1 = foy + frame.h;
+    var sx, sy, sw, sh;
+    if (x1 > fx1) x1 = fx1;
+    if (y1 > fy1) y1 = fy1;
+    if (x1 <= x0 || y1 <= y0) return;
+    sx = frame.x + (x0 - fox);
+    sy = frame.y + (y0 - foy);
+    sw = x1 - x0;
+    sh = y1 - y0;
+    if (sx < frame.x || sy < frame.y || sx + sw > frame.x + frame.w || sy + sh > frame.y + frame.h) return;
+    ctx.drawImage(image, sx, sy, sw, sh, destX + (x0 - cellX), destY + (y0 - cellY), sw, sh);
+  }
 
   SF.recolorCold = recolorCold;
   SF.PropRenderer = PropRenderer;

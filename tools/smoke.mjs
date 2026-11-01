@@ -3257,9 +3257,11 @@ function runKenmiProps(G, map, occupied) {
   if (G.walkable(door[0], door[1]) !== true) fail("cottage door is not walkable");
 
   function naive(x, y) {
+    const ready = G.worldSource === "tiles" && G.propAtlasReady && G.propAtlasReady();
     for (let i = 0; i < G.PROPS.length; i++) {
       const prop = G.PROPS[i];
       if (!prop.block) continue;
+      if (prop.dense && !ready) continue;
       const dx = x - prop.x;
       const dy = y - prop.y;
       if (dx * dx + dy * dy < prop.block * prop.block) return true;
@@ -3377,6 +3379,25 @@ function runKenmiProps(G, map, occupied) {
     if (!artCalls.length || artCalls[0].id !== G.propRegistry.idFor(tree, false)) {
       fail("no-atlas tree did not use code art");
     }
+    const denseSolid = dense.find((prop) => prop.block);
+    const houseX = rect[0] + rect[2] / 2;
+    const houseY = rect[1] + rect[3] / 2;
+    if (!denseSolid) fail("dense layout has no solid prop");
+    if (G.propAtlasReady()) fail("prop atlas counted as ready with no sheet");
+    artCalls.length = 0;
+    if (!G.drawPropArt(ctx, denseSolid, false)) fail("dense prop without a sheet fell through");
+    if (artCalls.length) fail("dense prop drew code art without a sheet");
+    if (G.propGrid.blocks(denseSolid.x, denseSolid.y)) fail("dense prop is solid without the atlas");
+    if (!G.footprintBlocks(houseX, houseY)) fail("cottage rect is missing");
+    if (G.footprintBlocks(door[0], door[1])) fail("cottage rect covers the door");
+    const savedSource = G.worldSource;
+    G.worldSource = "code";
+    if (G.walkable(houseX, houseY)) fail("cottage interior is walkable without the atlas");
+    if (!G.dashInside(houseX, houseY)) fail("cottage does not stop a dash without the atlas");
+    if (G.dashInside(denseSolid.x, denseSolid.y)) fail("dense prop blocks a dash without the atlas");
+    G.worldSource = savedSource;
+    if (G.walkable(houseX, houseY)) fail("cottage interior is walkable with the tile build");
+    if (!G.dashInside(houseX, houseY)) fail("cottage does not stop a dash with the tile build");
     const stones = after.find((prop) => prop.kind === "stones");
     const ship = after.find((prop) => prop.kind === "airship");
     artCalls.length = 0;
@@ -3422,6 +3443,85 @@ function runKenmiProps(G, map, occupied) {
     if (artCalls.length) fail("Kenmi tree also drew code art");
     if (!blits.length || blits[0].scale !== 1) fail("Kenmi tree was not scale 1");
     if (blits[0].key !== "kenmi.prop." + kenmiTree.art) fail("Kenmi tree key " + blits[0].key);
+    if (!G.propAtlasReady()) fail("prop atlas did not become ready");
+    if (!G.propGrid.blocks(denseSolid.x, denseSolid.y)) fail("a visible dense prop is not solid");
+    function cottageLanding(x, y, fx, fy, dt) {
+      const len = Math.hypot(fx, fy) || 1;
+      occupied.player.shardstep = true;
+      occupied.flags.shardstep = true;
+      occupied.upgrades = {};
+      occupied.enemies = [];
+      occupied.player.x = x;
+      occupied.player.y = y;
+      occupied.player.px = x;
+      occupied.player.py = y;
+      occupied.player.safeX = x;
+      occupied.player.safeY = y;
+      occupied.player.fx = fx / len;
+      occupied.player.fy = fy / len;
+      occupied.player.dashCd = 0;
+      occupied.player.dashT = 0;
+      occupied.player.hp = 40;
+      occupied.player.maxHp = 40;
+      occupied.player.iFrames = 0;
+      occupied.player.fall = 0;
+      occupied.player.grappleT = 0;
+      occupied.player.hx = 0;
+      occupied.player.hy = 0;
+      occupied.player.dashHit = null;
+      occupied.player.dashGone = 0;
+      occupied.ghosts = [];
+      occupied.particles = [];
+      if (!G.walkable(x, y) || !G.startDash(occupied.player)) return null;
+      let n = 0;
+      while (occupied.player.dashT > 0 && n < 80) {
+        G.updatePlayer(dt);
+        n += 1;
+      }
+      return { x: occupied.player.x, y: occupied.player.y };
+    }
+    function nearSide(label, start, end) {
+      if (!end) fail(label + " did not start");
+      if (foot.blocks(end.x, end.y)) fail(label + " ended inside the cottage at " + end.x.toFixed(1) + "," + end.y.toFixed(1));
+      const sx = start.x - houseX;
+      const sy = start.y - houseY;
+      const ex = end.x - houseX;
+      const ey = end.y - houseY;
+      if (sx * ex + sy * ey <= 0) fail(label + " landed on the far side at " + end.x.toFixed(1) + "," + end.y.toFixed(1));
+      const moved = Math.hypot(end.x - start.x, end.y - start.y);
+      if (moved < 1) fail(label + " stopped before the wall");
+    }
+    function shootCottage(label, x, y, fx, fy) {
+      const slow = cottageLanding(x, y, fx, fy, 1 / 20);
+      const fast = cottageLanding(x, y, fx, fy, 1 / 60);
+      nearSide(label + " at 20fps", { x, y }, slow);
+      nearSide(label + " at 60fps", { x, y }, fast);
+      if (slow.x.toFixed(2) !== fast.x.toFixed(2) || slow.y.toFixed(2) !== fast.y.toFixed(2)) {
+        fail(label + " changed with the frame rate");
+      }
+    }
+    function approach(dx, dy, name) {
+      const gap = (dx !== 0 ? rect[2] : rect[3]) / 2 + 6;
+      for (let dist = Math.ceil(gap); dist <= 220; dist += 1) {
+        for (let side = 0; side <= 36; side += 4) {
+          for (let sign = side === 0 ? 0 : -1; sign <= 1; sign += 2) {
+            if (side === 0 && sign !== 0) continue;
+            const off = side * (sign || 1);
+            const x = houseX + dx * dist + (dy !== 0 ? off : 0);
+            const y = houseY + dy * dist + (dx !== 0 ? off : 0);
+            if (foot.blocks(x, y) || !G.walkable(x, y)) continue;
+            shootCottage(name, x, y, houseX - x, houseY - y);
+            return;
+          }
+        }
+      }
+      fail("no walkable " + name + " approach to the cottage");
+    }
+    if (G.walkable(1100, 232)) shootCottage("west", 1100, 232, 1, 0);
+    else fail("shardstep cottage start is not walkable");
+    approach(1, 0, "east");
+    approach(0, 1, "south");
+    approach(-1, 1, "southwest");
     if (blits[0].x !== Math.round(kenmiTree.x) || blits[0].y !== Math.round(kenmiTree.y)) fail("Kenmi tree was not on whole pixels");
     if (!(blits[0].alpha < 0.5)) fail("hero behind a tree did not fade the canopy");
     blits.length = 0;
@@ -3457,17 +3557,85 @@ function runKenmiProps(G, map, occupied) {
     artCalls.length = 0;
     if (G.propRenderer.drawChest(ctx, chest)) fail("no-atlas chest used Kenmi frames");
     const fence = after.find((prop) => prop.kind === "fence_up");
-    if (fence) {
+    if (!fence) fail("no fence post to measure");
+    if (!G.SpriteRenderer) {
+      vm.runInContext(fs.readFileSync("js/assets/renderer.js", "utf8"), context, { filename: "js/assets/renderer.js" });
+    }
+    const paintCalls = [];
+    ctx.drawImage = function () { paintCalls.push(Array.prototype.slice.call(arguments)); ctx.draws += 1; };
+    function fencePlaces(frame) {
+      paintCalls.length = 0;
       G.assets = {
         lookup(key) {
           if (key !== "kenmi.prop.fence") return { ready: false };
-          return { ready: true, key, image: { tag: "fence" }, anchor: { x: 8, y: 62 }, frame: { name: "0", x: 3, y: 5, w: 16, h: 62 } };
+          return { ready: true, key, image: { tag: "fence" }, anchor: { x: 8, y: 62 }, frame };
         }
       };
-      ctx.draws = 0;
+      G.propRenderer.fence.epoch = -1;
       if (!G.propRenderer.draw(ctx, fence, false)) fail("fence strip did not draw");
-      if (!ctx.draws) fail("fence strip did not blit");
+      return paintCalls.slice();
     }
+    const fenceFull = { name: "0", x: 3, y: 5, w: 16, h: 62, ox: 0, oy: 0 };
+    const fenceTrim = { name: "0", x: 3, y: 5, w: 8, h: 60, ox: 4, oy: 2 };
+    const fullFence = fencePlaces(fenceFull);
+    const trimFence = fencePlaces(fenceTrim);
+    if (!fullFence.length || !trimFence.length) fail("fence strip did not blit");
+    function cellOrigin(call, frame) {
+      const cellX = (frame.ox || 0) + (call[1] - frame.x);
+      const cellY = (frame.oy || 0) + (call[2] - frame.y);
+      return { x: call[5] - cellX, y: call[6] - cellY };
+    }
+    const fullOrigins = fullFence.map((call) => cellOrigin(call, fenceFull));
+    for (const call of trimFence) {
+      if (call[1] < fenceTrim.x || call[2] < fenceTrim.y || call[1] + call[3] > fenceTrim.x + fenceTrim.w || call[2] + call[4] > fenceTrim.y + fenceTrim.h) {
+        fail("fence sampled outside its trimmed frame");
+      }
+      const origin = cellOrigin(call, fenceTrim);
+      if (!fullOrigins.some((row) => row.x === origin.x && row.y === origin.y)) fail("trimmed fence anchor drifted");
+    }
+    context.document = {
+      createElement() {
+        const canvas = { width: 1, height: 1 };
+        canvas.getContext = function () {
+          return {
+            drawImage() {},
+            getImageData(x, y, w, h) { return { data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }; },
+            putImageData() {}
+          };
+        };
+        return canvas;
+      }
+    };
+    const realRenderer = new G.SpriteRenderer(null);
+    G.spriteRenderer = realRenderer;
+    function drawnAnchor(prop, lit, frame, anchor) {
+      paintCalls.length = 0;
+      G.assets = {
+        lookup(key) {
+          return { ready: true, key, image: { tag: key }, anchor, flip: false, frame };
+        }
+      };
+      if (!G.propRenderer.draw(ctx, prop, lit)) fail("trimmed prop did not draw");
+      const call = paintCalls[paintCalls.length - 1];
+      if (!call) fail("trimmed prop did not blit");
+      return {
+        x: call[5] + (anchor.x - (frame.ox || 0)),
+        y: call[6] + (anchor.y - (frame.oy || 0))
+      };
+    }
+    const lampFoot = { x: Math.round(stake.x), y: Math.round(stake.y) };
+    const lampAnchor = { x: 8, y: 46 };
+    const lampFull = drawnAnchor(stake, false, { name: "0", x: 1, y: 2, w: 16, h: 48, ox: 0, oy: 0 }, lampAnchor);
+    const lampTrim = drawnAnchor(stake, false, { name: "0", x: 1, y: 2, w: 13, h: 44, ox: 3, oy: 4 }, lampAnchor);
+    if (lampFull.x !== lampFoot.x || lampFull.y !== lampFoot.y) fail("untrimmed lamp anchor missed the foot");
+    if (lampTrim.x !== lampFull.x || lampTrim.y !== lampFull.y) fail("unlit lamp anchor drifted when the frame was trimmed");
+    const other = dense.find((prop) => prop.kind === "tree");
+    const otherFoot = { x: Math.round(other.x), y: Math.round(other.y) };
+    const treeAnchor = { x: 32, y: 63 };
+    const treeFull = drawnAnchor(other, false, { name: "0", x: 4, y: 6, w: 64, h: 80, ox: 0, oy: 0 }, treeAnchor);
+    const treeTrim = drawnAnchor(other, false, { name: "0", x: 4, y: 6, w: 50, h: 70, ox: 6, oy: 5 }, treeAnchor);
+    if (treeFull.x !== otherFoot.x || treeFull.y !== otherFoot.y) fail("untrimmed tree anchor missed the foot");
+    if (treeTrim.x !== treeFull.x || treeTrim.y !== treeFull.y) fail("trimmed tree anchor drifted");
     G.viewW = 220;
     G.viewH = 220;
     G.zoom = 1;

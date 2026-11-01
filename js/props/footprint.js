@@ -18,10 +18,19 @@
     return x >= this.x && y >= this.y && x < this.x + this.w && y < this.y + this.h;
   };
 
-  // dashCircles carries the rectangle beside the prop circles. Ray tests
-  // that only understand a radius skip an entry with no r.
+  // A rectangle in the dash list. Ray tests read rect, not a radius.
   RectFootprint.prototype.solid = function () {
     return { x: this.x, y: this.y, w: this.w, h: this.h, rect: true, kind: "prop" };
+  };
+
+  SF.footprintBlocks = function (x, y) {
+    var rects = SF.propFootprints;
+    var i;
+    if (!rects) return false;
+    for (i = 0; i < rects.length; i++) {
+      if (rects[i] && rects[i].blocks(x, y)) return true;
+    }
+    return false;
   };
 
   SF.RectFootprint = RectFootprint;

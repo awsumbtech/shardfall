@@ -435,6 +435,7 @@ SF.applySwing = function (p) {
 SF.dashInside = function (x, y) {
   var props, i, p, r, dx, dy;
   if (SF.blocksFoot && SF.blocksFoot(x, y)) return true;
+  if (SF.footprintBlocks && SF.footprintBlocks(x, y)) return true;
   if (SF.propGrid && SF.worldSource === "tiles") return SF.propGrid.blocks(x, y);
   props = SF.PROPS;
   if (!props) return false;
@@ -462,14 +463,13 @@ SF.dashCircles = function () {
   var props = SF.PROPS;
   var i, p;
   if (SF.propGrid && SF.worldSource === "tiles") return SF.propGrid.appendCircles(list);
-  if (!props) return list;
-  for (i = 0; i < props.length; i++) {
+  if (props) for (i = 0; i < props.length; i++) {
     p = props[i];
     if (p.dense && SF.worldSource !== "tiles") continue;
     if (!p.block) continue;
     list.push({ x: p.x, y: p.y, r: p.block, kind: "prop" });
   }
-  if (SF.worldSource === "tiles" && SF.propFootprints) {
+  if (SF.propFootprints) {
     for (i = 0; i < SF.propFootprints.length; i++) {
       if (SF.propFootprints[i].solid) list.push(SF.propFootprints[i].solid());
     }
@@ -477,24 +477,68 @@ SF.dashCircles = function () {
   return list;
 };
 
+// Near and far distances where a ray enters an axis-aligned rectangle.
+function rayRect(x, y, ux, uy, solid) {
+  var x0 = solid.x;
+  var y0 = solid.y;
+  var x1 = solid.x + solid.w;
+  var y1 = solid.y + solid.h;
+  var tmin = -Infinity;
+  var tmax = Infinity;
+  var t1, t2, swap;
+  if (Math.abs(ux) < 1e-9) {
+    if (x < x0 || x >= x1) return null;
+  } else {
+    t1 = (x0 - x) / ux;
+    t2 = (x1 - x) / ux;
+    if (t1 > t2) { swap = t1; t1 = t2; t2 = swap; }
+    if (t1 > tmin) tmin = t1;
+    if (t2 < tmax) tmax = t2;
+  }
+  if (Math.abs(uy) < 1e-9) {
+    if (y < y0 || y >= y1) return null;
+  } else {
+    t1 = (y0 - y) / uy;
+    t2 = (y1 - y) / uy;
+    if (t1 > t2) { swap = t1; t1 = t2; t2 = swap; }
+    if (t1 > tmin) tmin = t1;
+    if (t2 < tmax) tmax = t2;
+  }
+  if (tmin > tmax) return null;
+  return { enter: tmin, exit: tmax };
+}
+
 SF.raySolid = function (x, y, ux, uy, maxDist) {
   var list = SF.dashCircles();
   var best = null;
-  var i, solid, fx, fy, b, c, disc, root, enter, exit;
+  var i, solid, fx, fy, b, c, disc, root, enter, exit, slab;
   for (i = 0; i < list.length; i++) {
     solid = list[i];
-    if (!solid.r) continue;
-    fx = x - solid.x;
-    fy = y - solid.y;
-    b = 2 * (fx * ux + fy * uy);
-    c = fx * fx + fy * fy - solid.r * solid.r;
-    disc = b * b - 4 * c;
-    if (disc < 0) continue;
-    root = Math.sqrt(disc);
-    enter = (-b - root) * 0.5;
-    exit = (-b + root) * 0.5;
-    if (enter < 0.001) enter = exit;
-    if (enter < 0.001 || enter > maxDist) continue;
+    if (solid.rect) {
+      slab = rayRect(x, y, ux, uy, solid);
+      if (!slab) continue;
+      enter = slab.enter;
+      exit = slab.exit;
+      // A rect is a wall. Starting inside it must not aim at the far side.
+      if (enter < 0.001) {
+        if (exit < 0.001) continue;
+        enter = 0;
+      }
+      if (enter > maxDist) continue;
+    } else {
+      if (!solid.r) continue;
+      fx = x - solid.x;
+      fy = y - solid.y;
+      b = 2 * (fx * ux + fy * uy);
+      c = fx * fx + fy * fy - solid.r * solid.r;
+      disc = b * b - 4 * c;
+      if (disc < 0) continue;
+      root = Math.sqrt(disc);
+      enter = (-b - root) * 0.5;
+      exit = (-b + root) * 0.5;
+      if (enter < 0.001) enter = exit;
+      if (enter < 0.001 || enter > maxDist) continue;
+    }
     if (!best || enter < best.dist) best = { dist: enter, exit: exit, solid: solid };
   }
   return best;
@@ -503,6 +547,8 @@ SF.raySolid = function (x, y, ux, uy, maxDist) {
 SF.dashPastBlock = function (p, hit, limit) {
   var speed, ux, uy, fromX, fromY, exit, ex, ey, jumped, sealed, d, px, py, inside, steps;
   if (!hit || !hit.solid) return null;
+  // A rectangle is a wall. Landing on its far side would be a dash through the house.
+  if (hit.solid.rect) return null;
   if (hit.exit > limit) return null;
   speed = Math.hypot(p.dvx, p.dvy) || 1;
   ux = p.dvx / speed;

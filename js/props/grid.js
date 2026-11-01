@@ -53,6 +53,21 @@
     this.dirty = false;
   };
 
+  // Dense props are invisible without their sheet, so they must not block.
+  // The cottage rectangle is not a dense prop and always counts.
+  function denseVisible(prop) {
+    if (!prop.dense) return true;
+    return SF.worldSource === "tiles" && SF.propAtlasReady && SF.propAtlasReady();
+  }
+
+  SF.propAtlasReady = function () {
+    var reg = SF.assets;
+    var desc = null;
+    if (!reg || typeof reg.lookup !== "function") return false;
+    try { desc = reg.lookup("kenmi.prop.cottage", { index: 0 }); } catch (err) { return false; }
+    return !!(desc && desc.ready && desc.image && desc.frame);
+  };
+
   PropGrid.prototype.blocks = function (x, y) {
     this.ensure();
     var rects = this.rects;
@@ -75,7 +90,7 @@
         for (i = 0; i < list.length; i++) {
           p = list[i];
           r = p.block;
-          if (!r) continue;
+          if (!r || !denseVisible(p)) continue;
           dx = x - p.x;
           dy = y - p.y;
           if (dx * dx + dy * dy < r * r) return true;
@@ -109,6 +124,7 @@
     var i, p, rect;
     for (i = 0; i < this.blockers.length; i++) {
       p = this.blockers[i];
+      if (!denseVisible(p)) continue;
       list.push({ x: p.x, y: p.y, r: p.block, kind: "prop" });
     }
     for (i = 0; i < this.rects.length; i++) {
