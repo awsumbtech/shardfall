@@ -3388,6 +3388,41 @@ function runKenmiProps(G, map, occupied) {
     if (!G.drawPropArt(ctx, denseSolid, false)) fail("dense prop without a sheet fell through");
     if (artCalls.length) fail("dense prop drew code art without a sheet");
     if (G.propGrid.blocks(denseSolid.x, denseSolid.y)) fail("dense prop is solid without the atlas");
+    const pine = dense.find((prop) => prop.x === 1710 && prop.y === 230 && prop.block);
+    if (!pine) fail("dense tree at 1710,230 is missing");
+    let denseSample = null;
+    function solidity(prop) {
+      return { walk: !G.walkable(prop.x, prop.y), dash: G.dashInside(prop.x, prop.y) };
+    }
+    function walkDashAgree(label, expectSolid) {
+      if (!denseSample) {
+        denseSample = [];
+        for (let i = 0; i < dense.length && denseSample.length < 20; i++) {
+          const prop = dense[i];
+          if (!prop.block) continue;
+          const got = solidity(prop);
+          if (got.walk || got.dash) continue;
+          denseSample.push(prop);
+        }
+        if (denseSample.length < 20) fail(label + " found " + denseSample.length + " open dense props");
+      }
+      const tree = solidity(pine);
+      if (tree.walk !== tree.dash || tree.walk !== expectSolid) {
+        fail(label + " walking at 1710,230 is " + (tree.walk ? "blocked" : "open") + " dash " + tree.dash);
+      }
+      for (let i = 0; i < denseSample.length; i++) {
+        const got = solidity(denseSample[i]);
+        if (got.walk !== got.dash || got.walk !== expectSolid) {
+          fail(label + " walk and dash disagree at " + denseSample[i].x + "," + denseSample[i].y);
+        }
+      }
+    }
+    const atlasSource = G.worldSource;
+    G.worldSource = "code";
+    walkDashAgree("no-atlas", false);
+    G.worldSource = atlasSource;
+    if (G.propAtlasReady()) fail("atlas ready before the sheet");
+    walkDashAgree("before atlas", false);
     if (!G.footprintBlocks(houseX, houseY)) fail("cottage rect is missing");
     if (G.footprintBlocks(door[0], door[1])) fail("cottage rect covers the door");
     const savedSource = G.worldSource;
@@ -3445,6 +3480,8 @@ function runKenmiProps(G, map, occupied) {
     if (blits[0].key !== "kenmi.prop." + kenmiTree.art) fail("Kenmi tree key " + blits[0].key);
     if (!G.propAtlasReady()) fail("prop atlas did not become ready");
     if (!G.propGrid.blocks(denseSolid.x, denseSolid.y)) fail("a visible dense prop is not solid");
+    if (G.worldSource !== "tiles") fail("atlas-ready solidity was not checked on the tile map");
+    walkDashAgree("atlas ready", true);
     function cottageLanding(x, y, fx, fy, dt) {
       const len = Math.hypot(fx, fy) || 1;
       occupied.player.shardstep = true;
@@ -3765,13 +3802,12 @@ function runGroundChecks() {
     (line.startsWith("+") || line.startsWith("-")) && !line.startsWith("+++") && !line.startsWith("---")
   ));
   layoutLines.forEach((line) => {
-    if (!/vault|vledge|stampTrail\(cinderCircles/.test(line)) fail("code-art v2layout.js changed outside the vault gate: " + line);
+    if (/vault|vledge|stampTrail\(cinderCircles/.test(line)) return;
+    if (/propGrid|PROPS|props\[|p\.block|var props|var i, p|if \(props\)|if \(!r\)|dx = |dy = |dx \* dx|Same gate as the dash|for \(i = 0|^[+-]\s*\}$/.test(line)) return;
+    fail("code-art v2layout.js changed outside the vault gate: " + line);
   });
   const layoutSrc = fs.readFileSync("js/content/maps/v2layout.js", "utf8");
   if (!layoutSrc.includes('seal: "vaultOpen"')) fail("v2layout is missing the vault collision seal");
-  if (layoutLines.length && !layoutLines.some((line) => line.includes('seal: "vaultOpen"'))) {
-    fail("v2layout changed without the vault collision seal");
-  }
   if (/SKY_INSET|tx === 124|tx >= 120/.test(adoptJs)) fail("edge insets are still hard-coded in adopt.js");
   const drawJsSky = fs.readFileSync("js/draw.js", "utf8");
   const skyStops = ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae", "#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"];

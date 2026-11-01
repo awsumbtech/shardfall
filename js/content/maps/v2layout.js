@@ -824,18 +824,8 @@ window.SF = SF;
   var landWalkable = SF.walkable;
   SF.walkable = function (x, y) {
     if (!landWalkable(x, y)) return false;
-    var props = SF.PROPS;
-    var i, p, r, dx, dy;
-    if (props) {
-      for (i = 0; i < props.length; i++) {
-        p = props[i];
-        r = p.block;
-        if (!r) continue;
-        dx = x - p.x;
-        dy = y - p.y;
-        if (dx * dx + dy * dy < r * r) return false;
-      }
-    }
+    // Same gate as the dash: dense props block only once their sheet is on the tile map.
+    if (SF.propGrid && SF.propGrid.blocks(x, y)) return false;
     if (SF.cliffBlocks(x, y)) return false;
     return true;
   };
