@@ -1778,7 +1778,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.26"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.27"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -2036,7 +2036,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.26"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.27"')) fail("version was not bumped");
   if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
   if (!dataJs.includes("Behind the scenes: packed art is ready for the site, with no visible change.")) {
     fail("whats new atlas line");
@@ -2045,7 +2045,10 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.26")) fail("html version");
+  if (!html.includes("v0.4.27")) fail("html version");
+  if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
+    fail("whats new props line");
+  }
   const drawJs = fs.readFileSync("js/draw.js", "utf8");
   if (!drawJs.includes('id === "wayfarer"') || !drawJs.includes("SF.spriteRenderer")) {
     fail("the field hero is not routed through the asset registry");
@@ -2665,15 +2668,21 @@ async function runAtlasChecks() {
         }
       }
       if (entry.key === "kenmi.tile.volcanoDim" && entry.dim !== 0.6) fail("low ash dim factor is " + entry.dim);
+    } else if (entry.key && entry.key.startsWith("kenmi.prop.")) {
+      if (!entry.anchor || entry.anchor.length < 2) fail(entry.key + " has no foot anchor");
+      if (!entry.rects || !entry.rects.length) fail(entry.key + " has no rects");
+      for (const rect of entry.rects) {
+        if (!rect || !rect.name || !(rect.w > 0) || !(rect.h > 0)) fail(entry.key + " frame is empty");
+      }
     } else {
-      fail("packed key is not a hero or ground tile: " + entry.key);
+      fail("packed key is not a hero, prop, or ground tile: " + entry.key);
     }
   }
   if (heroCount !== 5) fail("hero sheets changed");
   const { groundEntries } = await import("./ehmap/ground-frames.mjs");
   const mapDoc = JSON.parse(fs.readFileSync("js/content/maps/emberhold.tmj", "utf8"));
   const generated = groundEntries(mapDoc);
-  const declaredGround = declared.entries.filter((entry) => !entry.key.startsWith("kenmi.hero."));
+  const declaredGround = declared.entries.filter((entry) => entry.key.startsWith("kenmi.tile.") || entry.key === "ground.fx");
   if (JSON.stringify(generated) !== JSON.stringify(declaredGround)) {
     fail("atlas ground frames are not the cells the tile map uses");
   }
@@ -3081,6 +3090,620 @@ async function runAtlasChecks() {
   console.log("atlas checks ok");
 }
 
+function runKenmiProps(G, map, occupied) {
+  const propFiles = [
+    "js/props/catalog.js",
+    "js/props/registry.js",
+    "js/props/footprint.js",
+    "js/props/grid.js",
+    "js/props/renderer.js",
+    "js/props/decorlayer.js"
+  ];
+  for (const file of propFiles) {
+    if (!fs.existsSync(file)) fail("missing " + file);
+    if (!html.includes('src="' + file + '"')) fail("page omits " + file);
+    if (!sw.includes('"' + file + '"')) fail("precache omits " + file);
+  }
+  if (!sw.includes('"js/content/props/emberhold-dense.json"')) fail("precache omits the decor layout");
+  const layout = JSON.parse(fs.readFileSync("js/content/props/emberhold-dense.json", "utf8"));
+  if (!layout.props || layout.props.length !== 1022) fail("layout file does not hold 1022 props");
+  const config = JSON.parse(fs.readFileSync("art/atlas.config.json", "utf8"));
+  const byKey = new Map(config.entries.map((entry) => [entry.key, entry]));
+
+  function land(x, y, fx, fy, plus) {
+    const len = Math.hypot(fx, fy) || 1;
+    occupied.player.shardstep = !!plus;
+    occupied.flags.shardstep = !!plus;
+    occupied.upgrades = {};
+    occupied.player.x = x;
+    occupied.player.y = y;
+    occupied.player.px = x;
+    occupied.player.py = y;
+    occupied.player.safeX = x;
+    occupied.player.safeY = y;
+    occupied.player.fx = fx / len;
+    occupied.player.fy = fy / len;
+    occupied.player.dashCd = 0;
+    occupied.player.dashT = 0;
+    occupied.player.hp = 40;
+    occupied.player.maxHp = 40;
+    occupied.player.iFrames = 0;
+    occupied.player.fall = 0;
+    occupied.player.grappleT = 0;
+    occupied.player.hx = 0;
+    occupied.player.hy = 0;
+    occupied.player.dashHit = null;
+    occupied.player.dashGone = 0;
+    occupied.ghosts = [];
+    occupied.particles = [];
+    if (!G.walkable(x, y)) return "blocked";
+    if (!G.startDash(occupied.player)) return "nostart";
+    let n = 0;
+    while (occupied.player.dashT > 0 && n < 40) {
+      G.updatePlayer(1 / 60);
+      n += 1;
+    }
+    return occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2);
+  }
+
+  function cinderAim() {
+    const y = 360;
+    let edge = -1;
+    for (let x = 1760; x < 2200; x += 1) {
+      if (G.walkable(x, y)) edge = x;
+      else if (edge > 0) break;
+    }
+    if (edge < 0) fail("Cinderstep shore was not walkable");
+    return [edge - 4, y, 1, 0, false];
+  }
+
+  const hookPost = (G.HOOKS || []).find((hook) => hook.id === "hook-ledge");
+  if (!hookPost) fail("hook post missing before the prop pass");
+  const aimX = hookPost.x - 1989;
+  const aimY = hookPost.y - 656;
+  const rows = [
+    ["hook", 1989, 656, aimX, aimY, true],
+    ["cinder", ...cinderAim()],
+    ["shardstep", 1832, 553, 1, 0, true]
+  ];
+  const beforeDash = rows.map((row) => land(row[1], row[2], row[3], row[4], row[5]));
+  beforeDash.forEach((spot, i) => {
+    if (spot === "blocked" || spot === "nostart") fail(rows[i][0] + " dash did not start before decor (" + spot + ")");
+  });
+
+  const kept = G.PROPS.filter((prop) => !prop.dense).map((prop) => ({
+    kind: prop.kind, x: prop.x, y: prop.y, block: prop.block || 0
+  }));
+
+  for (const file of [
+    "js/art/core.js",
+    "js/art/props.js",
+    "js/art/world.js",
+    "js/art/buildings.js",
+    "js/draw.js"
+  ].concat(propFiles)) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  }
+  const Art = context.Art;
+  const artCalls = [];
+  Art.sprite = function (ctx, id, x, y, opts) {
+    artCalls.push({ id, x, y, opts: opts || null });
+    return true;
+  };
+  if (typeof G.installPropArt === "function") G.installPropArt();
+  const layer = G.DecorLayer.fromData("emberhold", G.PROP_ISLANDS.emberhold, layout);
+  if (!layer.apply()) fail("decor layer did not apply");
+
+  const cat = context.SF.PROP_ROWS || [];
+  if (cat.length < 70) fail("prop catalog is short");
+  for (const row of cat) {
+    const key = "kenmi.prop." + row.id;
+    const entry = byKey.get(key);
+    if (!entry) fail("atlas missing " + key);
+    if (entry.path !== row.file) fail(key + " sheet drifted");
+    if (entry.anchor[0] !== row.anchor[0] || entry.anchor[1] !== row.anchor[1]) fail(key + " anchor drifted");
+    const frames = row.frames || 1;
+    const step = row.dx || row.rect[2];
+    if (entry.rects.length !== frames) fail(key + " frame count drifted");
+    if (entry.rects[0].x !== row.rect[0] || entry.rects[0].y !== row.rect[1] || entry.rects[0].w !== row.rect[2] || entry.rects[0].h !== row.rect[3]) {
+      fail(key + " rect drifted");
+    }
+    if (frames > 1 && entry.rects[1].x !== row.rect[0] + step) fail(key + " frame step drifted");
+  }
+
+  const after = G.PROPS.filter((prop) => !prop.dense);
+  if (after.length !== kept.length) fail("existing prop count changed");
+  for (let i = 0; i < kept.length; i++) {
+    if (after[i].kind !== kept[i].kind || after[i].x !== kept[i].x || after[i].y !== kept[i].y || (after[i].block || 0) !== kept[i].block) {
+      fail("existing prop moved " + kept[i].kind + " " + kept[i].x + "," + kept[i].y);
+    }
+  }
+  const dense = G.PROPS.filter((prop) => prop.dense);
+  if (dense.length !== 1022) fail("dense props " + dense.length);
+  for (let i = 0; i < layout.props.length; i++) {
+    const row = layout.props[i];
+    const prop = dense[i];
+    if (prop.kind !== row.type || prop.art !== row.variant || prop.x !== row.x || prop.y !== row.y || (prop.block || 0) !== (row.block || 0)) {
+      fail("dense prop " + i + " was not loaded as given");
+    }
+  }
+
+  function legacyId(prop, lit) {
+    if (prop.art) return prop.art;
+    if (prop.kind === "airship") return "skiff";
+    if (prop.kind === "stake") return lit ? "lamp_lit" : "lamp_cold";
+    if (prop.kind === "flower") {
+      const c = prop.c || "";
+      if (c.indexOf("9af") !== -1 || c.indexOf("c8be") !== -1) return "flower_tide";
+      if (c.indexOf("ffb") !== -1 || c.indexOf("ffe") !== -1 || c.indexOf("e7a") !== -1) return "flower_gold";
+      if (c.indexOf("c6b6") !== -1 || c.indexOf("d8c6") !== -1) return "blossom";
+      return "flower";
+    }
+    if (Art.fieldProp) return Art.fieldProp(prop, "emberhold");
+    return prop.kind;
+  }
+  for (const prop of after) {
+    if (G.propRegistry.idFor(prop, true) !== legacyId(prop, true)) {
+      fail("variant changed for " + prop.kind + " at " + prop.x + "," + prop.y);
+    }
+  }
+
+  const foot = (G.propFootprints || [])[0];
+  const rect = layout.cottage_rect;
+  const door = layout.door;
+  if (!foot || !foot.blocks(rect[0] + rect[2] / 2, rect[1] + rect[3] / 2)) fail("cottage rect does not block its center");
+  if (foot.blocks(door[0], door[1])) fail("cottage rect covers the door");
+  if (G.walkable(rect[0] + 8, rect[1] + 8)) fail("cottage interior is walkable");
+  if (G.walkable(door[0], door[1]) !== true) fail("cottage door is not walkable");
+
+  function naive(x, y) {
+    const ready = G.worldSource === "tiles" && G.propAtlasReady && G.propAtlasReady();
+    for (let i = 0; i < G.PROPS.length; i++) {
+      const prop = G.PROPS[i];
+      if (!prop.block) continue;
+      if (prop.dense && !ready) continue;
+      const dx = x - prop.x;
+      const dy = y - prop.y;
+      if (dx * dx + dy * dy < prop.block * prop.block) return true;
+    }
+    const prints = G.propFootprints || [];
+    for (let i = 0; i < prints.length; i++) if (prints[i].blocks(x, y)) return true;
+    return false;
+  }
+  let compared = 0;
+  for (let y = 8; y < map.h * 16; y += 64) {
+    for (let x = 8; x < map.w * 16; x += 64) {
+      if (naive(x, y) !== G.propGrid.blocks(x, y)) fail("prop grid disagreed at " + x + "," + y);
+      compared += 1;
+    }
+  }
+  if (G.propGrid.blocks(door[0], door[1])) fail("grid blocks the cottage door");
+  if (!G.propGrid.blocks(rect[0] + rect[2] / 2, rect[1] + rect[3] / 2)) fail("grid misses the cottage");
+  if (compared < 100) fail("prop grid sample was tiny");
+
+  const tile = map.tile;
+  const seen = new Uint8Array(map.w * map.h);
+  const queue = [];
+  function pushTile(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) return;
+    const i = ty * map.w + tx;
+    if (seen[i]) return;
+    if (!G.walkable(tx * tile + tile / 2, ty * tile + tile / 2)) return;
+    seen[i] = 1;
+    queue.push(i);
+  }
+  pushTile(Math.floor(G.WAKE.x / tile), Math.floor(G.WAKE.y / tile));
+  for (let qi = 0; qi < queue.length; qi++) {
+    const i = queue[qi];
+    const tx = i % map.w;
+    const ty = (i / map.w) | 0;
+    pushTile(tx + 1, ty);
+    pushTile(tx - 1, ty);
+    pushTile(tx, ty + 1);
+    pushTile(tx, ty - 1);
+  }
+  function connected(x, y) {
+    const tx = Math.floor(x / tile);
+    const ty = Math.floor(y / tile);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = tx + dx;
+        const ny = ty + dy;
+        if (nx < 0 || ny < 0 || nx >= map.w || ny >= map.h) continue;
+        if (seen[ny * map.w + nx]) return true;
+      }
+    }
+    return false;
+  }
+  function reach(label, x, y) {
+    if (!G.walkable(x, y)) fail(label + " is not walkable");
+    if (!connected(x, y)) fail(label + " is cut off from the wake");
+  }
+  reach("wake", G.WAKE.x, G.WAKE.y);
+  reach("dock", G.DOCKS.emberhold.x, G.DOCKS.emberhold.y);
+  reach("lamp", G.LAMP.x, G.LAMP.y);
+  reach("cottage door", door[0], door[1]);
+  for (const npc of G.NPCS) reach(npc.id, npc.x, npc.y);
+  const storyShards = ["shard-meadow", "shard-grove", "shard-dock", "shard-west", "shard-perch", "shard-scar", "shard-hill"];
+  if (storyShards.length !== 7) fail("story shard list");
+  for (const id of storyShards) {
+    const shard = G.PICKUPS.find((item) => item.id === id);
+    if (!shard) fail("missing " + id);
+    reach(id, shard.x, shard.y);
+  }
+  for (const id of ["chest-orchard", "chest-meadow", "chest-perch"]) {
+    const chest = (G.EXTRAS || []).find((extra) => extra.id === id);
+    if (!chest) fail("missing " + id);
+    reach(id, chest.x, chest.y);
+  }
+  for (const hook of G.HOOKS) {
+    if (G.propGrid.blocks(hook.x, hook.y)) fail(hook.id + " is inside a prop");
+    if (G.walkable(hook.x, hook.y)) continue;
+    let approach = false;
+    for (let dy = -48; dy <= 48 && !approach; dy += 8) {
+      for (let dx = -48; dx <= 48 && !approach; dx += 8) {
+        if (!dx && !dy) continue;
+        if (G.walkable(hook.x + dx, hook.y + dy) && connected(hook.x + dx, hook.y + dy)) approach = true;
+      }
+    }
+    if (!approach) fail(hook.id + " has no walkable approach");
+  }
+
+  const afterDash = rows.map((row) => land(row[1], row[2], row[3], row[4], row[5]));
+  for (let i = 0; i < rows.length; i++) {
+    if (afterDash[i] !== beforeDash[i]) {
+      fail(rows[i][0] + " dash landed " + afterDash[i] + ", before decor " + beforeDash[i]);
+    }
+  }
+
+  const errors = [];
+  const prevError = console.error;
+  console.error = function () {
+    errors.push(Array.prototype.join.call(arguments, " "));
+    prevError.apply(console, arguments);
+  };
+  try {
+    const ctx = {
+      globalAlpha: 1,
+      imageSmoothingEnabled: true,
+      stack: [],
+      draws: 0,
+      save() { this.stack.push(this.globalAlpha); },
+      restore() { this.globalAlpha = this.stack.pop(); },
+      drawImage() { this.draws += 1; }
+    };
+    const tree = after.find((prop) => prop.kind === "tree");
+    artCalls.length = 0;
+    G.assets = { lookup() { return { ready: false }; } };
+    if (!G.drawPropArt(ctx, tree, false)) fail("no-atlas tree did not draw");
+    if (!artCalls.length || artCalls[0].id !== G.propRegistry.idFor(tree, false)) {
+      fail("no-atlas tree did not use code art");
+    }
+    const denseSolid = dense.find((prop) => prop.block);
+    const houseX = rect[0] + rect[2] / 2;
+    const houseY = rect[1] + rect[3] / 2;
+    if (!denseSolid) fail("dense layout has no solid prop");
+    if (G.propAtlasReady()) fail("prop atlas counted as ready with no sheet");
+    artCalls.length = 0;
+    if (!G.drawPropArt(ctx, denseSolid, false)) fail("dense prop without a sheet fell through");
+    if (artCalls.length) fail("dense prop drew code art without a sheet");
+    if (G.propGrid.blocks(denseSolid.x, denseSolid.y)) fail("dense prop is solid without the atlas");
+    const pine = dense.find((prop) => prop.x === 1710 && prop.y === 230 && prop.block);
+    if (!pine) fail("dense tree at 1710,230 is missing");
+    let denseSample = null;
+    function solidity(prop) {
+      return { walk: !G.walkable(prop.x, prop.y), dash: G.dashInside(prop.x, prop.y) };
+    }
+    function walkDashAgree(label, expectSolid) {
+      if (!denseSample) {
+        denseSample = [];
+        for (let i = 0; i < dense.length && denseSample.length < 20; i++) {
+          const prop = dense[i];
+          if (!prop.block) continue;
+          const got = solidity(prop);
+          if (got.walk || got.dash) continue;
+          denseSample.push(prop);
+        }
+        if (denseSample.length < 20) fail(label + " found " + denseSample.length + " open dense props");
+      }
+      const tree = solidity(pine);
+      if (tree.walk !== tree.dash || tree.walk !== expectSolid) {
+        fail(label + " walking at 1710,230 is " + (tree.walk ? "blocked" : "open") + " dash " + tree.dash);
+      }
+      for (let i = 0; i < denseSample.length; i++) {
+        const got = solidity(denseSample[i]);
+        if (got.walk !== got.dash || got.walk !== expectSolid) {
+          fail(label + " walk and dash disagree at " + denseSample[i].x + "," + denseSample[i].y);
+        }
+      }
+    }
+    const atlasSource = G.worldSource;
+    G.worldSource = "code";
+    walkDashAgree("no-atlas", false);
+    G.worldSource = atlasSource;
+    if (G.propAtlasReady()) fail("atlas ready before the sheet");
+    walkDashAgree("before atlas", false);
+    if (!G.footprintBlocks(houseX, houseY)) fail("cottage rect is missing");
+    if (G.footprintBlocks(door[0], door[1])) fail("cottage rect covers the door");
+    const savedSource = G.worldSource;
+    G.worldSource = "code";
+    if (G.walkable(houseX, houseY)) fail("cottage interior is walkable without the atlas");
+    if (!G.dashInside(houseX, houseY)) fail("cottage does not stop a dash without the atlas");
+    if (G.dashInside(denseSolid.x, denseSolid.y)) fail("dense prop blocks a dash without the atlas");
+    G.worldSource = savedSource;
+    if (G.walkable(houseX, houseY)) fail("cottage interior is walkable with the tile build");
+    if (!G.dashInside(houseX, houseY)) fail("cottage does not stop a dash with the tile build");
+    const stones = after.find((prop) => prop.kind === "stones");
+    const ship = after.find((prop) => prop.kind === "airship");
+    artCalls.length = 0;
+    if (G.propRenderer.draw(ctx, stones, false)) fail("stones used the prop atlas");
+    G.drawPropArt(ctx, stones, false);
+    G.drawPropArt(ctx, ship, false);
+    if (!artCalls.some((call) => call.id === "stones")) fail("stones skipped code art");
+    if (!artCalls.some((call) => call.id === "skiff")) fail("skiff skipped code art");
+    const tuft = after.find((prop) => prop.kind === "tuft" && Art.fieldProp(prop, "emberhold") === "");
+    if (tuft) {
+      artCalls.length = 0;
+      if (!G.drawPropArt(ctx, tuft, false)) fail("thinned tuft was dropped");
+      if (artCalls.length) fail("thinned tuft drew a sprite");
+    }
+    const blits = [];
+    G.spriteRenderer = {
+      drawFrame(drawCtx, desc, x, y, opts) {
+        blits.push({ key: desc.key, x, y, scale: opts.scale, alpha: drawCtx.globalAlpha, name: desc.frame.name, flip: !!desc.flip });
+      }
+    };
+    G.assets = {
+      lookup(key, query) {
+        const row = cat.find((item) => "kenmi.prop." + item.id === key);
+        return {
+          ready: true,
+          key,
+          image: { tag: key },
+          anchor: { x: row.anchor[0], y: row.anchor[1] },
+          flip: !!query.flip,
+          frame: { name: String(query.index || 0), x: 0, y: 0, w: row.rect[2], h: row.rect[3] }
+        };
+      }
+    };
+    const yCount = new Map();
+    G.PROPS.forEach((prop) => yCount.set(prop.y, (yCount.get(prop.y) || 0) + 1));
+    const kenmiTree = dense.find((prop) => prop.kind === "tree" && yCount.get(prop.y) === 1);
+    if (!kenmiTree) fail("no tree with its own sort line");
+    artCalls.length = 0;
+    ctx.globalAlpha = 1;
+    G.state.player.x = kenmiTree.x;
+    G.state.player.y = kenmiTree.y - 8;
+    if (!G.drawPropArt(ctx, kenmiTree, false)) fail("Kenmi tree did not draw");
+    if (artCalls.length) fail("Kenmi tree also drew code art");
+    if (!blits.length || blits[0].scale !== 1) fail("Kenmi tree was not scale 1");
+    if (blits[0].key !== "kenmi.prop." + kenmiTree.art) fail("Kenmi tree key " + blits[0].key);
+    if (!G.propAtlasReady()) fail("prop atlas did not become ready");
+    if (!G.propGrid.blocks(denseSolid.x, denseSolid.y)) fail("a visible dense prop is not solid");
+    if (G.worldSource !== "tiles") fail("atlas-ready solidity was not checked on the tile map");
+    walkDashAgree("atlas ready", true);
+    function cottageLanding(x, y, fx, fy, dt) {
+      const len = Math.hypot(fx, fy) || 1;
+      occupied.player.shardstep = true;
+      occupied.flags.shardstep = true;
+      occupied.upgrades = {};
+      occupied.enemies = [];
+      occupied.player.x = x;
+      occupied.player.y = y;
+      occupied.player.px = x;
+      occupied.player.py = y;
+      occupied.player.safeX = x;
+      occupied.player.safeY = y;
+      occupied.player.fx = fx / len;
+      occupied.player.fy = fy / len;
+      occupied.player.dashCd = 0;
+      occupied.player.dashT = 0;
+      occupied.player.hp = 40;
+      occupied.player.maxHp = 40;
+      occupied.player.iFrames = 0;
+      occupied.player.fall = 0;
+      occupied.player.grappleT = 0;
+      occupied.player.hx = 0;
+      occupied.player.hy = 0;
+      occupied.player.dashHit = null;
+      occupied.player.dashGone = 0;
+      occupied.ghosts = [];
+      occupied.particles = [];
+      if (!G.walkable(x, y) || !G.startDash(occupied.player)) return null;
+      let n = 0;
+      while (occupied.player.dashT > 0 && n < 80) {
+        G.updatePlayer(dt);
+        n += 1;
+      }
+      return { x: occupied.player.x, y: occupied.player.y };
+    }
+    function nearSide(label, start, end) {
+      if (!end) fail(label + " did not start");
+      if (foot.blocks(end.x, end.y)) fail(label + " ended inside the cottage at " + end.x.toFixed(1) + "," + end.y.toFixed(1));
+      const sx = start.x - houseX;
+      const sy = start.y - houseY;
+      const ex = end.x - houseX;
+      const ey = end.y - houseY;
+      if (sx * ex + sy * ey <= 0) fail(label + " landed on the far side at " + end.x.toFixed(1) + "," + end.y.toFixed(1));
+      const moved = Math.hypot(end.x - start.x, end.y - start.y);
+      if (moved < 1) fail(label + " stopped before the wall");
+    }
+    function shootCottage(label, x, y, fx, fy) {
+      const slow = cottageLanding(x, y, fx, fy, 1 / 20);
+      const fast = cottageLanding(x, y, fx, fy, 1 / 60);
+      nearSide(label + " at 20fps", { x, y }, slow);
+      nearSide(label + " at 60fps", { x, y }, fast);
+      if (slow.x.toFixed(2) !== fast.x.toFixed(2) || slow.y.toFixed(2) !== fast.y.toFixed(2)) {
+        fail(label + " changed with the frame rate");
+      }
+    }
+    function approach(dx, dy, name) {
+      const gap = (dx !== 0 ? rect[2] : rect[3]) / 2 + 6;
+      for (let dist = Math.ceil(gap); dist <= 220; dist += 1) {
+        for (let side = 0; side <= 36; side += 4) {
+          for (let sign = side === 0 ? 0 : -1; sign <= 1; sign += 2) {
+            if (side === 0 && sign !== 0) continue;
+            const off = side * (sign || 1);
+            const x = houseX + dx * dist + (dy !== 0 ? off : 0);
+            const y = houseY + dy * dist + (dx !== 0 ? off : 0);
+            if (foot.blocks(x, y) || !G.walkable(x, y)) continue;
+            shootCottage(name, x, y, houseX - x, houseY - y);
+            return;
+          }
+        }
+      }
+      fail("no walkable " + name + " approach to the cottage");
+    }
+    if (G.walkable(1100, 232)) shootCottage("west", 1100, 232, 1, 0);
+    else fail("shardstep cottage start is not walkable");
+    approach(1, 0, "east");
+    approach(0, 1, "south");
+    approach(-1, 1, "southwest");
+    if (blits[0].x !== Math.round(kenmiTree.x) || blits[0].y !== Math.round(kenmiTree.y)) fail("Kenmi tree was not on whole pixels");
+    if (!(blits[0].alpha < 0.5)) fail("hero behind a tree did not fade the canopy");
+    blits.length = 0;
+    G.state.player.y = kenmiTree.y + 40;
+    G.drawPropArt(ctx, kenmiTree, false);
+    if (blits[0].alpha < 0.9) fail("hero in front of a tree still faded it");
+    const stake = after.find((prop) => prop.kind === "stake");
+    blits.length = 0;
+    G.reduceMotion = true;
+    G.anim = 2;
+    G.drawPropArt(ctx, stake, true);
+    if (!blits.length || blits[blits.length - 1].name !== "0") fail("reduced motion lamp did not hold frame 0");
+    G.reduceMotion = false;
+    G.anim = 0.2;
+    blits.length = 0;
+    G.drawPropArt(ctx, stake, true);
+    if (blits[blits.length - 1].name !== "1") fail("lamp flicker frame was " + (blits[blits.length - 1] && blits[blits.length - 1].name));
+    const cold = new Uint8ClampedArray([200, 180, 40, 255, 10, 10, 10, 255]);
+    G.recolorCold(cold);
+    if (cold[4] !== 10 || !(cold[2] > cold[0])) fail("unlit lamp recolor missed the glass");
+    const chest = (G.EXTRAS || []).find((extra) => extra.kind === "chest");
+    const openT = G.chestOpenT;
+    G.chestOpenT = function () { return 0.3; };
+    blits.length = 0;
+    G.drawChest(ctx, chest);
+    if (blits[blits.length - 1].name !== "1") fail("chest opening frame was " + (blits[blits.length - 1] && blits[blits.length - 1].name));
+    G.chestOpenT = function () { return 1; };
+    blits.length = 0;
+    G.drawChest(ctx, chest);
+    if (blits[blits.length - 1].name !== "3") fail("open chest frame was " + (blits[blits.length - 1] && blits[blits.length - 1].name));
+    G.chestOpenT = openT;
+    G.assets = { lookup() { return { ready: false }; } };
+    artCalls.length = 0;
+    if (G.propRenderer.drawChest(ctx, chest)) fail("no-atlas chest used Kenmi frames");
+    const fence = after.find((prop) => prop.kind === "fence_up");
+    if (!fence) fail("no fence post to measure");
+    if (!G.SpriteRenderer) {
+      vm.runInContext(fs.readFileSync("js/assets/renderer.js", "utf8"), context, { filename: "js/assets/renderer.js" });
+    }
+    const paintCalls = [];
+    ctx.drawImage = function () { paintCalls.push(Array.prototype.slice.call(arguments)); ctx.draws += 1; };
+    function fencePlaces(frame) {
+      paintCalls.length = 0;
+      G.assets = {
+        lookup(key) {
+          if (key !== "kenmi.prop.fence") return { ready: false };
+          return { ready: true, key, image: { tag: "fence" }, anchor: { x: 8, y: 62 }, frame };
+        }
+      };
+      G.propRenderer.fence.epoch = -1;
+      if (!G.propRenderer.draw(ctx, fence, false)) fail("fence strip did not draw");
+      return paintCalls.slice();
+    }
+    const fenceFull = { name: "0", x: 3, y: 5, w: 16, h: 62, ox: 0, oy: 0 };
+    const fenceTrim = { name: "0", x: 3, y: 5, w: 8, h: 60, ox: 4, oy: 2 };
+    const fullFence = fencePlaces(fenceFull);
+    const trimFence = fencePlaces(fenceTrim);
+    if (!fullFence.length || !trimFence.length) fail("fence strip did not blit");
+    function cellOrigin(call, frame) {
+      const cellX = (frame.ox || 0) + (call[1] - frame.x);
+      const cellY = (frame.oy || 0) + (call[2] - frame.y);
+      return { x: call[5] - cellX, y: call[6] - cellY };
+    }
+    const fullOrigins = fullFence.map((call) => cellOrigin(call, fenceFull));
+    for (const call of trimFence) {
+      if (call[1] < fenceTrim.x || call[2] < fenceTrim.y || call[1] + call[3] > fenceTrim.x + fenceTrim.w || call[2] + call[4] > fenceTrim.y + fenceTrim.h) {
+        fail("fence sampled outside its trimmed frame");
+      }
+      const origin = cellOrigin(call, fenceTrim);
+      if (!fullOrigins.some((row) => row.x === origin.x && row.y === origin.y)) fail("trimmed fence anchor drifted");
+    }
+    context.document = {
+      createElement() {
+        const canvas = { width: 1, height: 1 };
+        canvas.getContext = function () {
+          return {
+            drawImage() {},
+            getImageData(x, y, w, h) { return { data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }; },
+            putImageData() {}
+          };
+        };
+        return canvas;
+      }
+    };
+    const realRenderer = new G.SpriteRenderer(null);
+    G.spriteRenderer = realRenderer;
+    function drawnAnchor(prop, lit, frame, anchor) {
+      paintCalls.length = 0;
+      G.assets = {
+        lookup(key) {
+          return { ready: true, key, image: { tag: key }, anchor, flip: false, frame };
+        }
+      };
+      if (!G.propRenderer.draw(ctx, prop, lit)) fail("trimmed prop did not draw");
+      const call = paintCalls[paintCalls.length - 1];
+      if (!call) fail("trimmed prop did not blit");
+      return {
+        x: call[5] + (anchor.x - (frame.ox || 0)),
+        y: call[6] + (anchor.y - (frame.oy || 0))
+      };
+    }
+    const lampFoot = { x: Math.round(stake.x), y: Math.round(stake.y) };
+    const lampAnchor = { x: 8, y: 46 };
+    const lampFull = drawnAnchor(stake, false, { name: "0", x: 1, y: 2, w: 16, h: 48, ox: 0, oy: 0 }, lampAnchor);
+    const lampTrim = drawnAnchor(stake, false, { name: "0", x: 1, y: 2, w: 13, h: 44, ox: 3, oy: 4 }, lampAnchor);
+    if (lampFull.x !== lampFoot.x || lampFull.y !== lampFoot.y) fail("untrimmed lamp anchor missed the foot");
+    if (lampTrim.x !== lampFull.x || lampTrim.y !== lampFull.y) fail("unlit lamp anchor drifted when the frame was trimmed");
+    const other = dense.find((prop) => prop.kind === "tree");
+    const otherFoot = { x: Math.round(other.x), y: Math.round(other.y) };
+    const treeAnchor = { x: 32, y: 63 };
+    const treeFull = drawnAnchor(other, false, { name: "0", x: 4, y: 6, w: 64, h: 80, ox: 0, oy: 0 }, treeAnchor);
+    const treeTrim = drawnAnchor(other, false, { name: "0", x: 4, y: 6, w: 50, h: 70, ox: 6, oy: 5 }, treeAnchor);
+    if (treeFull.x !== otherFoot.x || treeFull.y !== otherFoot.y) fail("untrimmed tree anchor missed the foot");
+    if (treeTrim.x !== treeFull.x || treeTrim.y !== treeFull.y) fail("trimmed tree anchor drifted");
+    G.viewW = 220;
+    G.viewH = 220;
+    G.zoom = 1;
+    const play = G.state;
+    play.camX = kenmiTree.x;
+    play.camY = kenmiTree.y;
+    const view = G.viewRect(160);
+    const near = G.propGrid.near(view.l, view.t, view.r, view.b);
+    if (!near.some((prop) => prop === kenmiTree)) fail("draw cull dropped the tree at the camera");
+    const far = G.PROPS.find((prop) => Math.hypot(prop.x - kenmiTree.x, prop.y - kenmiTree.y) > 900);
+    if (far && near.some((prop) => prop === far)) fail("draw cull kept a far prop");
+    G.viewW = 1;
+    G.viewH = 1;
+    play.player.x = kenmiTree.x;
+    play.player.y = kenmiTree.y - 40;
+    let list = G.entityList(play);
+    const behindHero = list.findIndex((ent) => Math.abs(ent.y - (play.player.y + 0.01)) < 0.001);
+    const behindTree = list.findIndex((ent) => Math.abs(ent.y - kenmiTree.y) < 0.001);
+    if (behindHero < 0 || behindTree < 0 || !(behindHero < behindTree)) fail("hero behind a tree sorted in front");
+    play.player.y = kenmiTree.y + 40;
+    list = G.entityList(play);
+    const frontHero = list.findIndex((ent) => Math.abs(ent.y - (play.player.y + 0.01)) < 0.001);
+    const frontTree = list.findIndex((ent) => Math.abs(ent.y - kenmiTree.y) < 0.001);
+    if (frontHero < 0 || frontTree < 0 || !(frontHero > frontTree)) fail("hero in front of a tree sorted behind");
+  } finally {
+    console.error = prevError;
+  }
+  if (errors.length) fail("console errors: " + errors[0]);
+  console.log("kenmi props ok");
+}
+
 function runGroundChecks() {
   const files = [
     "js/assets/manifest.js",
@@ -3179,9 +3802,12 @@ function runGroundChecks() {
     (line.startsWith("+") || line.startsWith("-")) && !line.startsWith("+++") && !line.startsWith("---")
   ));
   layoutLines.forEach((line) => {
-    if (!/vault|vledge|stampTrail\(cinderCircles/.test(line)) fail("code-art v2layout.js changed outside the vault gate: " + line);
+    if (/vault|vledge|stampTrail\(cinderCircles/.test(line)) return;
+    if (/propGrid|PROPS|props\[|p\.block|var props|var i, p|if \(props\)|if \(!r\)|dx = |dy = |dx \* dx|Same gate as the dash|for \(i = 0|^[+-]\s*\}$/.test(line)) return;
+    fail("code-art v2layout.js changed outside the vault gate: " + line);
   });
-  if (!layoutLines.some((line) => line.includes('seal: "vaultOpen"'))) fail("v2layout is missing the vault collision seal");
+  const layoutSrc = fs.readFileSync("js/content/maps/v2layout.js", "utf8");
+  if (!layoutSrc.includes('seal: "vaultOpen"')) fail("v2layout is missing the vault collision seal");
   if (/SKY_INSET|tx === 124|tx >= 120/.test(adoptJs)) fail("edge insets are still hard-coded in adopt.js");
   const drawJsSky = fs.readFileSync("js/draw.js", "utf8");
   const skyStops = ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae", "#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"];
@@ -3677,6 +4303,7 @@ function runGroundChecks() {
   G.tileMap = map;
   G.worldSource = "tiles";
   G.islandId = "emberhold";
+  runKenmiProps(G, map, occupied);
   [[1989, 656, 0.117, -0.993], [2035, 656, -0.247, -0.969]].forEach((row) => {
     occupied.player.x = row[0];
     occupied.player.y = row[1];
@@ -3764,11 +4391,11 @@ function runGroundChecks() {
     occupied.player.shardstep = true;
     occupied.flags.shardstep = true;
     occupied.upgrades = {};
-    occupied.player.x = 1818;
+    occupied.player.x = 1832;
     occupied.player.y = 553;
-    occupied.player.px = 1818;
+    occupied.player.px = 1832;
     occupied.player.py = 553;
-    occupied.player.safeX = 1818;
+    occupied.player.safeX = 1832;
     occupied.player.safeY = 553;
     occupied.player.fx = 1;
     occupied.player.fy = 0;
@@ -3782,7 +4409,7 @@ function runGroundChecks() {
     occupied.player.hy = 0;
     occupied.ghosts = [];
     occupied.particles = [];
-    if (!G.walkable(1818, 553)) fail("rate dash start is sky");
+    if (!G.walkable(1832, 553)) fail("rate dash start is sky");
     if (!G.startDash(occupied.player)) fail("rate dash did not start");
     let n = 0;
     while (occupied.player.dashT > 0 && n < 80) {
@@ -3794,11 +4421,11 @@ function runGroundChecks() {
   occupied.player.shardstep = true;
   occupied.flags.shardstep = true;
   occupied.upgrades = {};
-  occupied.player.x = 1818;
+  occupied.player.x = 1832;
   occupied.player.y = 553;
-  occupied.player.px = 1818;
+  occupied.player.px = 1832;
   occupied.player.py = 553;
-  occupied.player.safeX = 1818;
+  occupied.player.safeX = 1832;
   occupied.player.safeY = 553;
   occupied.player.fx = 1;
   occupied.player.fy = 0;
@@ -3817,7 +4444,7 @@ function runGroundChecks() {
     if (occupied.player.dashT > 0) G.updatePlayer(dt);
   });
   rateEnds.push(occupied.player.x.toFixed(2) + "," + occupied.player.y.toFixed(2));
-  if (rateEnds.some((end) => end !== rateEnds[0])) fail("Shardstep from 1818,553 changed with the frame rate " + rateEnds.join(" "));
+  if (rateEnds.some((end) => end !== rateEnds[0])) fail("Shardstep from 1832,553 changed with the frame rate " + rateEnds.join(" "));
   [[1088, 360, 1088, 288, "npc"], [G.LAMP.x, G.LAMP.y + 80, G.LAMP.x, G.LAMP.y, "lamp"], [1856, 528, 1856, 448, "post"]].forEach((row) => {
     occupied.player.shardstep = true;
     occupied.flags.shardstep = true;
@@ -3856,12 +4483,12 @@ function runGroundChecks() {
   occupied.player.shardstep = false;
   occupied.flags.shardstep = false;
   occupied.upgrades = {};
-  occupied.player.x = 243.6;
-  occupied.player.y = 613.9;
-  occupied.player.px = 243.6;
-  occupied.player.py = 613.9;
-  occupied.player.safeX = 243.6;
-  occupied.player.safeY = 613.9;
+  occupied.player.x = 241;
+  occupied.player.y = 612.6;
+  occupied.player.px = 241;
+  occupied.player.py = 612.6;
+  occupied.player.safeX = 241;
+  occupied.player.safeY = 612.6;
   occupied.player.fx = Math.cos(hollowAng);
   occupied.player.fy = Math.sin(hollowAng);
   occupied.player.dashCd = 0;
@@ -3872,14 +4499,14 @@ function runGroundChecks() {
   occupied.player.grappleT = 0;
   occupied.player.hx = 0;
   occupied.player.hy = 0;
-  if (!G.walkable(243.6, 613.9)) fail("hollow dash start is sky");
+  if (!G.walkable(241, 612.6)) fail("hollow dash start is sky");
   if (!G.startDash(occupied.player)) fail("hollow dash did not start");
   let hollowSteps = 0;
   while (occupied.player.dashT > 0 && hollowSteps < 30) {
     G.updatePlayer(0.02);
     hollowSteps += 1;
   }
-  const hollowMoved = G.dist(occupied.player.x, occupied.player.y, 243.6, 613.9);
+  const hollowMoved = G.dist(occupied.player.x, occupied.player.y, 241, 612.6);
   if (hollowMoved > G.DASH_REACH + 1) fail("base dash past the hollow NPC moved " + hollowMoved.toFixed(0) + "px");
   if (!G.walkable(occupied.player.x, occupied.player.y)) fail("hollow dash ended off the ground");
   const reachOf = { base: G.DASH_REACH, long: G.DASH_REACH * G.LONGSTEP, plus: G.DASH_REACH_PLUS };

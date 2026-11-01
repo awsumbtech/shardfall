@@ -10,6 +10,7 @@
   var shapeZone = null;
 
   function propBlocks(x, y) {
+    if (SF.propGrid) return SF.propGrid.blocks(x, y);
     var props = SF.PROPS;
     var i, p, r, dx, dy;
     if (!props) return false;
@@ -84,6 +85,7 @@
     shapeWalk = SF.walkable;
     shapeZone = SF.zoneAt;
     SF.walkable = function (x, y) {
+      if (SF.footprintBlocks && SF.footprintBlocks(x, y)) return false;
       if (SF.worldSource === "tiles" && SF.islandId === "emberhold" && SF.tileMap) {
         if (!terrainOpen(SF.tileMap, x, y)) return false;
         if (propBlocks(x, y)) return false;
@@ -233,6 +235,10 @@
     var i, p, k, move, spot, tx, ty, kind;
     for (i = 0; i < SF.PROPS.length; i++) {
       p = SF.PROPS[i];
+      if (p.dense) {
+        keep.push(p);
+        continue;
+      }
       if (rejectProp(map, p)) continue;
       kind = propClass(p);
       if (kind === "decor") {
@@ -262,6 +268,7 @@
     }
     SF.PROPS = keep;
     if (SF.ISLANDS && SF.ISLANDS.emberhold) SF.ISLANDS.emberhold.props = keep;
+    if (SF.notePropIndex) SF.notePropIndex();
   };
 
   function dashReach() {

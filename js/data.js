@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.26";
+SF.VERSION = "0.4.27";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -50,7 +50,8 @@ SF.WHATS_NEW = [
   "Behind the scenes: new art system groundwork, no visible change",
   "Behind the scenes: packed art is ready for the site, with no visible change.",
   "New hero sprite on the map.",
-  "Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs."
+  "Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.",
+  "Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

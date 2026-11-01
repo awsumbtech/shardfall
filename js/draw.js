@@ -2297,7 +2297,13 @@ SF.entityList = function (s) {
     Art.landmarkDraws().forEach(function (item) { list.push(item); });
   }
   var lit = SF.lampIsLit ? SF.lampIsLit(s) : !!s.flags.lampLit;
-  SF.PROPS.forEach(function (prop) {
+  var propList = SF.PROPS || [];
+  if (SF.propGrid && SF.worldSource === "tiles" && SF.viewW > 32 && SF.viewH > 32 && s && SF.viewRect) {
+    var propView = SF.viewRect(160);
+    propList = SF.propGrid.near(propView.l, propView.t, propView.r, propView.b);
+  }
+  propList.forEach(function (prop) {
+    if (prop.dense && SF.worldSource !== "tiles") return;
     list.push({ y: prop.y, draw: function (ctx) { SF.drawProp(ctx, prop, lit); } });
   });
   (SF.TEXTS || []).forEach(function (mark) {
