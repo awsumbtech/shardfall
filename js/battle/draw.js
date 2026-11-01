@@ -946,14 +946,27 @@ function seatFoeLabels(spots, view) {
   SF.Battle.foePlates = placed;
 }
 
+function softHitTint() {
+  if (SF.reduceFlash) return true;
+  if (SF.reduceMotion) return true;
+  if (SF.BattleFeel && SF.BattleFeel.prefersReducedMotion && SF.BattleFeel.prefersReducedMotion()) return true;
+  return false;
+}
+
 function hitFlashAlpha(b, actor) {
   if (!b.art || !b.art.flash || b.art.flash.indexOf(actor.id) < 0) return 0;
-  // Reduce flashing is the default. One soft tint, then nothing. No strobe.
-  if (SF.reduceFlash) {
-    if (!b.art._tintOnce) b.art._tintOnce = {};
-    if (b.art._tintOnce[actor.id]) return 0;
-    b.art._tintOnce[actor.id] = true;
-    return SF.BattleFeel && SF.BattleFeel.FLASH_TINT != null ? SF.BattleFeel.FLASH_TINT : 0.35;
+  // Reduce flashing, or reduced motion, fades a 0.35 tint over ~100ms.
+  // Elapsed time, not frame count.
+  if (softHitTint()) {
+    var dur = SF.BattleFeel && SF.BattleFeel.FLASH_TINT_MS != null ? SF.BattleFeel.FLASH_TINT_MS : 100;
+    if (!b.art.flashAt) b.art.flashAt = {};
+    if (b.art.flashAt[actor.id] == null) {
+      b.art.flashAt[actor.id] = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+    }
+    var elapsed = (SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now()) - b.art.flashAt[actor.id];
+    if (elapsed >= dur) return 0;
+    var base = SF.BattleFeel && SF.BattleFeel.FLASH_TINT != null ? SF.BattleFeel.FLASH_TINT : 0.35;
+    return base * (1 - elapsed / dur);
   }
   if (b.hitPause > 0) return 0.78;
   var p = animP(b);
@@ -969,7 +982,7 @@ function drawHitFlash(ctx, b, actor, spot, nudge) {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.fillStyle = "#fff";
-  if (alpha <= 0.4) {
+  if (softHitTint()) {
     var bw = Math.max(8, Math.round(spot.hit.w * 0.5));
     var bh = Math.max(8, Math.round(spot.hit.h * 0.42));
     ctx.fillRect(cx - Math.round(bw / 2), cy - Math.round(bh / 2), bw, bh);
@@ -1676,7 +1689,6 @@ function listIds(b) {
 SF.Battle.moveSel = function (dir) {
   var b = SF.state && SF.state.battle;
   if (!b || b.phase === "readout" || b.phase === "result" || b.phase === "done") return;
-  if (SF.Battle.menuLocked && SF.Battle.menuLocked(b)) return;
   var n = 0;
   if (b.phase === "menu") n = menuCount(b);
   else if (b.phase === "skills" || b.phase === "items") n = listIds(b).length;
@@ -1695,11 +1707,12 @@ SF.Battle.confirm = function () {
     SF.Battle.skipReadout();
     return;
   }
-  if (SF.Battle.menuLocked && SF.Battle.menuLocked(b)) return;
   if (b.phase === "result") {
     SF.Battle.confirmResult();
     return;
   }
+  // A confirm key already down when the menu appeared is not a fresh press.
+  if (b._confirmHeldAtMenu) return;
   if (b.phase === "menu") {
     var cmds = ["attack", "skill", "item", "defend", "flee"];
     var i = b.sel || 0;
@@ -1748,7 +1761,6 @@ SF.Battle.activate = function (id) {
     SF.Battle.skipReadout();
     return;
   }
-  if (SF.Battle.menuLocked && SF.Battle.menuLocked(b)) return;
   if (b.phase === "result") {
     if (id === "result" || id === "skip") SF.Battle.confirmResult();
     return;
@@ -1848,21 +1860,21 @@ SF.Battle.readPad = function (b) {
   var ay = i.padY || 0;
   var vert = ay < -0.45 ? -1 : (ay > 0.45 ? 1 : 0);
   var horiz = ax < -0.45 ? -1 : (ax > 0.45 ? 1 : 0);
-  var locked = SF.Battle.menuLocked && SF.Battle.menuLocked(b);
-  if (!locked) {
-    if (vert && vert !== b._padV) SF.Battle.moveSel(vert);
-    if (horiz && horiz !== b._padH) SF.Battle.moveSel(horiz);
-  }
+  if (vert && vert !== b._padV) SF.Battle.moveSel(vert);
+  if (horiz && horiz !== b._padH) SF.Battle.moveSel(horiz);
   b._padV = vert;
   b._padH = horiz;
   // Arm hold-to-skip only on a fresh A press during an enemy or system readout.
   if (i.padAEdge && SF.Battle.enemyReadout(b)) {
     b.padHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
   }
-  if (!i.padA) b.padHoldSince = 0;
+  if (!i.padA) {
+    b.padHoldSince = 0;
+    b._padAHeldAtMenu = false;
+  }
   if (i.padAEdge) {
     i.padAEdge = false;
-    if (!locked) SF.Battle.confirm();
+    if (b.phase === "result" || b.phase === "readout" || !b._padAHeldAtMenu) SF.Battle.confirm();
   }
   if (i.padBEdge || i.padXEdge) {
     i.padBEdge = false;
@@ -1901,11 +1913,11 @@ function bindBattlePointer() {
       moved: false
     };
     if (b) {
-      b._gestureReadout = b.phase === "readout";
-      b._gestureSkipped = false;
+      drag.began = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      drag.beganReadout = b.phase === "readout";
       b._holdSkips = 0;
       if (SF.Battle.enemyReadout && SF.Battle.enemyReadout(b)) {
-        b.pointerHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+        b.pointerHoldSince = drag.began;
       } else {
         b.pointerHoldSince = 0;
       }
@@ -1936,20 +1948,20 @@ function bindBattlePointer() {
     if (!s || (s.mode !== "battle" && s.mode !== "results") || !e) return;
     var pt = toView(e);
     var moved = start.moved || Math.abs(pt.y - start.y) > 10 || Math.abs(pt.x - start.x) > 10;
-    var gesture = false;
     if (s.battle) {
-      gesture = !!s.battle._gestureReadout || !!s.battle._gestureSkipped || !!(s.battle._holdSkips);
-      s.battle._gestureReadout = false;
       s.battle.pointerHoldSince = 0;
       s.battle._holdSkips = 0;
     }
     if (moved) return;
-    // The finger that skipped a readout must not also press the menu that appears.
-    if (gesture) {
-      if (s.battle && s.battle.phase === "readout") SF.Battle.onPointer(pt.x, pt.y);
+    var b = s.battle;
+    // Still in the readout this finger started on: skip, and do not press whatever appears.
+    if (start.beganReadout) {
+      if (b && b.phase === "readout") SF.Battle.onPointer(pt.x, pt.y);
       return;
     }
-    if (s.battle && SF.Battle.menuLocked && SF.Battle.menuLocked(s.battle)) return;
+    // This press began before the command menu, or in the first 250ms. The lift does not act.
+    // The result screen's Continue button is not part of that menu.
+    if (b && b.phase !== "result" && SF.Battle.pointerPressIgnored(b, start.began)) return;
     SF.Battle.onPointer(pt.x, pt.y);
   }
   view.addEventListener("pointerup", endDrag);
@@ -1969,6 +1981,7 @@ function bindBattlePointer() {
     e.preventDefault();
     e.stopPropagation();
     if (confirm) {
+      s.battle._confirmDown = true;
       if (SF.Battle.enemyReadout && SF.Battle.enemyReadout(s.battle)) {
         if (!s.battle.keyHoldSince) s.battle.keyHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
       } else {
@@ -1976,9 +1989,11 @@ function bindBattlePointer() {
       }
     }
     if (e.repeat && !arrow) return;
-    if (SF.Battle.menuLocked && SF.Battle.menuLocked(s.battle)) return;
     if (arrow) SF.Battle.moveSel(code === "ArrowUp" || code === "ArrowLeft" ? -1 : 1);
-    else if (confirm) SF.Battle.confirm();
+    else if (confirm) {
+      if (s.battle._confirmHeldAtMenu) return;
+      SF.Battle.confirm();
+    }
     else if (cancel) SF.Battle.cancel();
   }, true);
   window.addEventListener("keyup", function (e) {
@@ -1986,7 +2001,11 @@ function bindBattlePointer() {
     var b = s && s.battle;
     if (!b) return;
     var code = e.code;
-    if (code === "Enter" || code === "Space" || code === "KeyE" || code === "KeyZ") b.keyHoldSince = 0;
+    if (code === "Enter" || code === "Space" || code === "KeyE" || code === "KeyZ") {
+      b._confirmDown = false;
+      b._confirmHeldAtMenu = false;
+      b.keyHoldSince = 0;
+    }
   }, true);
 }
 

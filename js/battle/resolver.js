@@ -403,7 +403,10 @@ SF.ActionResolver = {
     }
     b.phase = "menu";
     b.pending = null;
-    b.menuLockUntil = (SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now()) + SF.BattleFeel.MENU_LOCK_MS;
+    b.menuAppearedAt = SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+    // A confirm key or A button already down does not count as a new press.
+    b._confirmHeldAtMenu = !!b._confirmDown;
+    b._padAHeldAtMenu = !!(SF.inputState && SF.inputState.padA);
     emit("command-menu", { actorId: actor.id });
   }
 };

@@ -29,9 +29,12 @@ SF.Battle.flow = {
     if (!actor) return true;
     return actor.side !== "party";
   },
-  menuLocked: function (b) {
-    if (!b || b.phase !== "menu" || !b.menuLockUntil) return false;
-    return SF.Battle.flow.now() < b.menuLockUntil;
+  // True when this pointerdown started before the menu, or within
+  // MENU_LOCK_MS after it. Lift time does not matter.
+  pointerPressIgnored: function (b, beganAt) {
+    if (!b || beganAt == null || b.menuAppearedAt == null) return false;
+    var grace = SF.BattleFeel && SF.BattleFeel.MENU_LOCK_MS != null ? SF.BattleFeel.MENU_LOCK_MS : 250;
+    return beganAt < b.menuAppearedAt + grace;
   },
   holdAge: function (b) {
     var now = SF.Battle.flow.now();
@@ -63,7 +66,9 @@ SF.Battle.flow = {
   }
 };
 
-SF.Battle.menuLocked = function (b) { return SF.Battle.flow.menuLocked(b); };
+SF.Battle.pointerPressIgnored = function (b, beganAt) {
+  return SF.Battle.flow.pointerPressIgnored(b, beganAt);
+};
 SF.Battle.enemyReadout = function (b) { return SF.Battle.flow.enemyReadout(b); };
 
 SF.Battle.makePartyActor = function (s, id, index) {

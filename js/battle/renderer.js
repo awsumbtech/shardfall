@@ -53,6 +53,10 @@ SF.BattleRenderer = {
       if (!art || !p || !p.tgt) return;
       if (art.hurt.indexOf(p.tgt) < 0) art.hurt.push(p.tgt);
       if (art.flash.indexOf(p.tgt) < 0) art.flash.push(p.tgt);
+      if (!art.flashAt) art.flashAt = {};
+      if (art.flashAt[p.tgt] == null) {
+        art.flashAt[p.tgt] = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      }
       if (p.element) art.element = p.element;
       art.pops.push({ id: p.tgt, text: p.amount, heal: false });
     });

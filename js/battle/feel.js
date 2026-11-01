@@ -15,14 +15,17 @@ SF.BattleFeel = {
   READOUT: 0.55,
   HIT_PAUSE_MS: 60,
   HOLD_SKIP_MS: 180,
-  // After a readout, the command menu ignores input this long so the
-  // finger that skipped cannot land on Attack.
+  // A pointer press is ignored when it began before the command menu, or
+  // in this window after the menu appeared. The decision uses the press
+  // start, so lifting later still does not act.
   MENU_LOCK_MS: 250,
   // Share of a damaging readout spent on the impact frame. The turn
   // machine reads this. It does not read anything the renderer stored.
   IMPACT_PORTION: 0.2,
-  // Reduce flashing (on by default) uses one soft white tint, not a strobe.
+  // Soft hit tint. Alpha starts here and falls to 0 over FLASH_TINT_MS.
+  // Time, not frames, so a 120Hz phone still shows it.
   FLASH_TINT: 0.35,
+  FLASH_TINT_MS: 100,
 
   now: function () {
     if (typeof performance !== "undefined" && performance.now) return performance.now();

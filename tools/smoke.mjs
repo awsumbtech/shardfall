@@ -2008,6 +2008,48 @@ SF.mountIsland("emberhold");
   });
   L.drawBattle(fake, 915, 412, 1);
   if (!(L.Battle.stripFace >= 44)) fail("turn icons still tiny at phone width (" + L.Battle.stripFace + ")");
+  // Down, Down, Enter right after the menu appears picks Item. Arrows are
+  // never dropped. A confirm already held when the menu appeared does not act.
+  // A pointer press that began before the menu, or within 250ms, is ignored
+  // even if the finger lifts later.
+  {
+    const menu = play.battle;
+    const hero = menu.actors.find((a) => a.side === "party");
+    menu.phase = "menu";
+    menu.actorId = hero.id;
+    menu.sel = 0;
+    menu.pending = null;
+    menu.menuAppearedAt = L.BattleFeel.now();
+    menu._confirmHeldAtMenu = false;
+    menu._confirmDown = false;
+    menu._padAHeldAtMenu = false;
+    L.drawBattle(fake, 915, 412, 1);
+    L.Battle.moveSel(1);
+    L.Battle.moveSel(1);
+    if (menu.sel !== 2) fail("two downs did not reach Item, sel " + menu.sel);
+    L.Battle.confirm();
+    if (menu.phase !== "items") fail("Enter after two downs did not open items (" + menu.phase + ")");
+    menu.phase = "menu";
+    menu.sel = 0;
+    menu.pending = null;
+    menu._confirmHeldAtMenu = true;
+    L.Battle.moveSel(1);
+    if (menu.sel !== 1) fail("a held confirm blocked arrow navigation");
+    L.Battle.confirm();
+    if (menu.phase !== "menu" || menu.sel !== 1) fail("a confirm held at menu-open acted");
+    menu._confirmHeldAtMenu = false;
+    L.Battle.moveSel(1);
+    L.Battle.confirm();
+    if (menu.phase !== "items") fail("a fresh Enter did not pick Item");
+    const appeared = 1000;
+    menu.menuAppearedAt = appeared;
+    if (!L.Battle.pointerPressIgnored(menu, appeared - 20)) fail("a press that began before the menu was accepted");
+    if (!L.Battle.pointerPressIgnored(menu, appeared + 100)) fail("a press inside 250ms of the menu was accepted");
+    if (L.Battle.pointerPressIgnored(menu, appeared + 250)) fail("a press at 250ms was dropped");
+    if (L.Battle.pointerPressIgnored(menu, appeared + 800)) fail("a press that started after the window was dropped");
+    menu.phase = "menu";
+    menu.sel = 0;
+  }
   const kes = play.battle.actors.find((a) => a.key === "kestrel");
   play.battle.phase = "skills";
   play.battle.actorId = kes.id;
