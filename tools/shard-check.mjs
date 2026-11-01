@@ -39,7 +39,16 @@ for (const file of [
   "js/content/maps/v2layout.js",
   "js/vaultgate.js",
   "js/grapple.js",
+  "js/battle/events.js",
+  "js/battle/formula.js",
+  "js/battle/state.js",
+  "js/battle/timeline.js",
+  "js/battle/ai.js",
+  "js/battle/rewards.js",
+  "js/battle/feel.js",
+  "js/battle/resolver.js",
   "js/battle/battle.js",
+  "js/battle/renderer.js",
   "js/menu/field.js",
   "js/world.js"
 ]) {

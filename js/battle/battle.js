@@ -1,278 +1,95 @@
 "use strict";
 
+// Public battle entry points. Field code calls Battle.start, Battle.applyLoss,
+// and the auto-battle helpers. The work lives in the modules beside this file.
 var SF = window.SF || {};
 window.SF = SF;
-
-var GAUGE = 1000;
 
 function battleRng(seed) {
   var next = SF.mulberry32 ? SF.mulberry32(seed || 1) : Math.random;
   return function () { return next(); };
 }
 
-function elementName(id) {
-  if (id === "ember") return "Ember";
-  if (id === "tide") return "Tide";
-  if (id === "gale") return "Gale";
-  if (id === "shard") return "Shard";
-  return "";
+function nowMs() {
+  return SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
 }
 
-function actorById(b, id) {
-  var i;
-  for (i = 0; i < b.actors.length; i++) if (b.actors[i].id === id) return b.actors[i];
-  return null;
+function holdAge(b) {
+  var now = nowMs();
+  var best = 0;
+  ["pointerHoldSince", "keyHoldSince", "padHoldSince"].forEach(function (key) {
+    if (!b[key]) return;
+    var age = now - b[key];
+    if (age > best) best = age;
+  });
+  return best;
 }
 
-function living(b, side) {
-  return b.actors.filter(function (a) { return a.alive && a.side === side; });
+function holdingLong(b) {
+  var need = SF.BattleFeel && SF.BattleFeel.HOLD_SKIP_MS != null ? SF.BattleFeel.HOLD_SKIP_MS : 180;
+  return holdAge(b) >= need;
 }
 
-function effSpd(a) {
-  return Math.max(1, Math.round(a.spd * (a.mods.spd > 0 ? 1.3 : 1)));
-}
-
-function effDef(a) {
-  return Math.max(0, Math.round(a.def * (a.mods.def > 0 ? 1.3 : 1)));
+function fastForward(b) {
+  var guard = 0;
+  while (b && b.phase === "readout" && holdingLong(b) && guard < 16) {
+    guard += 1;
+    b._holdSkips = (b._holdSkips || 0) + 1;
+    b.hitPause = 0;
+    SF.Battle.skipReadout();
+  }
 }
 
 SF.Battle = {
   instant: false,
-  rngSeed: 1
+  rngSeed: 1,
+  // Frame freeze on a hit, in milliseconds. 0 disables it. prefers-reduced-motion
+  // forces 0 inside BattleFeel.hitPauseMs even when this stays at 60.
+  hitPauseMs: 60
 };
 
 SF.Battle.makePartyActor = function (s, id, index) {
-  var def = SF.PARTY[id];
-  var m = s.party.members[id];
-  var st = SF.memberStats(s, id);
-  m.hp = Math.max(0, Math.min(st.maxHp, m.hp == null ? st.maxHp : m.hp));
-  m.sp = Math.max(0, Math.min(st.maxSp, m.sp == null ? st.maxSp : m.sp));
-  return {
-    id: "p-" + id,
-    key: id,
-    side: "party",
-    name: def.name,
-    sprite: def.sprite,
-    hp: m.hp,
-    maxHp: st.maxHp,
-    sp: m.sp,
-    maxSp: st.maxSp,
-    atk: st.atk,
-    def: st.def,
-    mag: st.mag,
-    spd: st.spd,
-    element: st.element,
-    skills: SF.skillsAt(id, m.level),
-    alive: m.hp > 0,
-    ct: 0,
-    mods: { def: 0, spd: 0 },
-    guard: false,
-    index: index
-  };
+  return SF.BattleState.makePartyActor(s, id, index);
 };
 
 SF.Battle.makeFoe = function (kind, n, revealed) {
-  var def = SF.FOES[kind];
-  var name = def.name;
-  return {
-    id: "f-" + kind + "-" + n,
-    key: kind,
-    side: "foe",
-    name: name,
-    sprite: def.sprite,
-    hp: def.hp,
-    maxHp: def.hp,
-    sp: 0,
-    maxSp: 0,
-    atk: def.atk,
-    def: def.def,
-    mag: def.mag,
-    spd: def.spd,
-    baseAtk: def.atk,
-    baseDef: def.def,
-    element: null,
-    weak: def.weak || "",
-    resist: def.resist || "",
-    skills: (def.skills || []).slice(),
-    steal: def.steal || "",
-    stolen: false,
-    boss: !!def.boss,
-    core: !!def.core,
-    phases: def.phases || [],
-    phase: 1,
-    revealed: !!revealed,
-    alive: true,
-    ct: 0,
-    mods: { def: 0, spd: 0 },
-    guard: false,
-    index: n
-  };
+  return SF.BattleState.makeFoe(kind, n, revealed);
 };
-
-function stampNames(foes) {
-  var counts = {};
-  foes.forEach(function (f) { counts[f.key] = (counts[f.key] || 0) + 1; });
-  var seen = {};
-  foes.forEach(function (f) {
-    if (counts[f.key] < 2) return;
-    seen[f.key] = (seen[f.key] || 0) + 1;
-    f.name = f.name + " " + seen[f.key];
-  });
-}
-
-function primeCt(actors) {
-  var fastest = 1;
-  actors.forEach(function (a) { if (a.spd > fastest) fastest = a.spd; });
-  actors.forEach(function (a, i) {
-    a.ct = Math.round((a.spd / fastest) * GAUGE - i);
-  });
-}
 
 SF.Battle.forecast = function (b, count) {
-  var sim = b.actors.map(function (a) {
-    return { id: a.id, ct: a.ct, spd: effSpd(a), alive: a.alive, side: a.side };
-  });
-  var out = [];
-  var guard = 0;
-  var current = null;
-  if (b.actorId) {
-    out.push(b.actorId);
-    sim.forEach(function (a) { if (a.id === b.actorId) current = a; });
-    // A full gauge means this turn has not been spent yet. Readout already
-    // stored the post-action ct, so subtracting again would lie about the queue.
-    if (current && current.ct > GAUGE - 1) current.ct -= GAUGE;
-  }
-  while (out.length < count && guard < 500) {
-    guard += 1;
-    var ready = sim.filter(function (a) { return a.alive && a.ct >= GAUGE; });
-    if (!ready.length) {
-      var alive = sim.filter(function (a) { return a.alive; });
-      if (!alive.length) break;
-      var step = Infinity;
-      alive.forEach(function (a) {
-        var need = (GAUGE - a.ct) / a.spd;
-        if (need < step) step = need;
-      });
-      if (!(step > 0) || step === Infinity) break;
-      alive.forEach(function (a) { a.ct += a.spd * step; });
-      continue;
-    }
-    ready.sort(function (a, c) {
-      if (c.ct !== a.ct) return c.ct - a.ct;
-      if (a.side !== c.side) return a.side === "party" ? -1 : 1;
-      return c.spd - a.spd;
-    });
-    out.push(ready[0].id);
-    ready[0].ct -= GAUGE;
-  }
-  return out.slice(0, count);
+  return SF.BattleTimeline.forecast(b, count);
 };
 
-function nextActor(b) {
-  var guard = 0;
-  while (guard < 400) {
-    guard += 1;
-    var ready = b.actors.filter(function (a) { return a.alive && a.ct >= GAUGE; });
-    if (ready.length) {
-      ready.sort(function (a, c) {
-        if (c.ct !== a.ct) return c.ct - a.ct;
-        if (a.side !== c.side) return a.side === "party" ? -1 : 1;
-        return c.spd - a.spd;
-      });
-      return ready[0];
-    }
-    var alive = b.actors.filter(function (a) { return a.alive; });
-    if (!alive.length) return null;
-    var step = Infinity;
-    alive.forEach(function (a) {
-      var need = (GAUGE - a.ct) / effSpd(a);
-      if (need < step) step = need;
-    });
-    if (!(step > 0)) break;
-    alive.forEach(function (a) { a.ct += effSpd(a) * step; });
+SF.Battle.applyAction = function (b, actor, action) {
+  return SF.ActionResolver.apply(b, actor, action);
+};
+
+SF.Battle.foeAction = function (b, actor) {
+  return SF.EnemyAI.choose(b, actor);
+};
+
+SF.Battle.resolve = function (b, actor, action) {
+  if (SF.BattleRenderer && SF.BattleRenderer.begin) SF.BattleRenderer.begin(b, actor, action);
+  SF.ActionResolver.resolve(b, actor, action);
+};
+
+SF.Battle.afterReadout = function (b) {
+  SF.ActionResolver.afterReadout(b);
+};
+
+SF.Battle.playerAct = function (action) {
+  var s = SF.state;
+  var b = s && s.battle;
+  if (!b || b.phase === "result" || b.phase === "readout" || b.phase === "done") return false;
+  var actor = SF.BattleState.actorById(b, b.actorId);
+  if (!actor || actor.side !== "party") return false;
+  if (action.type === "menu") {
+    b.phase = action.menu;
+    return true;
   }
-  return null;
-}
-
-function pushLog(b, text) {
-  if (!text) return;
-  b.log.push(text);
-  if (b.log.length > 24) b.log.shift();
-}
-
-function targetsFor(b, actor, skill) {
-  var target = skill.target;
-  if (target === "self") return [actor];
-  if (target === "ally" || target === "all-allies") {
-    var allies = living(b, actor.side);
-    if (skill.revive) return b.actors.filter(function (a) { return a.side === actor.side; });
-    return allies;
-  }
-  var other = actor.side === "party" ? "foe" : "party";
-  return living(b, other);
-}
-
-function healAmount(actor, skill) {
-  return skill.heal + Math.round((actor.mag || 0) / 6);
-}
-
-function dealDamage(b, actor, target, skill, powerScale) {
-  var power = (skill.power || 10) * (powerScale || 1);
-  var atk = skill.mag ? actor.mag : actor.atk;
-  var raw = Math.round(atk * power / 10 - effDef(target) * 0.45);
-  var element = skill.element || (!skill.mag && skill.id === "attack" ? actor.element : "");
-  var note = "";
-  if (element && target.weak && element === target.weak) {
-    raw = Math.round(raw * 1.5);
-    note = "weak";
-  } else if (element && target.resist && element === target.resist) {
-    raw = Math.round(raw * 0.5);
-    note = "resist";
-  }
-  if (target.guard) raw = Math.round(raw * 0.5);
-  raw = Math.max(1, raw);
-  target.hp -= raw;
-  if (target.hp <= 0) {
-    target.hp = 0;
-    target.alive = false;
-  }
-  if (target.side === "foe" && (note === "weak" || skill.scan)) target.revealed = true;
-  if (skill.id === "attack" || (skill.power && !skill.scan)) target.revealed = true;
-  return { dmg: raw, element: element, note: note, dead: !target.alive };
-}
-
-function checkPhases(target) {
-  if (!target.phases || !target.phases.length) return "";
-  var ratio = target.maxHp ? target.hp / target.maxHp : 1;
-  var step = 1;
-  target.phases.forEach(function (ph, i) {
-    if (ratio <= ph.at) step = i + 2;
-  });
-  if (step === target.phase) return "";
-  var ph = target.phases[step - 2];
-  if (!ph) return "";
-  target.phase = step;
-  if (ph.def) target.def = Math.max(1, Math.round(target.baseDef * ph.def));
-  if (ph.atk) target.atk = Math.max(1, Math.round(target.baseAtk * ph.atk));
-  if (ph.skill && target.skills.indexOf(ph.skill) < 0) target.skills.push(ph.skill);
-  return ph.log || "";
-}
-
-function writeBackParty(s, b) {
-  b.actors.forEach(function (a) {
-    if (a.side !== "party") return;
-    var m = s.party.members[a.key];
-    if (!m) return;
-    m.hp = a.alive ? a.hp : 0;
-    m.sp = a.sp;
-  });
-  var way = actorById(b, "p-wayfarer");
-  if (way && s.player) {
-    s.player.hp = Math.max(0, way.hp);
-    s.player.maxHp = way.maxHp;
-  }
-  SF.syncFieldVitals(s);
-}
+  SF.Battle.resolve(b, actor, action);
+  return true;
+};
 
 function finishBattle(win) {
   var s = SF.state;
@@ -283,7 +100,7 @@ function finishBattle(win) {
   var fieldId = b.fieldId;
   var onWin = b.onWin;
   var onLose = b.onLose;
-  var fled = b.result && b.result.fled;
+  var fledOut = b.result && b.result.fled;
   s.battle = null;
   s.touchCd = 0.7;
   s.encounterGrace = 10;
@@ -305,7 +122,7 @@ function finishBattle(win) {
       e.y = e.homeY;
     });
   }
-  if (win && !fled) {
+  if (win && !fledOut) {
     if (window.Sfx) Sfx.play("fanfare");
     if (fieldId) {
       var foe = null;
@@ -316,7 +133,7 @@ function finishBattle(win) {
   } else if (!win) {
     SF.Battle.applyLoss(s);
     if (onLose) onLose();
-  } else if (fled && fieldId) {
+  } else if (fledOut && fieldId) {
     SF.Battle.shoveOff(s, fieldId);
   }
   if (s.mode === "play" && SF.cuePlaceMusic) SF.cuePlaceMusic(s);
@@ -382,391 +199,6 @@ SF.Battle.shoveOff = function (s, fieldId) {
   p.safeY = p.y;
 };
 
-function openResult(b, row) {
-  b.result = row;
-  b.phase = "result";
-  b.actorId = null;
-  // Corpses finish fading as the panel opens, and the last damage
-  // numbers come down with them instead of hanging over the trees.
-  b.corpseT = 0.5;
-  if (b.art) {
-    b.art.pops = [];
-    b.art.hurt = [];
-    b.art.element = null;
-  }
-  if (row.levels && row.levels.length && window.Sfx) Sfx.play("level");
-}
-
-function victory(b) {
-  var s = SF.state;
-  writeBackParty(s, b);
-  var xpOpts = {};
-  if (b.zoneLevel != null) {
-    xpOpts.zoneLevel = b.zoneLevel;
-    xpOpts.fixed = !!b.fixed || !!b.boss;
-    xpOpts.base = b.xp || 0;
-  }
-  var levels = SF.grantPartyXp(s, b.xp || 0, xpOpts);
-  s.gold = (s.gold || 0) + (b.gold || 0);
-  var found = [];
-  (b.drops || []).forEach(function (drop) {
-    var roll = b.rng();
-    if (roll <= drop.chance) {
-      SF.giveItem(drop.id, 1);
-      found.push(SF.ITEMS[drop.id].name);
-    }
-  });
-  (b.stolen || []).forEach(function (name) {
-    if (found.indexOf(name) < 0) found.push(name);
-  });
-  if (b.carrier && b.carrierRegion && s.flags && s.flags.shard_sense) {
-    s.flags.carriers = s.flags.carriers || {};
-    if (!s.flags.carriers[b.carrierRegion]) {
-      s.flags.carriers[b.carrierRegion] = true;
-      s.shardsHeld = (s.shardsHeld || 0) + 1;
-      if (!s.stats) s.stats = { foes: 0, shardsEver: 0 };
-      s.stats.shardsEver = (s.stats.shardsEver || 0) + 1;
-      found.push("Sky-shard");
-    }
-  }
-  if (b.carrierRegion === "cinderstep" && s.flags) s.flags.choirlingDown = true;
-  SF.syncFieldVitals(s);
-  if (levels.length) SF.emit && SF.emit("level");
-  openResult(b, {
-    win: true,
-    fled: false,
-    xp: b.xp || 0,
-    gold: b.gold || 0,
-    items: found,
-    levels: levels
-  });
-}
-
-function defeat(b) {
-  writeBackParty(SF.state, b);
-  openResult(b, { win: false, fled: false, xp: 0, gold: 0, items: [], levels: [] });
-}
-
-function fled(b) {
-  writeBackParty(SF.state, b);
-  openResult(b, { win: true, fled: true, xp: 0, gold: 0, items: [], levels: [] });
-}
-
-function checkEnd(b) {
-  if (!living(b, "foe").length) {
-    victory(b);
-    return true;
-  }
-  if (!living(b, "party").length) {
-    defeat(b);
-    return true;
-  }
-  return false;
-}
-
-function spendTurn(actor) {
-  if (actor.mods.def > 0) actor.mods.def -= 1;
-  if (actor.mods.spd > 0) actor.mods.spd -= 1;
-  actor.ct = 0;
-}
-
-// No head start. ct stays at 0 unless that would still lap a living foe,
-// in which case the defender waits until that foe's gauge fills first.
-function defendCt(b, actor) {
-  var spd = effSpd(actor);
-  var wait = 0;
-  living(b, "foe").forEach(function (f) {
-    var t = (GAUGE - f.ct) / effSpd(f);
-    if (t > wait) wait = t;
-  });
-  if (!(wait > 0)) return 0;
-  var ct = Math.floor(GAUGE - wait * spd - 1);
-  if (!(ct < 0)) return 0;
-  return ct;
-}
-
-function hitLog(actor, target, hit, skill) {
-  var lines = [];
-  var verb = skill && skill.name && skill.id !== "attack" ? " uses " + skill.name + "." : " attacks!";
-  if (skill && skill.hits > 1) verb = " uses " + skill.name + ".";
-  lines.push(actor.name + (skill && skill.id !== "attack" ? " uses " + skill.name + "." : " attacks!"));
-  if (target.core) lines[lines.length - 1] = actor.name + " attacks the core!";
-  if (skill && skill.id !== "attack") lines[0] = actor.name + " uses " + skill.name + ".";
-  lines.push(target.name + " takes " + hit.dmg + " damage.");
-  if (hit.note === "weak" && hit.element) lines.push(target.name + " is weak to " + elementName(hit.element) + ".");
-  if (hit.note === "resist" && hit.element) lines.push(target.name + " resists " + elementName(hit.element) + ".");
-  if (hit.dead) lines.push(target.name + " is defeated.");
-  return lines;
-}
-
-SF.Battle.applyAction = function (b, actor, action) {
-  var lines = [];
-  var skill, list, i, hit, item, healed, before;
-  if (action.type === "defend") {
-    actor.guard = true;
-    actor.sp = Math.min(actor.maxSp, actor.sp + 3);
-    lines.push(actor.name + " defends.");
-    spendTurn(actor);
-    actor.ct = defendCt(b, actor);
-    return lines;
-  }
-  if (action.type === "flee") {
-    if (!b.canFlee) {
-      lines.push("Cannot flee.");
-      spendTurn(actor, "flee");
-      return lines;
-    }
-    var partySpd = 0;
-    var foeSpd = 0;
-    var pc = 0;
-    var fc = 0;
-    b.actors.forEach(function (a) {
-      if (!a.alive) return;
-      if (a.side === "party") { partySpd += effSpd(a); pc += 1; }
-      else { foeSpd += effSpd(a); fc += 1; }
-    });
-    partySpd = pc ? partySpd / pc : 1;
-    foeSpd = fc ? foeSpd / fc : 1;
-    var chance = Math.max(0.25, Math.min(0.9, 0.45 + (partySpd - foeSpd) * 0.03));
-    if (action.item) chance = 1;
-    b.fleeChance = chance;
-    if (b.rng() <= chance) {
-      lines.push(actor.name + " flees.");
-      b._fled = true;
-    } else {
-      lines.push("Could not flee.");
-    }
-    spendTurn(actor, "flee");
-    return lines;
-  }
-  if (action.type === "item") {
-    item = SF.ITEMS[action.itemId];
-    if (!item || !SF.takeItem(action.itemId, 1)) {
-      lines.push("No item.");
-      spendTurn(actor, "item");
-      return lines;
-    }
-    if (item.flee) {
-      lines.push(actor.name + " uses a Smoke Bomb.");
-      if (!b.canFlee) lines.push("Cannot flee.");
-      else {
-        lines.push("The party flees.");
-        b._fled = true;
-      }
-      if (!b._fled) SF.giveItem(action.itemId, 1);
-      spendTurn(actor, "item");
-      return lines;
-    }
-    var target = action.targetId ? actorById(b, action.targetId) : null;
-    lines.push(actor.name + " uses " + item.name + ".");
-    if (item.hp && target && target.alive) {
-      before = target.hp;
-      target.hp = Math.min(target.maxHp, target.hp + item.hp);
-      lines.push(target.name + " recovers " + (target.hp - before) + " HP.");
-    }
-    if (item.sp && target && target.alive) {
-      before = target.sp;
-      target.sp = Math.min(target.maxSp, target.sp + item.sp);
-      lines.push(target.name + " recovers " + (target.sp - before) + " SP.");
-    }
-    if (item.revive && target && !target.alive) {
-      target.alive = true;
-      target.hp = Math.max(1, Math.ceil(target.maxHp * item.revive));
-      lines.push(target.name + " is back.");
-    }
-    if (item.dmg && target && target.alive) {
-      var dmg = item.dmg;
-      var note = "";
-      if (item.element && target.weak === item.element) {
-        dmg = Math.round(dmg * 1.5);
-        note = "weak";
-      } else if (item.element && target.resist === item.element) {
-        dmg = Math.max(1, Math.round(dmg * 0.5));
-        note = "resist";
-      }
-      if (target.guard) dmg = Math.max(1, Math.round(dmg * 0.5));
-      target.hp -= dmg;
-      target.revealed = true;
-      if (target.hp <= 0) {
-        target.hp = 0;
-        target.alive = false;
-      }
-      lines.push(target.name + " takes " + dmg + " damage.");
-      if (note === "weak") lines.push(target.name + " is weak to " + elementName(item.element) + ".");
-      if (note === "resist") lines.push(target.name + " resists " + elementName(item.element) + ".");
-      if (!target.alive) lines.push(target.name + " is defeated.");
-      var itemPhase = checkPhases(target);
-      if (itemPhase) lines.push(itemPhase);
-    }
-    spendTurn(actor, "item");
-    return lines;
-  }
-  skill = SF.skillById(action.skillId || "attack");
-  if (!skill) skill = SF.SKILLS.attack;
-  if (skill.sp && actor.sp < skill.sp) {
-    lines.push("Not enough SP.");
-    spendTurn(actor, "skill");
-    return lines;
-  }
-  if (skill.sp) actor.sp -= skill.sp;
-  if (skill.scan) {
-    b.actors.forEach(function (a) { if (a.side === "foe") a.revealed = true; });
-    lines.push(actor.name + " uses Scan.");
-    lines.push("Weakness shown.");
-    spendTurn(actor, "skill");
-    return lines;
-  }
-  if (skill.steal) {
-    var mark = action.targetId ? actorById(b, action.targetId) : living(b, "foe")[0];
-    lines.push(actor.name + " uses Steal.");
-    if (mark && mark.steal && !mark.stolen && b.rng() < 0.75) {
-      mark.stolen = true;
-      SF.giveItem(mark.steal, 1);
-      var stolenName = SF.ITEMS[mark.steal].name;
-      b.stolen.push(stolenName);
-      lines.push(actor.name + " steals a " + stolenName + ".");
-    } else {
-      lines.push("Nothing to steal.");
-    }
-    spendTurn(actor, "skill");
-    return lines;
-  }
-  list = action.targetId && skill.target !== "all-foes" && skill.target !== "all-allies"
-    ? [actorById(b, action.targetId)]
-    : targetsFor(b, actor, skill);
-  list = list.filter(function (t) { return !!t && (t.alive || skill.revive); });
-  if (!list.length) {
-    lines.push(actor.name + " acts.");
-    spendTurn(actor, "skill");
-    return lines;
-  }
-  if (skill.heal || skill.defUp || skill.spdUp) {
-    lines.push(actor.name + " uses " + skill.name + ".");
-    list.forEach(function (t) {
-      if (skill.heal) {
-        before = t.hp;
-        healed = healAmount(actor, skill);
-        t.hp = Math.min(t.maxHp, t.hp + healed);
-        lines.push(t.name + " recovers " + (t.hp - before) + " HP.");
-      }
-      if (skill.defUp) {
-        t.mods.def = skill.defUp;
-        lines.push(t.name + " Defense up.");
-      }
-      if (skill.spdUp) {
-        t.mods.spd = skill.spdUp;
-        lines.push(t.name + " Speed up.");
-      }
-    });
-    spendTurn(actor, "skill");
-    return lines;
-  }
-  var hits = skill.hits || 1;
-  var announced = false;
-  list.forEach(function (t) {
-    for (i = 0; i < hits; i++) {
-      if (!t.alive) break;
-      hit = dealDamage(b, actor, t, skill.id === "attack" ? { id: "attack", power: 10, element: actor.element } : skill);
-      if (window.Sfx) Sfx.play(t.side === "party" ? "hurt" : "impact");
-      if (window.Haptics) Haptics.pulse(12);
-      if (!announced) {
-        if (t.core && (skill.id === "attack" || !skill.element)) lines.push(actor.name + " attacks the core!");
-        else if (skill.id === "attack") lines.push(actor.name + " attacks!");
-        else lines.push(actor.name + " uses " + skill.name + ".");
-        announced = true;
-      }
-      lines.push(t.name + " takes " + hit.dmg + " damage.");
-      if (hit.note === "weak" && hit.element) lines.push(t.name + " is weak to " + elementName(hit.element) + ".");
-      if (hit.note === "resist" && hit.element) lines.push(t.name + " resists " + elementName(hit.element) + ".");
-      if (hit.dead) lines.push(t.name + " is defeated.");
-      if (t.boss) {
-        var phaseLine = checkPhases(t);
-        if (phaseLine) lines.push(phaseLine);
-      }
-      if (sKnown) remember(t);
-    }
-  });
-  spendTurn(actor, skill.id === "attack" ? "attack" : "skill");
-  return lines;
-};
-
-function remember(target) {
-  var s = SF.state;
-  if (!s.known) s.known = {};
-  if (!target.revealed || !target.weak) return;
-  s.known[target.key] = { weak: target.weak, resist: target.resist || "" };
-}
-
-var sKnown = true;
-
-function beginActorTurn(b) {
-  if (checkEnd(b)) return;
-  var actor = nextActor(b);
-  if (!actor) {
-    defeat(b);
-    return;
-  }
-  b.actorId = actor.id;
-  actor.guard = false;
-  b.sel = 0;
-  b.listScroll = 0;
-  b.order = SF.Battle.forecast(b, 8);
-  if (actor.side === "foe") {
-    var action = SF.Battle.foeAction(b, actor);
-    SF.Battle.resolve(b, actor, action);
-    return;
-  }
-  b.phase = "menu";
-  b.pending = null;
-}
-
-SF.Battle.foeAction = function (b, actor) {
-  var skills = actor.skills || [];
-  var pick = null;
-  if (skills.length && (b.turnCount + actor.index) % 3 === 2) pick = skills[(b.turnCount + actor.index) % skills.length];
-  var target = living(b, "party").slice().sort(function (a, c) { return a.hp / a.maxHp - c.hp / c.maxHp; })[0];
-  b.turnCount += 1;
-  if (pick) return { type: "skill", skillId: pick, targetId: target ? target.id : null };
-  return { type: "skill", skillId: "attack", targetId: target ? target.id : null };
-};
-
-SF.Battle.resolve = function (b, actor, action) {
-  var lines = SF.Battle.applyAction(b, actor, action);
-  lines.forEach(function (line) { pushLog(b, line); });
-  b.actors.forEach(function (a) {
-    if (a.side === "foe" && a.revealed) remember(a);
-  });
-  if (b._fled) {
-    fled(b);
-    return;
-  }
-  if (checkEnd(b)) return;
-  b.phase = "readout";
-  b.readoutT = SF.Battle.instant ? 0 : ((SF.calm && SF.calm()) ? 0.2 : 0.42);
-  b.order = SF.Battle.forecast(b, 8);
-  if (b.readoutT <= 0) SF.Battle.afterReadout(b);
-};
-
-SF.Battle.afterReadout = function (b) {
-  if (!b || b.phase === "result" || b.phase === "done") return;
-  b.phase = "between";
-  beginActorTurn(b);
-};
-
-SF.Battle.playerAct = function (action) {
-  var s = SF.state;
-  var b = s && s.battle;
-  if (!b || b.phase === "result" || b.phase === "readout" || b.phase === "done") return false;
-  var actor = actorById(b, b.actorId);
-  if (!actor || actor.side !== "party") return false;
-  if (action.type === "menu") {
-    b.phase = action.menu;
-    return true;
-  }
-  SF.Battle.resolve(b, actor, action);
-  return true;
-};
-
 SF.Battle.confirmResult = function () {
   var s = SF.state;
   var b = s && s.battle;
@@ -781,6 +213,7 @@ SF.Battle.confirmResult = function () {
 SF.Battle.skipReadout = function () {
   var b = SF.state && SF.state.battle;
   if (!b || b.phase !== "readout") return;
+  b.hitPause = 0;
   b.readoutT = 0;
   SF.Battle.afterReadout(b);
 };
@@ -788,13 +221,25 @@ SF.Battle.skipReadout = function () {
 SF.Battle.update = function (dt) {
   var b = SF.state && SF.state.battle;
   if (!b) return;
-  b.t += dt;
+  if (b.hitPause > 0) {
+    b.hitPause -= dt;
+    if (b.hitPause > 0) dt = 0;
+    else {
+      dt = -b.hitPause;
+      b.hitPause = 0;
+    }
+  }
+  if (dt > 0) b.t += dt;
   if (SF.Battle.readPad) SF.Battle.readPad(b);
-  if (b.phase === "readout") {
+  if (holdingLong(b) && b.phase === "readout") {
+    fastForward(b);
+    return;
+  }
+  if (b.phase === "readout" && dt > 0) {
     b.readoutT -= dt;
     if (b.readoutT <= 0) SF.Battle.afterReadout(b);
   }
-  if (b.phase === "result" && b.corpseT > 0) {
+  if (b.phase === "result" && b.corpseT > 0 && dt > 0) {
     b.corpseT -= dt;
     if (b.corpseT < 0) b.corpseT = 0;
   }
@@ -816,9 +261,9 @@ SF.Battle.autoPick = function () {
     SF.Battle.confirmResult();
     return;
   }
-  var actor = actorById(b, b.actorId);
+  var actor = SF.BattleState.actorById(b, b.actorId);
   if (!actor) return;
-  var allies = living(b, "party");
+  var allies = SF.BattleState.living(b, "party");
   var hurt = lowest(allies);
   var dead = b.actors.filter(function (a) { return a.side === "party" && !a.alive; })[0];
   if (dead && SF.itemCount("phoenix_shard") > 0) {
@@ -851,7 +296,7 @@ SF.Battle.autoPick = function () {
     SF.Battle.playerAct({ type: "item", itemId: "ether", targetId: actor.id });
     return;
   }
-  var foes = living(b, "foe");
+  var foes = SF.BattleState.living(b, "foe");
   var foe = lowest(foes);
   var best = null;
   var bestPower = 9;
@@ -948,15 +393,15 @@ SF.Battle.start = function (encounterId, opts) {
     var foe = SF.Battle.makeFoe(kind, counts[kind], !!known);
     b.actors.push(foe);
   });
-  stampNames(b.actors.filter(function (a) { return a.side === "foe"; }));
-  primeCt(b.actors);
+  SF.BattleState.stampNames(b.actors.filter(function (a) { return a.side === "foe"; }));
+  SF.BattleTimeline.prime(b.actors);
   s.battle = b;
   s.mode = "battle";
   if (SF.releaseHolds) SF.releaseHolds();
-  pushLog(b, b.boss ? b.name + " attacks." : b.name + ".");
+  SF.BattleState.log(b, b.boss ? b.name + " attacks." : b.name + ".");
   if (window.Music) Music.play(b.boss ? "boss" : "battle");
   if (b.boss && window.Sfx) Sfx.play("roar");
-  beginActorTurn(b);
+  SF.ActionResolver.beginTurn(b);
   SF.noteHint && SF.noteHint("strike");
   return true;
 };
@@ -980,7 +425,6 @@ SF.touchFoe = function (e) {
 SF.defeatFieldFoe = function (e) {
   if (!e || !e.alive) return;
   var s = SF.state;
-  var kind = SF.KINDS[e.kind];
   e.alive = false;
   e.dying = 0.45;
   e.hp = 0;
@@ -1127,7 +571,8 @@ function installHooks() {
     if (!s) return;
     if (s.touchCd > 0) s.touchCd = Math.max(0, s.touchCd - dt);
     if (s.mode === "battle" || s.mode === "results") {
-      SF.anim = (SF.anim || 0) + dt;
+      // Hit pause freezes the battle clock, including the pose frame.
+      if (!(s.battle && s.battle.hitPause > 0)) SF.anim = (SF.anim || 0) + dt;
       if (SF.pumpMessages) SF.pumpMessages(dt);
       SF.Battle.update(dt);
       return;

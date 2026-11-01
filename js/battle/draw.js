@@ -203,7 +203,9 @@ function partyBattleScale(srcH, foeH) {
 
 function animP(b) {
   if (!b.art || (b.phase !== "readout" && b.phase !== "between")) return 0;
-  var dur = b.readoutDur || 0.9;
+  // Hit pause holds the impact frame instead of freezing on the windup.
+  if (b.hitPause > 0) return 0.2;
+  var dur = b.readoutDur || 0.55;
   if (!(dur > 0)) return 1;
   return Math.max(0, Math.min(1, 1 - (b.readoutT || 0) / dur));
 }
@@ -215,7 +217,8 @@ function actorNudge(b, actor) {
   var calm = SF.calm && SF.calm();
   var swing = calm ? (p > 0.12 && p < 0.88 ? 1 : 0.35) : Math.sin(p * Math.PI);
   var step = (calm ? 28 : 52) * swing;
-  var knock = (calm ? 14 : 26) * swing;
+  // A short nudge, not a lunge. Reduce flashing holds it nearly still.
+  var knock = (calm ? 8 : 12) * swing;
   var dx = 0;
   var dy = 0;
   if (actor.id === art.id && (art.pose === "attack" || art.pose === "cast")) {
@@ -328,10 +331,11 @@ function button(ctx, x, y, w, h, label, on, dim) {
   ctx.restore();
 }
 
-function stripHeight(w, h) {
-  if (w >= 700) return 78;
-  if (h <= 400) return 60;
-  return 72;
+function stripHeight(w, h, nParty) {
+  var base = w >= 700 ? 78 : (h <= 400 ? 60 : 72);
+  // Solo used to give about a fifth of a phone screen to four copies of "You".
+  if ((nParty == null ? 1 : nParty) <= 1) return h <= 430 ? 50 : 56;
+  return base;
 }
 
 function layoutBattle(w, h, phase, nParty) {
@@ -339,7 +343,7 @@ function layoutBattle(w, h, phase, nParty) {
   var short = h <= 400;
   var margin = short ? 6 : 8;
   var gap = short ? 4 : 6;
-  var stripH = stripHeight(w, h);
+  var stripH = stripHeight(w, h, nParty);
   var btnH = short ? 44 : 48;
   var promptH = phase === "target" ? (short ? 20 : 28) : 0;
   var cardH = short ? 72 : (nParty > 1 ? 78 : 84);
@@ -582,9 +586,30 @@ function pickFitting(ctx, options, maxW, maxSize, minSize) {
   return { text: last, size: minSize };
 }
 
+// The forecast stays at 8 for the turn machine. A solo strip collapses
+// back-to-back copies of the hero so the label "You" is not painted four times.
+function displayOrder(b) {
+  var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
+  var party = 0;
+  var i;
+  for (i = 0; i < b.actors.length; i++) if (b.actors[i].side === "party") party += 1;
+  if (party !== 1) return order.slice(0, 8);
+  var out = [];
+  var lastId = "";
+  for (i = 0; i < order.length; i++) {
+    var actor = actorOf(b, order[i]);
+    if (!actor) continue;
+    if (actor.side === "party" && actor.id === lastId) continue;
+    out.push(order[i]);
+    lastId = actor.side === "party" ? actor.id : "";
+    if (out.length >= 5) break;
+  }
+  return out.length ? out : order.slice(0, 1);
+}
+
 function drawStrip(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
-  var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
+  var order = displayOrder(b);
   var n = Math.min(8, order.length || 1);
   var inset = 8;
   var slot = Math.floor((w - inset * 2) / n);
@@ -872,6 +897,46 @@ function plantFeet(spots, feet) {
   }
 }
 
+// Nameplates used to sit above the head, in the trees. Park any plate that
+// crosses the sky line on the lower body instead, under the horizon.
+function seatFoeLabels(spots, horizon) {
+  var sky = (horizon || 0) + 4;
+  spots.forEach(function (spot) {
+    if (!spot.label || !spot.label.h) return;
+    // Always sit the plate on the lower body. Above the head it covers the trees.
+    var y = spot.hit.y + Math.round(spot.hit.h * 0.62);
+    if (y < sky) y = sky;
+    if (y + spot.label.h > spot.feet - 2) y = Math.max(spot.hit.y + 4, spot.feet - spot.label.h - 2);
+    spot.label.y = y;
+  });
+}
+
+function hitFlashAlpha(b, actor) {
+  if (!b.art || !b.art.flash || b.art.flash.indexOf(actor.id) < 0) return 0;
+  // Reduce flashing keeps the core glow steady and skips the white hit flash.
+  if (SF.calm && SF.calm()) return 0;
+  if (b.hitPause > 0) return 0.78;
+  var p = animP(b);
+  if (p > 0.28) return 0;
+  return 0.78 * (1 - p / 0.28);
+}
+
+function drawHitFlash(ctx, b, actor, spot, nudge) {
+  var alpha = hitFlashAlpha(b, actor);
+  if (!(alpha > 0)) return;
+  // A glint on the body. The sprite's box is mostly empty, so filling it
+  // reads as a white panel instead of a hit.
+  var cx = Math.round(spot.x + nudge.x);
+  var cy = Math.round(spot.hit.y + spot.hit.h * 0.42 + nudge.y);
+  var s = Math.max(6, Math.round(Math.min(spot.hit.w, spot.hit.h) * 0.16));
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(cx - s, cy - Math.round(s / 2), s * 2, s);
+  ctx.fillRect(cx - Math.round(s / 2), cy - s, s, s * 2);
+  ctx.restore();
+}
+
 function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
   if (!stage) return;
   var split = party.length > 1 ? 0.56 : 0.62;
@@ -905,6 +970,7 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
   plantFeet(foeSpots, groundY);
   plantFeet(partySpots, groundY);
   fitStandingHeight(partySpots, stage.y + 4);
+  seatFoeLabels(foeSpots, floor.horizon);
   SF.Battle.partyBoxes = partySpots.map(function (spot) {
     return {
       id: spot.actor.id,
@@ -938,6 +1004,7 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
     drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
     ctx.restore();
+    drawHitFlash(ctx, b, f, spot, nudge);
     drawFoeLabel(ctx, spot, b);
     if (canTap) {
       var foePick = 0;
@@ -968,6 +1035,7 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
     if (!a.alive) ctx.globalAlpha = 0.35;
     drawSprite(ctx, a.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "left");
     ctx.restore();
+    drawHitFlash(ctx, b, a, spot, nudge);
     if (aimAlly && a.alive) {
       var allyPick = 0;
       party.forEach(function (other) {
@@ -1039,19 +1107,51 @@ function drawBattleFx(ctx, b, spots) {
     });
   }
   if (b.phase === "result") return;
-  (art.pops || []).forEach(function (pop) {
-    var spot = byId[pop.id];
-    if (!spot) return;
-    var rise = calm ? 16 : Math.round(22 + 30 * p);
-    var alpha = calm ? 1 : (p > 0.78 ? Math.max(0, 1 - (p - 0.78) / 0.22) : 1);
-    var top = spot.top == null ? spot.y - 96 : spot.top;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = pop.heal ? "#7dffa8" : "#ffd37a";
-    ctx.font = "700 28px system-ui, sans-serif";
+  // The sprite box has empty sky above the drawn body. Anchor callouts
+  // on the body so the number sits on the target, not in the trees.
+  function calloutBody(spot) {
+    var feet = spot.y;
+    var top = spot.top == null ? feet - 64 : spot.top;
+    return top + (feet - top) * 0.42;
+  }
+  function paintCallout(text, x, y, fill, size) {
+    ctx.font = "700 " + size + "px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.fillText((pop.heal ? "+" : "") + pop.text, spot.x, top - 18 - rise);
+    ctx.fillStyle = "rgba(12, 8, 20, 0.92)";
+    ctx.fillText(text, x - 1, y);
+    ctx.fillText(text, x + 1, y);
+    ctx.fillText(text, x, y - 1);
+    ctx.fillText(text, x, y + 1);
+    ctx.fillStyle = fill;
+    ctx.fillText(text, x, y);
+  }
+  var seenTag = {};
+  (art.tags || []).forEach(function (tag) {
+    if (!tag || seenTag[tag.id]) return;
+    seenTag[tag.id] = true;
+    var spot = byId[tag.id];
+    if (!spot) return;
+    var body = calloutBody(spot);
+    var rise = calm ? 2 : Math.round(2 + 10 * p);
+    var alpha = calm ? 1 : (p > 0.82 ? Math.max(0, 1 - (p - 0.82) / 0.18) : 1);
+    var numSize = calm ? 34 : 40;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    paintCallout(tag.text, spot.x, body - 6 - rise - numSize, tag.text === "WEAK" ? "#ffd37a" : "#b9d6ff", calm ? 16 : 18);
+    ctx.restore();
+  });
+  (art.pops || []).forEach(function (pop, index) {
+    var spot = byId[pop.id];
+    if (!spot) return;
+    var rise = calm ? 2 : Math.round(2 + 12 * p);
+    var alpha = calm ? 1 : (p > 0.78 ? Math.max(0, 1 - (p - 0.78) / 0.22) : 1);
+    var body = calloutBody(spot);
+    var size = calm ? 34 : (p < 0.16 ? 46 : 40);
+    var stack = pop.heal ? 0 : index * 6;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    paintCallout((pop.heal ? "+" : "") + pop.text, spot.x, body - 4 - rise - stack, pop.heal ? "#7dffa8" : "#ffd37a", size);
     ctx.restore();
   });
 }
@@ -1379,6 +1479,27 @@ function drawItemList(ctx, b, dock) {
   }, null, null);
 }
 
+function resultLines(row) {
+  var lines = [];
+  if (row.fled) {
+    lines.push({ text: "Back on the road.", color: "#f4f7ff" });
+    return lines;
+  }
+  if (!row.win) {
+    lines.push({ text: "The party is at half HP.", color: "#f4f7ff" });
+    return lines;
+  }
+  lines.push({ text: "+" + (row.xp || 0) + " XP    +" + (row.gold || 0) + " Marks", color: "#f4f7ff" });
+  (row.items || []).forEach(function (name) {
+    lines.push({ text: name, color: "#f4f7ff" });
+  });
+  (row.levels || []).forEach(function (lv) {
+    lines.push({ text: lv.name + " reached Lv " + lv.level, color: "#ffd37a" });
+    if (lv.skill) lines.push({ text: "Learned " + lv.skill, color: "#f4f7ff" });
+  });
+  return lines;
+}
+
 function drawResult(ctx, b, panel) {
   var row = b.result || {};
   var x = panel.x;
@@ -1386,51 +1507,35 @@ function drawResult(ctx, b, panel) {
   var panelW = panel.w;
   var panelH = Math.max(48, panel.h);
   var btnH = panel.btnH || 48;
-  var by = y + panelH + 8;
-  artWindow(ctx, x, y, panelW, panelH);
+  var lines = resultLines(row);
+  var title = row.fled ? "Got away" : (row.win ? "Victory" : "Defeat");
+  var titleSize = 28;
+  var bodySize = 16;
+  var cardH = 18 + titleSize + 8 + lines.length * 24 + 12;
+  if (cardH > panelH) cardH = panelH;
+  if (cardH < 72) cardH = Math.min(panelH, 72);
+  artWindow(ctx, x, y, panelW, cardH);
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x + 8, y + 6, panelW - 16, panelH - 12);
+  ctx.rect(x + 8, y + 6, panelW - 16, cardH - 12);
   ctx.clip();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  var many = row.levels && row.levels.length;
-  var compact = panelH < 260 || !!many;
-  var titleSize = compact ? 20 : 26;
-  var bodySize = many ? 13 : (compact ? 14 : 16);
-  var step = many ? 13 : (compact ? 18 : 22);
   ctx.fillStyle = "#ffd37a";
   ctx.font = "700 " + titleSize + "px system-ui, sans-serif";
-  var title = row.fled ? "Fled." : (row.win ? "Victory." : "Defeat.");
-  var ly = y + 10;
-  var limit = y + panelH - 8;
-  function line(text, color, size, gapAfter) {
-    if (ly + size > limit) return false;
-    ctx.fillStyle = color;
-    ctx.font = (size >= 20 ? "700 " : "700 ") + size + "px system-ui, sans-serif";
-    ctx.fillText(text, x + 14, ly);
-    ly += gapAfter;
-    return true;
-  }
-  line(title, "#ffd37a", titleSize, many ? titleSize + 2 : titleSize + 8);
-  if (row.win && !row.fled) {
-    line("XP +" + (row.xp || 0), "#f4f7ff", bodySize, step);
-    line("Marks +" + (row.gold || 0), "#f4f7ff", bodySize, step);
-    (row.items || []).forEach(function (name) { line(name, "#f4f7ff", bodySize, step); });
-  }
-  (row.levels || []).forEach(function (lv) {
-    if (!line("Level up!", "#ffd37a", bodySize, step)) return;
-    line(lv.name + " is level " + lv.level + ".", "#f4f7ff", bodySize, step);
-    line("HP " + lv.hp[0] + " to " + lv.hp[1], "#f4f7ff", bodySize, step);
-    if (lv.sp) line("SP " + lv.sp[0] + " to " + lv.sp[1], "#7eb6ff", bodySize, step);
-    line("Attack " + lv.atk[0] + " to " + lv.atk[1], "#f4f7ff", bodySize, step);
-    if (lv.def) line("Defense " + lv.def[0] + " to " + lv.def[1], "#f4f7ff", bodySize, step);
-    line("Magic " + lv.mag[0] + " to " + lv.mag[1], "#f4f7ff", bodySize, step);
-    if (lv.spd) line("Speed " + lv.spd[0] + " to " + lv.spd[1], "#f4f7ff", bodySize, step);
-    if (lv.skill) line("Learned " + lv.skill + ".", "#f4f7ff", bodySize, step);
+  ctx.fillText(title, x + 16, y + 12);
+  var ly = y + 12 + titleSize + 6;
+  var limit = y + cardH - 8;
+  lines.forEach(function (line) {
+    if (ly + bodySize > limit) return;
+    ctx.fillStyle = line.color;
+    ctx.font = "700 " + bodySize + "px system-ui, sans-serif";
+    ctx.fillText(line.text, x + 16, ly);
+    ly += 24;
   });
-  if (!row.win) line("The party is at half HP.", "#f4f7ff", bodySize, step);
   ctx.restore();
+  // Continue stays at the bottom of the column so a thumb can reach it.
+  var by = y + panelH + 8;
   button(ctx, x, by, panelW, btnH, "Continue", true, false);
   addHit("result", x, by, panelW, btnH);
 }
@@ -1652,6 +1757,11 @@ SF.Battle.readPad = function (b) {
   if (horiz && horiz !== b._padH) SF.Battle.moveSel(horiz);
   b._padV = vert;
   b._padH = horiz;
+  if (i.padA) {
+    if (!b.padHoldSince) b.padHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+  } else {
+    b.padHoldSince = 0;
+  }
   if (i.padAEdge) {
     i.padAEdge = false;
     SF.Battle.confirm();
@@ -1692,6 +1802,10 @@ function bindBattlePointer() {
       list: !!(box && pt.x >= box.x && pt.y >= box.y && pt.x <= box.x + box.w && pt.y <= box.y + box.h),
       moved: false
     };
+    if (b) {
+      b.pointerHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      b._holdSkips = 0;
+    }
     try { view.setPointerCapture(e.pointerId); } catch (err) { /* canvas may already own it */ }
     e.preventDefault();
   });
@@ -1718,11 +1832,22 @@ function bindBattlePointer() {
     if (!s || (s.mode !== "battle" && s.mode !== "results") || !e) return;
     var pt = toView(e);
     var moved = start.moved || Math.abs(pt.y - start.y) > 10 || Math.abs(pt.x - start.x) > 10;
-    if (moved) return;
+    var skips = 0;
+    if (s.battle) {
+      skips = s.battle._holdSkips || 0;
+      s.battle.pointerHoldSince = 0;
+      s.battle._holdSkips = 0;
+    }
+    // A hold already fast-forwarded the readout. Don't also tap whatever is under the finger now.
+    if (moved || skips) return;
     SF.Battle.onPointer(pt.x, pt.y);
   }
   view.addEventListener("pointerup", endDrag);
-  view.addEventListener("pointercancel", function () { drag = null; });
+  view.addEventListener("pointercancel", function () {
+    drag = null;
+    var s = SF.state;
+    if (s && s.battle) s.battle.pointerHoldSince = 0;
+  });
   window.addEventListener("keydown", function (e) {
     var s = SF.state;
     if (!s || (s.mode !== "battle" && s.mode !== "results") || !s.battle) return;
@@ -1733,10 +1858,20 @@ function bindBattlePointer() {
     if (!confirm && !cancel && !arrow && code.indexOf("Digit") !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    if (confirm && !s.battle.keyHoldSince) {
+      s.battle.keyHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+    }
     if (e.repeat && !arrow) return;
     if (arrow) SF.Battle.moveSel(code === "ArrowUp" || code === "ArrowLeft" ? -1 : 1);
     else if (confirm) SF.Battle.confirm();
     else if (cancel) SF.Battle.cancel();
+  }, true);
+  window.addEventListener("keyup", function (e) {
+    var s = SF.state;
+    var b = s && s.battle;
+    if (!b) return;
+    var code = e.code;
+    if (code === "Enter" || code === "Space" || code === "KeyE" || code === "KeyZ") b.keyHoldSince = 0;
   }, true);
 }
 
@@ -1750,40 +1885,9 @@ SF.draw = function () {
   if (baseDraw) baseDraw();
 };
 
-var prevResolve = SF.Battle.resolve;
-SF.Battle.resolve = function (b, actor, action) {
-  var before = {};
-  if (b && b.actors) b.actors.forEach(function (a) { before[a.id] = a.hp; });
-  prevResolve(b, actor, action);
-  var skill = null;
-  if (action && action.skillId) skill = SF.skillById(action.skillId);
-  else if (action && (action.type === "skill" || action.type === "attack")) skill = SF.skillById("attack");
-  var pose = "attack";
-  if (action && (action.type === "defend" || action.type === "flee")) pose = "idle";
-  else if (skill && (skill.mag || skill.heal || skill.scan || skill.defUp || skill.spdUp)) pose = "cast";
-  else if (action && action.type === "item") pose = "cast";
-  var hurt = [];
-  var pops = [];
-  if (b && b.actors) {
-    b.actors.forEach(function (a) {
-      if (before[a.id] == null) return;
-      if (a.hp < before[a.id]) {
-        hurt.push(a.id);
-        pops.push({ id: a.id, text: before[a.id] - a.hp, heal: false });
-      } else if (a.hp > before[a.id]) {
-        pops.push({ id: a.id, text: a.hp - before[a.id], heal: true });
-      }
-    });
-  }
-  var element = (skill && skill.element) || "";
-  if (!element && action && action.itemId && SF.ITEMS && SF.ITEMS[action.itemId]) element = SF.ITEMS[action.itemId].element || "";
-  if (b && b.phase === "readout" && !SF.Battle.instant) {
-    var dur = (SF.calm && SF.calm()) ? 0.7 : 1.05;
-    b.readoutT = dur;
-    b.readoutDur = dur;
-  }
-  if (b && b.phase === "result") b.art = { id: actor && actor.id, pose: "idle", hurt: [], element: "", pops: [] };
-  else if (b) b.art = { id: actor && actor.id, pose: pose, hurt: hurt, element: element, pops: pops };
+// BattleUI draws from the event record. It does not wrap resolve or diff HP.
+SF.BattleUI = {
+  draw: function (ctx, w, h, dpr) { SF.drawBattle(ctx, w, h, dpr); }
 };
 
 bindBattlePointer();

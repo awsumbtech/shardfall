@@ -47,7 +47,16 @@ for (const file of [
   "js/content/maps/v2layout.js",
   "js/vaultgate.js",
   "js/grapple.js",
+  "js/battle/events.js",
+  "js/battle/formula.js",
+  "js/battle/state.js",
+  "js/battle/timeline.js",
+  "js/battle/ai.js",
+  "js/battle/rewards.js",
+  "js/battle/feel.js",
+  "js/battle/resolver.js",
   "js/battle/battle.js",
+  "js/battle/renderer.js",
   "js/menu/field.js",
   "js/world.js"
 ]) {
@@ -1778,7 +1787,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.27"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.28"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -1940,7 +1949,10 @@ SF.mountIsland("emberhold");
     "js/data.js", "js/data/skills.js", "js/data/items.js", "js/data/party.js",
     "js/data/enemies.js", "js/data/encounters.js", "js/dialogue.js",
     "js/audio.js", "js/music.js", "js/sfx.js", "js/save.js", "js/sim.js",
-    "js/battle/battle.js", "js/battle/draw.js"
+    "js/battle/events.js", "js/battle/formula.js", "js/battle/state.js",
+    "js/battle/timeline.js", "js/battle/ai.js", "js/battle/rewards.js",
+    "js/battle/feel.js", "js/battle/resolver.js", "js/battle/battle.js",
+    "js/battle/renderer.js", "js/battle/draw.js"
   ]) {
     vm.runInContext(fs.readFileSync(file, "utf8"), layout, { filename: file });
   }
@@ -2021,6 +2033,9 @@ await runAssetChecks();
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
+const battleParity = spawnSync(process.execPath, ["tools/battle-parity.mjs"], { stdio: "inherit", env: childEnv });
+if (battleParity.status !== 0) process.exit(battleParity.status || 1);
+
 const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit", env: childEnv });
 if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 
@@ -2036,7 +2051,10 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.27"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.28"')) fail("version was not bumped");
+  if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
+    fail("whats new battle line");
+  }
   if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
   if (!dataJs.includes("Behind the scenes: packed art is ready for the site, with no visible change.")) {
     fail("whats new atlas line");
@@ -2045,7 +2063,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.27")) fail("html version");
+  if (!html.includes("v0.4.28")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -2534,7 +2552,9 @@ async function runAssetChecks() {
   if (!drawJs.includes("ringR * 0.45")) fail("the foot ring lost its shape");
   if (!drawJs.includes("ctx.fillText(n.name, nx, ny - 34)")) fail("name tag moved");
   if (!drawJs.includes("SF.GUIDE_HEAD = 60")) fail("quest diamond moved");
-  if (fs.readFileSync("js/battle/draw.js", "utf8").includes("LayeredSprite")) fail("battle draws the field rig");
+  const battleDraw = fs.readFileSync("js/battle/draw.js", "utf8");
+  if (battleDraw.includes("LayeredSprite")) fail("battle draws the field rig");
+  if (battleDraw.includes("before[a.id]")) fail("battle UI still diffs HP");
 
   const missingManifest = await A.AssetManifest.load("assets/atlas/manifest.json", () => null);
   if (missingManifest.keys().length) fail("a missing manifest was not empty");
