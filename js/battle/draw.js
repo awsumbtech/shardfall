@@ -203,7 +203,9 @@ function partyBattleScale(srcH, foeH) {
 
 function animP(b) {
   if (!b.art || (b.phase !== "readout" && b.phase !== "between")) return 0;
-  var dur = b.readoutDur || 0.9;
+  // Hit pause holds the impact frame instead of freezing on the windup.
+  if (b.hitPause > 0) return 0.2;
+  var dur = b.readoutDur || 0.55;
   if (!(dur > 0)) return 1;
   return Math.max(0, Math.min(1, 1 - (b.readoutT || 0) / dur));
 }
@@ -215,7 +217,8 @@ function actorNudge(b, actor) {
   var calm = SF.calm && SF.calm();
   var swing = calm ? (p > 0.12 && p < 0.88 ? 1 : 0.35) : Math.sin(p * Math.PI);
   var step = (calm ? 28 : 52) * swing;
-  var knock = (calm ? 14 : 26) * swing;
+  // A short nudge, not a lunge. Reduce flashing holds it nearly still.
+  var knock = (calm ? 8 : 12) * swing;
   var dx = 0;
   var dy = 0;
   if (actor.id === art.id && (art.pose === "attack" || art.pose === "cast")) {
@@ -328,10 +331,11 @@ function button(ctx, x, y, w, h, label, on, dim) {
   ctx.restore();
 }
 
-function stripHeight(w, h) {
-  if (w >= 700) return 78;
-  if (h <= 400) return 60;
-  return 72;
+function stripHeight(w, h, nParty) {
+  var base = w >= 700 ? 78 : (h <= 400 ? 60 : 72);
+  // Solo used to give about a fifth of a phone screen to four copies of "You".
+  if ((nParty == null ? 1 : nParty) <= 1) return h <= 430 ? 50 : 56;
+  return base;
 }
 
 function layoutBattle(w, h, phase, nParty) {
@@ -339,7 +343,7 @@ function layoutBattle(w, h, phase, nParty) {
   var short = h <= 400;
   var margin = short ? 6 : 8;
   var gap = short ? 4 : 6;
-  var stripH = stripHeight(w, h);
+  var stripH = stripHeight(w, h, nParty);
   var btnH = short ? 44 : 48;
   var promptH = phase === "target" ? (short ? 20 : 28) : 0;
   var cardH = short ? 72 : (nParty > 1 ? 78 : 84);
@@ -349,6 +353,9 @@ function layoutBattle(w, h, phase, nParty) {
   var y0 = strip.y + stripH + gap;
 
   if (phase === "result") {
+    // The strip is not drawn on the result, so the card can use that height.
+    strip = { x: margin, y: margin, w: w - margin * 2, h: 0 };
+    y0 = margin;
     if (land) {
       var rightW = Math.max(260, Math.min(340, Math.round(w * 0.38)));
       var stageW = w - rightW - margin * 3;
@@ -466,7 +473,7 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   var party = b.actors.filter(function (a) { return a.side === "party"; });
   var lay = layoutBattle(w, h, b.phase, party.length);
   if (b.phase !== "result") drawStrip(ctx, b, lay.strip.x, lay.strip.y, lay.strip.w, lay.strip.h);
-  drawStage(ctx, b, foes, party, lay.stage, w, h);
+  drawStage(ctx, b, foes, party, lay.stage, w, h, lay.commands || lay.dock || null);
   if (b.phase === "result") {
     drawResult(ctx, b, lay.result);
     return;
@@ -582,9 +589,30 @@ function pickFitting(ctx, options, maxW, maxSize, minSize) {
   return { text: last, size: minSize };
 }
 
+// The forecast stays at 8 for the turn machine. A solo strip collapses
+// back-to-back copies of the hero so the label "You" is not painted four times.
+function displayOrder(b) {
+  var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
+  var party = 0;
+  var i;
+  for (i = 0; i < b.actors.length; i++) if (b.actors[i].side === "party") party += 1;
+  if (party !== 1) return order.slice(0, 8);
+  var out = [];
+  var lastId = "";
+  for (i = 0; i < order.length; i++) {
+    var actor = actorOf(b, order[i]);
+    if (!actor) continue;
+    if (actor.side === "party" && actor.id === lastId) continue;
+    out.push(order[i]);
+    lastId = actor.side === "party" ? actor.id : "";
+    if (out.length >= 5) break;
+  }
+  return out.length ? out : order.slice(0, 1);
+}
+
 function drawStrip(ctx, b, x, y, w, h) {
   artWindow(ctx, x, y, w, h);
-  var order = b.order && b.order.length ? b.order : SF.Battle.forecast(b, 8);
+  var order = displayOrder(b);
   var n = Math.min(8, order.length || 1);
   var inset = 8;
   var slot = Math.floor((w - inset * 2) / n);
@@ -872,7 +900,101 @@ function plantFeet(spots, feet) {
   }
 }
 
-function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
+function clampBox(box, bounds) {
+  if (box.x < bounds.left) box.x = bounds.left;
+  if (box.y < bounds.top) box.y = bounds.top;
+  if (box.x + box.w > bounds.right) box.x = Math.max(bounds.left, bounds.right - box.w);
+  if (box.y + box.h > bounds.bottom) box.y = Math.max(bounds.top, bounds.bottom - box.h);
+}
+
+// Plates sit just under the feet and the shadow. They stay on screen,
+// clear of each other, and clear of the command dock.
+function seatFoeLabels(spots, view) {
+  var placed = [];
+  var screen = view.screen;
+  spots.forEach(function (spot) {
+    if (!spot.label || !spot.label.h) return;
+    var box = spot.label;
+    box.h = 40;
+    box.w = Math.max(72, Math.min(box.w || 96, 140));
+    box.x = Math.round(spot.x - box.w / 2);
+    box.y = Math.round(spot.feet + 8);
+    clampBox(box, screen);
+    var guard = 0;
+    while (view.dock && rectsOverlap(box, view.dock) && guard < 10) {
+      guard += 1;
+      if (box.x + box.w > view.dock.x && box.x < view.dock.x + view.dock.w) {
+        box.x = view.dock.x - box.w - 6;
+      } else {
+        box.y = view.dock.y - box.h - 6;
+      }
+      clampBox(box, screen);
+    }
+    placed.forEach(function (other) {
+      var n = 0;
+      while (rectsOverlap(box, other) && n < 8) {
+        n += 1;
+        if (spot.x >= other.x + other.w / 2) box.x = other.x + other.w + 6;
+        else box.x = other.x - box.w - 6;
+        clampBox(box, screen);
+      }
+    });
+    if (box.y < spot.feet + 2) box.y = spot.feet + 2;
+    clampBox(box, screen);
+    placed.push({ x: box.x, y: box.y, w: box.w, h: box.h, feet: spot.feet, id: spot.actor.id });
+  });
+  SF.Battle.foePlates = placed;
+}
+
+function softHitTint() {
+  if (SF.reduceFlash) return true;
+  if (SF.reduceMotion) return true;
+  if (SF.BattleFeel && SF.BattleFeel.prefersReducedMotion && SF.BattleFeel.prefersReducedMotion()) return true;
+  return false;
+}
+
+function hitFlashAlpha(b, actor) {
+  if (!b.art || !b.art.flash || b.art.flash.indexOf(actor.id) < 0) return 0;
+  // Reduce flashing, or reduced motion, fades a 0.35 tint over ~100ms.
+  // Elapsed time, not frame count.
+  if (softHitTint()) {
+    var dur = SF.BattleFeel && SF.BattleFeel.FLASH_TINT_MS != null ? SF.BattleFeel.FLASH_TINT_MS : 100;
+    if (!b.art.flashAt) b.art.flashAt = {};
+    if (b.art.flashAt[actor.id] == null) {
+      b.art.flashAt[actor.id] = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+    }
+    var elapsed = (SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now()) - b.art.flashAt[actor.id];
+    if (elapsed >= dur) return 0;
+    var base = SF.BattleFeel && SF.BattleFeel.FLASH_TINT != null ? SF.BattleFeel.FLASH_TINT : 0.35;
+    return base * (1 - elapsed / dur);
+  }
+  if (b.hitPause > 0) return 0.78;
+  var p = animP(b);
+  if (p > 0.28) return 0;
+  return 0.78 * (1 - p / 0.28);
+}
+
+function drawHitFlash(ctx, b, actor, spot, nudge) {
+  var alpha = hitFlashAlpha(b, actor);
+  if (!(alpha > 0)) return;
+  var cx = Math.round(spot.x + nudge.x);
+  var cy = Math.round(spot.hit.y + spot.hit.h * 0.42 + nudge.y);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#fff";
+  if (softHitTint()) {
+    var bw = Math.max(8, Math.round(spot.hit.w * 0.5));
+    var bh = Math.max(8, Math.round(spot.hit.h * 0.42));
+    ctx.fillRect(cx - Math.round(bw / 2), cy - Math.round(bh / 2), bw, bh);
+  } else {
+    var s = Math.max(6, Math.round(Math.min(spot.hit.w, spot.hit.h) * 0.16));
+    ctx.fillRect(cx - s, cy - Math.round(s / 2), s * 2, s);
+    ctx.fillRect(cx - Math.round(s / 2), cy - s, s, s * 2);
+  }
+  ctx.restore();
+}
+
+function drawStage(ctx, b, foes, party, stage, canvasW, canvasH, dock) {
   if (!stage) return;
   var split = party.length > 1 ? 0.56 : 0.62;
   var foeZone = {
@@ -905,6 +1027,15 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
   plantFeet(foeSpots, groundY);
   plantFeet(partySpots, groundY);
   fitStandingHeight(partySpots, stage.y + 4);
+  seatFoeLabels(foeSpots, {
+    screen: {
+      left: 4,
+      top: 4,
+      right: Math.max(40, (canvasW || stage.w) - 4),
+      bottom: Math.max(40, (canvasH || (stage.y + stage.h)) - 4)
+    },
+    dock: dock
+  });
   SF.Battle.partyBoxes = partySpots.map(function (spot) {
     return {
       id: spot.actor.id,
@@ -938,6 +1069,7 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
     drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
     ctx.restore();
+    drawHitFlash(ctx, b, f, spot, nudge);
     drawFoeLabel(ctx, spot, b);
     if (canTap) {
       var foePick = 0;
@@ -968,6 +1100,7 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH) {
     if (!a.alive) ctx.globalAlpha = 0.35;
     drawSprite(ctx, a.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "left");
     ctx.restore();
+    drawHitFlash(ctx, b, a, spot, nudge);
     if (aimAlly && a.alive) {
       var allyPick = 0;
       party.forEach(function (other) {
@@ -1039,19 +1172,51 @@ function drawBattleFx(ctx, b, spots) {
     });
   }
   if (b.phase === "result") return;
-  (art.pops || []).forEach(function (pop) {
-    var spot = byId[pop.id];
-    if (!spot) return;
-    var rise = calm ? 16 : Math.round(22 + 30 * p);
-    var alpha = calm ? 1 : (p > 0.78 ? Math.max(0, 1 - (p - 0.78) / 0.22) : 1);
-    var top = spot.top == null ? spot.y - 96 : spot.top;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = pop.heal ? "#7dffa8" : "#ffd37a";
-    ctx.font = "700 28px system-ui, sans-serif";
+  // The sprite box has empty sky above the drawn body. Anchor callouts
+  // on the body so the number sits on the target, not in the trees.
+  function calloutBody(spot) {
+    var feet = spot.y;
+    var top = spot.top == null ? feet - 64 : spot.top;
+    return top + (feet - top) * 0.42;
+  }
+  function paintCallout(text, x, y, fill, size) {
+    ctx.font = "700 " + size + "px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.fillText((pop.heal ? "+" : "") + pop.text, spot.x, top - 18 - rise);
+    ctx.fillStyle = "rgba(12, 8, 20, 0.92)";
+    ctx.fillText(text, x - 1, y);
+    ctx.fillText(text, x + 1, y);
+    ctx.fillText(text, x, y - 1);
+    ctx.fillText(text, x, y + 1);
+    ctx.fillStyle = fill;
+    ctx.fillText(text, x, y);
+  }
+  var seenTag = {};
+  (art.tags || []).forEach(function (tag) {
+    if (!tag || seenTag[tag.id]) return;
+    seenTag[tag.id] = true;
+    var spot = byId[tag.id];
+    if (!spot) return;
+    var body = calloutBody(spot);
+    var rise = calm ? 2 : Math.round(2 + 10 * p);
+    var alpha = calm ? 1 : (p > 0.82 ? Math.max(0, 1 - (p - 0.82) / 0.18) : 1);
+    var numSize = calm ? 34 : 40;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    paintCallout(tag.text, spot.x, body - 6 - rise - numSize, tag.text === "WEAK" ? "#ffd37a" : "#b9d6ff", calm ? 16 : 18);
+    ctx.restore();
+  });
+  (art.pops || []).forEach(function (pop, index) {
+    var spot = byId[pop.id];
+    if (!spot) return;
+    var rise = calm ? 2 : Math.round(2 + 12 * p);
+    var alpha = calm ? 1 : (p > 0.78 ? Math.max(0, 1 - (p - 0.78) / 0.22) : 1);
+    var body = calloutBody(spot);
+    var size = calm ? 34 : (p < 0.16 ? 46 : 40);
+    var stack = pop.heal ? 0 : index * 6;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    paintCallout((pop.heal ? "+" : "") + pop.text, spot.x, body - 4 - rise - stack, pop.heal ? "#7dffa8" : "#ffd37a", size);
     ctx.restore();
   });
 }
@@ -1379,6 +1544,30 @@ function drawItemList(ctx, b, dock) {
   }, null, null);
 }
 
+function resultMetrics(panel, row) {
+  var levels = row.levels || [];
+  var items = row.win && !row.fled ? (row.items || []) : [];
+  var head = 1;
+  if (row.win && !row.fled) head += 1 + Math.ceil(items.length / 2);
+  var metrics = { title: 26, body: 15, line: 20 };
+  function height(m) {
+    var block = 0;
+    var i;
+    for (i = 0; i < levels.length; i += 2) {
+      var skill = (levels[i] && levels[i].skill) || (levels[i + 1] && levels[i + 1].skill);
+      block += (skill ? m.line * 2 : m.line) + 4;
+    }
+    return 16 + m.title + 8 + head * m.line + block + 12;
+  }
+  while (height(metrics) > panel.h && metrics.body > 11) {
+    metrics.body -= 1;
+    metrics.line -= 1;
+    if (metrics.title > 18) metrics.title -= 1;
+  }
+  metrics.cardH = Math.min(panel.h, Math.max(72, height(metrics)));
+  return metrics;
+}
+
 function drawResult(ctx, b, panel) {
   var row = b.result || {};
   var x = panel.x;
@@ -1386,51 +1575,71 @@ function drawResult(ctx, b, panel) {
   var panelW = panel.w;
   var panelH = Math.max(48, panel.h);
   var btnH = panel.btnH || 48;
-  var by = y + panelH + 8;
-  artWindow(ctx, x, y, panelW, panelH);
+  var levels = row.levels || [];
+  var items = row.win && !row.fled ? (row.items || []) : [];
+  var title = row.fled ? "Got away" : (row.win ? "Victory" : "Defeat");
+  var metrics = resultMetrics({ h: panelH, w: panelW }, row);
+  var cardH = metrics.cardH;
+  var lineH = metrics.line;
+  artWindow(ctx, x, y, panelW, cardH);
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x + 8, y + 6, panelW - 16, panelH - 12);
+  ctx.rect(x + 6, y + 4, panelW - 12, cardH - 8);
   ctx.clip();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  var many = row.levels && row.levels.length;
-  var compact = panelH < 260 || !!many;
-  var titleSize = compact ? 20 : 26;
-  var bodySize = many ? 13 : (compact ? 14 : 16);
-  var step = many ? 13 : (compact ? 18 : 22);
   ctx.fillStyle = "#ffd37a";
-  ctx.font = "700 " + titleSize + "px system-ui, sans-serif";
-  var title = row.fled ? "Fled." : (row.win ? "Victory." : "Defeat.");
-  var ly = y + 10;
-  var limit = y + panelH - 8;
-  function line(text, color, size, gapAfter) {
-    if (ly + size > limit) return false;
+  ctx.font = "700 " + metrics.title + "px system-ui, sans-serif";
+  ctx.fillText(title, x + 14, y + 10);
+  var ly = y + 10 + metrics.title + 6;
+  var painted = [title];
+  ctx.font = "700 " + metrics.body + "px system-ui, sans-serif";
+  function write(text, color, maxW) {
     ctx.fillStyle = color;
-    ctx.font = (size >= 20 ? "700 " : "700 ") + size + "px system-ui, sans-serif";
-    ctx.fillText(text, x + 14, ly);
-    ly += gapAfter;
-    return true;
+    ctx.font = "700 " + metrics.body + "px system-ui, sans-serif";
+    var shown = text;
+    if (maxW && ctx.measureText(shown).width > maxW) shown = fitLine(ctx, shown, maxW);
+    ctx.fillText(shown, x + 14, ly);
+    painted.push(shown);
   }
-  line(title, "#ffd37a", titleSize, many ? titleSize + 2 : titleSize + 8);
-  if (row.win && !row.fled) {
-    line("XP +" + (row.xp || 0), "#f4f7ff", bodySize, step);
-    line("Marks +" + (row.gold || 0), "#f4f7ff", bodySize, step);
-    (row.items || []).forEach(function (name) { line(name, "#f4f7ff", bodySize, step); });
+  if (row.fled) {
+    write("Back on the road.", "#f4f7ff");
+  } else if (!row.win) {
+    write("The party is at half HP.", "#f4f7ff");
+  } else {
+    write("+" + (row.xp || 0) + " XP    +" + (row.gold || 0) + " Marks", "#f4f7ff");
+    ly += lineH;
+    var c;
+    for (c = 0; c < items.length; c += 2) {
+      var leftItem = items[c];
+      var rightItem = items[c + 1];
+      write(rightItem ? leftItem + "    " + rightItem : leftItem, "#f4f7ff", panelW - 28);
+      ly += lineH;
+    }
+    var colW = Math.floor((panelW - 36) / 2);
+    var i;
+    for (i = 0; i < levels.length; i += 2) {
+      var pair = [levels[i], levels[i + 1]];
+      var tall = (pair[0] && pair[0].skill) || (pair[1] && pair[1].skill);
+      pair.forEach(function (lv, col) {
+        if (!lv) return;
+        var lx = x + 14 + col * (colW + 8);
+        ctx.fillStyle = "#ffd37a";
+        ctx.font = "700 " + metrics.body + "px system-ui, sans-serif";
+        ctx.fillText(fitLine(ctx, lv.name + " Lv " + lv.level, colW), lx, ly);
+        if (lv.skill) {
+          ctx.fillStyle = "#f4f7ff";
+          var learned = fitLine(ctx, "Learned " + lv.skill, colW);
+          ctx.fillText(learned, lx, ly + lineH);
+          painted.push(learned);
+        }
+      });
+      ly += tall ? lineH * 2 + 4 : lineH + 4;
+    }
   }
-  (row.levels || []).forEach(function (lv) {
-    if (!line("Level up!", "#ffd37a", bodySize, step)) return;
-    line(lv.name + " is level " + lv.level + ".", "#f4f7ff", bodySize, step);
-    line("HP " + lv.hp[0] + " to " + lv.hp[1], "#f4f7ff", bodySize, step);
-    if (lv.sp) line("SP " + lv.sp[0] + " to " + lv.sp[1], "#7eb6ff", bodySize, step);
-    line("Attack " + lv.atk[0] + " to " + lv.atk[1], "#f4f7ff", bodySize, step);
-    if (lv.def) line("Defense " + lv.def[0] + " to " + lv.def[1], "#f4f7ff", bodySize, step);
-    line("Magic " + lv.mag[0] + " to " + lv.mag[1], "#f4f7ff", bodySize, step);
-    if (lv.spd) line("Speed " + lv.spd[0] + " to " + lv.spd[1], "#f4f7ff", bodySize, step);
-    if (lv.skill) line("Learned " + lv.skill + ".", "#f4f7ff", bodySize, step);
-  });
-  if (!row.win) line("The party is at half HP.", "#f4f7ff", bodySize, step);
+  SF.Battle.resultLines = painted;
   ctx.restore();
+  var by = y + panelH + 8;
   button(ctx, x, by, panelW, btnH, "Continue", true, false);
   addHit("result", x, by, panelW, btnH);
 }
@@ -1502,6 +1711,8 @@ SF.Battle.confirm = function () {
     SF.Battle.confirmResult();
     return;
   }
+  // A confirm key already down when the menu appeared is not a fresh press.
+  if (b._confirmHeldAtMenu) return;
   if (b.phase === "menu") {
     var cmds = ["attack", "skill", "item", "defend", "flee"];
     var i = b.sel || 0;
@@ -1546,6 +1757,7 @@ SF.Battle.activate = function (id) {
   if (!b || !id) return;
   if (window.Sfx) Sfx.play("ui");
   if (b.phase === "readout") {
+    b._gestureSkipped = true;
     SF.Battle.skipReadout();
     return;
   }
@@ -1652,9 +1864,17 @@ SF.Battle.readPad = function (b) {
   if (horiz && horiz !== b._padH) SF.Battle.moveSel(horiz);
   b._padV = vert;
   b._padH = horiz;
+  // Arm hold-to-skip only on a fresh A press during an enemy or system readout.
+  if (i.padAEdge && SF.Battle.enemyReadout(b)) {
+    b.padHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+  }
+  if (!i.padA) {
+    b.padHoldSince = 0;
+    b._padAHeldAtMenu = false;
+  }
   if (i.padAEdge) {
     i.padAEdge = false;
-    SF.Battle.confirm();
+    if (b.phase === "result" || b.phase === "readout" || !b._padAHeldAtMenu) SF.Battle.confirm();
   }
   if (i.padBEdge || i.padXEdge) {
     i.padBEdge = false;
@@ -1692,6 +1912,16 @@ function bindBattlePointer() {
       list: !!(box && pt.x >= box.x && pt.y >= box.y && pt.x <= box.x + box.w && pt.y <= box.y + box.h),
       moved: false
     };
+    if (b) {
+      drag.began = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      drag.beganReadout = b.phase === "readout";
+      b._holdSkips = 0;
+      if (SF.Battle.enemyReadout && SF.Battle.enemyReadout(b)) {
+        b.pointerHoldSince = drag.began;
+      } else {
+        b.pointerHoldSince = 0;
+      }
+    }
     try { view.setPointerCapture(e.pointerId); } catch (err) { /* canvas may already own it */ }
     e.preventDefault();
   });
@@ -1718,11 +1948,28 @@ function bindBattlePointer() {
     if (!s || (s.mode !== "battle" && s.mode !== "results") || !e) return;
     var pt = toView(e);
     var moved = start.moved || Math.abs(pt.y - start.y) > 10 || Math.abs(pt.x - start.x) > 10;
+    if (s.battle) {
+      s.battle.pointerHoldSince = 0;
+      s.battle._holdSkips = 0;
+    }
     if (moved) return;
+    var b = s.battle;
+    // Still in the readout this finger started on: skip, and do not press whatever appears.
+    if (start.beganReadout) {
+      if (b && b.phase === "readout") SF.Battle.onPointer(pt.x, pt.y);
+      return;
+    }
+    // This press began before the command menu, or in the first 250ms. The lift does not act.
+    // The result screen's Continue button is not part of that menu.
+    if (b && b.phase !== "result" && SF.Battle.pointerPressIgnored(b, start.began)) return;
     SF.Battle.onPointer(pt.x, pt.y);
   }
   view.addEventListener("pointerup", endDrag);
-  view.addEventListener("pointercancel", function () { drag = null; });
+  view.addEventListener("pointercancel", function () {
+    drag = null;
+    var s = SF.state;
+    if (s && s.battle) s.battle.pointerHoldSince = 0;
+  });
   window.addEventListener("keydown", function (e) {
     var s = SF.state;
     if (!s || (s.mode !== "battle" && s.mode !== "results") || !s.battle) return;
@@ -1733,57 +1980,49 @@ function bindBattlePointer() {
     if (!confirm && !cancel && !arrow && code.indexOf("Digit") !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    if (confirm) {
+      s.battle._confirmDown = true;
+      if (SF.Battle.enemyReadout && SF.Battle.enemyReadout(s.battle)) {
+        if (!s.battle.keyHoldSince) s.battle.keyHoldSince = SF.BattleFeel && SF.BattleFeel.now ? SF.BattleFeel.now() : Date.now();
+      } else {
+        s.battle.keyHoldSince = 0;
+      }
+    }
     if (e.repeat && !arrow) return;
     if (arrow) SF.Battle.moveSel(code === "ArrowUp" || code === "ArrowLeft" ? -1 : 1);
-    else if (confirm) SF.Battle.confirm();
+    else if (confirm) {
+      if (s.battle._confirmHeldAtMenu) return;
+      SF.Battle.confirm();
+    }
     else if (cancel) SF.Battle.cancel();
+  }, true);
+  window.addEventListener("keyup", function (e) {
+    var s = SF.state;
+    var b = s && s.battle;
+    if (!b) return;
+    var code = e.code;
+    if (code === "Enter" || code === "Space" || code === "KeyE" || code === "KeyZ") {
+      b._confirmDown = false;
+      b._confirmHeldAtMenu = false;
+      b.keyHoldSince = 0;
+    }
   }, true);
 }
 
 var baseDraw = SF.draw;
+// BattleUI is the screen. SF.draw goes through it whenever a battle is up.
+SF.BattleUI = {
+  draw: function (ctx, w, h, dpr) { SF.drawBattle(ctx, w, h, dpr); }
+};
+SF.Battle.UI = SF.BattleUI;
+
 SF.draw = function () {
   var s = SF.state;
   if (s && s.battle && (s.mode === "battle" || s.mode === "results") && SF.view && SF.ctx) {
-    SF.drawBattle(SF.ctx, SF.viewW || 1, SF.viewH || 1, SF.dpr || 1);
+    SF.BattleUI.draw(SF.ctx, SF.viewW || 1, SF.viewH || 1, SF.dpr || 1);
     return;
   }
   if (baseDraw) baseDraw();
-};
-
-var prevResolve = SF.Battle.resolve;
-SF.Battle.resolve = function (b, actor, action) {
-  var before = {};
-  if (b && b.actors) b.actors.forEach(function (a) { before[a.id] = a.hp; });
-  prevResolve(b, actor, action);
-  var skill = null;
-  if (action && action.skillId) skill = SF.skillById(action.skillId);
-  else if (action && (action.type === "skill" || action.type === "attack")) skill = SF.skillById("attack");
-  var pose = "attack";
-  if (action && (action.type === "defend" || action.type === "flee")) pose = "idle";
-  else if (skill && (skill.mag || skill.heal || skill.scan || skill.defUp || skill.spdUp)) pose = "cast";
-  else if (action && action.type === "item") pose = "cast";
-  var hurt = [];
-  var pops = [];
-  if (b && b.actors) {
-    b.actors.forEach(function (a) {
-      if (before[a.id] == null) return;
-      if (a.hp < before[a.id]) {
-        hurt.push(a.id);
-        pops.push({ id: a.id, text: before[a.id] - a.hp, heal: false });
-      } else if (a.hp > before[a.id]) {
-        pops.push({ id: a.id, text: a.hp - before[a.id], heal: true });
-      }
-    });
-  }
-  var element = (skill && skill.element) || "";
-  if (!element && action && action.itemId && SF.ITEMS && SF.ITEMS[action.itemId]) element = SF.ITEMS[action.itemId].element || "";
-  if (b && b.phase === "readout" && !SF.Battle.instant) {
-    var dur = (SF.calm && SF.calm()) ? 0.7 : 1.05;
-    b.readoutT = dur;
-    b.readoutDur = dur;
-  }
-  if (b && b.phase === "result") b.art = { id: actor && actor.id, pose: "idle", hurt: [], element: "", pops: [] };
-  else if (b) b.art = { id: actor && actor.id, pose: pose, hurt: hurt, element: element, pops: pops };
 };
 
 bindBattlePointer();

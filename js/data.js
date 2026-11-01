@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.27";
+SF.VERSION = "0.4.28";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -34,6 +34,7 @@ SF.STRIKE_ARC = 0.28;
 SF.XP_NEED = [0, 24, 70, 110];
 
 SF.WHATS_NEW = [
+  "Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.",
   "Chests open when you mean to open them, and you can see what was inside.",
   "Trees, flowers, rocks, and lamps look new. Cottages, stalls, and ruins were rebuilt.",
   "You and the townspeople have new looks.",

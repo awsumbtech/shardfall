@@ -47,7 +47,17 @@ for (const file of [
   "js/content/maps/v2layout.js",
   "js/vaultgate.js",
   "js/grapple.js",
+  "js/battle/events.js",
+  "js/battle/formula.js",
+  "js/battle/state.js",
+  "js/battle/timeline.js",
+  "js/battle/ai.js",
+  "js/battle/rewards.js",
+  "js/battle/feel.js",
+  "js/battle/resolver.js",
   "js/battle/battle.js",
+  "js/battle/renderer.js",
+  "js/battle/audio.js",
   "js/menu/field.js",
   "js/world.js"
 ]) {
@@ -1778,7 +1788,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.27"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.28"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -1940,7 +1950,10 @@ SF.mountIsland("emberhold");
     "js/data.js", "js/data/skills.js", "js/data/items.js", "js/data/party.js",
     "js/data/enemies.js", "js/data/encounters.js", "js/dialogue.js",
     "js/audio.js", "js/music.js", "js/sfx.js", "js/save.js", "js/sim.js",
-    "js/battle/battle.js", "js/battle/draw.js"
+    "js/battle/events.js", "js/battle/formula.js", "js/battle/state.js",
+    "js/battle/timeline.js", "js/battle/ai.js", "js/battle/rewards.js",
+    "js/battle/feel.js", "js/battle/resolver.js", "js/battle/battle.js",
+    "js/battle/renderer.js", "js/battle/audio.js", "js/battle/draw.js"
   ]) {
     vm.runInContext(fs.readFileSync(file, "utf8"), layout, { filename: file });
   }
@@ -1995,6 +2008,48 @@ SF.mountIsland("emberhold");
   });
   L.drawBattle(fake, 915, 412, 1);
   if (!(L.Battle.stripFace >= 44)) fail("turn icons still tiny at phone width (" + L.Battle.stripFace + ")");
+  // Down, Down, Enter right after the menu appears picks Item. Arrows are
+  // never dropped. A confirm already held when the menu appeared does not act.
+  // A pointer press that began before the menu, or within 250ms, is ignored
+  // even if the finger lifts later.
+  {
+    const menu = play.battle;
+    const hero = menu.actors.find((a) => a.side === "party");
+    menu.phase = "menu";
+    menu.actorId = hero.id;
+    menu.sel = 0;
+    menu.pending = null;
+    menu.menuAppearedAt = L.BattleFeel.now();
+    menu._confirmHeldAtMenu = false;
+    menu._confirmDown = false;
+    menu._padAHeldAtMenu = false;
+    L.drawBattle(fake, 915, 412, 1);
+    L.Battle.moveSel(1);
+    L.Battle.moveSel(1);
+    if (menu.sel !== 2) fail("two downs did not reach Item, sel " + menu.sel);
+    L.Battle.confirm();
+    if (menu.phase !== "items") fail("Enter after two downs did not open items (" + menu.phase + ")");
+    menu.phase = "menu";
+    menu.sel = 0;
+    menu.pending = null;
+    menu._confirmHeldAtMenu = true;
+    L.Battle.moveSel(1);
+    if (menu.sel !== 1) fail("a held confirm blocked arrow navigation");
+    L.Battle.confirm();
+    if (menu.phase !== "menu" || menu.sel !== 1) fail("a confirm held at menu-open acted");
+    menu._confirmHeldAtMenu = false;
+    L.Battle.moveSel(1);
+    L.Battle.confirm();
+    if (menu.phase !== "items") fail("a fresh Enter did not pick Item");
+    const appeared = 1000;
+    menu.menuAppearedAt = appeared;
+    if (!L.Battle.pointerPressIgnored(menu, appeared - 20)) fail("a press that began before the menu was accepted");
+    if (!L.Battle.pointerPressIgnored(menu, appeared + 100)) fail("a press inside 250ms of the menu was accepted");
+    if (L.Battle.pointerPressIgnored(menu, appeared + 250)) fail("a press at 250ms was dropped");
+    if (L.Battle.pointerPressIgnored(menu, appeared + 800)) fail("a press that started after the window was dropped");
+    menu.phase = "menu";
+    menu.sel = 0;
+  }
   const kes = play.battle.actors.find((a) => a.key === "kestrel");
   play.battle.phase = "skills";
   play.battle.actorId = kes.id;
@@ -2021,6 +2076,9 @@ await runAssetChecks();
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
+const battleParity = spawnSync(process.execPath, ["tools/battle-parity.mjs"], { stdio: "inherit", env: childEnv });
+if (battleParity.status !== 0) process.exit(battleParity.status || 1);
+
 const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit", env: childEnv });
 if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 
@@ -2036,7 +2094,10 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.27"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.28"')) fail("version was not bumped");
+  if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
+    fail("whats new battle line");
+  }
   if (!dataJs.includes("Behind the scenes: new art system groundwork, no visible change")) fail("whats new");
   if (!dataJs.includes("Behind the scenes: packed art is ready for the site, with no visible change.")) {
     fail("whats new atlas line");
@@ -2045,7 +2106,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.27")) fail("html version");
+  if (!html.includes("v0.4.28")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -2534,7 +2595,9 @@ async function runAssetChecks() {
   if (!drawJs.includes("ringR * 0.45")) fail("the foot ring lost its shape");
   if (!drawJs.includes("ctx.fillText(n.name, nx, ny - 34)")) fail("name tag moved");
   if (!drawJs.includes("SF.GUIDE_HEAD = 60")) fail("quest diamond moved");
-  if (fs.readFileSync("js/battle/draw.js", "utf8").includes("LayeredSprite")) fail("battle draws the field rig");
+  const battleDraw = fs.readFileSync("js/battle/draw.js", "utf8");
+  if (battleDraw.includes("LayeredSprite")) fail("battle draws the field rig");
+  if (battleDraw.includes("before[a.id]")) fail("battle UI still diffs HP");
 
   const missingManifest = await A.AssetManifest.load("assets/atlas/manifest.json", () => null);
   if (missingManifest.keys().length) fail("a missing manifest was not empty");

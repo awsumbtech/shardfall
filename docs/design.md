@@ -142,7 +142,27 @@ Points of interest in v0.1:
 
 Fights are turn-based, on their own screen. The field is still real time: walk, dash, and the hook. There is no swing and no Fight button. Nothing hunts you on the grass. A step counter rolls a fight from the region's table (`Battle.start(formation, { bg })`). Safe ground never rolls. The first ten steps after a fight, a load, or entering a region are free. A lit lamp cuts that island's random fights to about a third, and Lamp Hill becomes safe. The Scar stays at its own rate. Bosses and the Cinderstep choirling are fixed fights. You cannot flee those. A random fight can be fled. Losing returns the party to the last checkpoint at half HP. Marks, items, and XP stay.
 
-The turn order is a strip at the top. Speed fills a gauge. The actor who fills it acts, then waits again. Defend comes back sooner. The commands are Attack, Skill, Item, Defend, and Flee, in large buttons along the bottom. Tap a foe or a party portrait to aim. The log is plain: "Kestrel attacks!", "Wisp is defeated.", "Level up!".
+The turn order is a strip at the top. Speed fills a gauge. The actor who fills it acts, then waits again. Defend holds the defender's gauge so a living foe can act while Guard is up. The commands are Attack, Skill, Item, Defend, and Flee, in large buttons along the bottom. Tap a foe or a party portrait to aim. The log is plain: "Kestrel attacks!", "Wisp is defeated.", "Level up!". A solo fight uses a short strip and does not repeat "You" for every upcoming turn.
+
+Combat is split into single-purpose modules under `js/battle/`. The rules emit typed events. The screen subscribes. It does not discover a hit by comparing HP.
+
+| Module | Object | Job |
+| --- | --- | --- |
+| `events.js` | BattleEvents | Pub/sub. `hit`, `crit-ready`, `weak`, `resist`, `kill`, `phase`, `heal`, `turn-start`, `hit-pause`. |
+| `state.js` | BattleState | Builds party and foe actors. No rules. |
+| `timeline.js` | Timeline | Charge-time gauge, the next actor, the 8-deep forecast. Same numbers as before. |
+| `formula.js` | Formula | Damage, guard, weakness, and resist. A pure function. Same numbers. |
+| `resolver.js` | ActionResolver | Applies Attack, Skill, Item, Defend, and Flee, then emits the events. |
+| `ai.js` | EnemyAI | Today's foe script: a skill every third turn, aimed at the lowest HP. |
+| `rewards.js` | Rewards | XP, marks, drops, stolen goods, and the carrier shard. |
+| `feel.js` | BattleFeel | Readout length and the hit-pause option. |
+| `renderer.js` | BattleRenderer | Listens, and records pops, tags, the flash, and the pause. |
+| `draw.js` | BattleUI | Draws the strip, the stage, the commands, and the result card from that record. |
+| `battle.js` | Battle | `Battle.start` and the field hooks the rest of the game already calls. |
+
+`crit-ready` is on the bus for a later timing window. Nothing emits it yet, because a hit is still not a crit.
+
+A hit shows a large number above the target, and a WEAK or RESIST tag when the formula said so. The number does not sit on the name. Each foe's name sits just under its feet, on screen, clear of the other plates and the command dock. The target takes a small knockback. With Reduce flashing on, or when reduced motion is on, the hit is a soft white tint at about 35% that fades over about 100ms. It does not strobe. Otherwise the target flashes white. The hit-pause hook freezes the battle for about 60ms. `prefers-reduced-motion` skips that freeze and still emits `hit-pause` with `ms: 0`. Readouts last 0.55s. They were 1.05s, or 0.70s with Reduce flashing. A tap skips one. Holding through an enemy readout fast-forwards. The press that starts your own hit does not. The victory card fits every level line. It does not scroll.
 
 The party holds up to three. Through Act 1 the Wayfarer fights alone, including the Cinder Maw, and a solo fight shows one wide party card under the turn strip. Kestrel joins when `party_kestrel` is set. Tamsin joins when `party_tamsin` is set. Act 2 departure scenes set those flags after `act1_end`. The first sail and the grapple gift do not. If `act1_end` is reached and either flag is missing, both are set, and the banners read "Kestrel joined the party." and "Tamsin joined the party." The same happens for a save that is already past the end of Act 1. No new spoken lines. XP from a win goes to every member who has joined. A member who joins later starts at the Wayfarer's level.
 
@@ -247,7 +267,7 @@ Sprite ids: `wayfarer`, `kestrel`, `tamsin`, `maren`, `hesk`, `ilsa`, `cantor`, 
 
 `Art.battleBg(ctx, bgId, w, h, t)` fills the rectangle at the current origin, from `(0, 0)` to `(w, h)`, clipped to that box. Ids: `emberhold_meadow`, `emberhold_scar`, `cinderveil_ash`, `ember_vault`, `saltmere_shore`, `saltmere_wreck`, `highspire_road`, `hush_deck`. An unknown id uses the meadow. `t` is seconds. Clouds drift slowly unless `Art.calm()` is true, which it is when Reduce flashing is on (the default) or the system asks for less motion.
 
-The battle screen is a side view on that background. Enemies stand on the left, facing right. The party stands on the right, facing left. Sprites are large enough to fill that stage on a phone: a solo party member is about three times the old battle scale, small foes (wisps, ashlings) are scaled up until the body reads, and a pair is staggered in depth so both stay big. The Cinder Maw and the Tidewyrm use their tall battle sprites and take most of the left half. Feet sit on a shared ground line just above the party card; a second foe stands higher, further back. An attack steps the actor toward the other side. A hit knocks the target back a short way. Ember, Tide, Gale, and Shard draw a cluster of colored pixels on the target's body (blocks, drops, streaks, diamonds), and a damage number rises off the sprite. Reduce flashing holds those motions to one still pose and a steady number, with no white flash and no strobe. A win lifts the party into `pose: "victory"` above the reward window. Pass `pose: "idle" | "attack" | "hurt" | "cast" | "victory"` (or a string `frame` of the same name). A numeric `frame` without a pose is the field walk cycle, which is the wrong picture for a fight. The turn strip, the log, the commands, and the field menu use `Art.window` (and the same blue CSS on the DOM menu). The party card and the turn strip use `Art.portrait`, including a foe icon for every enemy. On the field, the objective and the hint share one window. Each hint fades after the first time it is shown.
+The battle screen is a side view on that background. Enemies stand on the left, facing right. The party stands on the right, facing left. Sprites are large enough to fill that stage on a phone: a solo party member is about three times the old battle scale, small foes (wisps, ashlings) are scaled up until the body reads, and a pair is staggered in depth so both stay big. The Cinder Maw and the Tidewyrm use their tall battle sprites and take most of the left half. Feet sit on a shared ground line just above the party card; a second foe stands higher, further back. An attack steps the actor toward the other side. A hit knocks the target back a short way. Ember, Tide, Gale, and Shard draw a cluster of colored pixels on the target's body (blocks, drops, streaks, diamonds), and a damage number rises off the sprite. Reduce flashing holds those motions to one still pose and a steady number. The hit is then a soft white tint that fades over about 100ms, not a strobe. A win lifts the party into `pose: "victory"` above the reward window. Pass `pose: "idle" | "attack" | "hurt" | "cast" | "victory"` (or a string `frame` of the same name). A numeric `frame` without a pose is the field walk cycle, which is the wrong picture for a fight. The turn strip, the log, the commands, and the field menu use `Art.window` (and the same blue CSS on the DOM menu). The party card and the turn strip use `Art.portrait`, including a foe icon for every enemy. On the field, the objective and the hint share one window. Each hint fades after the first time it is shown.
 
 `Art.window(ctx, x, y, w, h, opts)` paints a Final Fantasy-style window: deep blue, cream outer border, light-blue inner line. It returns the content rectangle `{ x, y, w, h }`. `opts.title` draws a gold label and pushes the content rect down. DOM menus use the same chrome in CSS (`.panel`, `.card`, `#dialogue`, `#toast`, the corner buttons).
 
@@ -398,7 +418,7 @@ Code map, if a section above needs a change:
 | `js/cinder.js` | Cinderveil, travel, the hand menu, quest markers |
 | `js/grapple.js` | The hook, the Maw, ash foes |
 | `js/sim.js` | Movement, quest, the dash gap. Contact calls `Battle.start` |
-| `js/battle/` | Turn order, commands, the Maw, results |
+| `js/battle/` | Events, timeline, formula, resolver, foe AI, rewards, and the battle screen |
 | `js/data/party.js`, `enemies.js`, `skills.js`, `items.js`, `encounters.js` | Party, foes, skills, items, encounter ids |
 | `js/menu/field.js` | Field menu: party, skills, items, equip |
 | `js/art/core.js` | Palette, `Art.sprite`, portraits, integer blit |
