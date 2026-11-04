@@ -2,8 +2,7 @@
 
 // World layer for v0.3: sail chart, islands, chests, shops, inns,
 // field encounters. Map numbers live in js/content/maps/.
-var SF = window.SF || {};
-window.SF = SF;
+// SF is the game object from data.js. Art, effects, and music come from DrawDeps.
 
 SF.ACTOR_SPRITE = {
   maren: "maren",
@@ -189,7 +188,7 @@ SF.openChest = function (chest) {
     s.chestArmed = false;
     if (SF.inputState) SF.inputState.interactEdge = false;
   }
-  if (window.Sfx) Sfx.play("pickup");
+  if (SF.DrawDeps.sfx()) SF.DrawDeps.sfx().play("pickup");
   if (SF.saveGame) SF.saveGame({ silent: true });
 };
 
@@ -246,7 +245,7 @@ SF.buyFromShop = function (id) {
     SF.pushToast("Not enough marks.", 1.4);
     return false;
   }
-  if (window.Sfx) Sfx.play("ui");
+  if (SF.DrawDeps.sfx()) SF.DrawDeps.sfx().play("ui");
   SF.pushToast("Bought " + SF.itemInfo(id).name + ".", 1.2);
   return true;
 };
@@ -256,7 +255,7 @@ SF.sellToShop = function (id) {
   if (!s || !s.shop) return false;
   var it = SF.itemInfo(id);
   if (!SF.shopSell(id)) return false;
-  if (window.Sfx) Sfx.play("ui");
+  if (SF.DrawDeps.sfx()) SF.DrawDeps.sfx().play("ui");
   SF.pushToast("Sold " + it.name + " for " + (it.sell || 0) + " marks.", 1.2);
   return true;
 };
@@ -323,7 +322,7 @@ SF.maybeSeaFight = function (s) {
       if (!s.voyage) return;
       s.voyage.paused = false;
       s.mode = "voyage";
-      if (window.Music) Music.play("sail");
+      if (SF.DrawDeps.music()) SF.DrawDeps.music().play("sail");
     },
     onLose: function () {
       s.voyage = null;
@@ -343,7 +342,8 @@ SF.foeSprite = function (e) {
 };
 
 SF.tryArtSprite = function (ctx, id, x, y, opts) {
-  if (!id || !window.Art || typeof Art.sprite !== "function") return false;
+  var art = SF.DrawDeps.art();
+  if (!id || !art || typeof art.sprite !== "function") return false;
   var o = {
     frame: opts && opts.frame != null ? opts.frame : 0,
     facing: opts && opts.facing != null ? opts.facing : "down",
@@ -352,7 +352,7 @@ SF.tryArtSprite = function (ctx, id, x, y, opts) {
   };
   if (SF.calm && SF.calm() && o.pose === "walk") o.frame = 0;
   try {
-    Art.sprite(ctx, id, x, y, o);
+    art.sprite(ctx, id, x, y, o);
     return true;
   } catch (err) {
     return false;
@@ -382,7 +382,8 @@ SF.drawVillager = function (ctx, x, y, tunic, skin) {
     var sprite = (n && n.sprite) || (n && SF.ACTOR_SPRITE[n.id]);
     if (!sprite) return false;
     var calm = SF.calm && SF.calm();
-    var cast = window.Art && Art.fieldCast && Art.fieldCast[sprite];
+    var art = SF.DrawDeps.art();
+    var cast = art && art.fieldCast && art.fieldCast[sprite];
     var movingPose = !!moving;
     var frame = calm ? 0 : Math.floor((SF.anim || 0) * (movingPose ? 8 : (cast ? 2 : 4))) % (movingPose ? 4 : (cast ? 2 : 4));
     var pose = movingPose ? "walk" : (cast ? "stand" : "walk");
@@ -533,7 +534,8 @@ SF.drawChest = function (ctx, extra) {
     if (!SF.tryArtSprite(ctx, "chest_open", extra.x, extra.y, { scale: 1 })) SF.drawChestFallback(ctx, extra, 1);
     return;
   }
-  var closed = window.Art && Art.frameOf ? Art.frameOf("chest", "walk", "down", 0) : null;
+  var art = SF.DrawDeps.art();
+  var closed = art && art.frameOf ? art.frameOf("chest", "walk", "down", 0) : null;
   if (!closed || !closed.width) {
     SF.drawChestFallback(ctx, extra, u);
     return;
@@ -930,7 +932,7 @@ if (SF.dialogueRouters) SF.dialogueRouters.push(SF.worldNode);
     if (s && s.voyage && s.voyage.paused && s.mode === "play" && !s.battle) {
       s.voyage.paused = false;
       s.mode = "voyage";
-      if (window.Music) Music.play("sail");
+      if (SF.DrawDeps.music()) SF.DrawDeps.music().play("sail");
     }
     if (baseUpdate) baseUpdate(dt);
   };
@@ -1151,7 +1153,8 @@ SF.keeperPortrait = function (name) {
 };
 
 SF.paintKeeper = function (canvas, id) {
-  if (!canvas || !window.Art || !Art.portrait) return;
+  var art = SF.DrawDeps.art();
+  if (!canvas || !art || !art.portrait) return;
   if (canvas.width !== 64) {
     canvas.width = 64;
     canvas.height = 64;
@@ -1160,7 +1163,7 @@ SF.paintKeeper = function (canvas, id) {
   if (!g) return;
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.clearRect(0, 0, 64, 64);
-  Art.portrait(g, id, 0, 0, 64);
+  art.portrait(g, id, 0, 0, 64);
 };
 
 SF.ensureKeeper = function (panel, id) {
@@ -1212,8 +1215,9 @@ SF.syncSailChart = function () {
     pin.className = "chart-isle" + (here ? " here" : "") + (open ? "" : " locked");
     pin.style.left = d.x + "%";
     pin.style.top = d.y + "%";
-    if (window.Art && Art.islandCard) {
-      var card = Art.islandCard(SF.CHART_BIOME[d.id] || "grass", 36);
+    var art = SF.DrawDeps.art();
+    if (art && art.islandCard) {
+      var card = art.islandCard(SF.CHART_BIOME[d.id] || "grass", 36);
       var cv = document.createElement("canvas");
       cv.className = "chart-card";
       cv.width = card.width;

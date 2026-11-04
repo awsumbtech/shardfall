@@ -4,6 +4,32 @@ import path from "node:path";
 import vm from "node:vm";
 import { spawnSync } from "node:child_process";
 
+const FIELD_DRAW = [
+  "js/draw/deps.js",
+  "js/draw/field.js",
+  "js/draw/sky.js",
+  "js/draw/terrain.js",
+  "js/draw/props.js",
+  "js/draw/actors.js",
+  "js/draw/pickups.js",
+  "js/draw/entities.js",
+  "js/draw/guides.js",
+  "js/draw/effects.js",
+  "js/draw/minimap.js",
+  "js/draw.js"
+];
+const BATTLE_DRAW = [
+  "js/battle/gfx.js",
+  "js/battle/stage.js",
+  "js/battle/hud.js",
+  "js/battle/input.js",
+  "js/battle/draw.js"
+];
+
+function readSources(files) {
+  return files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+}
+
 const shotDir = process.env.SF_SHOTS || fs.mkdtempSync(path.join(os.tmpdir(), "shardfall-smoke-"));
 fs.mkdirSync(shotDir, { recursive: true });
 const childEnv = Object.assign({}, process.env, { SF_SHOTS: shotDir });
@@ -59,6 +85,7 @@ for (const file of [
   "js/battle/renderer.js",
   "js/battle/audio.js",
   "js/menu/field.js",
+  "js/draw/deps.js",
   "js/world.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
@@ -1788,7 +1815,22 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.29"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.30"')) fail("cache version");
+// Renderer modules share art and audio through DrawDeps. The page global is
+// only for the browser events a listener has to sit on, and for window.SF,
+// which data.js still publishes for the QA tools.
+{
+  const allow = new Set(["window.addEventListener", "window.removeEventListener"]);
+  ["js/world.js"].concat(FIELD_DRAW, BATTLE_DRAW).forEach((file) => {
+    fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+      const code = line.replace(/\/\*.*?\*\//g, "").replace(/\/\/.*$/, "");
+      const uses = code.match(/window\.[A-Za-z_$][\w$]*/g) || [];
+      if (!uses.length) return;
+      if (uses.every((use) => allow.has(use))) return;
+      fail(file + ":" + (i + 1) + " shares through window (" + line.trim() + ")");
+    });
+  });
+}
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -1953,8 +1995,9 @@ SF.mountIsland("emberhold");
     "js/battle/events.js", "js/battle/formula.js", "js/battle/state.js",
     "js/battle/timeline.js", "js/battle/ai.js", "js/battle/rewards.js",
     "js/battle/feel.js", "js/battle/resolver.js", "js/battle/battle.js",
-    "js/battle/renderer.js", "js/battle/audio.js", "js/battle/draw.js"
-  ]) {
+    "js/draw/deps.js",
+    "js/battle/renderer.js", "js/battle/audio.js"
+  ].concat(BATTLE_DRAW)) {
     vm.runInContext(fs.readFileSync(file, "utf8"), layout, { filename: file });
   }
   const L = layout.SF;
@@ -2097,7 +2140,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.29"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.30"')) fail("version was not bumped");
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2109,11 +2152,11 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.29")) fail("html version");
+  if (!html.includes("v0.4.30")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
-  const drawJs = fs.readFileSync("js/draw.js", "utf8");
+  const drawJs = readSources(FIELD_DRAW);
   if (!drawJs.includes('id === "wayfarer"') || !drawJs.includes("SF.spriteRenderer")) {
     fail("the field hero is not routed through the asset registry");
   }
@@ -2409,7 +2452,9 @@ async function runAssetChecks() {
   if (baseOnly.draw(bare, 0, 0, { name: "idle.down.0", scale: 1 })) fail("a missing layer still drew");
   if (bare.ops.some((op) => op[0] === "draw")) fail("a partial doll was painted");
 
-  vm.runInContext(fs.readFileSync("js/draw.js", "utf8"), asset, { filename: "js/draw.js" });
+  for (const file of FIELD_DRAW) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), asset, { filename: file });
+  }
   asset.Art.fieldScale = function () { return 1; };
   asset.Art.fieldCast = { wayfarer: 1 };
   asset.SF.calm = function () { return false; };
@@ -2598,7 +2643,7 @@ async function runAssetChecks() {
   if (!drawJs.includes("ringR * 0.45")) fail("the foot ring lost its shape");
   if (!drawJs.includes("ctx.fillText(n.name, nx, ny - 34)")) fail("name tag moved");
   if (!drawJs.includes("SF.GUIDE_HEAD = 60")) fail("quest diamond moved");
-  const battleDraw = fs.readFileSync("js/battle/draw.js", "utf8");
+  const battleDraw = readSources(BATTLE_DRAW);
   if (battleDraw.includes("LayeredSprite")) fail("battle draws the field rig");
   if (battleDraw.includes("before[a.id]")) fail("battle UI still diffs HP");
 
@@ -3245,9 +3290,8 @@ function runKenmiProps(G, map, occupied) {
     "js/art/core.js",
     "js/art/props.js",
     "js/art/world.js",
-    "js/art/buildings.js",
-    "js/draw.js"
-  ].concat(propFiles)) {
+    "js/art/buildings.js"
+  ].concat(FIELD_DRAW, propFiles)) {
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
   }
   const Art = context.Art;
@@ -3791,7 +3835,7 @@ function runGroundChecks() {
   }
   if (!sw.includes('"js/content/maps/emberhold.tmj"')) fail("precache omits the tile map");
   if (fs.existsSync("js/tiles/autotiler.js")) fail("the autotiler is still in the game");
-  const drawJs = fs.readFileSync("js/draw.js", "utf8");
+  const drawJs = readSources(FIELD_DRAW);
   const adoptJs = fs.readFileSync("js/tiles/adopt.js", "utf8");
   if (!drawJs.includes("SF._drawTileGround") || !adoptJs.includes("framesReady")) fail("ground draw does not ask the registry");
   if (!drawJs.includes('SF.worldSource !== "tiles"') || !drawJs.includes('SF.islandId !== "emberhold"')) {
@@ -3875,7 +3919,7 @@ function runGroundChecks() {
   const layoutSrc = fs.readFileSync("js/content/maps/v2layout.js", "utf8");
   if (!layoutSrc.includes('seal: "vaultOpen"')) fail("v2layout is missing the vault collision seal");
   if (/SKY_INSET|tx === 124|tx >= 120/.test(adoptJs)) fail("edge insets are still hard-coded in adopt.js");
-  const drawJsSky = fs.readFileSync("js/draw.js", "utf8");
+  const drawJsSky = readSources(FIELD_DRAW);
   const skyStops = ["#1a1038", "#4c356c", "#e39a8c", "#f0c6ae", "#2a1860", "#6a4a86", "#f0b59a", "#f8d7b4"];
   for (const stop of skyStops) {
     if (!drawJsSky.includes(stop)) fail("code-art sky is missing main's stop " + stop);
