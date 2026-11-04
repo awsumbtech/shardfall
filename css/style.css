@@ -9,7 +9,8 @@
   --win-deep: #0a1848;
   --win-mid: #163878;
   --win-hi: #8ec8f0;
-  --serif: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+  /* Named serifs when the system has them. The tail is the button stack so a generic serif never shows. */
+  --serif: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --sans: "Avenir Next", "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
 }
@@ -675,8 +676,11 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
-  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  padding:
+    calc(18px + env(safe-area-inset-top, 0px))
+    calc(18px + env(safe-area-inset-right, 0px))
+    calc(18px + env(safe-area-inset-bottom, 0px))
+    calc(18px + env(safe-area-inset-left, 0px));
   background: rgba(10, 6, 24, 0.55);
 }
 #sail[hidden], #hand[hidden], #shop[hidden], #inn[hidden], #notice[hidden] { display: none; }
@@ -870,7 +874,11 @@ button.ghost {
   align-items: flex-start;
   justify-content: center;
   overflow: hidden;
-  padding: 8px;
+  padding:
+    calc(8px + env(safe-area-inset-top, 0px))
+    calc(8px + env(safe-area-inset-right, 0px))
+    calc(8px + env(safe-area-inset-bottom, 0px))
+    calc(8px + env(safe-area-inset-left, 0px));
   background: rgba(8, 6, 20, 0.5);
 }
 
@@ -910,8 +918,6 @@ button.ghost {
   z-index: 12;
   background: rgba(8, 6, 20, 0.78);
 }
-
-#settings .card { max-height: calc(100% - 8px); }
 
 .slider {
   display: flex;
@@ -1079,7 +1085,11 @@ body[data-modal="1"] #corner {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom));
+  padding:
+    calc(8px + env(safe-area-inset-top, 0px))
+    calc(8px + env(safe-area-inset-right, 0px))
+    calc(8px + env(safe-area-inset-bottom, 0px))
+    calc(8px + env(safe-area-inset-left, 0px));
   background: rgba(6, 12, 32, 0.55);
 }
 
@@ -1355,8 +1365,11 @@ body[data-mode="chest"] #rotate { display: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  padding:
+    calc(12px + env(safe-area-inset-top, 0px))
+    calc(12px + env(safe-area-inset-right, 0px))
+    calc(12px + env(safe-area-inset-bottom, 0px))
+    calc(12px + env(safe-area-inset-left, 0px));
   background: rgba(10, 6, 24, 0.72);
 }
 #chest[hidden] { display: none; }
@@ -1458,6 +1471,7 @@ body[data-mode="chest"] #rotate { display: none; }
   min-height: 0;
 }
 
+.menu-sheet,
 #pause .card,
 #modal .card,
 #settings .card,
@@ -1474,6 +1488,18 @@ body[data-mode="chest"] #rotate { display: none; }
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
+}
+
+.menu-sheet {
+  padding: 8px 12px;
+}
+
+.menu-sheet > h2 {
+  margin: 0 0 4px;
+}
+
+.menu-sheet > :not(.menu-scroll) {
+  flex: none;
 }
 
 .menu-scroll {
@@ -1580,8 +1606,38 @@ body[data-mode="chest"] #rotate { display: none; }
 
 @media (max-height: 430px) {
   #sail {
-    padding: 8px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    padding:
+      calc(8px + env(safe-area-inset-top, 0px))
+      calc(8px + env(safe-area-inset-right, 0px))
+      calc(8px + env(safe-area-inset-bottom, 0px))
+      calc(8px + env(safe-area-inset-left, 0px));
+  }
+  .menu-sheet {
+    padding: 8px 10px 6px;
+  }
+  .menu-sheet > h2 {
+    font-size: 22px;
+    margin: 0 0 2px;
+  }
+  .menu-sheet .slider {
+    margin: 2px 0 0;
+  }
+  .menu-sheet input[type="range"] {
+    height: 28px;
+    margin-bottom: 0;
+  }
+  .menu-sheet .fine {
+    margin: 2px 0 2px;
+  }
+  .menu-sheet .actions {
+    margin-top: 4px;
+    gap: 6px;
+  }
+  .menu-sheet .menu-foot {
+    padding-top: 4px;
+  }
+  .menu-sheet .menu-foot button {
+    min-height: 44px;
   }
   #sail .card { padding: 10px 12px; }
   #sail .card h2 { font-size: 22px; margin: 0 0 4px; }
@@ -1590,7 +1646,13 @@ body[data-mode="chest"] #rotate { display: none; }
   #sail-note { margin: 0 0 4px; }
   #sail-chart { height: 136px; margin: 4px 0 6px; }
   #sail-list button { min-height: 44px; margin: 3px 0; padding: 6px 10px; }
-  #chest { padding: 8px; }
+  #chest {
+    padding:
+      calc(8px + env(safe-area-inset-top, 0px))
+      calc(8px + env(safe-area-inset-right, 0px))
+      calc(8px + env(safe-area-inset-bottom, 0px))
+      calc(8px + env(safe-area-inset-left, 0px));
+  }
   #chest .card { padding: 10px 12px; }
   #chest .card h2 { font-size: 22px; margin-bottom: 4px; }
   .loot-line { font-size: 15px; }

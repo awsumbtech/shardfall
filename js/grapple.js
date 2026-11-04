@@ -590,7 +590,7 @@ SF.drawVoyage = function (ctx, w, h, s) {
   }
   ctx.restore();
   ctx.fillStyle = "#ffd37a";
-  ctx.font = "600 18px Palatino, Georgia, serif";
+  ctx.font = "600 18px Palatino, Georgia, system-ui, sans-serif";
   ctx.textAlign = "center";
   var destId = s.voyage && s.voyage.to;
   var dest = destId === "cinderveil" ? "Cinderveil" : (destId === "emberhold" ? "Emberhold" : (destId || ""));
