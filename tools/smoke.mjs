@@ -1788,7 +1788,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.28"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.29"')) fail("cache version");
 if (sw.includes('"assets/atlas/')) fail("an atlas path is in the precache list");
 if (sw.includes("isRuntimeAtlas")) fail("atlas requests have a separate fetch branch");
 if (!sw.includes("function cacheFirst") || !sw.includes("caches.match(request)")) fail("runtime cache is not cache-first");
@@ -2085,6 +2085,9 @@ if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
 const tapLeak = spawnSync(process.execPath, ["tools/tap-leak.mjs"], { stdio: "inherit", env: childEnv });
 if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 
+const menuFit = spawnSync(process.execPath, ["tools/menu-fit.mjs"], { stdio: "inherit", env: childEnv });
+if (menuFit.status !== 0) process.exit(menuFit.status || 1);
+
 if (fs.existsSync("assets/atlas/manifest.json")) {
   const skyMask = spawnSync(process.execPath, ["tools/sky-mask.mjs"], { stdio: "inherit", env: childEnv });
   if (skyMask.status !== 0) process.exit(skyMask.status || 1);
@@ -2094,7 +2097,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.28"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.29"')) fail("version was not bumped");
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2106,7 +2109,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.28")) fail("html version");
+  if (!html.includes("v0.4.29")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }

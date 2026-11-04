@@ -160,7 +160,7 @@
     win.height = 96;
     var wg = win.getContext("2d");
     Art.window(wg, 8, 8, 264, 80, { title: "Menu" });
-    wg.font = "16px Palatino, Georgia, serif";
+    wg.font = "16px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
     wg.fillStyle = "#f6f2ea";
     wg.fillText("Attack", 28, 46);
     host.appendChild(win);
