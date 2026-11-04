@@ -26,24 +26,39 @@ if (!fs.existsSync(chrome)) {
   process.exit(1);
 }
 
-const css = fs.readFileSync(path.join(root, "css/style.css"), "utf8");
-const jsFiles = [
-  "js/draw.js",
-  "js/grapple.js",
-  "js/art/gallery.js",
-  "js/art/scenes.js",
-  "js/battle/draw.js"
-];
 let failed = false;
 function fail(msg) {
   console.error("FAIL " + msg);
   failed = true;
 }
 
-if (/,\s*serif\b/.test(css)) fail("a CSS font stack still ends with generic serif");
-jsFiles.forEach((file) => {
-  const src = fs.readFileSync(path.join(root, file), "utf8");
-  if (/,\s*serif\b/.test(src)) fail(file + " still ends a font stack with generic serif");
+function fontStackProblems(file, src) {
+  const problems = [];
+  src.split("\n").forEach((line, i) => {
+    if (!/font-family|ctx\.font|\.font\s*=/.test(line)) return;
+    const masked = line.replace(/sans-serif/g, "SANSSERIF").replace(/--serif/g, "SERIFVAR");
+    if (/\bserif\b/.test(masked) || /\bTimes(?: New Roman)?\b/.test(line)) {
+      problems.push(file + ":" + (i + 1) + " " + line.trim());
+    }
+  });
+  return problems;
+}
+
+function collectSources(dir, acc) {
+  for (const name of fs.readdirSync(dir)) {
+    const full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) collectSources(full, acc);
+    else if (/\.(css|js|mjs|html)$/.test(name)) acc.push(full);
+  }
+  return acc;
+}
+
+const sources = collectSources(path.join(root, "css"), [])
+  .concat(collectSources(path.join(root, "js"), []))
+  .concat([path.join(root, "index.html")]);
+sources.forEach((file) => {
+  const problems = fontStackProblems(path.relative(root, file), fs.readFileSync(file, "utf8"));
+  problems.forEach((line) => fail("font stack has a bare serif or Times: " + line));
 });
 
 const TYPES = {
@@ -172,30 +187,94 @@ for (const [width, height] of sizes) {
         fail(key + " font stack still ends with generic serif: " + fonts[key]);
       }
     });
-    const rendered = await page.evaluate(() => {
-      function widthOf(family, size) {
-        const ctx = document.createElement("canvas").getContext("2d");
-        ctx.font = size + " " + family;
-        return ctx.measureText("Shardfall sideways").width;
+    const sheetFonts = await page.evaluate(() => {
+      function lastGeneric(family) {
+        const parts = [];
+        let cur = "";
+        let quote = "";
+        for (let i = 0; i < family.length; i++) {
+          const ch = family[i];
+          if (quote) {
+            if (ch === quote) quote = "";
+            else cur += ch;
+            continue;
+          }
+          if (ch === '"' || ch === "'") { quote = ch; continue; }
+          if (ch === ",") { parts.push(cur.trim()); cur = ""; continue; }
+          cur += ch;
+        }
+        parts.push(cur.trim());
+        return (parts[parts.length - 1] || "").toLowerCase();
       }
-      const size = "46px";
-      const title = getComputedStyle(document.querySelector("h1")).fontFamily;
-      const button = getComputedStyle(document.querySelector("#newgame")).fontFamily;
-      const tag = getComputedStyle(document.querySelector(".tag")).fontFamily;
-      const rotate = getComputedStyle(document.querySelector("#rotate")).fontFamily;
-      return {
-        title: widthOf(title, size),
-        tag: widthOf(tag, size),
-        rotate: widthOf(rotate, size),
-        button: widthOf(button, size),
-        generic: widthOf("serif", size)
-      };
+      function visibleText(root, label) {
+        const found = [];
+        let seen = 0;
+        if (!root) return { seen: 0, found: [label + " is missing"] };
+        const list = [root].concat(Array.from(root.querySelectorAll("*")));
+        list.forEach((el) => {
+          if (el.closest("[hidden]")) return;
+          const cs = getComputedStyle(el);
+          if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) return;
+          if (!el.getClientRects().length) return;
+          let text = "";
+          el.childNodes.forEach((node) => { if (node.nodeType === 3) text += node.textContent; });
+          text = text.replace(/\s+/g, " ").trim();
+          if (!text) return;
+          seen += 1;
+          if (lastGeneric(cs.fontFamily) === "serif") {
+            found.push(label + " " + (el.id || el.className || el.tagName) + ' "' + text.slice(0, 40) + '" ' + cs.fontFamily);
+          }
+        });
+        if (!seen) found.push(label + " had no visible text");
+        return { seen: seen, found: found };
+      }
+      function press(label) {
+        const btn = Array.from(document.querySelectorAll("#field-body button")).find((el) => el.textContent.trim() === label);
+        if (!btn) return false;
+        btn.click();
+        return true;
+      }
+      const bad = [];
+      const counts = [];
+      function take(root, label) {
+        const result = visibleText(root, label);
+        counts.push(label + ":" + result.seen);
+        bad.push.apply(bad, result.found);
+      }
+      document.getElementById("settings").hidden = true;
+      SF.uiModal = null;
+      SF.state.mode = "title";
+      SF.syncUI();
+      take(document.body, "title");
+      document.getElementById("settings").hidden = false;
+      take(document.getElementById("settings"), "settings");
+      document.getElementById("settings").hidden = true;
+      SF.state.mode = "pause";
+      SF.syncUI();
+      take(document.getElementById("pause"), "pause");
+      SF.state.mode = "title";
+      SF.syncUI();
+      SF.openNews();
+      take(document.getElementById("modal"), "news");
+      SF.closeModal();
+      SF.state.mode = "play";
+      SF.syncUI();
+      SF.openFieldMenu();
+      take(document.getElementById("fieldmenu"), "field:root");
+      ["Party", "Items", "Equip", "Skills", "More"].forEach((label) => {
+        if (!press(label)) bad.push("field missing " + label);
+        else take(document.getElementById("fieldmenu"), "field:" + label);
+        const back = document.getElementById("field-back");
+        if (back) back.click();
+      });
+      if (press("More") && press("Hints")) take(document.getElementById("fieldmenu"), "field:Hints");
+      else bad.push("field missing Hints");
+      return { bad: bad, counts: counts };
     });
-    ["title", "tag", "rotate"].forEach((key) => {
-      const matchesSerif = Math.abs(rendered[key] - rendered.generic) < 0.6;
-      const matchesButtons = Math.abs(rendered[key] - rendered.button) < 0.6;
-      if (matchesSerif && !matchesButtons) fail(key + " still renders a generic serif");
-    });
+    sheetFonts.bad.forEach((line) => fail(line));
+    if (!sheetFonts.counts.some((line) => line.indexOf("settings:") === 0 && !line.endsWith(":0"))) {
+      fail("settings font walk did not see the sheet");
+    }
   }
   await session.context.close();
 }

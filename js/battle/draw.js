@@ -1260,7 +1260,7 @@ function drawPartyCards(ctx, b, party, x, y, w, h) {
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
-      ctx.font = "700 15px Palatino, Georgia, system-ui, sans-serif";
+      ctx.font = "700 15px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
       ctx.fillText(a.name, textX, y + 4);
       var barW = Math.max(36, cx + bw - 12 - textX);
       var labelW = Math.min(78, Math.round(barW * 0.46));
@@ -1282,7 +1282,7 @@ function drawPartyCards(ctx, b, party, x, y, w, h) {
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.fillStyle = b.actorId === a.id ? "#ffd37a" : "#f6f2ea";
-      ctx.font = "700 " + name.size + "px Palatino, Georgia, system-ui, sans-serif";
+      ctx.font = "700 " + name.size + "px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
       ctx.fillText(name.text, nameX, y + pad + face / 2);
       var statTop = y + pad + face + 2;
       var statH = Math.max(11, Math.floor((y + h - pad - statTop) / 2));

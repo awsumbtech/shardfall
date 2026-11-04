@@ -1012,7 +1012,7 @@ const nameClear = await page.evaluate(() => {
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
   const ctx = SF.ctx;
-  ctx.font = "600 12px Palatino, Georgia, system-ui, sans-serif";
+  ctx.font = "600 12px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
   const measured = ctx.measureText(n.name);
   const width = measured.width || 66;
   const ascent = measured.actualBoundingBoxAscent || 11;

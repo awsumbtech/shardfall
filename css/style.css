@@ -9,9 +9,9 @@
   --win-deep: #0a1848;
   --win-mid: #163878;
   --win-hi: #8ec8f0;
-  /* Named serifs when the system has them. The tail is the button stack so a generic serif never shows. */
-  --serif: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  /* One stack for titles, sheet headings, and buttons. */
   --sans: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --serif: "Avenir Next", "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
 }
 
@@ -220,7 +220,7 @@ button:focus-visible {
 
 #questline {
   margin-top: 0;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 13px;
   line-height: 1.25;
   display: -webkit-box;
@@ -351,7 +351,7 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
   position: relative;
   text-align: center;
   padding: 8px 12px;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 15px;
   line-height: 1.35;
   color: #f6f2ea;
@@ -373,7 +373,7 @@ body[data-calm="1"] #place-banner.show { animation: none; opacity: 1; }
 }
 
 #banner-title {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 28px;
   color: var(--gold);
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
@@ -593,7 +593,7 @@ body[data-calm="1"] #btn-interact.ready {
   overflow-y: auto;
   overflow-wrap: anywhere;
   word-break: break-word;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 18px;
   line-height: 1.35;
   margin: 6px 0 8px;
@@ -723,7 +723,7 @@ body[data-calm="1"] #line.typing::after { content: none; animation: none; }
   background: linear-gradient(180deg, #1e4c98, #0e2868);
   box-shadow: inset 0 0 0 2px #07102a;
   color: #fff8ee;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.05;
@@ -821,7 +821,7 @@ h1 {
   display: inline-block;
   border-bottom: 2px solid rgba(240, 216, 120, 0.7);
   padding-bottom: 6px;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 600;
   font-size: 64px;
   letter-spacing: 0.01em;
@@ -831,7 +831,7 @@ h1 {
 }
 
 .tag {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 18px;
   line-height: 1.35;
   max-width: 22em;
@@ -990,7 +990,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .card h2 {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 28px;
   margin: 0 0 8px;
 }
@@ -999,7 +999,7 @@ input[type="range"]::-moz-range-thumb {
 #pause-stats, #pause-note, #pause-quest { color: var(--muted); font-size: 14px; }
 #pause-note { color: var(--gold); min-height: 1.2em; }
 
-#news-body p { font-family: var(--serif); font-size: 16px; }
+#news-body p { font-family: var(--sans); font-size: 16px; }
 
 .scroll { touch-action: pan-y; }
 
@@ -1101,7 +1101,7 @@ body[data-modal="1"] #corner {
   overflow: auto;
 }
 
-#field-card h2 { color: #f0d878; font-size: 20px; margin: 0 0 2px; }
+#field-card h2 { color: #f0d878; font-family: var(--sans); font-size: 20px; margin: 0 0 2px; }
 #field-gold, #field-note { font-size: 14px; margin: 0 0 4px; }
 #field-note { color: #ffd37a; white-space: pre-wrap; line-height: 1.35; }
 #field-note:empty { display: none; }
@@ -1121,7 +1121,7 @@ body[data-modal="1"] #corner {
   border: 2px solid #f4f0e4;
   box-shadow: inset 0 0 0 2px #07102a;
 }
-.field-face span { font-family: var(--serif); font-size: 18px; }
+.field-face span { font-family: var(--sans); font-size: 18px; }
 #field-body button, #field-back {
   min-height: 44px;
   border-radius: 2px;
@@ -1283,7 +1283,7 @@ body.gallery-on #app { display: none; }
 
 #sf-gallery h2 {
   margin: 22px 0 8px;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 18px;
   color: #f0d878;
 }
@@ -1350,7 +1350,7 @@ body:not([data-touch="1"]) #controls { display: none !important; }
   text-align: center;
   background: #140c28;
   color: #f6f2ea;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 28px;
   pointer-events: auto;
   touch-action: manipulation;
@@ -1444,14 +1444,14 @@ body[data-mode="chest"] #rotate { display: none; }
 
 .endcard-panel h2 {
   margin: 0 0 8px;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 28px;
   color: var(--gold);
 }
 
 .endcard-panel p {
   margin: 0;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -1496,6 +1496,7 @@ body[data-mode="chest"] #rotate { display: none; }
 
 .menu-sheet > h2 {
   margin: 0 0 4px;
+  font-family: var(--sans);
 }
 
 .menu-sheet > :not(.menu-scroll) {

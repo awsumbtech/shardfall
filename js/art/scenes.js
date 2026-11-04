@@ -815,7 +815,7 @@
     bit(16, 8, m, 8, x + w - m, y + m, m, h - m * 2);
     bit(8, 8, 8, 8, x + m, y + m, w - m * 2, h - m * 2);
     if (opts.title) {
-      ctx.font = "700 12px Palatino, Georgia, system-ui, sans-serif";
+      ctx.font = "700 12px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
       ctx.fillStyle = "#f0d878";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";

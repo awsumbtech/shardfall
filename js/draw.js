@@ -2394,7 +2394,7 @@ SF.entityList = function (s) {
           if (alpha > 0.02) {
             ctx.save();
             ctx.globalAlpha = alpha;
-            ctx.font = "600 12px Palatino, Georgia, system-ui, sans-serif";
+            ctx.font = "600 12px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
             ctx.textAlign = "center";
             ctx.fillStyle = "#fff8ee";
             ctx.fillText(n.name, nx, ny - 34);
@@ -2779,7 +2779,7 @@ SF.drawFx = function (ctx, s) {
     ctx.restore();
   }
   ctx.save();
-  ctx.font = "700 13px Palatino, Georgia, system-ui, sans-serif";
+  ctx.font = "700 13px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
   ctx.textAlign = "center";
   s.floaters.forEach(function (f) {
     ctx.globalAlpha = Math.max(0, f.life / 0.75);
