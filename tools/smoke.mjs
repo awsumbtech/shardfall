@@ -856,13 +856,8 @@ function walkReach(island, origin, targets) {
   }).map((t) => t.name);
 }
 
-SF.mountIsland("emberhold");
-const missedEmber = walkReach("emberhold", SF.WAKE, [
-  { name: "Bram", x: bram.x, y: bram.y },
-  { name: "Wren", x: SF.npcById("wren").x, y: SF.npcById("wren").y },
-  { name: "goat chest", x: SF.EXTRAS.find((ex) => ex.id === "chest-goat").x, y: SF.EXTRAS.find((ex) => ex.id === "chest-goat").y }
-]);
-if (missedEmber.length) fail("test walk reach: " + missedEmber.join(", ") + " unreachable on foot from the Waking Stones");
+// Emberhold's walk-reach runs after the tile map is adopted. The shape
+// world is not the collision the player hits.
 SF.mountIsland("cinderveil");
 const missedCinder = walkReach("cinderveil", SF.DOCKS.cinderveil, [
   { name: "Nell", x: SF.npcById("nell").x, y: SF.npcById("nell").y }
@@ -4343,6 +4338,72 @@ function runGroundChecks() {
   const cinderOpen = G.walkable(G.DOCKS.cinderveil.x, G.DOCKS.cinderveil.y);
   if (!cinderOpen) fail("cinder dock is blocked by the emberhold map");
   G.mountIsland("emberhold");
+  if (G.worldSource !== "tiles" || !G.tileMap) fail("test walk reach: tile world was not adopted");
+  const missedTile = walkReach("emberhold", G.WAKE, [
+    { name: "Bram", x: bram.x, y: bram.y },
+    { name: "Wren", x: G.npcById("wren").x, y: G.npcById("wren").y },
+    { name: "goat chest", x: G.EXTRAS.find((ex) => ex.id === "chest-goat").x, y: G.EXTRAS.find((ex) => ex.id === "chest-goat").y }
+  ]);
+  if (missedTile.length) fail("test walk reach: " + missedTile.join(", ") + " unreachable on the tile map from the Waking Stones");
+  // The grove lip is a height edge. Collision is already open, and the atlas
+  // still stops a walk there unless the cell is a stair. A height step that
+  // is not a stair is a wall. Reverting the stair seam fails this.
+  function stickWest(px, py) {
+    const tile = map.tile;
+    const y0 = 20 * tile;
+    const y1 = 28 * tile + tile - 1;
+    const seen = new Set();
+    const queue = [[px, py]];
+    seen.add(px + "," + py);
+    let minX = px;
+    function cellOf(x, y) {
+      const tx = Math.floor(x / tile);
+      const ty = Math.floor(y / tile);
+      if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) return -1;
+      return ty * map.w + tx;
+    }
+    function stepOk(x0, y0p, x1, y1p) {
+      const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1p - y0p) / 2));
+      let i, t, x, y, a, b;
+      for (i = 0; i <= n; i++) {
+        t = i / n;
+        x = x0 + (x1 - x0) * t;
+        y = y0p + (y1p - y0p) * t;
+        if (!G.walkable(x, y)) return false;
+      }
+      a = cellOf(x0, y0p);
+      b = cellOf(x1, y1p);
+      if (a < 0 || b < 0) return false;
+      if (a !== b && !map.stair[a] && !map.stair[b] && map.height[a] !== map.height[b]) return false;
+      return true;
+    }
+    let qi, x, y, dir, nx, ny, dirs;
+    dirs = [[-4, 0], [0, 4], [0, -4]];
+    for (qi = 0; qi < queue.length; qi++) {
+      x = queue[qi][0];
+      y = queue[qi][1];
+      if (x < minX) minX = x;
+      for (dir = 0; dir < dirs.length; dir++) {
+        nx = x + dirs[dir][0];
+        ny = y + dirs[dir][1];
+        if (ny < y0 || ny > y1) continue;
+        if (seen.has(nx + "," + ny)) continue;
+        if (!stepOk(x, y, nx, ny)) continue;
+        seen.add(nx + "," + ny);
+        queue.push([nx, ny]);
+      }
+    }
+    return minX;
+  }
+  const dellX = stickWest(58 * 16 + 8, 21 * 16 + 8);
+  if (dellX >= 40 * 16) fail("test walk reach: stick west from Dell Row stops at x " + (dellX / 16).toFixed(1));
+  const gapX = stickWest(62 * 16 + 8, 26 * 16 + 8);
+  if (gapX >= 40 * 16) fail("test walk reach: stick west from the grove stops at x " + (gapX / 16).toFixed(1));
+  let seam = 0;
+  for (let sy = 20; sy <= 28; sy++) {
+    for (let sx = 41; sx <= 44; sx++) if (map.stair[sy * map.w + sx]) seam += 1;
+  }
+  if (seam < 20) fail("test walk reach: Lampfoot stair seam is " + seam + " tiles");
   if (!map.edgeInsets || !map.edgeInsets.length) fail("the map has no edge-insets");
   const cinderWest = map.edgeInsets.find((box) => box.side === "w" && box.inset === 6 && box.x === 127);
   if (!cinderWest) fail("Cinderstep west shore inset is not 6px in the map");
