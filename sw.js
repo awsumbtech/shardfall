@@ -3,7 +3,7 @@
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
 // CACHE is the precache version. A new name drops every older shell.
-var CACHE = "shardfall-v0.4.29";
+var CACHE = "shardfall-v0.4.30";
 
 var SHELL = [
   "index.html",
@@ -68,6 +68,17 @@ var SHELL = [
   "js/tiles/adopt.js",
   "js/content/maps/emberhold.tmj",
   "js/content/maps/props-preview.json",
+  "js/draw/deps.js",
+  "js/draw/field.js",
+  "js/draw/sky.js",
+  "js/draw/terrain.js",
+  "js/draw/props.js",
+  "js/draw/actors.js",
+  "js/draw/pickups.js",
+  "js/draw/entities.js",
+  "js/draw/guides.js",
+  "js/draw/effects.js",
+  "js/draw/minimap.js",
   "js/draw.js",
   "js/battle/events.js",
   "js/battle/formula.js",
@@ -80,6 +91,10 @@ var SHELL = [
   "js/battle/battle.js",
   "js/battle/renderer.js",
   "js/battle/audio.js",
+  "js/battle/gfx.js",
+  "js/battle/stage.js",
+  "js/battle/hud.js",
+  "js/battle/input.js",
   "js/battle/draw.js",
   "js/input.js",
   "js/ui.js",

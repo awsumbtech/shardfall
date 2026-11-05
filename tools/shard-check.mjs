@@ -51,6 +51,7 @@ for (const file of [
   "js/battle/renderer.js",
   "js/battle/audio.js",
   "js/menu/field.js",
+  "js/draw/deps.js",
   "js/world.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
