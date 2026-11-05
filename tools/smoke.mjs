@@ -4345,31 +4345,91 @@ function runGroundChecks() {
     { name: "goat chest", x: G.EXTRAS.find((ex) => ex.id === "chest-goat").x, y: G.EXTRAS.find((ex) => ex.id === "chest-goat").y }
   ]);
   if (missedTile.length) fail("test walk reach: " + missedTile.join(", ") + " unreachable on the tile map from the Waking Stones");
-  // The grove lip is a height edge. Collision is already open, and the atlas
-  // still stops a walk there unless the cell is a stair. A height step that
-  // is not a stair is a wall. Reverting the stair seam fails this.
+  // The grove lip is a height edge. A height step that is not a stair is a
+  // wall, and cliff art on a stair cell is a wall once real pixels load.
+  // The stub atlas has no pixels, so the art check reads the cliff layers.
+  function seamCell(tx, ty) {
+    return ty >= 20 && ty <= 28 && ((tx >= 41 && tx <= 44) || (tx >= 58 && tx <= 62));
+  }
+  // 161 is the opaque grass fill. 42 is the stair tread copied from the grove flight.
+  // Edge gids (the old lip) and any cliff-role tile read as sky once pixels load.
+  const openGround = { 161: 1, 42: 1 };
+  let seam = 0;
+  let blockedArt = "";
+  for (let sy = 20; sy <= 28; sy++) {
+    for (let sx = 41; sx <= 62; sx++) {
+      if (!seamCell(sx, sy)) continue;
+      const i = sy * map.w + sx;
+      if (map.stair[i]) seam += 1;
+      else if (!blockedArt) blockedArt = "seam " + sx + "," + sy + " is not a stair";
+      for (let li = 0; li < map.layers.length; li++) {
+        const layer = map.layers[li];
+        const gid = layer.data[i];
+        if (!gid) continue;
+        if (layer.role === "cliffs" && !blockedArt) blockedArt = "cliff art on stair " + sx + "," + sy;
+        if (layer.role === "ground" && !openGround[gid] && !blockedArt) {
+          blockedArt = "ground blocker " + gid + " on stair " + sx + "," + sy;
+        }
+      }
+    }
+  }
+  if (seam < 20) fail("test walk reach: Lampfoot stair seam is " + seam + " tiles");
+  if (blockedArt) fail("test walk reach: " + blockedArt);
+  const denseLayout = JSON.parse(fs.readFileSync("js/content/props/emberhold-dense.json", "utf8"));
+  const solids = [];
+  denseLayout.props.forEach((p) => {
+    if (p.block) solids.push({ type: p.type, x: p.x, y: p.y, block: p.block });
+  });
+  (G.PROPS || []).forEach((p) => {
+    if (p.block) solids.push({ type: p.kind, x: p.x, y: p.y, block: p.block });
+  });
+  function coversStair(p) {
+    let ty, tx;
+    for (ty = 20; ty <= 28; ty++) {
+      for (tx = 41; tx <= 62; tx++) {
+        if (!seamCell(tx, ty)) continue;
+        const left = tx * 16;
+        const top = ty * 16;
+        const right = left + 16;
+        const bot = top + 16;
+        const nx = Math.max(left, Math.min(p.x, right));
+        const ny = Math.max(top, Math.min(p.y, bot));
+        if ((p.x - nx) * (p.x - nx) + (p.y - ny) * (p.y - ny) < p.block * p.block) return true;
+      }
+    }
+    return false;
+  }
+  for (let si = 0; si < solids.length; si++) {
+    if (coversStair(solids[si])) {
+      fail("test walk reach: " + solids[si].type + " covers a Lampfoot stair at " +
+        (solids[si].x / 16).toFixed(2) + "," + (solids[si].y / 16).toFixed(2));
+    }
+  }
   function stickWest(px, py) {
     const tile = map.tile;
-    const y0 = 20 * tile;
-    const y1 = 28 * tile + tile - 1;
-    const seen = new Set();
-    const queue = [[px, py]];
-    seen.add(px + "," + py);
-    let minX = px;
     function cellOf(x, y) {
       const tx = Math.floor(x / tile);
       const ty = Math.floor(y / tile);
       if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) return -1;
       return ty * map.w + tx;
     }
+    function blockedByProp(x, y) {
+      let i, p, dx, dy;
+      for (i = 0; i < solids.length; i++) {
+        p = solids[i];
+        dx = x - p.x;
+        dy = y - p.y;
+        if (dx * dx + dy * dy < p.block * p.block) return true;
+      }
+      return false;
+    }
     function stepOk(x0, y0p, x1, y1p) {
-      const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1p - y0p) / 2));
-      let i, t, x, y, a, b;
+      const n = Math.max(1, Math.ceil(Math.abs(x1 - x0) / 2));
+      let i, t, x, a, b;
       for (i = 0; i <= n; i++) {
         t = i / n;
         x = x0 + (x1 - x0) * t;
-        y = y0p + (y1p - y0p) * t;
-        if (!G.walkable(x, y)) return false;
+        if (!G.walkable(x, y0p) || blockedByProp(x, y0p)) return false;
       }
       a = cellOf(x0, y0p);
       b = cellOf(x1, y1p);
@@ -4377,33 +4437,19 @@ function runGroundChecks() {
       if (a !== b && !map.stair[a] && !map.stair[b] && map.height[a] !== map.height[b]) return false;
       return true;
     }
-    let qi, x, y, dir, nx, ny, dirs;
-    dirs = [[-4, 0], [0, 4], [0, -4]];
-    for (qi = 0; qi < queue.length; qi++) {
-      x = queue[qi][0];
-      y = queue[qi][1];
-      if (x < minX) minX = x;
-      for (dir = 0; dir < dirs.length; dir++) {
-        nx = x + dirs[dir][0];
-        ny = y + dirs[dir][1];
-        if (ny < y0 || ny > y1) continue;
-        if (seen.has(nx + "," + ny)) continue;
-        if (!stepOk(x, y, nx, ny)) continue;
-        seen.add(nx + "," + ny);
-        queue.push([nx, ny]);
-      }
+    let x = px;
+    let guard = 0;
+    if (!G.walkable(x, py) || blockedByProp(x, py)) return x;
+    while (guard < 2000 && stepOk(x, py, x - 2, py)) {
+      x -= 2;
+      guard += 1;
     }
-    return minX;
+    return x;
   }
   const dellX = stickWest(58 * 16 + 8, 21 * 16 + 8);
   if (dellX >= 40 * 16) fail("test walk reach: stick west from Dell Row stops at x " + (dellX / 16).toFixed(1));
   const gapX = stickWest(62 * 16 + 8, 26 * 16 + 8);
   if (gapX >= 40 * 16) fail("test walk reach: stick west from the grove stops at x " + (gapX / 16).toFixed(1));
-  let seam = 0;
-  for (let sy = 20; sy <= 28; sy++) {
-    for (let sx = 41; sx <= 44; sx++) if (map.stair[sy * map.w + sx]) seam += 1;
-  }
-  if (seam < 20) fail("test walk reach: Lampfoot stair seam is " + seam + " tiles");
   if (!map.edgeInsets || !map.edgeInsets.length) fail("the map has no edge-insets");
   const cinderWest = map.edgeInsets.find((box) => box.side === "w" && box.inset === 6 && box.x === 127);
   if (!cinderWest) fail("Cinderstep west shore inset is not 6px in the map");

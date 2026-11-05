@@ -129,6 +129,61 @@
     { kind: "signpost", x: 40 * T + 8, y: 26 * T + 8 }
   );
 
+  // The grove-lip stairs are the walk into Lampfoot. A solid circle on those
+  // cells, or on the straight rows a stick uses, stops the push. Slide the
+  // prop off by a tile or two. Kenmi props live in emberhold-dense.json.
+  (function clearLipProps() {
+    var lines = [21 * T + 8, 26 * T + 8];
+    var x0 = 36 * T;
+    var x1 = 68 * T;
+    function hits(x, y, r) {
+      var ty, tx, span, left, top, right, bot, nx, ny, li;
+      for (ty = 20; ty <= 28; ty++) {
+        for (span = 0; span < 2; span++) {
+          for (tx = span === 0 ? 41 : 58; tx <= (span === 0 ? 44 : 62); tx++) {
+            left = tx * T;
+            top = ty * T;
+            right = left + T;
+            bot = top + T;
+            nx = x < left ? left : (x > right ? right : x);
+            ny = y < top ? top : (y > bot ? bot : y);
+            if ((x - nx) * (x - nx) + (y - ny) * (y - ny) < r * r) return true;
+          }
+        }
+      }
+      if (x < x0 - r || x > x1 + r) return false;
+      for (li = 0; li < lines.length; li++) {
+        if (Math.abs(y - lines[li]) < r) return true;
+      }
+      return false;
+    }
+    ember.props.forEach(function (p) {
+      var dist, dx, dy, nx, ny, best, d, prefer;
+      if (!p.block || !hits(p.x, p.y, p.block)) return;
+      best = null;
+      for (dist = T; dist <= T * 4; dist += T) {
+        for (dx = -1; dx <= 1; dx++) {
+          for (dy = -1; dy <= 1; dy++) {
+            if (!dx && !dy) continue;
+            nx = Math.round(p.x + dx * dist);
+            ny = Math.round(p.y + dy * dist);
+            if (hits(nx, ny, p.block)) continue;
+            d = Math.abs(dx * dist) + Math.abs(dy * dist);
+            prefer = Math.abs(dy);
+            if (!best || d < best.d || (d === best.d && prefer > best.prefer)) {
+              best = { x: nx, y: ny, d: d, prefer: prefer };
+            }
+          }
+        }
+        if (best) break;
+      }
+      if (best) {
+        p.x = best.x;
+        p.y = best.y;
+      }
+    });
+  })();
+
   ember.bounds = { x: 0, y: 0, w: 170 * T, h: 112 * T };
   // A wide walk through the cottage terrace lip, so a straight stick enters Lampfoot.
   ember.paths.push([78 * T, 20 * T, 28 * T, 20 * T]);
