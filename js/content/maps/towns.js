@@ -69,7 +69,9 @@
 
   ember.npcs.push(
     { id: "bram", name: "Bram Tolley", x: feet(32, 20).x, y: feet(32, 20).y, sprite: "villager_b" },
-    { id: "wren", name: "Wren", x: feet(38, 22).x, y: feet(38, 22).y, sprite: "villager_a" },
+    // Off the y21 and y26 walks. Her solid ring is 34px, so a two-tile nudge
+    // still clips the lane. Tile 38,18 is the nearest spot that clears both.
+    { id: "wren", name: "Wren", x: feet(38, 18).x, y: feet(38, 18).y, sprite: "villager_a" },
     { id: "pell", name: "Ina Pell", x: feet(64, 26).x, y: feet(64, 26).y, sprite: "villager_a" },
     { id: "hale", name: "Dagan Hale", x: feet(80, 18).x, y: feet(80, 18).y, sprite: "villager_b" },
     { id: "sefa", name: "Old Sefa", x: feet(72, 22).x, y: feet(72, 22).y, sprite: "villager_b" }

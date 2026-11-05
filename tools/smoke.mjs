@@ -4351,9 +4351,10 @@ function runGroundChecks() {
   function seamCell(tx, ty) {
     return ty >= 20 && ty <= 28 && ((tx >= 41 && tx <= 44) || (tx >= 58 && tx <= 62));
   }
-  // 161 is the opaque grass fill. 42 is the stair tread copied from the grove flight.
-  // Edge gids (the old lip) and any cliff-role tile read as sky once pixels load.
-  const openGround = { 161: 1, 42: 1 };
+  // 161 is the opaque grass fill. 189/203/217/231 are the stone stair treads
+  // (kenmi-stone column c9, rows 1-4) painted on the ground layer. Edge gids
+  // and any cliff-role tile still read as sky once pixels load.
+  const openGround = { 161: 1, 189: 1, 203: 1, 217: 1, 231: 1 };
   let seam = 0;
   let blockedArt = "";
   for (let sy = 20; sy <= 28; sy++) {
@@ -4375,6 +4376,15 @@ function runGroundChecks() {
   }
   if (seam < 20) fail("test walk reach: Lampfoot stair seam is " + seam + " tiles");
   if (blockedArt) fail("test walk reach: " + blockedArt);
+  const treadAt = { 41: 231, 42: 217, 43: 203, 44: 189, 58: 189, 59: 203, 60: 217, 61: 231, 62: 189 };
+  const treadLayer = map.layers.find((layer) => layer.name === "L1/ground");
+  if (!treadLayer) fail("test walk reach: stair tread layer is missing");
+  for (let sy = 20; sy <= 28; sy++) {
+    for (const sx of Object.keys(treadAt)) {
+      const got = treadLayer.data[sy * map.w + Number(sx)];
+      if (got !== treadAt[sx]) fail("test walk reach: stair tread at " + sx + "," + sy + " is " + got);
+    }
+  }
   const denseLayout = JSON.parse(fs.readFileSync("js/content/props/emberhold-dense.json", "utf8"));
   const solids = [];
   denseLayout.props.forEach((p) => {
@@ -4450,6 +4460,19 @@ function runGroundChecks() {
   if (dellX >= 40 * 16) fail("test walk reach: stick west from Dell Row stops at x " + (dellX / 16).toFixed(1));
   const gapX = stickWest(62 * 16 + 8, 26 * 16 + 8);
   if (gapX >= 40 * 16) fail("test walk reach: stick west from the grove stops at x " + (gapX / 16).toFixed(1));
+  // NPC rings are 34px. A body on y21 or y26 at the lip stops the straight push.
+  (G.NPCS || []).forEach((npc) => {
+    [21 * 16 + 8, 26 * 16 + 8].forEach((ly) => {
+      for (let lx = 40 * 16 + 8; lx <= 46 * 16 + 8; lx += 8) {
+        const dx = lx - npc.x;
+        const dy = ly - npc.y;
+        if (dx * dx + dy * dy <= 34 * 34) {
+          fail("test walk reach: " + npc.id + " stands in the Lampfoot lane at " +
+            (npc.x / 16).toFixed(1) + "," + (npc.y / 16).toFixed(1));
+        }
+      }
+    });
+  });
   if (!map.edgeInsets || !map.edgeInsets.length) fail("the map has no edge-insets");
   const cinderWest = map.edgeInsets.find((box) => box.side === "w" && box.inset === 6 && box.x === 127);
   if (!cinderWest) fail("Cinderstep west shore inset is not 6px in the map");
