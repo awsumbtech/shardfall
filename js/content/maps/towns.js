@@ -37,12 +37,31 @@
   // Maren's door. The Green, larder, smithy, and shrine are the cottage edge
   // between her door and the Meadow, and they stay safe.
   pushRect(ember, rec("lampfoot", "Lampfoot", "ember", [2, 2, 62, 36]));
-  pushRect(ember, rec("dell-lane", "Dell Row", "ember", [52, 16, 68, 26]));
+  pushRect(ember, rec("dell-lane", "Dell Row", "ember", [52, 16, 67, 26]));
   pushRect(ember, rec("green", "The Green", "ember", [64, 20, 82, 30]));
   pushRect(ember, rec("larder", "Pell's Larder", "ember", [60, 24, 70, 28]));
   pushRect(ember, rec("smithy", "Hale's Smithy", "ember", [76, 14, 86, 22]));
   pushRect(ember, rec("shrine", "Old Shrine", "ember", [74, 24, 82, 28]));
   ["lampfoot", "dell-lane", "green", "larder", "smithy", "shrine"].forEach(safe);
+
+  // Safe green between the cottage (about y=28) and the Meadow, 60 tiles wide.
+  // Together with the cottage and Dell Row this is the Lampfoot hub.
+  SF.townGreenCells = [];
+  (function coverGreen() {
+    var y0, x0, x1, y1, id, n;
+    n = 0;
+    for (y0 = 28; y0 < 56; y0 += 6) {
+      for (x0 = 40; x0 < 100; x0 += 8) {
+        x1 = Math.min(100, x0 + 8);
+        y1 = Math.min(56, y0 + 6);
+        id = "green-" + n;
+        n += 1;
+        pushRect(ember, rec(id, "The Green", "ember", [x0, y0, x1, y1]));
+        safe(id);
+        SF.townGreenCells.push([x0, y0, x1, y1, id]);
+      }
+    }
+  })();
 
   function feet(tx, ty) {
     return { x: tx * T + 8, y: ty * T + 8 };
@@ -117,11 +136,19 @@
   // the south edge to the Ashfields stays under 60 tiles.
   pushRect(cinder, rec("upper-town", "Upper Town", "quay", [26, 74, 92, 90]));
   pushRect(cinder, rec("upper-west", "Upper Town", "quay", [8, 78, 26, 100]));
-  pushRect(cinder, rec("upper-east", "Upper Town", "quay", [96, 78, 130, 100]));
+  pushRect(cinder, rec("upper-east", "Upper Town", "quay", [90, 78, 146, 108]));
   pushRect(cinder, rec("lower-quay", "Lower Quay", "quay", [26, 90, 92, 110]));
-  pushRect(cinder, rec("lower-west", "Lower Quay", "quay", [8, 96, 26, 110]));
+  pushRect(cinder, rec("lower-south", "Lower Quay", "quay", [26, 108, 92, 112]));
+  pushRect(cinder, rec("lower-west", "Lower Quay", "quay", [0, 78, 26, 112]));
   pushRect(cinder, rec("bell", "Bell Square", "quay", [40, 78, 58, 90]));
-  ["upper-town", "upper-west", "upper-east", "lower-quay", "lower-west", "bell"].forEach(safe);
+  pushRect(cinder, rec("long-stair", "Long Stair", "quay", [48, 74, 56, 112]));
+  ["upper-town", "upper-west", "upper-east", "lower-quay", "lower-south", "lower-west", "bell", "long-stair"].forEach(safe);
+
+  // Wings are walled. The Long Stair is the open walk between the two levels.
+  SF.TOWN_WALLS = [
+    { island: "cinderveil", x0: 8, y0: 86, x1: 24, y1: 90 },
+    { island: "cinderveil", x0: 110, y0: 86, x1: 144, y1: 90 }
+  ];
 
   cinder.npcs.push(
     { id: "ada", name: "Ada Fenn", x: 44 * T, y: 82 * T, sprite: "villager_a" },
@@ -187,5 +214,22 @@
       if (flags.vaultOpen) return true;
     }
     return baseHidden ? baseHidden(n) : false;
+  };
+
+  SF.townWallBlocks = function (x, y) {
+    var walls = SF.TOWN_WALLS || [];
+    var i, w;
+    for (i = 0; i < walls.length; i++) {
+      w = walls[i];
+      if (w.island && SF.islandId !== w.island) continue;
+      if (x >= w.x0 * T && x < w.x1 * T && y >= w.y0 * T && y < w.y1 * T) return true;
+    }
+    return false;
+  };
+
+  var townWalk = SF.walkable;
+  SF.walkable = function (x, y) {
+    if (SF.townWallBlocks && SF.townWallBlocks(x, y)) return false;
+    return townWalk ? townWalk(x, y) : false;
   };
 })();

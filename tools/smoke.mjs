@@ -600,6 +600,186 @@ if (!h1.player.grapple && !h1.flags.grapple) {
 }
 if (!h1.flags.grapple && !(h1.player && h1.player.grapple)) fail("H1 did not still grant the grapple");
 
+function toChoice(state) {
+  let guard = 0;
+  while (state.mode === "dialogue" && state.dialogue && state.dialogue.phase !== "choice" && guard < 40) {
+    state.dialogue.lock = 0;
+    SF.advanceDialogue();
+    guard += 1;
+  }
+}
+
+const x1 = freshPlay();
+SF.startDialogue("cinderveil.sail.trust");
+const x1Text = drainScene(x1, [0]);
+if (!x1Text.includes("I don't take passengers. Cargo, yes. People, almost never.")) fail("test X1 trust why: opening changed");
+if (!x1Text.includes("You lit Maren's lamp and didn't ask for a thing.")) fail("test X1 trust why: reason changed");
+if (!x1Text.includes("Right. Back to work. Cinderveil's close.")) fail("test X1 trust why: close changed");
+if (!x1.flags.kestrel_trust) fail("test X1 trust why: kestrel_trust was not set");
+
+const x1Man = freshPlay();
+SF.startDialogue("cinderveil.sail.trust");
+const x1ManText = drainScene(x1Man, [1]);
+if (!x1ManText.includes("I'm still here and he's not. I don't talk about the rest.")) fail("test X1 trust man: answer changed");
+if (!x1Man.flags.kestrel_trust) fail("test X1 trust man: kestrel_trust was not set");
+
+const e2Locked = freshPlay();
+e2Locked.flags.lampLit = true;
+e2Locked.flags.marenLampTalk = true;
+SF.mountIsland("emberhold");
+if (SF.emberholdNode("maren", e2Locked) !== "emberhold.maren.evening") fail("test E2 evening branches: Maren did not route to the evening");
+SF.state = e2Locked;
+e2Locked.mode = "play";
+SF.startDialogue("emberhold.maren.evening");
+toChoice(e2Locked);
+const lockedChoices = (e2Locked.dialogue.choices || []).map((c) => c.text);
+if (lockedChoices.indexOf("How many islands have fallen?") >= 0) fail("test E2 evening branches: fallen islands was offered before the Cantor");
+if (lockedChoices.indexOf("Tell me about the Lanternwrights.") < 0) fail("test E2 evening branches: the order question was missing");
+
+const e2 = freshPlay();
+e2.flags.lampLit = true;
+e2.flags.marenLampTalk = true;
+e2.flags.met_cantor = true;
+e2.player.hp = 5;
+SF.mountIsland("emberhold");
+SF.state = e2;
+e2.mode = "play";
+context.localStorage.removeItem(SF.SAVE_KEY);
+SF.startDialogue("emberhold.maren.evening");
+const e2Text = drainScene(e2, [0, 0, 0]);
+if (!e2Text.includes("Seven. Seven islands in my lifetime.")) fail("test E2 evening branches: fallen answer changed");
+if (!e2Text.includes("There used to be hundreds of us.")) fail("test E2 evening branches: order answer changed");
+if (!e2Text.includes("bring Kestrel back in one piece.")) fail("test E2 evening branches: ending changed");
+if (!e2.flags.maren_evening) fail("test E2 evening branches: maren_evening was not set");
+if (!e2.flags.asked_fallen) fail("test E2 evening branches: asked_fallen was not set");
+if (e2.player.hp !== e2.player.maxHp) fail("test E2 heal and save: Maren did not heal");
+const e2Save = SF.readSave();
+if (!e2Save || !e2Save.flags || !e2Save.flags.maren_evening) fail("test E2 heal and save: the evening was not saved");
+if (!e2Save.player || e2Save.player.hp !== e2Save.player.maxHp) fail("test E2 heal and save: the heal was not saved");
+
+function playHesk(flags, picks) {
+  const state = freshPlay();
+  Object.keys(flags).forEach((key) => { state.flags[key] = flags[key]; });
+  SF.mountIsland("cinderveil");
+  state.island = "cinderveil";
+  SF.state = state;
+  state.mode = "play";
+  const id = SF.cinderNode("hesk", state);
+  if (!id) fail("test C2: Hesk had no route");
+  SF.startDialogue(id);
+  return { state: state, id: id, text: drainScene(state, picks) };
+}
+
+const c2Steady = playHesk({}, [0, 0]);
+if (c2Steady.id !== "cinderveil.hesk.rumor") fail("test C2 steady: first talk was not the rumor");
+if (!c2Steady.text.includes("It's a Cinder Maw")) fail("test C2 steady: canon line changed");
+if (!c2Steady.text.includes("I joined three years ago.")) fail("test C2 steady: new lines missing");
+if (!c2Steady.text.includes("Because I helped bring it here.")) fail("test C2 steady: why branch changed");
+if (c2Steady.state.flags.hesk_mood !== "steady") fail("test C2 steady: mood was " + c2Steady.state.flags.hesk_mood);
+if (!c2Steady.state.flags.metHesk) fail("test C2 steady: Hesk was not remembered");
+if (SF.cinderNode("hesk", c2Steady.state) !== "bark.hesk.crate") fail("test C2 steady: revisit did not return to the crate bark");
+
+const c2Pressed = playHesk({}, [1]);
+if (c2Pressed.state.flags.hesk_mood !== "pressed") fail("test C2 pressed revisit: mood was " + c2Pressed.state.flags.hesk_mood);
+if (!c2Pressed.state.flags.hesk_more) fail("test C2 pressed revisit: hesk_more was not set");
+if (!c2Pressed.text.includes("when you're not in a hurry.")) fail("test C2 pressed revisit: the hurry line changed");
+if (SF.cinderNode("hesk", c2Pressed.state) !== "cinderveil.hesk.more") fail("test C2 pressed revisit: the rest was not offered");
+SF.state = c2Pressed.state;
+SF.startDialogue("cinderveil.hesk.more");
+const c2More = drainScene(c2Pressed.state, [1]);
+if (!c2More.includes("I left that night.")) fail("test C2 pressed revisit: the steady extras were missing");
+if (!c2More.includes("Are you safe here?") && !c2More.includes("They'll find me eventually.")) fail("test C2 pressed revisit: the safe branch was missing");
+if (!c2Pressed.state.flags.hesk_more_heard) fail("test C2 pressed revisit: hesk_more_heard was not set");
+if (SF.cinderNode("hesk", c2Pressed.state) !== "bark.hesk.crate") fail("test C2 pressed revisit: a third talk replayed the extras");
+
+const c2After = playHesk({ metHesk: true, hesk_mood: "steady", vaultOpen: true }, []);
+if (c2After.id !== "cinderveil.hesk.after") fail("test C2 after vault: route was " + c2After.id);
+if (!c2After.text.includes("You're going in. Please be careful.")) fail("test C2 after vault: warning changed");
+if (!c2After.state.flags.hesk_after) fail("test C2 after vault: hesk_after was not set");
+if (SF.cinderNode("hesk", c2After.state) !== "bark.hesk.crate") fail("test C2 after vault: Hesk did not return to the crate");
+
+const c4 = freshPlay();
+SF.mountIsland("cinderveil");
+c4.island = "cinderveil";
+c4.flags.grapple = true;
+SF.state = c4;
+c4.mode = "play";
+SF.startDialogue("cinderveil.cantor.quay");
+const c4Text = drainScene(c4, [0]);
+if (!c4Text.includes("Hello. I'm the Cantor, of the Hollow Choir. Please don't run off.")) fail("test C4 cantor quay: first greeting changed");
+if (c4Text.includes("Hello again. You found Tamsin.")) fail("test C4 cantor quay: greeted again before you had met");
+if (!c4Text.includes("I'll answer that honestly when you come out.")) fail("test C4 cantor quay: ask branch changed");
+if (!c4.flags.met_cantor || !c4.flags.cantor_quay) fail("test C4 cantor quay: met_cantor was not set");
+SF.startDialogue("cinderveil.cantor.confront");
+const c4Again = drainScene(c4, [0]);
+if (!c4Again.includes("Hello again, Wayfarer. You lit Maren's lamp, and now this one.")) fail("test C4 hello again: confront did not greet again");
+
+function countSafeTown(island, names) {
+  SF.mountIsland(island);
+  const bounds = SF.bounds;
+  let total = 0;
+  const step = 16;
+  let y, x, zone;
+  for (y = 8; y < bounds.h; y += step) {
+    for (x = 8; x < bounds.w; x += step) {
+      if (!SF.walkable(x, y)) continue;
+      zone = SF.zoneAt(x, y);
+      if (names[zone.name]) total += 1;
+    }
+  }
+  return total;
+}
+
+const lampfootTiles = countSafeTown("emberhold", {
+  Lampfoot: 1, "Dell Row": 1, "The Green": 1, "Pell's Larder": 1,
+  "Hale's Smithy": 1, "Old Shrine": 1, "Maren's Cottage": 1, "Vane's Perch": 1
+});
+if (lampfootTiles < 4000) fail("test lampfoot size: safe tiles " + lampfootTiles);
+const lowmoorTiles = countSafeTown("cinderveil", {
+  "Upper Town": 1, "Lower Quay": 1, "Bell Square": 1, "Long Stair": 1,
+  "Lowmoor Quay": 1, "The Pier": 1
+});
+if (lowmoorTiles < 4700) fail("test lowmoor size: safe tiles " + lowmoorTiles);
+
+SF.mountIsland("emberhold");
+const townFlags = { metMaren: true, lampLit: true, cinderLit: true };
+Object.keys(SF.ZONES).forEach((id) => {
+  if (!/^(green-|lampfoot|dell-lane|larder|smithy|shrine|bell|upper-|lower-|long-stair)/.test(id)) return;
+  if (SF.encounterRateFor(id, townFlags) !== 0) fail("test town regions safe: " + id + " rolls fights");
+});
+const safeSpots = [[84 * 16 + 8, 40 * 16 + 8, "emberhold"], [bram.x, bram.y, "emberhold"]];
+SF.mountIsland("cinderveil");
+const bellZone = SF.circle("bell");
+safeSpots.push([bellZone.x + bellZone.w / 2, bellZone.y + bellZone.h / 2, "cinderveil"]);
+safeSpots.push([52 * 16 + 8, 96 * 16 + 8, "cinderveil"]);
+safeSpots.forEach((spot) => {
+  SF.mountIsland(spot[2]);
+  const probe = freshPlay();
+  probe.mode = "play";
+  probe.flags.metMaren = true;
+  probe.flags.lampLit = spot[2] === "emberhold";
+  probe.encounterGrace = 0;
+  SF.state = probe;
+  const zone = SF.zoneAt(spot[0], spot[1]);
+  if (SF.encounterRateFor(zone.id, probe.flags) !== 0) fail("test town regions safe: " + zone.id + " at " + spot[0] + "," + spot[1]);
+  if (SF.rollEncounter(probe, zone, function () { return 0; })) fail("test town regions safe: a fight started in " + zone.name);
+});
+
+SF.mountIsland("cinderveil");
+if (SF.walkable(120 * 16 + 8, 88 * 16 + 8)) fail("test town walls block: the east wing wall is open");
+if (SF.walkable(16 * 16 + 8, 88 * 16 + 8)) fail("test town walls block: the west wing wall is open");
+for (let stepY = 78; stepY <= 108; stepY += 2) {
+  if (!SF.walkable(52 * 16 + 8, stepY * 16 + 8)) fail("test long stair connects: blocked at y " + stepY);
+}
+const stairFoot = SF.zoneAt(52 * 16 + 8, 104 * 16 + 8);
+const stairHead = SF.zoneAt(52 * 16 + 8, 80 * 16 + 8);
+if (stairFoot.name !== "Long Stair" && stairFoot.name !== "Lower Quay" && stairFoot.name !== "The Pier") {
+  fail("test long stair connects: the foot is " + stairFoot.name);
+}
+if (stairHead.name !== "Long Stair" && stairHead.name !== "Upper Town" && stairHead.name !== "Bell Square") {
+  fail("test long stair connects: the head is " + stairHead.name);
+}
+
 const sail = freshPlay();
 sail.flags.lampLit = true;
 sail.quest = "stirring";
