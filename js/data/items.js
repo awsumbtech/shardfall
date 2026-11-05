@@ -12,6 +12,7 @@ function item(row) {
 
 SF.ITEMS = {
   tonic: item({ id: "tonic", name: "Tonic", kind: "item", price: 30, hp: 40, target: "ally", desc: "Restores 40 HP." }),
+  heartblossom: item({ id: "heartblossom", name: "Heartblossom", kind: "item", price: 24, hp: 30, target: "ally", desc: "A small red flower that only grows near lamps. Restores 30 HP." }),
   hi_tonic: item({ id: "hi_tonic", name: "Hi-Tonic", kind: "item", price: 90, hp: 120, target: "ally", desc: "Restores 120 HP." }),
   ether: item({ id: "ether", name: "Ether", kind: "item", price: 60, sp: 20, target: "ally", desc: "Restores 20 SP." }),
   phoenix_shard: item({ id: "phoenix_shard", name: "Phoenix Shard", kind: "item", price: 220, revive: 0.4, target: "ally", desc: "Revives one ally at 40% HP." }),
