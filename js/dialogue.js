@@ -92,7 +92,25 @@ function visibleLines(node, flags) {
 
 function fillLine(line, s) {
   var count = s && typeof s.shardsHeld === "number" ? s.shardsHeld : 0;
-  return SF.lineText(line).replace(/\{shards\}/g, String(count));
+  var quest = "";
+  if (s && SF.questText) {
+    try { quest = SF.questText(s) || ""; } catch (err) { quest = ""; }
+  }
+  return SF.lineText(line).replace(/\{shards\}/g, String(count)).replace(/\{quest\}/g, quest);
+}
+
+// A line may name its own speaker. Mixed scenes stay one node, wording unchanged.
+function applyLineVoice(d) {
+  if (!d) return;
+  var line = d.lines && d.lines[d.i];
+  var node = d.node || {};
+  var narrating = lineNarration(line);
+  if (line && typeof line === "object" && line.speaker) d.speaker = line.speaker;
+  else if (!narrating) d.speaker = node.speaker || d.speaker || "Someone";
+  if (line && typeof line === "object" && line.portrait) d.portrait = line.portrait;
+  else if (narrating) d.portrait = "hush";
+  else d.portrait = node.portrait || d.portrait || "unknown";
+  SF._portraitKey = null;
 }
 
 function renderLine(el, text) {
@@ -256,7 +274,7 @@ function showNode(id) {
     holdForApproach: walkingUp
   };
   s.mode = "dialogue";
-  SF._portraitKey = null;
+  applyLineVoice(s.dialogue);
   if (SF.releaseHolds) SF.releaseHolds();
   if (SF.emit) SF.emit("talk");
   if (SF.syncUI) SF.syncUI();
@@ -374,6 +392,7 @@ SF.advanceDialogue = function () {
     d.done = instant || !d.full.length;
     d.acc = 0;
     d.lock = 0.05;
+    applyLineVoice(d);
     if (SF.emit) SF.emit("talk");
     return;
   }
@@ -466,7 +485,18 @@ var FACES = {
   ilsa: { bg: "#6a4a28", skin: "#c9956c", hair: "#1a120c", cloth: "#8a6232", accent: "#ffe7a8", ink: "#1a120c", style: "ilsa" },
   cantor: { bg: "#140c22", skin: "#241830", hair: "#100818", cloth: "#1a1028", accent: "#e6c56a", ink: "#e6c56a", style: "cantor" },
   maw: { bg: "#3a1612", skin: "#5a2820", hair: "#2a100c", cloth: "#4a1c16", accent: "#ff8a3a", ink: "#1a0a08", style: "maw" },
-  wayfarer: { bg: "#16324a", skin: "#e6b89a", hair: "#243044", cloth: "#1d4e68", accent: "#8ef6ff", ink: "#1a120c", style: "wayfarer" }
+  wayfarer: { bg: "#16324a", skin: "#e6b89a", hair: "#243044", cloth: "#1d4e68", accent: "#8ef6ff", ink: "#1a120c", style: "wayfarer" },
+  bram: { bg: "#4a3a28", skin: "#c9956c", hair: "#6a5344", cloth: "#6a5348", accent: "#d7c6a4", ink: "#1a120c", style: "maren" },
+  wren: { bg: "#3a5a38", skin: "#f0c3a4", hair: "#6a3a18", cloth: "#3e6a48", accent: "#ffe08a", ink: "#1a120c", style: "tamsin" },
+  pell: { bg: "#5a3828", skin: "#e2b08a", hair: "#3a2418", cloth: "#8a4030", accent: "#ffd37a", ink: "#1a120c", style: "kestrel" },
+  hale: { bg: "#3a3430", skin: "#c9956c", hair: "#2a2418", cloth: "#4a4038", accent: "#e7a070", ink: "#1a120c", style: "ilsa" },
+  sefa: { bg: "#4a3858", skin: "#e7b48f", hair: "#efe6da", cloth: "#5a4868", accent: "#c6b6ff", ink: "#1a120c", style: "maren" },
+  ada: { bg: "#6a3428", skin: "#e2b08a", hair: "#2c2118", cloth: "#8a4038", accent: "#ffb37a", ink: "#1a120c", style: "kestrel" },
+  corin: { bg: "#3a4a58", skin: "#f0c3a4", hair: "#3a2a18", cloth: "#3a5570", accent: "#9ad0d8", ink: "#1a120c", style: "tamsin" },
+  tobin: { bg: "#3a3848", skin: "#d8c2ae", hair: "#c8beb4", cloth: "#4a4860", accent: "#e6d8c8", ink: "#1a120c", style: "hesk" },
+  marta: { bg: "#5a4030", skin: "#e7b48f", hair: "#4a3020", cloth: "#7a5340", accent: "#ffd37a", ink: "#1a120c", style: "kestrel" },
+  jem: { bg: "#6a4030", skin: "#f0c3a4", hair: "#3a2418", cloth: "#a24b38", accent: "#ffe08a", ink: "#1a120c", style: "maren" },
+  nell: { bg: "#2a4a50", skin: "#d8c2ae", hair: "#1a2428", cloth: "#3a5a58", accent: "#9af0d8", ink: "#1a120c", style: "ilsa" }
 };
 
 var BADGES = {

@@ -372,7 +372,8 @@
   SF.emberholdNode = function (who, s) {
     var f = (s && s.flags) || {};
     if (who === "maren") {
-      if (f.lampLit) return "emberhold.maren.lamp_lit";
+      if (f.lampLit && !f.marenLampTalk) return "emberhold.maren.lamp_lit";
+      if (f.lampLit && !f.maren_evening && !f.metCinderKestrel) return "emberhold.maren.evening";
       if (!f.metMaren) return "emberhold.maren.intro";
       return "emberhold.maren.waiting";
     }

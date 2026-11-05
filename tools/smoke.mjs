@@ -55,6 +55,8 @@ for (const file of [
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/world.js",
   "js/dialogue.js",
+  "js/content/dialogue/act1-scenes.js",
+  "js/content/dialogue/towns.js",
   "js/audio.js",
   "js/music.js",
   "js/sfx.js",
@@ -71,6 +73,7 @@ for (const file of [
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
   "js/content/maps/v2layout.js",
+  "js/content/maps/towns.js",
   "js/vaultgate.js",
   "js/grapple.js",
   "js/battle/events.js",
@@ -503,6 +506,99 @@ if (!handText.includes("I still can't tell you") || handText.includes("pulling b
   console.error("lamp thanks ignored the hand flag", handText);
   process.exit(1);
 }
+
+function drainScene(state, picks) {
+  const lines = [];
+  let guard = 0;
+  const queue = picks.slice();
+  while (state.mode === "dialogue" && state.dialogue && guard < 80) {
+    const d = state.dialogue;
+    d.lock = 0;
+    if (d.phase === "choice") {
+      SF.chooseDialogue(queue.length ? queue.shift() : 0);
+    } else {
+      if (d.full) lines.push((d.speaker || "") + ": " + d.full);
+      SF.advanceDialogue();
+    }
+    guard += 1;
+  }
+  return lines.join("\n");
+}
+
+const meatNodes = [
+  "emberhold.dell.intro", "emberhold.dell.shards", "emberhold.dell.leave", "emberhold.dell.after",
+  "emberhold.maren.evening", "emberhold.maren.fallen", "emberhold.maren.order", "emberhold.maren.evening_end",
+  "cinderveil.sail.trust", "cinderveil.sail.trust_why", "cinderveil.sail.trust_man",
+  "cinderveil.quay.street", "cinderveil.quay.help", "cinderveil.quay.what",
+  "cinderveil.hesk.why", "cinderveil.hesk.safe", "cinderveil.hesk.more", "cinderveil.hesk.after",
+  "cinderveil.ilsa.doubt", "cinderveil.ilsa.doubt_choir", "cinderveil.ilsa.doubt_lamp",
+  "cinderveil.cantor.quay", "cinderveil.cantor.quay_ask", "cinderveil.cantor.quay_warn",
+  "emberhold.pell.larder", "emberhold.hale.smithy", "emberhold.sefa.bench",
+  "cinderveil.ada.bark", "cinderveil.corin.bark", "cinderveil.tobin.bark",
+  "cinderveil.marta.goods", "cinderveil.jem.cup", "cinderveil.nell.fish"
+];
+meatNodes.forEach((id) => {
+  if (!SF.dialogueNodes[id] || !SF.dialogueNodes[id].lines || !SF.dialogueNodes[id].lines.length) {
+    fail("missing scene " + id);
+  }
+});
+if (SF.dialogueNodes["cinderveil.sail.lane"].next !== "cinderveil.sail.trust") fail("the crossing skipped Kestrel's trust");
+
+const e1 = freshPlay();
+e1.flags.metMaren = true;
+SF.mountIsland("emberhold");
+const bram = SF.npcById("bram");
+if (!bram || !SF.walkable(bram.x, bram.y)) fail("Bram is not on Lampfoot");
+e1.player.x = bram.x;
+e1.player.y = bram.y;
+SF.tryInteract();
+const e1Text = drainScene(e1, [0, 0]);
+if (!e1Text.includes("You're the one off the stones. Maren said you'd be by.")) fail("E1 opening changed");
+if (!e1Text.includes("I board up the back windows when the lamp gets low.")) fail("E1 Bram line changed");
+if (!e1Text.includes("He does it every night now.")) fail("E1 Wren line changed");
+if (!e1Text.includes("My family's been on this hill for five generations.")) fail("E1 leave branch changed");
+if (!e1.flags.met_bram) fail("E1 did not set met_bram");
+if (e1.mode !== "play") fail("E1 did not return to play");
+
+const c1 = freshPlay();
+c1.flags.metCinderKestrel = true;
+SF.mountIsland("cinderveil");
+c1.island = "cinderveil";
+const bell = SF.circle("bell");
+if (!bell) fail("Bell Square is missing");
+c1.player.x = bell.x + bell.w / 2;
+c1.player.y = bell.y + bell.h / 2;
+if (!SF.walkable(c1.player.x, c1.player.y)) fail("Bell Square center is not walkable");
+const quayToAsh = Math.hypot(c1.player.x - 46 * 16, c1.player.y - 52 * 16) / 16;
+if (quayToAsh > 60) fail("Quay to Ashfields is " + quayToAsh.toFixed(1) + " tiles");
+SF.onTownZone(c1, { id: "bell" });
+const c1Text = drainScene(c1, [1]);
+if (!c1Text.includes("Corin, get the other side. Push.")) fail("C1 Ada line changed");
+if (!c1Text.includes("I rang it eleven times last night.")) fail("C1 Tobin line changed");
+if (!c1Text.includes("find Tamsin Reed")) fail("C1 did not point at Tamsin");
+if (!c1.flags.quay_street_seen) fail("C1 did not set quay_street_seen");
+SF.onTownZone(c1, { id: "bell" });
+if (c1.mode === "dialogue") fail("C1 played twice");
+
+const h1 = freshPlay();
+SF.startDialogue("cinderveil.tamsin.grapple_gift");
+const h1Lines = [];
+let h1Guard = 0;
+while (h1.mode === "dialogue" && h1.dialogue && h1Guard < 20) {
+  h1.dialogue.lock = 0;
+  if (h1.dialogue.full) h1Lines.push(h1.dialogue.full);
+  SF.advanceDialogue();
+  h1Guard += 1;
+}
+const h1Text = h1Lines.join("\n");
+const gaugeAt = h1Text.indexOf("Huh. That's not right. A normal shard moves this to about here.");
+const doneAt = h1Text.indexOf("Done! Aim at a hook point");
+if (gaugeAt < 0 || doneAt < 0 || gaugeAt > doneAt) fail("H1 is not inside the grapple gift");
+if (!h1Text.includes("Yours went all the way and stayed there.")) fail("H1 second line changed");
+if (!h1.player.grapple && !h1.flags.grapple) {
+  /* grant_grapple runs on end */
+}
+if (!h1.flags.grapple && !(h1.player && h1.player.grapple)) fail("H1 did not still grant the grapple");
 
 const sail = freshPlay();
 sail.flags.lampLit = true;
@@ -1065,6 +1161,10 @@ gate.enemies = SF.makeEnemies();
 gate.player.grapple = false;
 gate.player.x = SF.npcById("ilsa").x;
 gate.player.y = SF.npcById("ilsa").y;
+SF.tryInteract();
+if (!gate.dialogue || gate.dialogue.id !== "cinderveil.ilsa.doubt") fail("Ilsa skipped her first doubt");
+finishTalk(gate);
+if (!gate.flags.ilsa_doubt) fail("Ilsa's doubt did not stick");
 SF.tryInteract();
 if (!gate.dialogue || gate.dialogue.id !== "bark.ilsa.no_grapple") fail("Ilsa let someone cross without a grapple");
 SF.mountIsland("emberhold");
@@ -1815,7 +1915,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.30"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.31"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2140,7 +2240,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.30"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.31"')) fail("version was not bumped");
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2152,7 +2252,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.30")) fail("html version");
+  if (!html.includes("v0.4.31")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }

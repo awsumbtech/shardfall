@@ -8,8 +8,8 @@
   "material: grass (Kenmi Grass_Tiles_1) or ash (Kenmi Volcano). paths: centre-line waypoints, orthogonal runs only.",
   "stairs: the west column x of a 3-wide flight. Earth terraces use stone steps; ash terraces use the volcano basalt stair."
  ],
- "width": 152,
- "height": 108,
+ "width": 170,
+ "height": 112,
  "land": [
   {
    "id": "meadow",
@@ -100,6 +100,23 @@
      27,
      74,
      33
+    ]
+   ]
+  },
+  {
+   "id": "lampfoot",
+   "rects": [
+    [
+     2,
+     2,
+     62,
+     36
+    ],
+    [
+     52,
+     16,
+     68,
+     26
     ]
    ]
   },

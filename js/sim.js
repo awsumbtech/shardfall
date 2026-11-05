@@ -1399,6 +1399,7 @@ SF.updatePlayer = function (dt) {
     s.flags.scarBark = true;
     SF.startDialogue("bark.maren.scar");
   }
+  if (s.mode === "play" && SF.onTownZone) SF.onTownZone(s, zone);
   if (SF.noteZone) SF.noteZone(zone);
   if (!s.hints.moved && SF.dist(p.x, p.y, SF.WAKE.x, SF.WAKE.y) > 28) SF.noteHint("moved");
   if (SF.noteTravel && s.mode === "play") SF.noteTravel(s, p.px, p.py, p.x, p.y, zone);

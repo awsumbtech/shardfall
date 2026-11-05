@@ -30,7 +30,7 @@
     id: "cinderveil.sail.lane",
     speaker: "Kestrel Vane",
     portrait: "kestrel",
-    next: "cinderveil.sail.sight",
+    next: "cinderveil.sail.trust",
     lines: [
       narr("The skiff slides into a current of moving air. Faint streaks of light run ahead of it.", "ship"),
       "This is a wind lane. Stay in one and you fly. Drift out and you start sinking toward the Hush.",
@@ -117,6 +117,9 @@
     lines: [
       "Three! You got all three! Okay, hold out your hand. This won't hurt. It might tingle. Probably just tingle.",
       narr("Tamsin clamps a small brass reel to your wrist and threads its line into the shard. The shard pulses, and the reel hums.", "tamsin"),
+      narr("Tamsin holds a little brass gauge to your palm. The needle goes all the way over and sticks.", "tamsin"),
+      "Huh. That's not right. A normal shard moves this to about here.",
+      "Yours went all the way and stayed there. It's like it's still connected to something. Anyway! I don't know. I'll think about it later.",
       "Done! Aim at a hook point and the shard does the rest. Just don't let go over the Hush.",
       "Now go show Warden Ilsa. She said nobody goes near the Vault without a way across. Now you've got one."
     ]
@@ -135,7 +138,7 @@
     ],
     choices: [
       { text: "Take your time. Tell me everything.", next: "cinderveil.hesk.steady", setFlags: { hesk_mood: "steady" } },
-      { text: "Get to the point.", next: "cinderveil.hesk.pressed", setFlags: { hesk_mood: "pressed" } }
+      { text: "Get to the point.", next: "cinderveil.hesk.pressed", setFlags: { hesk_mood: "pressed", hesk_more: true } }
     ]
   });
 
@@ -147,7 +150,14 @@
       "Th-thank you. Sorry. It's a Cinder Maw, a huge Hushborn. They lured it up from the Hush with burning shards and led it into the Vault.",
       "It's eating the island's core. That's why the lamp died. When the core's gone, Cinderveil falls.",
       "And it's a test. For you. The Cantor wanted to see what the shard-bearer would do. They knew you'd come.",
-      "If you beat it, the Cantor will come to you, and they'll be kind. Please remember I warned you."
+      "If you beat it, the Cantor will come to you, and they'll be kind. Please remember I warned you.",
+      "I joined three years ago. My island's lamp was failing, and the Choir said they'd take care of us. They fed us. Nobody else did.",
+      "At first it was just meetings, and talking about the sky. Then they started leading Hushborn places.",
+      "When they took the Maw to Cinderveil, I knew people lived here. I left that night."
+    ],
+    choices: [
+      { text: "Why tell me?", next: "cinderveil.hesk.why" },
+      { text: "Are you safe here?", next: "cinderveil.hesk.safe" }
     ]
   });
 
@@ -157,7 +167,8 @@
     portrait: "hesk",
     lines: [
       "S-sorry! There's a Cinder Maw in the Vault, eating the core. If it finishes, the island falls.",
-      "The Choir led it there. That's all. I'm sorry, I can't... please, just go."
+      "The Choir led it there. That's all. I'm sorry, I can't... please, just go.",
+      "If you want the rest, come back when you're... when you're not in a hurry."
     ]
   });
 
@@ -170,6 +181,7 @@
       narr("On a cliff above a wide chasm, a woman in scarred Lanternwright armor stands guard. The Vault door glows on the far side.", "ilsa"),
       "Halt. Warden Ilsa, Lanternwright Order. That's a grapple. Tamsin's?",
       "Something in the Vault is eating the core. The bridge burned. My orders are to hold this cliff.",
+      { text: "You came back. With a way across, too. All right.", requires: { ilsa_doubt: true } },
       "I can't cross. You might. Make it over and the Vault is yours. Fall, and nobody comes for you."
     ],
     choices: [
