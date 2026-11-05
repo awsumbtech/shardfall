@@ -771,12 +771,22 @@ SF.interactRank = function (kind) {
 
 SF.TALK_RANGE = 54;
 
+// Empty dialogue is not an action. Kestrel's sail chart is, even with no line.
+SF.npcOffersTalk = function (npc, s) {
+  if (!npc || !s) return false;
+  var id = SF.routeDialogue ? SF.routeDialogue(npc.id, s) : "";
+  if (id) return true;
+  if (SF.islandId === "cinderveil" && npc.id === "kestrel" && s.flags && s.flags.metCinderKestrel) return true;
+  return false;
+};
+
 SF.nearestInteract = function (range) {
   var s = SF.state;
   var p = s.player;
   var best = null;
   var limit = range || SF.TALK_RANGE || 54;
   function consider(kind, ref, x, y) {
+    if (kind === "npc" && !SF.npcOffersTalk(ref, s)) return;
     var d = SF.dist(p.x, p.y, x, y);
     if (d >= limit) return;
     var dx = x - p.x;

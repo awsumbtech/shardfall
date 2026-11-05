@@ -37,7 +37,7 @@
   // Maren's door. The Green, larder, smithy, and shrine are the cottage edge
   // between her door and the Meadow, and they stay safe.
   pushRect(ember, rec("lampfoot", "Lampfoot", "ember", [2, 2, 62, 36]));
-  pushRect(ember, rec("dell-lane", "Dell Row", "ember", [52, 16, 67, 26]));
+  pushRect(ember, rec("dell-lane", "Dell Row", "ember", [36, 14, 80, 32]));
   pushRect(ember, rec("green", "The Green", "ember", [64, 20, 82, 30]));
   pushRect(ember, rec("larder", "Pell's Larder", "ember", [60, 24, 70, 28]));
   pushRect(ember, rec("smithy", "Hale's Smithy", "ember", [76, 14, 86, 22]));
@@ -130,16 +130,21 @@
   );
 
   ember.bounds = { x: 0, y: 0, w: 170 * T, h: 112 * T };
+  // A wide walk through the cottage terrace lip, so a straight stick enters Lampfoot.
+  ember.paths.push([78 * T, 20 * T, 28 * T, 20 * T]);
+  (SF.TERRACES.emberhold || []).forEach(function (t) {
+    if (t.id === "cottage") t.ramp = 96;
+  });
 
   // Lowmoor: Upper Town is the quay band by the Ashfields gate. Lower Quay
   // is the water, the widened wings, and a short south pier. The walk from
   // the south edge to the Ashfields stays under 60 tiles.
   pushRect(cinder, rec("upper-town", "Upper Town", "quay", [26, 74, 92, 90]));
-  pushRect(cinder, rec("upper-west", "Upper Town", "quay", [8, 78, 26, 100]));
+  pushRect(cinder, rec("upper-west", "Upper Town", "quay", [0, 74, 40, 100]));
   pushRect(cinder, rec("upper-east", "Upper Town", "quay", [90, 78, 146, 108]));
   pushRect(cinder, rec("lower-quay", "Lower Quay", "quay", [26, 90, 92, 110]));
   pushRect(cinder, rec("lower-south", "Lower Quay", "quay", [26, 108, 92, 112]));
-  pushRect(cinder, rec("lower-west", "Lower Quay", "quay", [0, 78, 26, 112]));
+  pushRect(cinder, rec("lower-west", "Lower Quay", "quay", [0, 74, 40, 112]));
   pushRect(cinder, rec("bell", "Bell Square", "quay", [40, 78, 58, 90]));
   pushRect(cinder, rec("long-stair", "Long Stair", "quay", [48, 74, 56, 112]));
   ["upper-town", "upper-west", "upper-east", "lower-quay", "lower-south", "lower-west", "bell", "long-stair"].forEach(safe);

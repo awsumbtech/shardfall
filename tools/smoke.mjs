@@ -780,6 +780,95 @@ if (stairHead.name !== "Long Stair" && stairHead.name !== "Upper Town" && stairH
   fail("test long stair connects: the head is " + stairHead.name);
 }
 
+const quietTalk = freshPlay();
+quietTalk.mode = "play";
+quietTalk.flags.metMaren = false;
+quietTalk.hints.moved = true;
+quietTalk.hints.dash = true;
+quietTalk.playTime = 50;
+SF.mountIsland("emberhold");
+SF.state = quietTalk;
+quietTalk.player.x = bram.x;
+quietTalk.player.y = bram.y;
+const quietNear = SF.nearestInteract();
+if (quietNear && quietNear.kind === "npc" && (quietNear.ref.id === "bram" || quietNear.ref.id === "wren")) {
+  fail("test talk hidden: " + quietNear.ref.id + " offers Talk before Maren");
+}
+if (!SF.npcOffersTalk(bram, quietTalk) && !SF.npcOffersTalk(SF.npcById("wren"), quietTalk)) {
+  const quietCoach = SF.coachLine(quietTalk) || "";
+  if (quietCoach.indexOf("Talk") >= 0) fail("test talk hidden: coach says Talk before Maren");
+}
+SF.tryInteract();
+if (quietTalk.mode !== "play") fail("test talk hidden: Talk entered a scene before Maren");
+quietTalk.flags.metMaren = true;
+if (!SF.npcOffersTalk(bram, quietTalk)) fail("test talk hidden: Bram stays silent after Maren");
+SF.tryInteract();
+if (quietTalk.mode !== "dialogue" || !quietTalk.dialogue || quietTalk.dialogue.id !== "emberhold.dell.intro") {
+  fail("test talk hidden: Bram did not open after Maren");
+}
+quietTalk.mode = "play";
+quietTalk.dialogue = null;
+
+function walkReach(island, origin, targets) {
+  SF.mountIsland(island);
+  const step = 16;
+  function segmentOpen(x0, y0, x1, y1) {
+    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 4));
+    let i, t;
+    for (i = 0; i <= n; i++) {
+      t = i / n;
+      if (!SF.walkable(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false;
+    }
+    return true;
+  }
+  const seen = new Set();
+  const queue = [];
+  const x0 = Math.round(origin.x / step) * step;
+  const y0 = Math.round(origin.y / step) * step;
+  function key(x, y) { return x + "," + y; }
+  if (!SF.walkable(x0, y0)) return targets.map((t) => t.name);
+  seen.add(key(x0, y0));
+  queue.push([x0, y0]);
+  let qi, x, y, dir, nx, ny, dirs;
+  dirs = [[step, 0], [-step, 0], [0, step], [0, -step]];
+  for (qi = 0; qi < queue.length; qi++) {
+    x = queue[qi][0];
+    y = queue[qi][1];
+    for (dir = 0; dir < dirs.length; dir++) {
+      nx = x + dirs[dir][0];
+      ny = y + dirs[dir][1];
+      if (seen.has(key(nx, ny))) continue;
+      if (!segmentOpen(x, y, nx, ny)) continue;
+      seen.add(key(nx, ny));
+      queue.push([nx, ny]);
+    }
+  }
+  return targets.filter((t) => {
+    const sx = Math.round(t.x / step) * step;
+    const sy = Math.round(t.y / step) * step;
+    let dx, dy;
+    for (dy = -step; dy <= step; dy += step) {
+      for (dx = -step; dx <= step; dx += step) {
+        if (seen.has(key(sx + dx, sy + dy))) return false;
+      }
+    }
+    return true;
+  }).map((t) => t.name);
+}
+
+SF.mountIsland("emberhold");
+const missedEmber = walkReach("emberhold", SF.WAKE, [
+  { name: "Bram", x: bram.x, y: bram.y },
+  { name: "Wren", x: SF.npcById("wren").x, y: SF.npcById("wren").y },
+  { name: "goat chest", x: SF.EXTRAS.find((ex) => ex.id === "chest-goat").x, y: SF.EXTRAS.find((ex) => ex.id === "chest-goat").y }
+]);
+if (missedEmber.length) fail("test walk reach: " + missedEmber.join(", ") + " unreachable on foot from the Waking Stones");
+SF.mountIsland("cinderveil");
+const missedCinder = walkReach("cinderveil", SF.DOCKS.cinderveil, [
+  { name: "Nell", x: SF.npcById("nell").x, y: SF.npcById("nell").y }
+]);
+if (missedCinder.length) fail("test walk reach: " + missedCinder.join(", ") + " unreachable on foot from the Cinderveil dock");
+
 const sail = freshPlay();
 sail.flags.lampLit = true;
 sail.quest = "stirring";
