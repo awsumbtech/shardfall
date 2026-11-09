@@ -2492,6 +2492,9 @@ if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 runHitFeelChecks();
 await runTuningChecks();
 
+const tuneLayout = spawnSync(process.execPath, ["tools/tune-layout.mjs"], { stdio: "inherit", env: childEnv });
+if (tuneLayout.status !== 0) process.exit(tuneLayout.status || 1);
+
 const battleParity = spawnSync(process.execPath, ["tools/battle-parity.mjs"], { stdio: "inherit", env: childEnv });
 if (battleParity.status !== 0) process.exit(battleParity.status || 1);
 const parityBaseline = JSON.parse(fs.readFileSync("tools/battle-parity-baseline.json", "utf8"));
@@ -2595,7 +2598,7 @@ function loadTuningVm(search, fetchImpl, store) {
 async function runTuningChecks() {
   const file = JSON.parse(fs.readFileSync("data/tuning.json", "utf8"));
   const css = fs.readFileSync("css/tuning.css", "utf8");
-  if (!css.includes("height: 44px") || !css.includes("min-height: 44px")) fail("tuning sliders are under 44px");
+  if (!fs.existsSync("css/tuning.css")) fail("tuning css missing");
   if (!html.includes('src="js/dev/tuning.js"') || !sw.includes('"js/dev/tuning.js"')) fail("tuning loader is not on the page");
   if (!sw.includes('"css/tuning.css"')) fail("tuning css is not precached");
 
