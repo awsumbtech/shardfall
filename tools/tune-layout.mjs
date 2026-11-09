@@ -282,6 +282,92 @@ if (shotDir) {
   if (!inside(box, scrolled.panel, 1)) fail(key + " is outside the feel scrollport " + JSON.stringify(box));
 });
 
+const tabs = await page.evaluate(() => {
+  function rect(el) {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+  }
+  const strip = document.getElementById("tune-tabs");
+  const buttons = Array.from(document.querySelectorAll("#tune-tabs .tune-tab"));
+  const placed = buttons.map((el) => {
+    const host0 = strip.getBoundingClientRect();
+    const box0 = el.getBoundingClientRect();
+    if (box0.right > host0.right) strip.scrollLeft += box0.right - host0.right + 2;
+    if (box0.left < host0.left) strip.scrollLeft -= host0.left - box0.left + 2;
+    const box = rect(el);
+    const host = rect(strip);
+    return {
+      id: el.id,
+      text: el.textContent,
+      box: box,
+      host: host,
+      clipped: el.scrollWidth > el.clientWidth + 1,
+      scrollLeft: strip.scrollLeft
+    };
+  });
+  const saves = document.getElementById("tune-tab-saves");
+  let save2 = null;
+  if (saves) {
+    saves.click();
+    const panel = document.getElementById("tune-panel-saves");
+    const button = document.getElementById("tune-slot-save-2");
+    if (panel && button) {
+      const pr = panel.getBoundingClientRect();
+      const er = button.getBoundingClientRect();
+      panel.scrollTop += er.top - pr.top - 4;
+      save2 = {
+        box: rect(button),
+        panel: rect(panel),
+        drawer: rect(document.getElementById("tune-drawer")),
+        view: { top: 0, left: 0, right: innerWidth, bottom: innerHeight },
+        textCut: button.scrollWidth > button.clientWidth + 1,
+        label: button.textContent
+      };
+    }
+  }
+  return { placed: placed, save2: save2 };
+});
+if (tabs.placed.length > 2) {
+  console.log("tune-layout tabs " + JSON.stringify(tabs));
+  tabs.placed.forEach((tab) => {
+    if (tab.clipped) fail(tab.id + " text is clipped (" + tab.text + ")");
+    if (tab.box.height < 44) fail(tab.id + " is " + tab.box.height + "px tall");
+    if (!inside(tab.box, tab.host, 2)) fail(tab.id + " is outside the tab strip " + JSON.stringify(tab.box));
+    if (!inside(tab.box, { top: 0, left: 0, right: 844, bottom: 390 }, 2)) {
+      fail(tab.id + " is outside the viewport " + JSON.stringify(tab.box));
+    }
+  });
+  if (!tabs.save2) fail("Save 2 was not measured");
+  else {
+    if (tabs.save2.textCut) fail("Save 2 text is clipped");
+    if (tabs.save2.box.height < 44) fail("Save 2 is " + tabs.save2.box.height + "px tall");
+    if (!inside(tabs.save2.box, tabs.save2.drawer, 1)) fail("Save 2 is outside the drawer " + JSON.stringify(tabs.save2.box));
+    if (!inside(tabs.save2.box, tabs.save2.view, 1)) fail("Save 2 is outside the viewport " + JSON.stringify(tabs.save2.box));
+    if (!inside(tabs.save2.box, tabs.save2.panel, 1)) fail("Save 2 is outside the saves scrollport " + JSON.stringify(tabs.save2.box));
+  }
+}
+
+if (shotDir) {
+  const seedTab = page.locator("#tune-tab-seed");
+  if (await seedTab.count()) {
+    await page.evaluate(() => {
+      const strip = document.getElementById("tune-tabs");
+      const el = document.getElementById("tune-tab-seed");
+      if (strip && el) strip.scrollLeft = el.offsetLeft;
+    });
+    await page.click("#tune-tab-seed");
+    await page.screenshot({ path: path.join(shotDir, "seed-844x390.png") });
+    await page.click("#tune-tab-saves");
+    await page.screenshot({ path: path.join(shotDir, "saves-844x390.png") });
+    await page.click("#tune-tab-warp");
+    await page.screenshot({ path: path.join(shotDir, "warp-844x390.png") });
+    await page.click("#tune-tab-test");
+    await page.screenshot({ path: path.join(shotDir, "test-844x390.png") });
+    await page.click("#tune-tab-bug");
+    await page.screenshot({ path: path.join(shotDir, "bug-844x390.png") });
+  }
+}
+
 await land.context.close();
 
 const port = await boot(390, 844);

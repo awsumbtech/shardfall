@@ -2184,7 +2184,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.34"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.35"')) fail("cache version");
 if (!sw.includes('"data/tuning.json"')) fail("tuning json is not precached");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
@@ -2491,6 +2491,7 @@ if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
 runHitFeelChecks();
 await runTuningChecks();
+await runDevToolChecks();
 
 const tuneLayout = spawnSync(process.execPath, ["tools/tune-layout.mjs"], { stdio: "inherit", env: childEnv });
 if (tuneLayout.status !== 0) process.exit(tuneLayout.status || 1);
@@ -2736,6 +2737,263 @@ async function runTuningChecks() {
   if (!paints.some((color) => String(color).indexOf("220, 32, 48") >= 0)) fail("blocked cells were not drawn");
 }
 
+function loadDevVm(search, store, consoleObj) {
+  const ctx = {};
+  ctx.window = ctx;
+  ctx.console = consoleObj || console;
+  ctx.location = { search: search };
+  ctx.Promise = Promise;
+  ctx.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+  ctx.navigator = {};
+  ctx.document = makeTuneDoc();
+  ctx.fetch = () => Promise.reject(new Error("offline"));
+  vm.createContext(ctx);
+  vm.runInContext([
+    "var SF = window.SF || {}; window.SF = SF;",
+    "SF.onDialogueEvent = function () {};",
+    "SF.ISLANDS = { emberhold: { extras: [] }, cinderveil: { extras: [] } };",
+    "SF.DOCKS = SF.DOCKS || { emberhold: { x: 0, y: 0 }, cinderveil: { x: 0, y: 0 } };",
+    "SF.WALK = SF.WALK || { circles: [], rects: [] };",
+    "SF.cliffBlocks = SF.cliffBlocks || function () { return false; };",
+    "SF.mountIsland = SF.mountIsland || function () {};"
+  ].join(" "), ctx);
+  const files = [
+    "js/data.js",
+    "js/data/skills.js",
+    "js/data/items.js",
+    "js/data/party.js",
+    "js/data/enemies.js",
+    "js/data/encounters.js",
+    "js/save.js",
+    "js/sim.js",
+    "js/content/maps/v2layout.js",
+    "js/battle/events.js",
+    "js/battle/formula.js",
+    "js/battle/state.js",
+    "js/battle/timeline.js",
+    "js/battle/ai.js",
+    "js/battle/rewards.js",
+    "js/battle/feel.js",
+    "js/battle/resolver.js",
+    "js/battle/battle.js",
+    "js/dev/tuning.js",
+    "js/dev/tuning-drawer.js",
+    "js/dev/warp.js",
+    "js/dev/test-mode.js",
+    "js/dev/save-slots.js",
+    "js/dev/bug-report.js",
+    "js/dev/seed.js"
+  ];
+  files.forEach((file) => vm.runInContext(fs.readFileSync(file, "utf8"), ctx, { filename: file }));
+  return ctx;
+}
+
+function battleSequence(seed) {
+  const ctx = loadDevVm("?dev=1", new Map());
+  const S = ctx.SF;
+  const mathRandom = vm.runInContext("Math.random", ctx);
+  const bareRoll = S.rollEncounter;
+  const bareFlow = S.Battle.flow.rng;
+  S.TuningConfig.attach();
+  S.TuningDrawer.attach();
+  S.DevSeed.attach();
+  if (S.rollEncounter !== bareRoll) fail("seed wrapped rollEncounter before set");
+  if (S.Battle.flow.rng !== bareFlow) fail("seed wrapped battle rng before set");
+  if (!S.DevSeed.set(seed)) fail("seed " + seed + " did not set");
+  if (vm.runInContext("Math.random", ctx) !== mathRandom) fail("seed " + seed + " replaced Math.random");
+  const play = S.fresh();
+  play.mode = "play";
+  S.state = play;
+  S.ensureParty(play);
+  S.Battle.instant = true;
+  S.Battle.rngSeed = 1;
+  if (!S.Battle.start("em_wisps")) fail("seeded battle did not start");
+  let guard = 0;
+  while (play.battle && play.battle.phase !== "result" && guard < 8) {
+    S.Battle.autoPick();
+    guard += 1;
+  }
+  const log = (play.battle && play.battle.log || []).join("|");
+  const hp = play.battle ? play.battle.actors.map((a) => a.hp).join(",") : "";
+  S.DevSeed.clear();
+  S.DevSeed.set(seed);
+  S.islandId = "emberhold";
+  S.tune.encounterRate = 40;
+  const field = S.fresh();
+  field.mode = "play";
+  field.flags.metMaren = true;
+  field.encounterGrace = 0;
+  S.state = field;
+  const rolls = [];
+  for (let i = 0; i < 16; i++) {
+    field.mode = "play";
+    field.encounterGrace = 0;
+    field.battle = null;
+    const started = S.rollEncounter(field, { id: "meadow" });
+    rolls.push(started && field.battle ? String(field.battle.id) : "none");
+  }
+  let forced = 0;
+  S.tune.encounterRate = 1;
+  field.mode = "play";
+  field.encounterGrace = 0;
+  field.battle = null;
+  S.rollEncounter(field, { id: "meadow" }, function () { forced += 1; return 0.99; });
+  if (forced !== 1) fail("an explicit encounter rand was not used (" + forced + ")");
+  S.DevSeed.clear();
+  if (vm.runInContext("Math.random", ctx) !== mathRandom) fail("clear left Math.random replaced");
+  if (S.rollEncounter !== bareRoll) fail("clear left rollEncounter wrapped");
+  if (S.Battle.flow.rng !== bareFlow) fail("clear left battle rng wrapped");
+  return { log: log, hp: hp, rolls: rolls.join(",") };
+}
+
+async function runDevToolChecks() {
+  const quiet = new Map();
+  const plain = loadDevVm("", quiet);
+  const P = plain.SF;
+  P.TuningConfig.attach();
+  P.TuningDrawer.attach();
+  ["DevWarp", "TestMode", "DevSaves", "BugReport", "DevSeed"].forEach((name) => P[name].attach());
+  ["tune-tab-warp", "tune-tab-test", "tune-tab-saves", "tune-tab-bug", "tune-tab-seed", "tune-no-damage", "tune-slot-save-1", "tune-bug-capture", "tune-seed"].forEach((id) => {
+    if (plain.document.getElementById(id)) fail(id + " exists without ?dev=1");
+  });
+  if (P.TestMode._dev || P.DevSeed._dev || P.BugReport._hooked) fail("dev tools armed themselves without ?dev=1");
+  const seen = [];
+  P.hurtPlayer = function (dmg) { seen.push(dmg); };
+  P.TestMode.noDamage = true;
+  P.TestMode.encountersOff = true;
+  P.hurtPlayer(6, 0, 0);
+  if (seen[0] !== 6) fail("no-damage changed a normal visit");
+  let rolled = false;
+  P.rollEncounter = function () { rolled = true; return true; };
+  if (P.rollEncounter({}, { id: "meadow" }) === false || !rolled) fail("encounters-off stopped a normal visit");
+
+  const store = new Map();
+  store.set("shardfall.v1", "REAL");
+  const fakeConsole = { log() {}, error() {}, warn() {} };
+  const dev = loadDevVm("?dev=1", store, fakeConsole);
+  const D = dev.SF;
+  await D.TuningConfig.attach();
+  D.TuningDrawer.attach();
+  D.DevWarp.attach();
+  D.TestMode.attach();
+  D.DevSaves.attach();
+  D.BugReport.attach();
+  D.DevSeed.attach();
+  ["tune-tab-warp", "tune-tab-test", "tune-no-damage", "tune-no-encounters", "tune-slot-save-1", "tune-slot-save-3", "tune-bug-capture", "tune-seed-set"].forEach((id) => {
+    if (!dev.document.getElementById(id)) fail("missing dev control " + id);
+  });
+  ["tune-no-damage", "tune-slot-save-1", "tune-bug-capture", "tune-seed-set"].forEach((id) => {
+    const node = dev.document.getElementById(id);
+    if (node && node.className !== "tune-bool") fail(id + " is not a thumb target");
+  });
+
+  D.ISLANDS = {
+    emberhold: {
+      wake: { x: 1, y: 2 },
+      walk: { circles: [{ id: "lampfoot", name: "Lampfoot", x: 10, y: 20 }], rects: [] },
+      spawns: [{ id: "maw", kind: "maw", boss: true, x: 9, y: 8, encounter: "boss_cinder_maw" }]
+    }
+  };
+  D.DOCKS = { emberhold: { x: 3, y: 4 } };
+  D.state = { mode: "title", player: { x: 0, y: 0 }, flags: {}, battle: { id: "old" } };
+  D.mountIsland = function (id) { D.islandId = id; };
+  const places = D.DevWarp.places();
+  if (!places.islands.some((row) => row.id === "emberhold")) fail("warp missed an island");
+  if (!places.towns.some((row) => row.name === "Lampfoot")) fail("warp missed a town");
+  if (!places.bosses.some((row) => row.id === "maw")) fail("warp missed a boss");
+  if (places.fights.length !== Object.keys(D.ENCOUNTERS).length) fail("warp fight list was hard-coded");
+  if (!D.DevWarp.goIsland("emberhold") || D.state.player.x !== 3 || D.state.player.y !== 4) fail("warp did not use the dock");
+  if (!D.DevWarp.goTown("emberhold", "Lampfoot") || D.state.player.x !== 10) fail("warp missed Lampfoot");
+  if (!D.DevWarp.goBoss("maw") || D.state.player.x !== 9) fail("warp missed the boss");
+  let started = "";
+  D.Battle.start = function (id) { started = id; return true; };
+  if (!D.DevWarp.startFight("em_wisps") || started !== "em_wisps") fail("warp did not start the formation");
+
+  const before = D.hurtPlayer;
+  let hits = 0;
+  D.hurtPlayer = function (dmg) { hits += dmg; return before.apply(D, arguments); };
+  D.TestMode._hurt = false;
+  D.TestMode._hookDamage();
+  D.TestMode.noDamage = true;
+  D.hurtPlayer(8, 0, 0);
+  if (hits !== 0) fail("no damage still hurt the player");
+  const foeHit = D.BattleFormula.damage({ atk: 10, mag: 10, element: "" }, { side: "foe", def: 0, mods: { def: 0 }, guard: false, weak: "", resist: "" }, D.SKILLS.attack);
+  const partyHit = D.BattleFormula.damage({ atk: 10, mag: 10, element: "" }, { side: "party", def: 0, mods: { def: 0 }, guard: false, weak: "", resist: "" }, D.SKILLS.attack);
+  if (!(foeHit.amount > 0)) fail("no damage also stopped foe damage");
+  if (partyHit.amount !== 0) fail("the party still took battle damage");
+  D.TestMode.noDamage = false;
+  let rolls = 0;
+  D.rollEncounter = function () { rolls += 1; return true; };
+  D.TestMode._rolls = false;
+  D.TestMode._hookEncounters();
+  D.TestMode.encountersOff = true;
+  if (D.rollEncounter() !== false || rolls !== 0) fail("encounters off did not stop a roll");
+  D.TestMode.encountersOff = false;
+  if (D.rollEncounter() !== true || rolls !== 1) fail("encounters did not return");
+
+  const bad = D.DevSaves.importText("{");
+  if (bad.ok) fail("a broken import was accepted");
+  const ugly = D.DevSaves.importText(JSON.stringify({ v: 9, player: { x: 1, y: 2 } }));
+  if (ugly.ok) fail("a bad version was accepted");
+  const arraySave = D.DevSaves.importText("[1,2,3]");
+  if (arraySave.ok || !D.DevSaves.validate([])) fail("an array import was accepted");
+  const missingPlayer = D.DevSaves.importText(JSON.stringify({ v: 4 }));
+  if (missingPlayer.ok) fail("a save with no player was accepted");
+  const partial = D.DevSaves.importText(JSON.stringify({ v: 4, player: { x: 1 } }));
+  if (partial.ok) fail("a save with no y was accepted");
+  const infinite = D.DevSaves.importText(JSON.stringify({ v: 4, player: { x: 1, y: 1e309 } }));
+  if (infinite.ok) fail("a non-finite position was accepted");
+  if (!D.DevSaves.validate({ v: 4, player: { x: NaN, y: 1 } })) fail("NaN position was accepted");
+  if (!D.DevSaves.validate({ v: 4, player: [1, 2] })) fail("a player array was accepted");
+  if (D.DevSaves.validate({ v: 4, player: { x: 12, y: 4 } })) fail("a positioned save was rejected");
+  if (store.get("shardfall.v1") !== "REAL") fail("a bad import touched the real save");
+  let applied = null;
+  D.applySave = function (s, data) { applied = data.player.x; return true; };
+  const good = D.DevSaves.importText(JSON.stringify({ v: 4, player: { x: 12, y: 4 } }));
+  if (!good.ok || applied !== 12) fail("a good import did not apply");
+  if (store.get("shardfall.v1") !== "REAL") fail("a good import wrote the real save");
+  D.exportState = function () { return { v: 4, player: { x: D.state.player.x, y: D.state.player.y } }; };
+  if (!D.DevSaves.saveSlot(1) || !D.DevSaves.saveSlot(2) || !D.DevSaves.saveSlot(3)) fail("a dev slot did not save");
+  if (!store.has("shardfall.devsave.1") || store.get("shardfall.devsave.1") === "REAL") fail("dev slots are not separate");
+
+  D.view = { toDataURL: () => "data:image/png;base64,QQ==" };
+  D.islandId = "emberhold";
+  for (let i = 0; i < 55; i++) dev.console.error("err-" + i);
+  dev.console.warn("careful");
+  const report = D.BugReport.capture();
+  if (report.logs.length !== 50) fail("bug log kept " + report.logs.length);
+  if (report.logs[0].text !== "err-6") fail("bug log did not drop the oldest");
+  if (report.logs[report.logs.length - 1].text !== "careful") fail("bug log missed the warning");
+  if (report.version !== "0.4.35" || report.png.indexOf("data:image/png") !== 0) fail("bug report missed version or screenshot");
+  if (D.BugReport.summary(report).indexOf("base64") >= 0) fail("the text summary included the screenshot");
+  dev.document.getElementById("tune-bug-capture").dispatchEvent({ type: "click" });
+  if (dev.document.getElementById("tune-bug-note").textContent !== "Report ready.") fail("bug capture had no confirmation");
+
+  const first = battleSequence(77);
+  const second = battleSequence(77);
+  console.log("seed 77 run A log " + first.log);
+  console.log("seed 77 run A hp " + first.hp);
+  console.log("seed 77 run A encounters " + first.rolls);
+  console.log("seed 77 run B log " + second.log);
+  console.log("seed 77 run B hp " + second.hp);
+  console.log("seed 77 run B encounters " + second.rolls);
+  if (first.log !== second.log || first.hp !== second.hp || first.rolls !== second.rolls) {
+    fail("a fixed seed did not repeat");
+  }
+  const other = battleSequence(78);
+  console.log("seed 78 log " + other.log);
+  console.log("seed 78 hp " + other.hp);
+  console.log("seed 78 encounters " + other.rolls);
+  if (other.rolls === first.rolls) fail("two seeds rolled the same encounters");
+  if (other.log === first.log && other.hp === first.hp) {
+    console.log("seed 78 battle log matched seed 77; formula has no damage variance");
+  }
+}
+
 function runHitFeelChecks() {
   const clocks = { n: 0 };
   const feel = {};
@@ -2975,7 +3233,7 @@ function runHitFeelChecks() {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.34"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.35"')) fail("version was not bumped");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
@@ -2993,7 +3251,10 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.34")) fail("html version");
+  if (!html.includes("v0.4.35")) fail("html version");
+  if (!dataJs.includes("The dev drawer can also warp you around, turn damage and encounters off, keep spare saves, write a bug report, and lock the random seed. Still only with ?dev=1.")) {
+    fail("whats new dev tools line");
+  }
   if (!dataJs.includes("Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels, and to shade walkable ground. Without that, nothing is added.")) {
     fail("whats new tuning line");
   }

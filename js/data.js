@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.34";
+SF.VERSION = "0.4.35";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -58,7 +58,8 @@ SF.WHATS_NEW = [
   "Emberhold's Lampfoot village and Lowmoor Quay are larger, and Act 1 has new scenes there, on the crossing, and with Hesk, Ilsa, and Tamsin.",
   "Cleaned up a stray grass patch floating in the sky near the start.",
   "Hits land harder: the battle shakes, and a killing blow freezes then eases back to speed.",
-  "Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels, and to shade walkable ground. Without that, nothing is added."
+  "Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels, and to shade walkable ground. Without that, nothing is added.",
+  "The dev drawer can also warp you around, turn damage and encounters off, keep spare saves, write a bug report, and lock the random seed. Still only with ?dev=1."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
