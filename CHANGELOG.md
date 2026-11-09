@@ -4,7 +4,7 @@ Notes for someone playing, not a patch log of every file.
 
 ## v0.4.34 — A tuning drawer
 
-Open the page with ?dev=1 and a Tune button sits at the top of the screen. Sliders change walk, dash, and how a hit feels while you play. Without that address, the button is not there.
+Open the page with ?dev=1 and a Tune button sits at the top of the screen. Sliders change walk, dash, and how a hit feels while you play. The Map tab can shade walkable ground green and blocked ground red. Without that address, the button is not there.
 
 ## v0.4.33 — Hits land harder
 

@@ -42,6 +42,31 @@
 
 #tune-drawer[hidden] { display: none; }
 
+.tune-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex: none;
+  margin-bottom: 6px;
+  touch-action: pan-x;
+}
+
+.tune-tab {
+  min-height: 44px;
+  flex: none;
+  padding: 0 12px;
+  border-radius: 2px;
+  border: 2px solid #f4f0e4;
+  background: #0c2268;
+  color: #f6f2ea;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+
+.tune-tab[aria-pressed="true"] { background: #1e4c98; }
+
 .tune-head {
   display: flex;
   align-items: center;

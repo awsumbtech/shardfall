@@ -2586,7 +2586,7 @@ function loadTuningVm(search, fetchImpl, store) {
   ctx.fetch = fetchImpl;
   ctx.Promise = Promise;
   vm.createContext(ctx);
-  for (const file of ["js/data.js", "js/dev/tuning.js", "js/dev/tuning-drawer.js"]) {
+  for (const file of ["js/data.js", "js/dev/tuning.js", "js/dev/tuning-drawer.js", "js/dev/walk-overlay.js"]) {
     vm.runInContext(fs.readFileSync(file, "utf8"), ctx, { filename: file });
   }
   return ctx;
@@ -2630,6 +2630,15 @@ async function runTuningChecks() {
   }
   P.TuningDrawer.attach();
   if (plain.document.getElementById("tune-toggle")) fail("drawer attach ran without ?dev=1");
+  P.WalkOverlay.attach();
+  if (plain.document.getElementById("tune-walk") || P.WalkOverlay.on || P.WalkOverlay._dev) {
+    fail("walk overlay installed without ?dev=1");
+  }
+  if (P.WalkOverlay.classify({ collisionOpen: true, outsideMask: true, walkable: false }) !== "stray") {
+    fail("a collision-open cell outside the island mask did not stand out");
+  }
+  if (P.WalkOverlay.classify({ collisionOpen: false, outsideMask: false, walkable: true }) !== "walk") fail("walk overlay missed a walkable cell");
+  if (P.WalkOverlay.classify({ collisionOpen: false, outsideMask: false, walkable: false }) !== "blocked") fail("walk overlay missed a blocked cell");
   offline.set("shardfall.tune", JSON.stringify({ walkSpeed: 220, shakePx: 9 }));
   P.TuningConfig._attached = false;
   await P.TuningConfig.attach();
@@ -2690,6 +2699,38 @@ async function runTuningChecks() {
   if (D.tune.walkSpeed !== 150 || D.tune.sampleFlag !== false) fail("reset did not restore defaults");
   if (store.has("shardfall.tune")) fail("reset left the storage key");
   if (dev.document.getElementById("tune-note").textContent !== "Reset.") fail("reset had no confirmation");
+  D.WalkOverlay.attach();
+  const walkBtn = dev.document.getElementById("tune-walk");
+  if (!walkBtn) fail("walk overlay toggle missing with ?dev=1");
+  walkBtn.dispatchEvent({ type: "click" });
+  if (!D.WalkOverlay.on) fail("walk overlay toggle did not turn on");
+  D.state = { mode: "play", camX: 24, camY: 24 };
+  D.viewW = 64;
+  D.viewH = 64;
+  D.zoom = 1;
+  D.walkable = function (x, y) { return x >= 16 && x < 32 && y >= 16 && y < 32; };
+  D.tileMap = {
+    tile: 16,
+    w: 3,
+    h: 3,
+    blocked: [0, 0, 1, 0, 1, 1, 1, 1, 1],
+    height: [-1, 0, 0, 0, 0, 0, 0, 0, 0],
+    _skyMask: {}
+  };
+  D.skyMaskBlocks = function (map, x) { return x < 16; };
+  const paints = [];
+  D.WalkOverlay.paint({
+    save() {},
+    restore() {},
+    fillRect() { paints.push(this.fillStyle); },
+    strokeRect() { paints.push("stroke"); },
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1
+  });
+  if (!paints.some((color) => String(color).indexOf("255, 214, 40") >= 0)) fail("stray cells were not drawn");
+  if (!paints.some((color) => String(color).indexOf("40, 220, 90") >= 0)) fail("walkable cells were not drawn");
+  if (!paints.some((color) => String(color).indexOf("220, 32, 48") >= 0)) fail("blocked cells were not drawn");
 }
 
 function runHitFeelChecks() {
@@ -2939,7 +2980,7 @@ async function runAssetChecks() {
     fail("whats new ground line");
   }
   if (!html.includes("v0.4.34")) fail("html version");
-  if (!dataJs.includes("Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels. Without that, nothing is added.")) {
+  if (!dataJs.includes("Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels, and to shade walkable ground. Without that, nothing is added.")) {
     fail("whats new tuning line");
   }
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {

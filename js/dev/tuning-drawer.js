@@ -125,8 +125,22 @@ SF.TuningDrawer = (function () {
       close.setAttribute("type", "button");
       close.setAttribute("id", "tune-close");
       close.textContent = "Close";
+      var tabs = el("div");
+      tabs.className = "tune-tabs";
+      tabs.setAttribute("id", "tune-tabs");
+      var feelTab = el("button");
+      feelTab.className = "tune-tab";
+      feelTab.setAttribute("type", "button");
+      feelTab.setAttribute("id", "tune-tab-feel");
+      feelTab.textContent = "Feel";
+      tabs.appendChild(feelTab);
       fields = el("div");
       fields.setAttribute("id", "tune-fields");
+      var panels = el("div");
+      panels.setAttribute("id", "tune-panels");
+      var feelPanel = el("div");
+      feelPanel.setAttribute("id", "tune-panel-feel");
+      feelPanel.appendChild(fields);
       status = el("p");
       status.setAttribute("id", "tune-note");
       status.setAttribute("role", "status");
@@ -145,10 +159,18 @@ SF.TuningDrawer = (function () {
       head.appendChild(close);
       actions.appendChild(copy);
       actions.appendChild(reset);
+      feelPanel.appendChild(status);
+      feelPanel.appendChild(actions);
+      panels.appendChild(feelPanel);
       drawer.appendChild(head);
-      drawer.appendChild(fields);
-      drawer.appendChild(status);
-      drawer.appendChild(actions);
+      drawer.appendChild(tabs);
+      drawer.appendChild(panels);
+      SF.TuningDrawer._tabs = tabs;
+      SF.TuningDrawer._panels = panels;
+      SF.TuningDrawer._mounted = true;
+      feelTab.addEventListener("click", function () { SF.TuningDrawer.showTab("feel"); });
+      SF.TuningDrawer.showTab("feel");
+      SF.TuningDrawer._flushTabs();
       document.body.appendChild(toggle);
       document.body.appendChild(drawer);
       toggle.addEventListener("click", function () {
@@ -166,6 +188,54 @@ SF.TuningDrawer = (function () {
         note("Reset.");
       });
       SF.TuningDrawer.refresh();
+    },
+
+    addTab: function (id, label, fill) {
+      SF.TuningDrawer._queue = SF.TuningDrawer._queue || [];
+      SF.TuningDrawer._queue.push({ id: id, label: label, fill: fill });
+      if (SF.TuningDrawer._mounted) SF.TuningDrawer._flushTabs();
+    },
+
+    _flushTabs: function () {
+      var queue = SF.TuningDrawer._queue || [];
+      var i;
+      SF.TuningDrawer._queue = [];
+      for (i = 0; i < queue.length; i++) SF.TuningDrawer._renderTab(queue[i]);
+    },
+
+    _renderTab: function (rec) {
+      if (!SF.TuningDrawer._tabs || !SF.TuningDrawer._panels || !document.getElementById) return;
+      if (document.getElementById("tune-tab-" + rec.id)) return;
+      var button = document.createElement("button");
+      var panel = document.createElement("div");
+      button.className = "tune-tab";
+      button.setAttribute("type", "button");
+      button.setAttribute("id", "tune-tab-" + rec.id);
+      button.textContent = rec.label;
+      panel.setAttribute("id", "tune-panel-" + rec.id);
+      panel.hidden = true;
+      button.addEventListener("click", function () { SF.TuningDrawer.showTab(rec.id); });
+      SF.TuningDrawer._tabs.appendChild(button);
+      SF.TuningDrawer._panels.appendChild(panel);
+      if (rec.fill) rec.fill(panel);
+    },
+
+    showTab: function (id) {
+      var panels = SF.TuningDrawer._panels;
+      var tabs = SF.TuningDrawer._tabs;
+      var i, node, on;
+      if (!panels || !panels.children) return;
+      for (i = 0; i < panels.children.length; i++) {
+        node = panels.children[i];
+        on = node.id === "tune-panel-" + id;
+        node.hidden = !on;
+      }
+      if (!tabs || !tabs.children) return;
+      for (i = 0; i < tabs.children.length; i++) {
+        node = tabs.children[i];
+        on = node.id === "tune-tab-" + id;
+        node.setAttribute("aria-pressed", on ? "true" : "false");
+      }
     },
 
     refresh: function () {

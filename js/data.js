@@ -58,7 +58,7 @@ SF.WHATS_NEW = [
   "Emberhold's Lampfoot village and Lowmoor Quay are larger, and Act 1 has new scenes there, on the crossing, and with Hesk, Ilsa, and Tamsin.",
   "Cleaned up a stray grass patch floating in the sky near the start.",
   "Hits land harder: screen shake, slash trails, a white hit flash, and a dramatic freeze on the killing blow.",
-  "Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels. Without that, nothing is added."
+  "Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels, and to shade walkable ground. Without that, nothing is added."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

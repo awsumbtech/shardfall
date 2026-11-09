@@ -56,6 +56,7 @@ SF.draw = function () {
   if (SF.drawCinderCracks) SF.drawCinderCracks(ctx);
   SF.EntityLayer.list(s).forEach(function (ent) { ent.draw(ctx); });
   SF.EffectLayer.fx(ctx, s);
+  if (SF.WalkOverlay) SF.WalkOverlay.paint(ctx);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
   ctx.imageSmoothingEnabled = true;
