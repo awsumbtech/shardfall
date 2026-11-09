@@ -2,6 +2,10 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4.35 — Dev tools in the Tune drawer
+
+With ?dev=1 the Tune drawer can jump you to an island, town, or boss, start a formation, turn damage or encounters off, keep spare saves, write a bug report, and lock the random seed. Without that address, none of those controls are there.
+
 ## v0.4.34 — A tuning drawer
 
 Open the page with ?dev=1 and a Tune button sits at the top of the screen. Sliders change walk, dash, and how a hit feels while you play. The Map tab can shade walkable ground green and blocked ground red. Without that address, the button is not there.

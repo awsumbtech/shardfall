@@ -76,6 +76,11 @@ SF.boot = function () {
   if (SF.TuningConfig) SF.TuningConfig.attach();
   if (SF.TuningDrawer) SF.TuningDrawer.attach();
   if (SF.WalkOverlay) SF.WalkOverlay.attach();
+  if (SF.DevWarp) SF.DevWarp.attach();
+  if (SF.TestMode) SF.TestMode.attach();
+  if (SF.DevSaves) SF.DevSaves.attach();
+  if (SF.BugReport) SF.BugReport.attach();
+  if (SF.DevSeed) SF.DevSeed.attach();
   if (window.Art && Art.wantsGallery && Art.wantsGallery()) {
     Art.openGallery();
     return;

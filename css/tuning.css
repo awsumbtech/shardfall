@@ -161,6 +161,38 @@
 
 #tune-note[hidden] { display: none; }
 
+#tune-panels {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#tune-panels > div {
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+#tune-panel-feel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+}
+
+#tune-panels > div[hidden] { display: none; }
+
+#tune-save-text,
+.tune-seed {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  box-sizing: border-box;
+  font: 700 14px "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}
+
+#tune-save-file { min-height: 44px; margin-top: 8px; }
+
 @media (prefers-reduced-motion: reduce) {
   #tune-toggle, #tune-drawer { transition: none; }
 }
