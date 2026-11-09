@@ -2179,7 +2179,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.31"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.32"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2504,7 +2504,10 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.31"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.32"')) fail("version was not bumped");
+  if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
+    fail("whats new sky grass line");
+  }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2516,7 +2519,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.31")) fail("html version");
+  if (!html.includes("v0.4.32")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -4345,6 +4348,63 @@ function runGroundChecks() {
     { name: "goat chest", x: G.EXTRAS.find((ex) => ex.id === "chest-goat").x, y: G.EXTRAS.find((ex) => ex.id === "chest-goat").y }
   ]);
   if (missedTile.length) fail("test walk reach: " + missedTile.join(", ") + " unreachable on the tile map from the Waking Stones");
+  // f2eb25e painted 80 cells of kenmi-grassMid (gid 161) into open sky:
+  // a slab off the west edge (x 40–44, y 50–65) and a bar north of
+  // Maren's Cottage (y 10, x 62–87, plus three corner cells). Those
+  // cells are empty ground and blocked sky, the same as at 0d265fb.
+  function tileLayerData(layers, name) {
+    for (let li = 0; li < layers.length; li++) {
+      const layer = layers[li];
+      if (layer.type === "group") {
+        const found = tileLayerData(layer.layers || [], name);
+        if (found) return found;
+      } else if (layer.name === name && layer.data) return layer.data;
+    }
+    return null;
+  }
+  const skyGround = tileLayerData(doc.layers, "L0/ground");
+  const skyHeight = tileLayerData(doc.layers, "height");
+  const skyCollision = tileLayerData(doc.layers, "collision");
+  if (!skyGround || !skyHeight || !skyCollision) fail("sky grass check is missing a layer");
+  const skyCells = [];
+  function addSkyRow(y, xs) {
+    for (let xi = 0; xi < xs.length; xi++) skyCells.push(y * map.w + xs[xi]);
+  }
+  addSkyRow(10, [62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87]);
+  addSkyRow(11, [62, 87]);
+  addSkyRow(12, [87]);
+  addSkyRow(50, [40]);
+  addSkyRow(51, [40]);
+  addSkyRow(52, [40]);
+  addSkyRow(53, [40]);
+  addSkyRow(54, [40]);
+  addSkyRow(55, [40, 41]);
+  addSkyRow(56, [40, 41, 42, 43]);
+  addSkyRow(57, [40, 41, 42, 43, 44]);
+  addSkyRow(58, [40, 41, 42, 43, 44]);
+  addSkyRow(59, [40, 41, 42, 43, 44]);
+  addSkyRow(60, [40, 41, 42, 43, 44]);
+  addSkyRow(61, [40, 41, 42, 43]);
+  addSkyRow(62, [40, 41, 42, 43]);
+  addSkyRow(63, [40, 41, 42, 43]);
+  addSkyRow(64, [40, 41, 42, 43]);
+  addSkyRow(65, [40, 41, 42, 43]);
+  if (skyCells.length !== 80) fail("sky grass cell list is " + skyCells.length);
+  const adoptedGround = map.layers.find((layer) => layer.name === "L0/ground");
+  if (!adoptedGround) fail("L0/ground is missing after adopt");
+  for (let si = 0; si < skyCells.length; si++) {
+    const i = skyCells[si];
+    const tx = i % map.w;
+    const ty = (i / map.w) | 0;
+    const gid = skyGround[i] & 0x1fffffff;
+    const cx = tx * map.tile + map.tile / 2;
+    const cy = ty * map.tile + map.tile / 2;
+    if (gid !== 0 || adoptedGround.data[i] !== 0 || skyHeight[i] !== 0 || skyCollision[i] !== 1582 || map.blocked[i] !== 1 || G.walkable(cx, cy)) {
+      fail("stray sky grass at " + tx + "," + ty +
+        " ground " + gid + " height " + skyHeight[i] + " collision " + skyCollision[i] +
+        " walkable " + G.walkable(cx, cy));
+    }
+  }
   // The grove lip is a height edge. A height step that is not a stair is a
   // wall, and cliff art on a stair cell is a wall once real pixels load.
   // The stub atlas has no pixels, so the art check reads the cliff layers.
