@@ -72,7 +72,7 @@
       var calm = reduced();
       var f = feel();
       var alpha = calm ? (f.HIT_FLASH_REDUCED_ALPHA != null ? f.HIT_FLASH_REDUCED_ALPHA : 0.42) : (f.HIT_FLASH_ALPHA != null ? f.HIT_FLASH_ALPHA : 1);
-      var frames = f.HIT_FLASH_FRAMES || 2;
+      var frames = SF.tune && typeof SF.tune.hitFlash === "number" ? SF.tune.hitFlash : (f.HIT_FLASH_FRAMES || 2);
       SF.HitFlash.reduced = calm;
       var next = [];
       var i;

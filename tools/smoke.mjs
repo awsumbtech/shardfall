@@ -2184,7 +2184,8 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.33"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.34"')) fail("cache version");
+if (!sw.includes('"data/tuning.json"')) fail("tuning json is not precached");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2489,6 +2490,10 @@ const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdi
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
 runHitFeelChecks();
+await runTuningChecks();
+
+const tuneLayout = spawnSync(process.execPath, ["tools/tune-layout.mjs"], { stdio: "inherit", env: childEnv });
+if (tuneLayout.status !== 0) process.exit(tuneLayout.status || 1);
 
 const battleParity = spawnSync(process.execPath, ["tools/battle-parity.mjs"], { stdio: "inherit", env: childEnv });
 if (battleParity.status !== 0) process.exit(battleParity.status || 1);
@@ -2511,6 +2516,224 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
   if (skyMask.status !== 0) process.exit(skyMask.status || 1);
 } else {
   console.log("sky mask check skipped (no atlas on disk)");
+}
+
+function makeTuneDoc() {
+  const byId = {};
+  function el(tag) {
+    const node = {
+      tagName: String(tag).toUpperCase(),
+      id: "",
+      className: "",
+      textContent: "",
+      hidden: false,
+      value: "",
+      type: "",
+      min: "",
+      max: "",
+      step: "",
+      children: [],
+      attrs: {},
+      listeners: {},
+      appendChild(child) { this.children.push(child); return child; },
+      removeChild(child) {
+        const i = this.children.indexOf(child);
+        if (i >= 0) this.children.splice(i, 1);
+        return child;
+      },
+      setAttribute(name, value) {
+        this.attrs[name] = String(value);
+        if (name === "id") {
+          this.id = String(value);
+          byId[this.id] = this;
+        }
+        if (name === "type") this.type = String(value);
+        if (name === "min") this.min = String(value);
+        if (name === "max") this.max = String(value);
+        if (name === "step") this.step = String(value);
+      },
+      getAttribute(name) { return this.attrs[name]; },
+      addEventListener(type, fn) {
+        (this.listeners[type] || (this.listeners[type] = [])).push(fn);
+      },
+      dispatchEvent(ev) {
+        const type = ev && ev.type;
+        (this.listeners[type] || []).forEach((fn) => fn(Object.assign({ target: this }, ev)));
+      }
+    };
+    return node;
+  }
+  const head = el("head");
+  const body = el("body");
+  return {
+    head,
+    body,
+    createElement: el,
+    getElementById(id) { return byId[id] || null; },
+    readyState: "complete"
+  };
+}
+
+function loadTuningVm(search, fetchImpl, store) {
+  const ctx = {};
+  ctx.window = ctx;
+  ctx.console = console;
+  ctx.location = { search: search };
+  ctx.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k)
+  };
+  ctx.navigator = ctx.navigator || {};
+  ctx.document = makeTuneDoc();
+  ctx.fetch = fetchImpl;
+  ctx.Promise = Promise;
+  vm.createContext(ctx);
+  for (const file of ["js/data.js", "js/dev/tuning.js", "js/dev/tuning-drawer.js", "js/dev/walk-overlay.js"]) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), ctx, { filename: file });
+  }
+  return ctx;
+}
+
+async function runTuningChecks() {
+  const file = JSON.parse(fs.readFileSync("data/tuning.json", "utf8"));
+  const css = fs.readFileSync("css/tuning.css", "utf8");
+  if (!fs.existsSync("css/tuning.css")) fail("tuning css missing");
+  if (!html.includes('src="js/dev/tuning.js"') || !sw.includes('"js/dev/tuning.js"')) fail("tuning loader is not on the page");
+  if (!sw.includes('"css/tuning.css"')) fail("tuning css is not precached");
+
+  const offline = new Map();
+  const plain = loadTuningVm("", () => Promise.reject(new Error("offline")), offline);
+  const P = plain.SF;
+  if (file.schemaVersion !== 1 || file.values.length !== P.TuningConfig.rows.length) fail("tuning file schema");
+  file.values.forEach((row, i) => {
+    const fb = P.TuningConfig.rows[i];
+    ["id", "label", "value", "min", "max", "step"].forEach((key) => {
+      if (row[key] !== fb[key]) fail("tuning fallback drifted " + row.id + " " + key);
+    });
+  });
+  await P.TuningConfig.attach();
+  const expect = {
+    walkSpeed: 150,
+    dashSpeed: P.DASH_SPEED,
+    hitPause: 60,
+    hitFlash: 2,
+    shakePx: 3,
+    killFreeze: 9,
+    killSlow: 0.22,
+    readout: 0.55,
+    encounterRate: 1,
+    damageScale: 1
+  };
+  Object.keys(expect).forEach((id) => {
+    if (P.tune[id] !== expect[id]) fail("fallback " + id + " is " + P.tune[id] + " not " + expect[id]);
+  });
+  if (plain.document.getElementById("tune-toggle") || plain.document.getElementById("tune-css")) {
+    fail("tuning drawer exists without ?dev=1");
+  }
+  P.TuningDrawer.attach();
+  if (plain.document.getElementById("tune-toggle")) fail("drawer attach ran without ?dev=1");
+  P.WalkOverlay.attach();
+  if (plain.document.getElementById("tune-walk") || P.WalkOverlay.on || P.WalkOverlay._dev) {
+    fail("walk overlay installed without ?dev=1");
+  }
+  if (P.WalkOverlay.classify({ collisionOpen: true, outsideMask: true, walkable: false }) !== "stray") {
+    fail("a collision-open cell outside the island mask did not stand out");
+  }
+  if (P.WalkOverlay.classify({ collisionOpen: false, outsideMask: false, walkable: true }) !== "walk") fail("walk overlay missed a walkable cell");
+  if (P.WalkOverlay.classify({ collisionOpen: false, outsideMask: false, walkable: false }) !== "blocked") fail("walk overlay missed a blocked cell");
+  offline.set("shardfall.tune", JSON.stringify({ walkSpeed: 220, shakePx: 9 }));
+  P.TuningConfig._attached = false;
+  await P.TuningConfig.attach();
+  if (P.tune.walkSpeed !== 150 || P.tune.shakePx !== 3) fail("a normal visit applied saved tuning");
+
+  let copied = "";
+  const store = new Map();
+  const dev = loadTuningVm("?dev=1", () => Promise.reject(new Error("offline")), store);
+  dev.navigator.clipboard = {
+    writeText(text) {
+      copied = text;
+      return Promise.resolve();
+    }
+  };
+  const D = dev.SF;
+  D.encounterMul = function () { return 1; };
+  D.TuningConfig.rows.push({ id: "sampleFlag", label: "Sample flag", value: false });
+  D.tune.sampleFlag = false;
+  await D.TuningConfig.attach();
+  if (D.encounterMul() !== 1) fail("encounter rate changed at the default");
+  D.tune.encounterRate = 2;
+  if (D.encounterMul() !== 2) fail("encounter rate did not apply live");
+  D.tune.encounterRate = 1;
+  D.TuningDrawer.attach();
+  const toggle = dev.document.getElementById("tune-toggle");
+  const drawer = dev.document.getElementById("tune-drawer");
+  const walk = dev.document.getElementById("tune-in-walkSpeed");
+  const flag = dev.document.getElementById("tune-in-sampleFlag");
+  if (!toggle || !drawer || !walk || !flag) fail("tuning drawer did not mount with ?dev=1");
+  if (!drawer.hidden) fail("tuning drawer starts open");
+  if (dev.document.getElementById("tune-css") == null) fail("tuning css was not added in dev");
+  const ranges = D.TuningConfig.rows.filter((row) => typeof row.value !== "boolean");
+  ranges.forEach((row) => {
+    const input = dev.document.getElementById("tune-in-" + row.id);
+    if (!input || input.type !== "range") fail("missing slider " + row.id);
+    if (Number(input.min) !== row.min || Number(input.max) !== row.max) fail("slider range " + row.id);
+  });
+  toggle.dispatchEvent({ type: "click" });
+  if (drawer.hidden || toggle.getAttribute("aria-expanded") !== "true") fail("Tune did not open");
+  walk.value = "180";
+  walk.dispatchEvent({ type: "input" });
+  if (D.tune.walkSpeed !== 180) fail("slider did not update SF.tune");
+  const saved = JSON.parse(store.get("shardfall.tune") || "{}");
+  if (saved.walkSpeed !== 180) fail("slider did not persist");
+  D.TuningConfig._attached = false;
+  await D.TuningConfig.attach();
+  if (D.tune.walkSpeed !== 180) fail("a reload dropped the override");
+  dev.document.getElementById("tune-copy").dispatchEvent({ type: "click" });
+  await Promise.resolve();
+  await Promise.resolve();
+  const note = dev.document.getElementById("tune-note");
+  if (!note || note.hidden || note.textContent !== "Copied.") fail("copy had no confirmation");
+  const pasted = JSON.parse(copied);
+  if (pasted.walkSpeed !== 180 || pasted.dashSpeed != null) fail("copy was not just the changed values");
+  flag.dispatchEvent({ type: "click" });
+  if (D.tune.sampleFlag !== true) fail("boolean toggle did not flip");
+  dev.document.getElementById("tune-reset").dispatchEvent({ type: "click" });
+  if (D.tune.walkSpeed !== 150 || D.tune.sampleFlag !== false) fail("reset did not restore defaults");
+  if (store.has("shardfall.tune")) fail("reset left the storage key");
+  if (dev.document.getElementById("tune-note").textContent !== "Reset.") fail("reset had no confirmation");
+  D.WalkOverlay.attach();
+  const walkBtn = dev.document.getElementById("tune-walk");
+  if (!walkBtn) fail("walk overlay toggle missing with ?dev=1");
+  walkBtn.dispatchEvent({ type: "click" });
+  if (!D.WalkOverlay.on) fail("walk overlay toggle did not turn on");
+  D.state = { mode: "play", camX: 24, camY: 24 };
+  D.viewW = 64;
+  D.viewH = 64;
+  D.zoom = 1;
+  D.walkable = function (x, y) { return x >= 16 && x < 32 && y >= 16 && y < 32; };
+  D.tileMap = {
+    tile: 16,
+    w: 3,
+    h: 3,
+    blocked: [0, 0, 1, 0, 1, 1, 1, 1, 1],
+    height: [-1, 0, 0, 0, 0, 0, 0, 0, 0],
+    _skyMask: {}
+  };
+  D.skyMaskBlocks = function (map, x) { return x < 16; };
+  const paints = [];
+  D.WalkOverlay.paint({
+    save() {},
+    restore() {},
+    fillRect() { paints.push(this.fillStyle); },
+    strokeRect() { paints.push("stroke"); },
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1
+  });
+  if (!paints.some((color) => String(color).indexOf("255, 214, 40") >= 0)) fail("stray cells were not drawn");
+  if (!paints.some((color) => String(color).indexOf("40, 220, 90") >= 0)) fail("walkable cells were not drawn");
+  if (!paints.some((color) => String(color).indexOf("220, 32, 48") >= 0)) fail("blocked cells were not drawn");
 }
 
 function runHitFeelChecks() {
@@ -2752,7 +2975,7 @@ function runHitFeelChecks() {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.33"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.34"')) fail("version was not bumped");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
@@ -2770,7 +2993,10 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.33")) fail("html version");
+  if (!html.includes("v0.4.34")) fail("html version");
+  if (!dataJs.includes("Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels, and to shade walkable ground. Without that, nothing is added.")) {
+    fail("whats new tuning line");
+  }
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }

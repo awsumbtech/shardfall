@@ -78,7 +78,8 @@ SF.BattleFeel = {
   // full is the animation length. shown is how much of the clock is left
   // when a hit also asks for a frame freeze. Both come from this config.
   readoutPlan: function (hitLanded) {
-    var full = SF.Battle && SF.Battle.instant ? 0 : SF.BattleFeel.READOUT;
+    var readout = SF.tune && typeof SF.tune.readout === "number" ? SF.tune.readout : SF.BattleFeel.READOUT;
+    var full = SF.Battle && SF.Battle.instant ? 0 : readout;
     var shown = full;
     var pause = 0;
     if (!(SF.Battle && SF.Battle.instant)) pause = SF.BattleFeel.hitPauseMs();
@@ -100,6 +101,11 @@ SF.BattleFeel = {
 
   hitPauseMs: function () {
     if (SF.BattleFeel.prefersReducedMotion()) return 0;
+    if (SF.tune && typeof SF.tune.hitPause === "number") {
+      var tuned = SF.tune.hitPause;
+      if (!(tuned >= 0)) tuned = 60;
+      return tuned;
+    }
     var ms = SF.Battle && SF.Battle.hitPauseMs != null ? SF.Battle.hitPauseMs : SF.BattleFeel.HIT_PAUSE_MS;
     if (!(ms >= 0)) ms = 60;
     return ms;

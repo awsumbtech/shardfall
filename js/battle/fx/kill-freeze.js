@@ -77,7 +77,7 @@
       var calm = reduced();
       var instant = !!(SF.Battle && SF.Battle.instant);
       var f = feel();
-      var frames = calm ? (f.KILL_FREEZE_REDUCED_FRAMES || 2) : (f.KILL_FREEZE_FRAMES || 9);
+      var frames = calm ? (f.KILL_FREEZE_REDUCED_FRAMES || 2) : (SF.tune && typeof SF.tune.killFreeze === "number" ? SF.tune.killFreeze : (f.KILL_FREEZE_FRAMES || 9));
       SF.KillFreeze.reduced = calm;
       SF.KillFreeze.holdFrames = frames;
       SF.KillFreeze.slowing = !calm && !instant;
@@ -123,7 +123,7 @@
       }
       var t = dur > 0 ? age / dur : 1;
       var eased = 1 - Math.pow(1 - t, 2);
-      var from = feel().KILL_SLOW_FROM != null ? feel().KILL_SLOW_FROM : 0.22;
+      var from = SF.tune && typeof SF.tune.killSlow === "number" ? SF.tune.killSlow : (feel().KILL_SLOW_FROM != null ? feel().KILL_SLOW_FROM : 0.22);
       var k = from + (1 - from) * eased;
       return dt * k;
     },

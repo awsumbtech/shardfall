@@ -3,7 +3,7 @@
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
 // CACHE is the precache version. A new name drops every older shell.
-var CACHE = "shardfall-v0.4.33";
+var CACHE = "shardfall-v0.4.34";
 
 var SHELL = [
   "index.html",
@@ -115,6 +115,11 @@ var SHELL = [
   "js/props/renderer.js",
   "js/props/decorlayer.js",
   "js/content/props/emberhold-dense.json",
+  "js/dev/tuning.js",
+  "js/dev/tuning-drawer.js",
+  "js/dev/walk-overlay.js",
+  "css/tuning.css",
+  "data/tuning.json",
   "js/main.js"
 ];
 
