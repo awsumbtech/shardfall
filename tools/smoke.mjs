@@ -2752,7 +2752,15 @@ function loadDevVm(search, store, consoleObj) {
   ctx.document = makeTuneDoc();
   ctx.fetch = () => Promise.reject(new Error("offline"));
   vm.createContext(ctx);
-  vm.runInContext("var SF = window.SF || {}; window.SF = SF; SF.onDialogueEvent = function () {};", ctx);
+  vm.runInContext([
+    "var SF = window.SF || {}; window.SF = SF;",
+    "SF.onDialogueEvent = function () {};",
+    "SF.ISLANDS = { emberhold: { extras: [] }, cinderveil: { extras: [] } };",
+    "SF.DOCKS = SF.DOCKS || { emberhold: { x: 0, y: 0 }, cinderveil: { x: 0, y: 0 } };",
+    "SF.WALK = SF.WALK || { circles: [], rects: [] };",
+    "SF.cliffBlocks = SF.cliffBlocks || function () { return false; };",
+    "SF.mountIsland = SF.mountIsland || function () {};"
+  ].join(" "), ctx);
   const files = [
     "js/data.js",
     "js/data/skills.js",
@@ -2762,6 +2770,7 @@ function loadDevVm(search, store, consoleObj) {
     "js/data/encounters.js",
     "js/save.js",
     "js/sim.js",
+    "js/content/maps/v2layout.js",
     "js/battle/events.js",
     "js/battle/formula.js",
     "js/battle/state.js",
@@ -2786,10 +2795,16 @@ function loadDevVm(search, store, consoleObj) {
 function battleSequence(seed) {
   const ctx = loadDevVm("?dev=1", new Map());
   const S = ctx.SF;
+  const mathRandom = vm.runInContext("Math.random", ctx);
+  const bareRoll = S.rollEncounter;
+  const bareFlow = S.Battle.flow.rng;
   S.TuningConfig.attach();
   S.TuningDrawer.attach();
   S.DevSeed.attach();
-  S.DevSeed.set(seed);
+  if (S.rollEncounter !== bareRoll) fail("seed wrapped rollEncounter before set");
+  if (S.Battle.flow.rng !== bareFlow) fail("seed wrapped battle rng before set");
+  if (!S.DevSeed.set(seed)) fail("seed " + seed + " did not set");
+  if (vm.runInContext("Math.random", ctx) !== mathRandom) fail("seed " + seed + " replaced Math.random");
   const play = S.fresh();
   play.mode = "play";
   S.state = play;
@@ -2798,18 +2813,41 @@ function battleSequence(seed) {
   S.Battle.rngSeed = 1;
   if (!S.Battle.start("em_wisps")) fail("seeded battle did not start");
   let guard = 0;
-  while (play.battle && play.battle.phase !== "result" && guard < 6) {
+  while (play.battle && play.battle.phase !== "result" && guard < 8) {
     S.Battle.autoPick();
     guard += 1;
   }
-  const encounterRolls = [];
+  const log = (play.battle && play.battle.log || []).join("|");
+  const hp = play.battle ? play.battle.actors.map((a) => a.hp).join(",") : "";
+  S.DevSeed.clear();
   S.DevSeed.set(seed);
-  for (let i = 0; i < 12; i++) encounterRolls.push(Math.random() > 0.08);
-  return {
-    log: (play.battle && play.battle.log || []).join("|"),
-    hp: play.battle ? play.battle.actors.map((a) => a.hp).join(",") : "",
-    rolls: encounterRolls.join(",")
-  };
+  S.islandId = "emberhold";
+  S.tune.encounterRate = 40;
+  const field = S.fresh();
+  field.mode = "play";
+  field.flags.metMaren = true;
+  field.encounterGrace = 0;
+  S.state = field;
+  const rolls = [];
+  for (let i = 0; i < 16; i++) {
+    field.mode = "play";
+    field.encounterGrace = 0;
+    field.battle = null;
+    const started = S.rollEncounter(field, { id: "meadow" });
+    rolls.push(started && field.battle ? String(field.battle.id) : "none");
+  }
+  let forced = 0;
+  S.tune.encounterRate = 1;
+  field.mode = "play";
+  field.encounterGrace = 0;
+  field.battle = null;
+  S.rollEncounter(field, { id: "meadow" }, function () { forced += 1; return 0.99; });
+  if (forced !== 1) fail("an explicit encounter rand was not used (" + forced + ")");
+  S.DevSeed.clear();
+  if (vm.runInContext("Math.random", ctx) !== mathRandom) fail("clear left Math.random replaced");
+  if (S.rollEncounter !== bareRoll) fail("clear left rollEncounter wrapped");
+  if (S.Battle.flow.rng !== bareFlow) fail("clear left battle rng wrapped");
+  return { log: log, hp: hp, rolls: rolls.join(",") };
 }
 
 async function runDevToolChecks() {
@@ -2901,6 +2939,17 @@ async function runDevToolChecks() {
   if (bad.ok) fail("a broken import was accepted");
   const ugly = D.DevSaves.importText(JSON.stringify({ v: 9, player: { x: 1, y: 2 } }));
   if (ugly.ok) fail("a bad version was accepted");
+  const arraySave = D.DevSaves.importText("[1,2,3]");
+  if (arraySave.ok || !D.DevSaves.validate([])) fail("an array import was accepted");
+  const missingPlayer = D.DevSaves.importText(JSON.stringify({ v: 4 }));
+  if (missingPlayer.ok) fail("a save with no player was accepted");
+  const partial = D.DevSaves.importText(JSON.stringify({ v: 4, player: { x: 1 } }));
+  if (partial.ok) fail("a save with no y was accepted");
+  const infinite = D.DevSaves.importText(JSON.stringify({ v: 4, player: { x: 1, y: 1e309 } }));
+  if (infinite.ok) fail("a non-finite position was accepted");
+  if (!D.DevSaves.validate({ v: 4, player: { x: NaN, y: 1 } })) fail("NaN position was accepted");
+  if (!D.DevSaves.validate({ v: 4, player: [1, 2] })) fail("a player array was accepted");
+  if (D.DevSaves.validate({ v: 4, player: { x: 12, y: 4 } })) fail("a positioned save was rejected");
   if (store.get("shardfall.v1") !== "REAL") fail("a bad import touched the real save");
   let applied = null;
   D.applySave = function (s, data) { applied = data.player.x; return true; };
@@ -2926,11 +2975,23 @@ async function runDevToolChecks() {
 
   const first = battleSequence(77);
   const second = battleSequence(77);
+  console.log("seed 77 run A log " + first.log);
+  console.log("seed 77 run A hp " + first.hp);
+  console.log("seed 77 run A encounters " + first.rolls);
+  console.log("seed 77 run B log " + second.log);
+  console.log("seed 77 run B hp " + second.hp);
+  console.log("seed 77 run B encounters " + second.rolls);
   if (first.log !== second.log || first.hp !== second.hp || first.rolls !== second.rolls) {
     fail("a fixed seed did not repeat");
   }
   const other = battleSequence(78);
-  if (other.rolls === first.rolls && other.log === first.log) fail("two seeds played the same sequence");
+  console.log("seed 78 log " + other.log);
+  console.log("seed 78 hp " + other.hp);
+  console.log("seed 78 encounters " + other.rolls);
+  if (other.rolls === first.rolls) fail("two seeds rolled the same encounters");
+  if (other.log === first.log && other.hp === first.hp) {
+    console.log("seed 78 battle log matched seed 77; formula has no damage variance");
+  }
 }
 
 function runHitFeelChecks() {

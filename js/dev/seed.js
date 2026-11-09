@@ -1,8 +1,10 @@
 "use strict";
 
-// DevSeed pins encounters and battle rolls to one mulberry32 stream.
+// DevSeed pins encounter rolls and battle rolls to one mulberry32 seed.
 // The hooks are installed only after a seed is set, and only in ?dev=1.
-// Clearing the seed puts Math.random and the battle RNG back.
+// Math.random is left alone, so particles, sound, and music stay on the
+// page's own generator. Clearing the seed puts the encounter roll and the
+// battle RNG back.
 var SF = window.SF || {};
 window.SF = SF;
 
@@ -12,8 +14,10 @@ SF.DevSeed = {
   _attached: false,
   _dev: false,
   _rand: null,
-  _origRandom: null,
+  _roll: null,
+  _wrappedRoll: null,
   _origFlow: null,
+  _wrappedFlow: null,
 
   attach: function () {
     if (SF.DevSeed._attached) return;
@@ -80,32 +84,38 @@ SF.DevSeed = {
   clear: function () {
     SF.DevSeed.seed = null;
     SF.DevSeed._rand = null;
-    if (SF.DevSeed._origRandom) {
-      Math.random = SF.DevSeed._origRandom;
-      SF.DevSeed._origRandom = null;
+    if (SF.DevSeed._roll && SF.rollEncounter === SF.DevSeed._wrappedRoll) {
+      SF.rollEncounter = SF.DevSeed._roll;
     }
-    if (SF.DevSeed._origFlow && SF.Battle && SF.Battle.flow) {
+    SF.DevSeed._roll = null;
+    SF.DevSeed._wrappedRoll = null;
+    if (SF.DevSeed._origFlow && SF.Battle && SF.Battle.flow && SF.Battle.flow.rng === SF.DevSeed._wrappedFlow) {
       SF.Battle.flow.rng = SF.DevSeed._origFlow;
-      SF.DevSeed._origFlow = null;
     }
+    SF.DevSeed._origFlow = null;
+    SF.DevSeed._wrappedFlow = null;
   },
 
   _install: function () {
-    if (!SF.DevSeed._origRandom) {
-      SF.DevSeed._origRandom = Math.random;
-      Math.random = function () {
-        if (SF.DevSeed._rand) return SF.DevSeed._rand();
-        return SF.DevSeed._origRandom();
+    if (SF.rollEncounter && !SF.DevSeed._roll) {
+      SF.DevSeed._roll = SF.rollEncounter;
+      SF.DevSeed._wrappedRoll = function (s, zone, rand) {
+        if (SF.DevSeed.seed != null && rand == null && SF.DevSeed._rand) {
+          return SF.DevSeed._roll.call(SF, s, zone, SF.DevSeed._rand);
+        }
+        return SF.DevSeed._roll.call(SF, s, zone, rand);
       };
-    } else {
+      SF.rollEncounter = SF.DevSeed._wrappedRoll;
+    } else if (SF.DevSeed.seed != null) {
       SF.DevSeed._rand = SF.mulberry32(SF.DevSeed.seed);
     }
     if (SF.Battle && SF.Battle.flow && !SF.DevSeed._origFlow) {
       SF.DevSeed._origFlow = SF.Battle.flow.rng;
-      SF.Battle.flow.rng = function (seed) {
-        if (SF.DevSeed._rand) return SF.mulberry32(SF.DevSeed.seed);
+      SF.DevSeed._wrappedFlow = function (seed) {
+        if (SF.DevSeed.seed != null) return SF.mulberry32(SF.DevSeed.seed);
         return SF.DevSeed._origFlow(seed);
       };
+      SF.Battle.flow.rng = SF.DevSeed._wrappedFlow;
     }
   }
 };

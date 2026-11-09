@@ -62,7 +62,8 @@ body[data-portrait="1"] #tune-drawer {
 
 .tune-tab {
   min-height: 44px;
-  flex: none;
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 0 12px;
   border-radius: 2px;
   border: 2px solid #f4f0e4;
@@ -177,7 +178,13 @@ body[data-portrait="1"] #tune-drawer {
   margin-top: 8px;
 }
 
-.tune-actions button { flex: 1 1 0; }
+.tune-actions button,
+.tune-actions .tune-bool {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 0;
+  white-space: nowrap;
+}
 
 #tune-note {
   flex: none;
@@ -200,9 +207,15 @@ body[data-portrait="1"] #tune-drawer {
 }
 
 #tune-panels > div {
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1 1 auto;
+  box-sizing: border-box;
+  padding: 2px 4px 8px;
+  touch-action: pan-y;
 }
 
 #tune-panel-feel:not([hidden]) {

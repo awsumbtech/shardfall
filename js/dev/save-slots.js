@@ -34,9 +34,10 @@ SF.DevSaves = {
   },
 
   validate: function (data) {
-    if (!data || typeof data !== "object") return "That is not a save.";
+    if (!data || typeof data !== "object" || Array.isArray(data)) return "That is not a save.";
     if (data.v !== 1 && data.v !== 2 && data.v !== 3 && data.v !== 4) return "That save version is not one Shardfall can read.";
-    if (!data.player || typeof data.player.x !== "number" || typeof data.player.y !== "number") return "That save has no position.";
+    if (!data.player || typeof data.player !== "object" || Array.isArray(data.player)) return "That save has no position.";
+    if (!Number.isFinite(data.player.x) || !Number.isFinite(data.player.y)) return "That save has no position.";
     return "";
   },
 
