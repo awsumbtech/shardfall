@@ -35,25 +35,25 @@ SF.BattleFeel = {
   FRAME_MS: 1000 / 60,
 
   // ShakeFx. The offset decays to rest across the frame count.
-  // A crit is larger. A killing blow is larger than a crit.
+  // A killing blow is larger than a normal hit.
+  // A crit-sized shake is not wired: the rules never emit a crit.
   // Reduced motion does not spawn a shake.
   SHAKE_PX: 3,
   SHAKE_FRAMES: 10,
-  SHAKE_CRIT_PX: 5,
-  SHAKE_CRIT_FRAMES: 12,
   SHAKE_KILL_PX: 8,
   SHAKE_KILL_FRAMES: 14,
 
-  // HitFlash. Pure white, layered over the soft tint above. It does not
-  // replace or recolor that tint. Reduced motion keeps the flash and
-  // lowers the alpha so it is a blink, not a strobe.
+  // HitFlash. A short record on the target, layered beside the soft tint.
+  // It does not recolor that tint. The white sprite it would draw is not
+  // in the repo, so the record is not painted. Reduced motion keeps it
+  // at a lower stored alpha.
   HIT_FLASH_FRAMES: 2,
   HIT_FLASH_ALPHA: 1,
   HIT_FLASH_REDUCED_ALPHA: 0.42,
 
-  // SlashTrail. Physical swings only. The arc is parented to the
-  // attacker and removed when the swing time is up. Reduced motion
-  // keeps a faint, shorter arc.
+  // SlashTrail. Physical swings only. The record is parented to the
+  // attacker and removed when the swing time is up. No slash image is
+  // shipped, so nothing is stroked. Reduced motion stores a lower alpha.
   SLASH_FRAMES: 12,
   SLASH_ALPHA: 0.92,
   SLASH_REDUCED_ALPHA: 0.34,

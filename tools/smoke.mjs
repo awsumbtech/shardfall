@@ -2493,6 +2493,9 @@ runHitFeelChecks();
 await runTuningChecks();
 await runDevToolChecks();
 
+const tuneLayout = spawnSync(process.execPath, ["tools/tune-layout.mjs"], { stdio: "inherit", env: childEnv });
+if (tuneLayout.status !== 0) process.exit(tuneLayout.status || 1);
+
 const battleParity = spawnSync(process.execPath, ["tools/battle-parity.mjs"], { stdio: "inherit", env: childEnv });
 if (battleParity.status !== 0) process.exit(battleParity.status || 1);
 const parityBaseline = JSON.parse(fs.readFileSync("tools/battle-parity-baseline.json", "utf8"));
@@ -2596,7 +2599,7 @@ function loadTuningVm(search, fetchImpl, store) {
 async function runTuningChecks() {
   const file = JSON.parse(fs.readFileSync("data/tuning.json", "utf8"));
   const css = fs.readFileSync("css/tuning.css", "utf8");
-  if (!css.includes("height: 44px") || !css.includes("min-height: 44px")) fail("tuning sliders are under 44px");
+  if (!fs.existsSync("css/tuning.css")) fail("tuning css missing");
   if (!html.includes('src="js/dev/tuning.js"') || !sw.includes('"js/dev/tuning.js"')) fail("tuning loader is not on the page");
   if (!sw.includes('"css/tuning.css"')) fail("tuning css is not precached");
 
@@ -3035,18 +3038,14 @@ function runHitFeelChecks() {
   L.BattleEvents.emit("hit", { tgt: foe.id, amount: 0 });
   if (L.ShakeFx.live.length || L.HitFlash.live.length) fail("a zero-damage hit spawned effects");
 
+  // The rules never emit a crit. crit-ready stays reserved and unused.
+  // A presentation listener for it would be a dead event. A hit stays a hit.
   L.ShakeFx.clear();
   L.BattleEvents.emit("crit-ready", {});
-  L.BattleEvents.emit("hit", { src: hero.id, tgt: foe.id, amount: 4 });
-  if (!L.ShakeFx.live.length || L.ShakeFx.live[0].kind !== "crit" || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_CRIT_PX) {
-    fail("crit-ready did not enlarge the shake");
-  }
-  if (!(L.ShakeFx.live[0].px > L.BattleFeel.SHAKE_PX)) fail("a crit was not bigger than a hit");
-  L.ShakeFx.clear();
   L.BattleEvents.emit("hit", { src: hero.id, tgt: foe.id, amount: 4, crit: true });
-  if (!L.ShakeFx.live.length || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_CRIT_PX) fail("crit flag did not enlarge the shake");
-  L.ShakeFx.spawn("hit");
-  if (L.ShakeFx.live[0].kind !== "crit") fail("a later hit replaced a stronger shake");
+  if (!L.ShakeFx.live.length || L.ShakeFx.live[0].kind !== "hit" || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_PX) {
+    fail("a crit flag invented a crit shake");
+  }
 
   foe.hp = 1;
   foe.alive = true;
@@ -3060,11 +3059,26 @@ function runHitFeelChecks() {
   if (!L.ShakeFx.live.length || L.ShakeFx.live[0].kind !== "kill" || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_KILL_PX) {
     fail("killing blow shake");
   }
-  if (!(L.ShakeFx.live[0].px > L.BattleFeel.SHAKE_CRIT_PX)) fail("a kill was not bigger than a crit");
+  if (!(L.ShakeFx.live[0].px > L.BattleFeel.SHAKE_PX)) fail("a kill was not bigger than a hit");
   if (L.KillFreeze.live.length !== 1 || L.KillFreeze.holdFrames !== L.BattleFeel.KILL_FREEZE_FRAMES) fail("kill freeze did not spawn");
   if (!L.KillFreeze.slowing) fail("kill freeze did not arm slow-motion");
   if (b.hitPause < L.BattleFeel.KILL_FREEZE_FRAMES * frame - 0.0001) fail("kill hold was " + b.hitPause);
   if (!L.SlashTrail.live.length) fail("the killing swing had no slash");
+  const artOps = [];
+  const artCtx = {
+    save() { artOps.push("save"); },
+    restore() { artOps.push("restore"); },
+    beginPath() { artOps.push("begin"); },
+    moveTo() { artOps.push("move"); },
+    lineTo() { artOps.push("line"); },
+    stroke() { artOps.push("stroke"); },
+    fillRect() { artOps.push("fill"); },
+    drawImage() { artOps.push("image"); },
+    createElement() { artOps.push("canvas"); }
+  };
+  L.SlashTrail.paint(artCtx, b, [], []);
+  L.HitFlash.paint(artCtx, b, [], []);
+  if (artOps.length) fail("slash or hit flash drew without an image asset: " + artOps.join(","));
   const held = b.hitPause;
   b.hitPause = 0;
   const slowed = L.KillFreeze.scale(b, 0.05);
@@ -3162,7 +3176,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
-  if (!dataJs.includes("Hits land harder: screen shake, slash trails, a white hit flash, and a dramatic freeze on the killing blow.")) {
+  if (!dataJs.includes("Hits land harder: the battle shakes, and a killing blow freezes then eases back to speed.")) {
     fail("whats new hit feel line");
   }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {

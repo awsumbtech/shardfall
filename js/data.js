@@ -57,7 +57,7 @@ SF.WHATS_NEW = [
   "Behind-the-scenes cleanup of how the game draws; nothing should look different.",
   "Emberhold's Lampfoot village and Lowmoor Quay are larger, and Act 1 has new scenes there, on the crossing, and with Hesk, Ilsa, and Tamsin.",
   "Cleaned up a stray grass patch floating in the sky near the start.",
-  "Hits land harder: screen shake, slash trails, a white hit flash, and a dramatic freeze on the killing blow.",
+  "Hits land harder: the battle shakes, and a killing blow freezes then eases back to speed.",
   "Open the page with ?dev=1 to slide walk, dash, and how hard a hit feels, and to shade walkable ground. Without that, nothing is added.",
   "The dev drawer can also warp you around, turn damage and encounters off, keep spare saves, write a bug report, and lock the random seed. Still only with ?dev=1."
 ];
