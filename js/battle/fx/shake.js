@@ -1,13 +1,17 @@
 "use strict";
 
 // ShakeFx shakes the battle view when a hit deals damage.
-// It spawns on hit, grows for a crit, and grows again for a kill.
+// A killing blow replaces that shake with a larger one.
+// The rules do not emit a crit, so there is no crit shake.
 // It settles to rest and removes itself. It does not change damage,
 // turn order, the soft tint, or the hit-pause clock.
 // Reduced motion: the shake does not spawn.
 
 (function () {
-  var RANK = { hit: 1, crit: 2, kill: 3 };
+  // Crit shake is not implemented. Formula and the resolver never emit a
+  // crit, and crit-ready stays reserved with no sender. Listening for it
+  // would be a dead path. A kill still outranks a normal hit.
+  var RANK = { hit: 1, kill: 2 };
 
   function feel() { return SF.BattleFeel || {}; }
 
@@ -26,7 +30,6 @@
   function spec(kind) {
     var f = feel();
     if (kind === "kill") return { px: f.SHAKE_KILL_PX || 8, frames: f.SHAKE_KILL_FRAMES || 14 };
-    if (kind === "crit") return { px: f.SHAKE_CRIT_PX || 5, frames: f.SHAKE_CRIT_FRAMES || 12 };
     return { px: f.SHAKE_PX || 3, frames: f.SHAKE_FRAMES || 10 };
   }
 
@@ -36,14 +39,12 @@
     timers: [],
     reduced: false,
     _attached: false,
-    _critArmed: false,
 
     attach: function () {
       if (SF.ShakeFx._attached) return;
       SF.ShakeFx._attached = true;
       var self = SF.ShakeFx;
       if (SF.BattleEvents) {
-        SF.BattleEvents.on("crit-ready", function () { self._critArmed = true; });
         SF.BattleEvents.on("hit", function (p) { self.onHit(p); });
         SF.BattleEvents.on("kill", function () { self.spawn("kill"); });
         SF.BattleEvents.on("battle-start", function () { self.clear(); });
@@ -87,16 +88,12 @@
 
     onHit: function (p) {
       if (!p || !(p.amount > 0)) return;
-      var kind = "hit";
-      if (p.crit || SF.ShakeFx._critArmed) kind = "crit";
-      SF.ShakeFx._critArmed = false;
-      SF.ShakeFx.spawn(kind);
+      SF.ShakeFx.spawn("hit");
     },
 
     spawn: function (kind) {
       if (reduced()) {
         SF.ShakeFx.reduced = true;
-        SF.ShakeFx._critArmed = false;
         return;
       }
       SF.ShakeFx.reduced = false;
@@ -147,7 +144,6 @@
     clear: function () {
       SF.ShakeFx.live.length = 0;
       SF.ShakeFx.timers.length = 0;
-      SF.ShakeFx._critArmed = false;
     }
   };
 })();

@@ -57,7 +57,7 @@ SF.WHATS_NEW = [
   "Behind-the-scenes cleanup of how the game draws; nothing should look different.",
   "Emberhold's Lampfoot village and Lowmoor Quay are larger, and Act 1 has new scenes there, on the crossing, and with Hesk, Ilsa, and Tamsin.",
   "Cleaned up a stray grass patch floating in the sky near the start.",
-  "Hits land harder: screen shake, slash trails, a white hit flash, and a dramatic freeze on the killing blow."
+  "Hits land harder: the battle shakes, and a killing blow freezes then eases back to speed."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
