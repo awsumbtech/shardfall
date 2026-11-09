@@ -38,6 +38,15 @@
 - `sail_answer` = `yes` | `ask` | `cantor`. Changes Kestrel's line if you talk to her again before sailing.
 - `hesk_mood` = `steady` | `pressed`. Decides how much Hesk tells you, and what you can tell Ilsa.
 - `cantor_choice` = `spare` | `listen` | `refuse`. The end of the act.
+- `met_bram` = `true`. Set when Bram's introduction ends. Switches him to the after-lamp thanks once the lamp is lit.
+- `bram_thanked` = `true`. Bram's one-time gift after the lamp.
+- `asked_fallen` = `true`. Set by asking Maren how many islands have fallen.
+- `maren_evening` = `true`. Maren's evening scene has played.
+- `kestrel_trust` = `true`. Set on the first crossing, after Kestrel talks about who she lets aboard.
+- `quay_street_seen` = `true`. Bell Square has played. Ada, Corin, and Tobin use their barks after that.
+- `hesk_more` = `true`. Set by pressing Hesk, so a later talk can play the rest.
+- `ilsa_doubt` = `true`. Set the first time you reach Ilsa without the Grapple.
+- `cantor_quay` = `true`. The Cantor's scene at the end of the Long Pier has played.
 
 ---
 
@@ -110,6 +119,51 @@
 **OLD MAREN:** If the hill's picked clean, try the far side of the broken span, east of the lamp. Be careful out there.
 
 *When the scene ends, the Wayfarer's health is restored.*
+
+### Dell Row (Bram and Wren)
+
+*Talk to Bram after Maren's introduction and before the lamp is lit. After the lamp, `emberhold.dell.after` plays instead.*
+
+`emberhold.dell.intro`
+
+*Bram is nailing a board across a window. Wren sits on the step with a goat on a rope.*
+
+**BRAM TOLLEY:** You're the one off the stones. Maren said you'd be by.
+
+**BRAM TOLLEY:** I'm Bram. This is Wren. Don't mind the hammering. I board up the back windows when the lamp gets low.
+
+**WREN:** He does it every night now.
+
+**BRAM TOLLEY:** Two of my goats went missing near the Scar last week. Wren keeps this one on a rope.
+
+- "I'm getting shards for the lamp." → `emberhold.dell.shards`
+- "Why not leave the island?" → `emberhold.dell.leave`
+
+`emberhold.dell.shards`
+
+**BRAM TOLLEY:** Good. Maren can't do it on her own anymore, and the rest of us don't know a shard from a bit of glass.
+
+**BRAM TOLLEY:** If you get it lit, come back. I'll take the boards down, and Wren can take the goat off that rope.
+
+`emberhold.dell.leave`
+
+**BRAM TOLLEY:** And go where? Every island's got a lamp, and every lamp's getting old.
+
+**BRAM TOLLEY:** My family's been on this hill for five generations. We'll stay till it's lit or till it's gone.
+
+*Either reply returns to the other once, then ends. Sets `met_bram = true`.*
+
+`emberhold.dell.after`
+
+*After `quest_lamp_done`. The boards are off the windows. Wren is chasing the goat, no rope.*
+
+**BRAM TOLLEY:** Look at that. First night in a month I slept straight through.
+
+**WREN:** Thank you for the lamp!
+
+**BRAM TOLLEY:** Here. It's not much. Maren says you'll be off on Kestrel's boat.
+
+*Gives 1 Tonic and 1 Heartblossom. Sets `bram_thanked = true`.*
 
 ### Kestrel, before the lamp
 
@@ -207,6 +261,52 @@
 
 *When the scene ends: `quest_lamp_done`. Kestrel's offer unlocks at the dock.*
 
+### Maren's evening (optional)
+
+*Talk to Maren in her cottage after `quest_lamp_done` and before the first sail. Plays once. After that, her usual heal line plays.*
+
+`emberhold.maren.evening`
+
+*Maren has a kettle on. Two cups. She's sitting for the first time since you met her.*
+
+**OLD MAREN:** Sit down a minute. You've been running all day, and so have I.
+
+**OLD MAREN:** I lit that lamp for forty years, and I never once saw it burn like that. I keep looking out the window to check it's still there.
+
+**OLD MAREN:** You'll go to Cinderveil tomorrow. I'm glad you're going. I'm also not, if that makes sense.
+
+- "How many islands have fallen?" → `emberhold.maren.fallen` *(only if `met_cantor`; sets `asked_fallen = true`)*
+- "Tell me about the Lanternwrights." → `emberhold.maren.order`
+- "I'll come back." → `emberhold.maren.evening_end`
+
+`emberhold.maren.fallen`
+
+*Maren puts her cup down.*
+
+**OLD MAREN:** Who asked you to ask me that? The one in the mask?
+
+**OLD MAREN:** Seven. Seven islands in my lifetime. I watched Thornwick go from this hill when I was twenty. The lamp went out, and three days later it was gone.
+
+**OLD MAREN:** Every one of them fell because its lamp went out, and nobody came to light it. Not because lamps don't work.
+
+**OLD MAREN:** The Choir counts the islands that fell. They never count the ones that are still up.
+
+*Returns to the choices, without this question.*
+
+`emberhold.maren.order`
+
+**OLD MAREN:** There used to be hundreds of us. Every island had two or three.
+
+**OLD MAREN:** Now it's me here, a handful on Cinderveil, and the Order at Highspire. Young folk don't want to spend their life hauling shards up a hill. I don't blame them.
+
+*Returns to the choices, without this question.*
+
+`emberhold.maren.evening_end`
+
+**OLD MAREN:** You'd better. And bring Kestrel back in one piece. She acts like she doesn't need looking after.
+
+*When the scene ends, the Wayfarer is healed and the game saves. Sets `maren_evening = true`.*
+
 ### Kestrel's offer
 
 `emberhold.kestrel.offer_sail`
@@ -283,7 +383,38 @@
 
 **KESTREL VANE:** That's why I stayed on the dock while the lamp was out. I like being brave. I like being alive more.
 
-*When the scene ends, the crossing continues.*
+*When the scene ends, the crossing continues into `cinderveil.sail.trust` on the first crossing.*
+
+`cinderveil.sail.trust`
+
+*Kestrel ties off a line and sits on a crate across from you. She pushes her goggles up for the first time.*
+
+**KESTREL VANE:** Can I tell you something? I don't take passengers. Cargo, yes. People, almost never.
+
+**KESTREL VANE:** Two years back I took a man to Saltmere. Paid well, nice manners. Halfway there he tried to throw me over the side and keep the boat.
+
+**KESTREL VANE:** Driftborn don't have land. We have boats and each other. So we're careful who we let aboard.
+
+- "Why let me on, then?" → `cinderveil.sail.trust_why`
+- "What happened to the man?" → `cinderveil.sail.trust_man`
+
+`cinderveil.sail.trust_why`
+
+**KESTREL VANE:** You lit Maren's lamp and didn't ask for a thing. Nobody does that.
+
+**KESTREL VANE:** And you could've taken the *Quickmercy* any night I was asleep on the dock. You didn't.
+
+`cinderveil.sail.trust_man`
+
+**KESTREL VANE:** I'm still here and he's not. I don't talk about the rest.
+
+**KESTREL VANE:** Anyway. You're fine. I've decided.
+
+*Either reply ends with:*
+
+**KESTREL VANE:** Right. Back to work. Cinderveil's close.
+
+*When the scene ends, `cinderveil.sail.sight` plays. Sets `kestrel_trust = true`.*
 
 `cinderveil.sail.sight`
 
@@ -312,6 +443,47 @@
 **KESTREL VANE:** I'll stay with the *Quickmercy*. People get desperate when the lamp's out, and she's our only way home.
 
 *When the scene ends, Tamsin's bench is marked on the map.*
+
+### Bell Square
+
+*The first time you walk into Bell Square after arriving. Then Ada, Corin, and Old Tobin use their barks.*
+
+`cinderveil.quay.street`
+
+*Bell Square. A woman is shoving a crate against a door. A boy holds a lantern. An old man stands by the bell with the rope in his hands.*
+
+**ADA FENN:** Corin, get the other side. Push.
+
+**CORIN FENN:** Mum, it's the middle of the day.
+
+**ADA FENN:** They came up to Harlow's door in the middle of the day on Tuesday. Push.
+
+*She sees you.*
+
+**ADA FENN:** Who are you? You came off a boat? Is anyone coming to fix the lamp? Is the Order coming?
+
+- "I'm here to help." → `cinderveil.quay.help`
+- "What happened here?" → `cinderveil.quay.what`
+
+`cinderveil.quay.help`
+
+**ADA FENN:** One person. Right.
+
+**ADA FENN:** Sorry. I'm not angry with you. It's been a week and nobody's come.
+
+`cinderveil.quay.what`
+
+**ADA FENN:** The lamp went out a week ago. Same night, something started shaking the ground under the ridge.
+
+**ADA FENN:** Warden Ilsa closed the Vault and won't say why. Half the town's packed up and gone on whatever boats would take them.
+
+*Either reply ends with:*
+
+**OLD TOBIN:** I ring this bell when they come up from the water. I rang it eleven times last night.
+
+**ADA FENN:** If you want to help, find Tamsin Reed. She's the only one still working on anything.
+
+*When the scene ends, Tamsin's bench stays marked. Sets `quay_street_seen = true`.*
 
 ### Tamsin Reed
 
@@ -352,6 +524,12 @@
 
 *Tamsin clamps a small brass reel to your wrist and threads its line into the shard. The shard pulses, and the reel hums.*
 
+*Tamsin holds a little brass gauge to your palm. The needle goes all the way over and sticks.*
+
+**TAMSIN REED:** Huh. That's not right. A normal shard moves this to about here.
+
+**TAMSIN REED:** Yours went all the way and stayed there. It's like it's still connected to something. Anyway! I don't know. I'll think about it later.
+
 **TAMSIN REED:** Done! Aim at a hook point and the shard does the rest. Just don't let go over the Hush.
 
 **TAMSIN REED:** Now go show Warden Ilsa. She said nobody goes near the Vault without a way across. Now you've got one.
@@ -383,13 +561,102 @@
 
 **BROTHER HESK:** If you beat it, the Cantor will come to you, and they'll be kind. Please remember I warned you.
 
+**BROTHER HESK:** I joined three years ago. My island's lamp was failing, and the Choir said they'd take care of us. They fed us. Nobody else did.
+
+**BROTHER HESK:** At first it was just meetings, and talking about the sky. Then they started leading Hushborn places.
+
+**BROTHER HESK:** When they took the Maw to Cinderveil, I knew people lived here. I left that night.
+
+- "Why tell me?" → `cinderveil.hesk.why`
+- "Are you safe here?" → `cinderveil.hesk.safe`
+
+`cinderveil.hesk.why`
+
+**BROTHER HESK:** Because I helped bring it here. I carried the burning shards. Sorry. I'm sorry.
+
+**BROTHER HESK:** I can't fight it. You can. Telling you is the one useful thing I can do.
+
+`cinderveil.hesk.safe`
+
+**BROTHER HESK:** No. They'll find me eventually. They always find people who leave.
+
+**BROTHER HESK:** But Warden Ilsa knows I'm here, and she hasn't thrown me off the island. That's something.
+
 `cinderveil.hesk.pressed`
 
 **BROTHER HESK:** S-sorry! There's a Cinder Maw in the Vault, eating the core. If it finishes, the island falls.
 
 **BROTHER HESK:** The Choir led it there. That's all. I'm sorry, I can't... please, just go.
 
+**BROTHER HESK:** If you want the rest, come back when you're... when you're not in a hurry.
+
+*Sets `hesk_more = true`, so a later talk can play the new lines from the steady branch (`cinderveil.hesk.more`). `hesk_mood` stays `pressed`.*
+
 *When the scene ends, the Ember Vault is marked on the map.*
+
+`cinderveil.hesk.after`
+
+*After `vault_open`.*
+
+**BROTHER HESK:** You're going in. Please be careful. It hits hard and it doesn't get tired.
+
+**BROTHER HESK:** I'll be here. I'm not going anywhere. Where would I go?
+
+### Warden Ilsa, before the Grapple
+
+*The first time you reach the cliff without the Grapple. Later visits use `bark.ilsa.no_grapple`.*
+
+`cinderveil.ilsa.doubt`
+
+**WARDEN ILSA:** Stop there. This cliff is closed.
+
+**WARDEN ILSA:** You're not from Cinderveil. A week ago the Choir walked a Hushborn past my post while I slept. Now a stranger turns up with a glowing hand. You can see why I'm not pleased.
+
+- "I'm not with the Choir." → `cinderveil.ilsa.doubt_choir`
+- "I lit Emberhold's lamp." → `cinderveil.ilsa.doubt_lamp`
+
+`cinderveil.ilsa.doubt_choir`
+
+**WARDEN ILSA:** That's what a Choir spy would say. Maybe you aren't. I don't know you, so I'm not taking your word for it.
+
+`cinderveil.ilsa.doubt_lamp`
+
+**WARDEN ILSA:** I saw a bright light to the east a few nights ago. Maybe that was you. Maybe it was a fire.
+
+**WARDEN ILSA:** Lighting a lamp is one thing. The Vault is another.
+
+*Either reply ends with:*
+
+**WARDEN ILSA:** The bridge is burned. No way across, no crossing. If you find a way, come back and we'll talk.
+
+*Sets `ilsa_doubt = true`.*
+
+### The Cantor at the Long Pier (optional)
+
+*After `grant_grapple` and before `vault_open`. The Cantor leaves when the scene ends.*
+
+`cinderveil.cantor.quay`
+
+**THE CANTOR** *(if `met_cantor`)*: Hello again. You found Tamsin. She's very clever.
+
+**THE CANTOR** *(if not `met_cantor`)*: Hello. I'm the Cantor, of the Hollow Choir. Please don't run off. I only want to talk.
+
+**THE CANTOR:** You're going to the Vault. I won't stop you. I'd only ask you to look carefully at the core while you're in there.
+
+**THE CANTOR:** Look at how worn it is. Then decide how much the lamp above it can really do.
+
+- "Did the Choir put something in there?" → `cinderveil.cantor.quay_ask`
+- "Leave these people alone." → `cinderveil.cantor.quay_warn`
+
+`cinderveil.cantor.quay_ask`
+
+**THE CANTOR:** I'll answer that honestly when you come out. You have my word.
+
+`cinderveil.cantor.quay_warn`
+
+**THE CANTOR:** I'm not here for them. I'm here for you. Good luck, Wayfarer. I mean it.
+
+*The Cantor walks off into the mist. Sets `met_cantor = true` and `cantor_quay = true`.*
 
 ### Warden Ilsa
 
@@ -400,6 +667,8 @@
 **WARDEN ILSA:** Halt. Warden Ilsa, Lanternwright Order. That's a grapple. Tamsin's?
 
 **WARDEN ILSA:** Something in the Vault is eating the core. The bridge burned. My orders are to hold this cliff.
+
+**WARDEN ILSA** *(only if `ilsa_doubt`)*: You came back. With a way across, too. All right.
 
 **WARDEN ILSA:** I can't cross. You might. Make it over and the Vault is yours. Fall, and nobody comes for you.
 
@@ -540,6 +809,28 @@ Fight the Cinder Maw?
 
 `bark.ilsa.no_grapple` — **WARDEN ILSA:** No way across, no crossing. Come back when you can reach the far side.
 
+*Town voices. Each line below is the whole part.*
+
+`emberhold.pell.larder` — **INA PELL:** Tonics are twenty marks. I don't haggle, so don't try.
+
+`emberhold.hale.smithy` — **DAGAN HALE:** That blade's good. It'll be better when I'm done with it.
+
+`emberhold.sefa.bench` — **OLD SEFA:** I carried shards up that hill for Maren for thirty years. My back says I'm done.
+
+`emberhold.wren.hand` — **WREN:** Is your hand hot? Can I touch it? Just a bit?
+
+`cinderveil.ada.bark` — **ADA FENN:** It's been a week and nobody's come.
+
+`cinderveil.corin.bark` — **CORIN FENN:** Mum says stay in. I've been in for a week.
+
+`cinderveil.tobin.bark` — **OLD TOBIN:** I rang it eleven times last night.
+
+`cinderveil.marta.goods` — **MARTA ASHCROFT:** No boats, no stock. Buy it now, there won't be more.
+
+`cinderveil.jem.cup` — **JEM ROOK:** You're my first guest in four days. Take any room you like.
+
+`cinderveil.nell.fish` — **NELL GARROW:** Boats won't come in with the lamp out. Hushborn follow them.
+
 ---
 
 ## Things you can look at
@@ -563,6 +854,16 @@ Fight the Cinder Maw?
 `inspect.wrong_sky` — **STANDING STONES:** A row of stones, all facing the lamp. Dirt and leaves have piled up behind them, out of the wind.
 
 `inspect.heartblossom` — **HEARTBLOSSOM:** A small red flower that only grows near lamps. Maren uses it for burns.
+
+`inspect.lampfoot_board` — **NOTICE BOARD:** {quest}
+
+`inspect.shrine_thornwick` — **OLD SHRINE:** A small Lanternwright shrine. A lamp list is carved in the stone, the names of islands that fell, including Thornwick.
+
+`inspect.long_stair` — **LONG STAIR:** Ash on every step, and a child's chalk drawing of the lamp.
+
+`inspect.duty_roster` — **DUTY ROSTER:** Ilsa's posted order is nailed beside a duty roster. Most of the names are crossed off.
+
+`inspect.ash_gate` — **ASHFIELDS GATE:** The north edge of Upper Town. The Ashfields start on the far side of this gate.
 
 `inspect.rope_bridge` — **ROPE BRIDGE:** A sign reads: ONE AT A TIME. Someone has scratched underneath: OR NONE.
 

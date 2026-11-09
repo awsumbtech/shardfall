@@ -568,9 +568,17 @@ SF.CINDER_SHARDS = 3;
       if (f.cogsStarted) return "cinderveil.tamsin.cogs_waiting";
       return "cinderveil.tamsin.cogs_start";
     }
-    if (who === "hesk") return f.metHesk ? "bark.hesk.crate" : "cinderveil.hesk.rumor";
+    if (who === "hesk") {
+      if (f.vaultOpen) return f.hesk_after ? "bark.hesk.crate" : "cinderveil.hesk.after";
+      if (!f.metHesk) return "cinderveil.hesk.rumor";
+      if (f.hesk_mood === "pressed" && f.hesk_more && !f.hesk_more_heard) return "cinderveil.hesk.more";
+      return "bark.hesk.crate";
+    }
     if (who === "ilsa") {
-      if (!s || !s.player || !s.player.grapple) return "bark.ilsa.no_grapple";
+      if (!s || !s.player || !s.player.grapple) {
+        if (!f.ilsa_doubt) return "cinderveil.ilsa.doubt";
+        return "bark.ilsa.no_grapple";
+      }
       if (!f.vaultOpen) return "cinderveil.ilsa.trial";
       return "";
     }

@@ -55,6 +55,8 @@ for (const file of [
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/world.js",
   "js/dialogue.js",
+  "js/content/dialogue/act1-scenes.js",
+  "js/content/dialogue/towns.js",
   "js/audio.js",
   "js/music.js",
   "js/sfx.js",
@@ -71,6 +73,7 @@ for (const file of [
   "js/content/maps/gullrock.js",
   "js/content/maps/drift.js",
   "js/content/maps/v2layout.js",
+  "js/content/maps/towns.js",
   "js/vaultgate.js",
   "js/grapple.js",
   "js/battle/events.js",
@@ -503,6 +506,363 @@ if (!handText.includes("I still can't tell you") || handText.includes("pulling b
   console.error("lamp thanks ignored the hand flag", handText);
   process.exit(1);
 }
+
+function drainScene(state, picks) {
+  const lines = [];
+  let guard = 0;
+  const queue = picks.slice();
+  while (state.mode === "dialogue" && state.dialogue && guard < 80) {
+    const d = state.dialogue;
+    d.lock = 0;
+    if (d.phase === "choice") {
+      SF.chooseDialogue(queue.length ? queue.shift() : 0);
+    } else {
+      if (d.full) lines.push((d.speaker || "") + ": " + d.full);
+      SF.advanceDialogue();
+    }
+    guard += 1;
+  }
+  return lines.join("\n");
+}
+
+const meatNodes = [
+  "emberhold.dell.intro", "emberhold.dell.shards", "emberhold.dell.leave", "emberhold.dell.after",
+  "emberhold.maren.evening", "emberhold.maren.fallen", "emberhold.maren.order", "emberhold.maren.evening_end",
+  "cinderveil.sail.trust", "cinderveil.sail.trust_why", "cinderveil.sail.trust_man",
+  "cinderveil.quay.street", "cinderveil.quay.help", "cinderveil.quay.what",
+  "cinderveil.hesk.why", "cinderveil.hesk.safe", "cinderveil.hesk.more", "cinderveil.hesk.after",
+  "cinderveil.ilsa.doubt", "cinderveil.ilsa.doubt_choir", "cinderveil.ilsa.doubt_lamp",
+  "cinderveil.cantor.quay", "cinderveil.cantor.quay_ask", "cinderveil.cantor.quay_warn",
+  "emberhold.pell.larder", "emberhold.hale.smithy", "emberhold.sefa.bench",
+  "cinderveil.ada.bark", "cinderveil.corin.bark", "cinderveil.tobin.bark",
+  "cinderveil.marta.goods", "cinderveil.jem.cup", "cinderveil.nell.fish"
+];
+meatNodes.forEach((id) => {
+  if (!SF.dialogueNodes[id] || !SF.dialogueNodes[id].lines || !SF.dialogueNodes[id].lines.length) {
+    fail("missing scene " + id);
+  }
+});
+if (SF.dialogueNodes["cinderveil.sail.lane"].next !== "cinderveil.sail.trust") fail("the crossing skipped Kestrel's trust");
+
+const e1 = freshPlay();
+e1.flags.metMaren = true;
+SF.mountIsland("emberhold");
+const bram = SF.npcById("bram");
+if (!bram || !SF.walkable(bram.x, bram.y)) fail("Bram is not on Lampfoot");
+e1.player.x = bram.x;
+e1.player.y = bram.y;
+SF.tryInteract();
+const e1Text = drainScene(e1, [0, 0]);
+if (!e1Text.includes("You're the one off the stones. Maren said you'd be by.")) fail("E1 opening changed");
+if (!e1Text.includes("I board up the back windows when the lamp gets low.")) fail("E1 Bram line changed");
+if (!e1Text.includes("He does it every night now.")) fail("E1 Wren line changed");
+if (!e1Text.includes("My family's been on this hill for five generations.")) fail("E1 leave branch changed");
+if (!e1.flags.met_bram) fail("E1 did not set met_bram");
+if (e1.mode !== "play") fail("E1 did not return to play");
+
+const c1 = freshPlay();
+c1.flags.metCinderKestrel = true;
+SF.mountIsland("cinderveil");
+c1.island = "cinderveil";
+const bell = SF.circle("bell");
+if (!bell) fail("Bell Square is missing");
+c1.player.x = bell.x + bell.w / 2;
+c1.player.y = bell.y + bell.h / 2;
+if (!SF.walkable(c1.player.x, c1.player.y)) fail("Bell Square center is not walkable");
+const quayToAsh = Math.hypot(c1.player.x - 46 * 16, c1.player.y - 52 * 16) / 16;
+if (quayToAsh > 60) fail("Quay to Ashfields is " + quayToAsh.toFixed(1) + " tiles");
+SF.onTownZone(c1, { id: "bell" });
+const c1Text = drainScene(c1, [1]);
+if (!c1Text.includes("Corin, get the other side. Push.")) fail("C1 Ada line changed");
+if (!c1Text.includes("I rang it eleven times last night.")) fail("C1 Tobin line changed");
+if (!c1Text.includes("find Tamsin Reed")) fail("C1 did not point at Tamsin");
+if (!c1.flags.quay_street_seen) fail("C1 did not set quay_street_seen");
+SF.onTownZone(c1, { id: "bell" });
+if (c1.mode === "dialogue") fail("C1 played twice");
+
+const h1 = freshPlay();
+SF.startDialogue("cinderveil.tamsin.grapple_gift");
+const h1Lines = [];
+let h1Guard = 0;
+while (h1.mode === "dialogue" && h1.dialogue && h1Guard < 20) {
+  h1.dialogue.lock = 0;
+  if (h1.dialogue.full) h1Lines.push(h1.dialogue.full);
+  SF.advanceDialogue();
+  h1Guard += 1;
+}
+const h1Text = h1Lines.join("\n");
+const gaugeAt = h1Text.indexOf("Huh. That's not right. A normal shard moves this to about here.");
+const doneAt = h1Text.indexOf("Done! Aim at a hook point");
+if (gaugeAt < 0 || doneAt < 0 || gaugeAt > doneAt) fail("H1 is not inside the grapple gift");
+if (!h1Text.includes("Yours went all the way and stayed there.")) fail("H1 second line changed");
+if (!h1.player.grapple && !h1.flags.grapple) {
+  /* grant_grapple runs on end */
+}
+if (!h1.flags.grapple && !(h1.player && h1.player.grapple)) fail("H1 did not still grant the grapple");
+
+function toChoice(state) {
+  let guard = 0;
+  while (state.mode === "dialogue" && state.dialogue && state.dialogue.phase !== "choice" && guard < 40) {
+    state.dialogue.lock = 0;
+    SF.advanceDialogue();
+    guard += 1;
+  }
+}
+
+const x1 = freshPlay();
+SF.startDialogue("cinderveil.sail.trust");
+const x1Text = drainScene(x1, [0]);
+if (!x1Text.includes("I don't take passengers. Cargo, yes. People, almost never.")) fail("test X1 trust why: opening changed");
+if (!x1Text.includes("You lit Maren's lamp and didn't ask for a thing.")) fail("test X1 trust why: reason changed");
+if (!x1Text.includes("Right. Back to work. Cinderveil's close.")) fail("test X1 trust why: close changed");
+if (!x1.flags.kestrel_trust) fail("test X1 trust why: kestrel_trust was not set");
+
+const x1Man = freshPlay();
+SF.startDialogue("cinderveil.sail.trust");
+const x1ManText = drainScene(x1Man, [1]);
+if (!x1ManText.includes("I'm still here and he's not. I don't talk about the rest.")) fail("test X1 trust man: answer changed");
+if (!x1Man.flags.kestrel_trust) fail("test X1 trust man: kestrel_trust was not set");
+
+const e2Locked = freshPlay();
+e2Locked.flags.lampLit = true;
+e2Locked.flags.marenLampTalk = true;
+SF.mountIsland("emberhold");
+if (SF.emberholdNode("maren", e2Locked) !== "emberhold.maren.evening") fail("test E2 evening branches: Maren did not route to the evening");
+SF.state = e2Locked;
+e2Locked.mode = "play";
+SF.startDialogue("emberhold.maren.evening");
+toChoice(e2Locked);
+const lockedChoices = (e2Locked.dialogue.choices || []).map((c) => c.text);
+if (lockedChoices.indexOf("How many islands have fallen?") >= 0) fail("test E2 evening branches: fallen islands was offered before the Cantor");
+if (lockedChoices.indexOf("Tell me about the Lanternwrights.") < 0) fail("test E2 evening branches: the order question was missing");
+
+const e2 = freshPlay();
+e2.flags.lampLit = true;
+e2.flags.marenLampTalk = true;
+e2.flags.met_cantor = true;
+e2.player.hp = 5;
+SF.mountIsland("emberhold");
+SF.state = e2;
+e2.mode = "play";
+context.localStorage.removeItem(SF.SAVE_KEY);
+SF.startDialogue("emberhold.maren.evening");
+const e2Text = drainScene(e2, [0, 0, 0]);
+if (!e2Text.includes("Seven. Seven islands in my lifetime.")) fail("test E2 evening branches: fallen answer changed");
+if (!e2Text.includes("There used to be hundreds of us.")) fail("test E2 evening branches: order answer changed");
+if (!e2Text.includes("bring Kestrel back in one piece.")) fail("test E2 evening branches: ending changed");
+if (!e2.flags.maren_evening) fail("test E2 evening branches: maren_evening was not set");
+if (!e2.flags.asked_fallen) fail("test E2 evening branches: asked_fallen was not set");
+if (e2.player.hp !== e2.player.maxHp) fail("test E2 heal and save: Maren did not heal");
+const e2Save = SF.readSave();
+if (!e2Save || !e2Save.flags || !e2Save.flags.maren_evening) fail("test E2 heal and save: the evening was not saved");
+if (!e2Save.player || e2Save.player.hp !== e2Save.player.maxHp) fail("test E2 heal and save: the heal was not saved");
+
+function playHesk(flags, picks) {
+  const state = freshPlay();
+  Object.keys(flags).forEach((key) => { state.flags[key] = flags[key]; });
+  SF.mountIsland("cinderveil");
+  state.island = "cinderveil";
+  SF.state = state;
+  state.mode = "play";
+  const id = SF.cinderNode("hesk", state);
+  if (!id) fail("test C2: Hesk had no route");
+  SF.startDialogue(id);
+  return { state: state, id: id, text: drainScene(state, picks) };
+}
+
+const c2Steady = playHesk({}, [0, 0]);
+if (c2Steady.id !== "cinderveil.hesk.rumor") fail("test C2 steady: first talk was not the rumor");
+if (!c2Steady.text.includes("It's a Cinder Maw")) fail("test C2 steady: canon line changed");
+if (!c2Steady.text.includes("I joined three years ago.")) fail("test C2 steady: new lines missing");
+if (!c2Steady.text.includes("Because I helped bring it here.")) fail("test C2 steady: why branch changed");
+if (c2Steady.state.flags.hesk_mood !== "steady") fail("test C2 steady: mood was " + c2Steady.state.flags.hesk_mood);
+if (!c2Steady.state.flags.metHesk) fail("test C2 steady: Hesk was not remembered");
+if (SF.cinderNode("hesk", c2Steady.state) !== "bark.hesk.crate") fail("test C2 steady: revisit did not return to the crate bark");
+
+const c2Pressed = playHesk({}, [1]);
+if (c2Pressed.state.flags.hesk_mood !== "pressed") fail("test C2 pressed revisit: mood was " + c2Pressed.state.flags.hesk_mood);
+if (!c2Pressed.state.flags.hesk_more) fail("test C2 pressed revisit: hesk_more was not set");
+if (!c2Pressed.text.includes("when you're not in a hurry.")) fail("test C2 pressed revisit: the hurry line changed");
+if (SF.cinderNode("hesk", c2Pressed.state) !== "cinderveil.hesk.more") fail("test C2 pressed revisit: the rest was not offered");
+SF.state = c2Pressed.state;
+SF.startDialogue("cinderveil.hesk.more");
+const c2More = drainScene(c2Pressed.state, [1]);
+if (!c2More.includes("I left that night.")) fail("test C2 pressed revisit: the steady extras were missing");
+if (!c2More.includes("Are you safe here?") && !c2More.includes("They'll find me eventually.")) fail("test C2 pressed revisit: the safe branch was missing");
+if (!c2Pressed.state.flags.hesk_more_heard) fail("test C2 pressed revisit: hesk_more_heard was not set");
+if (SF.cinderNode("hesk", c2Pressed.state) !== "bark.hesk.crate") fail("test C2 pressed revisit: a third talk replayed the extras");
+
+const c2After = playHesk({ metHesk: true, hesk_mood: "steady", vaultOpen: true }, []);
+if (c2After.id !== "cinderveil.hesk.after") fail("test C2 after vault: route was " + c2After.id);
+if (!c2After.text.includes("You're going in. Please be careful.")) fail("test C2 after vault: warning changed");
+if (!c2After.state.flags.hesk_after) fail("test C2 after vault: hesk_after was not set");
+if (SF.cinderNode("hesk", c2After.state) !== "bark.hesk.crate") fail("test C2 after vault: Hesk did not return to the crate");
+
+const c4 = freshPlay();
+SF.mountIsland("cinderveil");
+c4.island = "cinderveil";
+c4.flags.grapple = true;
+SF.state = c4;
+c4.mode = "play";
+SF.startDialogue("cinderveil.cantor.quay");
+const c4Text = drainScene(c4, [0]);
+if (!c4Text.includes("Hello. I'm the Cantor, of the Hollow Choir. Please don't run off.")) fail("test C4 cantor quay: first greeting changed");
+if (c4Text.includes("Hello again. You found Tamsin.")) fail("test C4 cantor quay: greeted again before you had met");
+if (!c4Text.includes("I'll answer that honestly when you come out.")) fail("test C4 cantor quay: ask branch changed");
+if (!c4.flags.met_cantor || !c4.flags.cantor_quay) fail("test C4 cantor quay: met_cantor was not set");
+SF.startDialogue("cinderveil.cantor.confront");
+const c4Again = drainScene(c4, [0]);
+if (!c4Again.includes("Hello again, Wayfarer. You lit Maren's lamp, and now this one.")) fail("test C4 hello again: confront did not greet again");
+
+function countSafeTown(island, names) {
+  SF.mountIsland(island);
+  const bounds = SF.bounds;
+  let total = 0;
+  const step = 16;
+  let y, x, zone;
+  for (y = 8; y < bounds.h; y += step) {
+    for (x = 8; x < bounds.w; x += step) {
+      if (!SF.walkable(x, y)) continue;
+      zone = SF.zoneAt(x, y);
+      if (names[zone.name]) total += 1;
+    }
+  }
+  return total;
+}
+
+const lampfootTiles = countSafeTown("emberhold", {
+  Lampfoot: 1, "Dell Row": 1, "The Green": 1, "Pell's Larder": 1,
+  "Hale's Smithy": 1, "Old Shrine": 1, "Maren's Cottage": 1, "Vane's Perch": 1
+});
+if (lampfootTiles < 4000) fail("test lampfoot size: safe tiles " + lampfootTiles);
+const lowmoorTiles = countSafeTown("cinderveil", {
+  "Upper Town": 1, "Lower Quay": 1, "Bell Square": 1, "Long Stair": 1,
+  "Lowmoor Quay": 1, "The Pier": 1
+});
+if (lowmoorTiles < 4700) fail("test lowmoor size: safe tiles " + lowmoorTiles);
+
+SF.mountIsland("emberhold");
+const townFlags = { metMaren: true, lampLit: true, cinderLit: true };
+Object.keys(SF.ZONES).forEach((id) => {
+  if (!/^(green-|lampfoot|dell-lane|larder|smithy|shrine|bell|upper-|lower-|long-stair)/.test(id)) return;
+  if (SF.encounterRateFor(id, townFlags) !== 0) fail("test town regions safe: " + id + " rolls fights");
+});
+const safeSpots = [[84 * 16 + 8, 40 * 16 + 8, "emberhold"], [bram.x, bram.y, "emberhold"]];
+SF.mountIsland("cinderveil");
+const bellZone = SF.circle("bell");
+safeSpots.push([bellZone.x + bellZone.w / 2, bellZone.y + bellZone.h / 2, "cinderveil"]);
+safeSpots.push([52 * 16 + 8, 96 * 16 + 8, "cinderveil"]);
+safeSpots.forEach((spot) => {
+  SF.mountIsland(spot[2]);
+  const probe = freshPlay();
+  probe.mode = "play";
+  probe.flags.metMaren = true;
+  probe.flags.lampLit = spot[2] === "emberhold";
+  probe.encounterGrace = 0;
+  SF.state = probe;
+  const zone = SF.zoneAt(spot[0], spot[1]);
+  if (SF.encounterRateFor(zone.id, probe.flags) !== 0) fail("test town regions safe: " + zone.id + " at " + spot[0] + "," + spot[1]);
+  if (SF.rollEncounter(probe, zone, function () { return 0; })) fail("test town regions safe: a fight started in " + zone.name);
+});
+
+SF.mountIsland("cinderveil");
+if (SF.walkable(120 * 16 + 8, 88 * 16 + 8)) fail("test town walls block: the east wing wall is open");
+if (SF.walkable(16 * 16 + 8, 88 * 16 + 8)) fail("test town walls block: the west wing wall is open");
+for (let stepY = 78; stepY <= 108; stepY += 2) {
+  if (!SF.walkable(52 * 16 + 8, stepY * 16 + 8)) fail("test long stair connects: blocked at y " + stepY);
+}
+const stairFoot = SF.zoneAt(52 * 16 + 8, 104 * 16 + 8);
+const stairHead = SF.zoneAt(52 * 16 + 8, 80 * 16 + 8);
+if (stairFoot.name !== "Long Stair" && stairFoot.name !== "Lower Quay" && stairFoot.name !== "The Pier") {
+  fail("test long stair connects: the foot is " + stairFoot.name);
+}
+if (stairHead.name !== "Long Stair" && stairHead.name !== "Upper Town" && stairHead.name !== "Bell Square") {
+  fail("test long stair connects: the head is " + stairHead.name);
+}
+
+const quietTalk = freshPlay();
+quietTalk.mode = "play";
+quietTalk.flags.metMaren = false;
+quietTalk.hints.moved = true;
+quietTalk.hints.dash = true;
+quietTalk.playTime = 50;
+SF.mountIsland("emberhold");
+SF.state = quietTalk;
+quietTalk.player.x = bram.x;
+quietTalk.player.y = bram.y;
+const quietNear = SF.nearestInteract();
+if (quietNear && quietNear.kind === "npc" && (quietNear.ref.id === "bram" || quietNear.ref.id === "wren")) {
+  fail("test talk hidden: " + quietNear.ref.id + " offers Talk before Maren");
+}
+if (!SF.npcOffersTalk(bram, quietTalk) && !SF.npcOffersTalk(SF.npcById("wren"), quietTalk)) {
+  const quietCoach = SF.coachLine(quietTalk) || "";
+  if (quietCoach.indexOf("Talk") >= 0) fail("test talk hidden: coach says Talk before Maren");
+}
+SF.tryInteract();
+if (quietTalk.mode !== "play") fail("test talk hidden: Talk entered a scene before Maren");
+quietTalk.flags.metMaren = true;
+if (!SF.npcOffersTalk(bram, quietTalk)) fail("test talk hidden: Bram stays silent after Maren");
+SF.tryInteract();
+if (quietTalk.mode !== "dialogue" || !quietTalk.dialogue || quietTalk.dialogue.id !== "emberhold.dell.intro") {
+  fail("test talk hidden: Bram did not open after Maren");
+}
+quietTalk.mode = "play";
+quietTalk.dialogue = null;
+
+function walkReach(island, origin, targets) {
+  SF.mountIsland(island);
+  const step = 16;
+  function segmentOpen(x0, y0, x1, y1) {
+    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 4));
+    let i, t;
+    for (i = 0; i <= n; i++) {
+      t = i / n;
+      if (!SF.walkable(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false;
+    }
+    return true;
+  }
+  const seen = new Set();
+  const queue = [];
+  const x0 = Math.round(origin.x / step) * step;
+  const y0 = Math.round(origin.y / step) * step;
+  function key(x, y) { return x + "," + y; }
+  if (!SF.walkable(x0, y0)) return targets.map((t) => t.name);
+  seen.add(key(x0, y0));
+  queue.push([x0, y0]);
+  let qi, x, y, dir, nx, ny, dirs;
+  dirs = [[step, 0], [-step, 0], [0, step], [0, -step]];
+  for (qi = 0; qi < queue.length; qi++) {
+    x = queue[qi][0];
+    y = queue[qi][1];
+    for (dir = 0; dir < dirs.length; dir++) {
+      nx = x + dirs[dir][0];
+      ny = y + dirs[dir][1];
+      if (seen.has(key(nx, ny))) continue;
+      if (!segmentOpen(x, y, nx, ny)) continue;
+      seen.add(key(nx, ny));
+      queue.push([nx, ny]);
+    }
+  }
+  return targets.filter((t) => {
+    const sx = Math.round(t.x / step) * step;
+    const sy = Math.round(t.y / step) * step;
+    let dx, dy;
+    for (dy = -step; dy <= step; dy += step) {
+      for (dx = -step; dx <= step; dx += step) {
+        if (seen.has(key(sx + dx, sy + dy))) return false;
+      }
+    }
+    return true;
+  }).map((t) => t.name);
+}
+
+// Emberhold's walk-reach runs after the tile map is adopted. The shape
+// world is not the collision the player hits.
+SF.mountIsland("cinderveil");
+const missedCinder = walkReach("cinderveil", SF.DOCKS.cinderveil, [
+  { name: "Nell", x: SF.npcById("nell").x, y: SF.npcById("nell").y }
+]);
+if (missedCinder.length) fail("test walk reach: " + missedCinder.join(", ") + " unreachable on foot from the Cinderveil dock");
 
 const sail = freshPlay();
 sail.flags.lampLit = true;
@@ -1065,6 +1425,10 @@ gate.enemies = SF.makeEnemies();
 gate.player.grapple = false;
 gate.player.x = SF.npcById("ilsa").x;
 gate.player.y = SF.npcById("ilsa").y;
+SF.tryInteract();
+if (!gate.dialogue || gate.dialogue.id !== "cinderveil.ilsa.doubt") fail("Ilsa skipped her first doubt");
+finishTalk(gate);
+if (!gate.flags.ilsa_doubt) fail("Ilsa's doubt did not stick");
 SF.tryInteract();
 if (!gate.dialogue || gate.dialogue.id !== "bark.ilsa.no_grapple") fail("Ilsa let someone cross without a grapple");
 SF.mountIsland("emberhold");
@@ -1815,7 +2179,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.30"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.31"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2140,7 +2504,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.30"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.31"')) fail("version was not bumped");
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2152,7 +2516,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.30")) fail("html version");
+  if (!html.includes("v0.4.31")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -3974,6 +4338,141 @@ function runGroundChecks() {
   const cinderOpen = G.walkable(G.DOCKS.cinderveil.x, G.DOCKS.cinderveil.y);
   if (!cinderOpen) fail("cinder dock is blocked by the emberhold map");
   G.mountIsland("emberhold");
+  if (G.worldSource !== "tiles" || !G.tileMap) fail("test walk reach: tile world was not adopted");
+  const missedTile = walkReach("emberhold", G.WAKE, [
+    { name: "Bram", x: bram.x, y: bram.y },
+    { name: "Wren", x: G.npcById("wren").x, y: G.npcById("wren").y },
+    { name: "goat chest", x: G.EXTRAS.find((ex) => ex.id === "chest-goat").x, y: G.EXTRAS.find((ex) => ex.id === "chest-goat").y }
+  ]);
+  if (missedTile.length) fail("test walk reach: " + missedTile.join(", ") + " unreachable on the tile map from the Waking Stones");
+  // The grove lip is a height edge. A height step that is not a stair is a
+  // wall, and cliff art on a stair cell is a wall once real pixels load.
+  // The stub atlas has no pixels, so the art check reads the cliff layers.
+  function seamCell(tx, ty) {
+    return ty >= 20 && ty <= 28 && ((tx >= 41 && tx <= 44) || (tx >= 58 && tx <= 62));
+  }
+  // 161 is the opaque grass fill. 189/203/217/231 are the stone stair treads
+  // (kenmi-stone column c9, rows 1-4) painted on the ground layer. Edge gids
+  // and any cliff-role tile still read as sky once pixels load.
+  const openGround = { 161: 1, 189: 1, 203: 1, 217: 1, 231: 1 };
+  let seam = 0;
+  let blockedArt = "";
+  for (let sy = 20; sy <= 28; sy++) {
+    for (let sx = 41; sx <= 62; sx++) {
+      if (!seamCell(sx, sy)) continue;
+      const i = sy * map.w + sx;
+      if (map.stair[i]) seam += 1;
+      else if (!blockedArt) blockedArt = "seam " + sx + "," + sy + " is not a stair";
+      for (let li = 0; li < map.layers.length; li++) {
+        const layer = map.layers[li];
+        const gid = layer.data[i];
+        if (!gid) continue;
+        if (layer.role === "cliffs" && !blockedArt) blockedArt = "cliff art on stair " + sx + "," + sy;
+        if (layer.role === "ground" && !openGround[gid] && !blockedArt) {
+          blockedArt = "ground blocker " + gid + " on stair " + sx + "," + sy;
+        }
+      }
+    }
+  }
+  if (seam < 20) fail("test walk reach: Lampfoot stair seam is " + seam + " tiles");
+  if (blockedArt) fail("test walk reach: " + blockedArt);
+  const treadAt = { 41: 231, 42: 217, 43: 203, 44: 189, 58: 189, 59: 203, 60: 217, 61: 231, 62: 189 };
+  const treadLayer = map.layers.find((layer) => layer.name === "L1/ground");
+  if (!treadLayer) fail("test walk reach: stair tread layer is missing");
+  for (let sy = 20; sy <= 28; sy++) {
+    for (const sx of Object.keys(treadAt)) {
+      const got = treadLayer.data[sy * map.w + Number(sx)];
+      if (got !== treadAt[sx]) fail("test walk reach: stair tread at " + sx + "," + sy + " is " + got);
+    }
+  }
+  const denseLayout = JSON.parse(fs.readFileSync("js/content/props/emberhold-dense.json", "utf8"));
+  const solids = [];
+  denseLayout.props.forEach((p) => {
+    if (p.block) solids.push({ type: p.type, x: p.x, y: p.y, block: p.block });
+  });
+  (G.PROPS || []).forEach((p) => {
+    if (p.block) solids.push({ type: p.kind, x: p.x, y: p.y, block: p.block });
+  });
+  function coversStair(p) {
+    let ty, tx;
+    for (ty = 20; ty <= 28; ty++) {
+      for (tx = 41; tx <= 62; tx++) {
+        if (!seamCell(tx, ty)) continue;
+        const left = tx * 16;
+        const top = ty * 16;
+        const right = left + 16;
+        const bot = top + 16;
+        const nx = Math.max(left, Math.min(p.x, right));
+        const ny = Math.max(top, Math.min(p.y, bot));
+        if ((p.x - nx) * (p.x - nx) + (p.y - ny) * (p.y - ny) < p.block * p.block) return true;
+      }
+    }
+    return false;
+  }
+  for (let si = 0; si < solids.length; si++) {
+    if (coversStair(solids[si])) {
+      fail("test walk reach: " + solids[si].type + " covers a Lampfoot stair at " +
+        (solids[si].x / 16).toFixed(2) + "," + (solids[si].y / 16).toFixed(2));
+    }
+  }
+  function stickWest(px, py) {
+    const tile = map.tile;
+    function cellOf(x, y) {
+      const tx = Math.floor(x / tile);
+      const ty = Math.floor(y / tile);
+      if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) return -1;
+      return ty * map.w + tx;
+    }
+    function blockedByProp(x, y) {
+      let i, p, dx, dy;
+      for (i = 0; i < solids.length; i++) {
+        p = solids[i];
+        dx = x - p.x;
+        dy = y - p.y;
+        if (dx * dx + dy * dy < p.block * p.block) return true;
+      }
+      return false;
+    }
+    function stepOk(x0, y0p, x1, y1p) {
+      const n = Math.max(1, Math.ceil(Math.abs(x1 - x0) / 2));
+      let i, t, x, a, b;
+      for (i = 0; i <= n; i++) {
+        t = i / n;
+        x = x0 + (x1 - x0) * t;
+        if (!G.walkable(x, y0p) || blockedByProp(x, y0p)) return false;
+      }
+      a = cellOf(x0, y0p);
+      b = cellOf(x1, y1p);
+      if (a < 0 || b < 0) return false;
+      if (a !== b && !map.stair[a] && !map.stair[b] && map.height[a] !== map.height[b]) return false;
+      return true;
+    }
+    let x = px;
+    let guard = 0;
+    if (!G.walkable(x, py) || blockedByProp(x, py)) return x;
+    while (guard < 2000 && stepOk(x, py, x - 2, py)) {
+      x -= 2;
+      guard += 1;
+    }
+    return x;
+  }
+  const dellX = stickWest(58 * 16 + 8, 21 * 16 + 8);
+  if (dellX >= 40 * 16) fail("test walk reach: stick west from Dell Row stops at x " + (dellX / 16).toFixed(1));
+  const gapX = stickWest(62 * 16 + 8, 26 * 16 + 8);
+  if (gapX >= 40 * 16) fail("test walk reach: stick west from the grove stops at x " + (gapX / 16).toFixed(1));
+  // NPC rings are 34px. A body on y21 or y26 at the lip stops the straight push.
+  (G.NPCS || []).forEach((npc) => {
+    [21 * 16 + 8, 26 * 16 + 8].forEach((ly) => {
+      for (let lx = 40 * 16 + 8; lx <= 46 * 16 + 8; lx += 8) {
+        const dx = lx - npc.x;
+        const dy = ly - npc.y;
+        if (dx * dx + dy * dy <= 34 * 34) {
+          fail("test walk reach: " + npc.id + " stands in the Lampfoot lane at " +
+            (npc.x / 16).toFixed(1) + "," + (npc.y / 16).toFixed(1));
+        }
+      }
+    });
+  });
   if (!map.edgeInsets || !map.edgeInsets.length) fail("the map has no edge-insets");
   const cinderWest = map.edgeInsets.find((box) => box.side === "w" && box.inset === 6 && box.x === 127);
   if (!cinderWest) fail("Cinderstep west shore inset is not 6px in the map");
