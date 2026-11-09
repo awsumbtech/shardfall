@@ -49,3 +49,10 @@ SF.BattleInput.bindBattlePointer();
 if (typeof document !== "undefined") {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", SF.BattleInput.bindBattlePointer);
 }
+
+// The battle screen spawns each presentation object once. The object
+// owns its event and its lifetime after that.
+if (SF.ShakeFx) SF.ShakeFx.attach();
+if (SF.SlashTrail) SF.SlashTrail.attach();
+if (SF.HitFlash) SF.HitFlash.attach();
+if (SF.KillFreeze) SF.KillFreeze.attach();

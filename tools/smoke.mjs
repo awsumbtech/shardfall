@@ -18,13 +18,18 @@ const FIELD_DRAW = [
   "js/draw/minimap.js",
   "js/draw.js"
 ];
+const BATTLE_FX = [
+  "js/battle/fx/shake.js",
+  "js/battle/fx/slash-trail.js",
+  "js/battle/fx/kill-freeze.js",
+  "js/battle/fx/hit-flash.js"
+];
 const BATTLE_DRAW = [
   "js/battle/gfx.js",
   "js/battle/stage.js",
   "js/battle/hud.js",
-  "js/battle/input.js",
-  "js/battle/draw.js"
-];
+  "js/battle/input.js"
+].concat(BATTLE_FX, ["js/battle/draw.js"]);
 
 function readSources(files) {
   return files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
@@ -2179,7 +2184,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.32"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.33"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2483,8 +2488,14 @@ await runAssetChecks();
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
+runHitFeelChecks();
+
 const battleParity = spawnSync(process.execPath, ["tools/battle-parity.mjs"], { stdio: "inherit", env: childEnv });
 if (battleParity.status !== 0) process.exit(battleParity.status || 1);
+const parityBaseline = JSON.parse(fs.readFileSync("tools/battle-parity-baseline.json", "utf8"));
+if (!parityBaseline.cases || parityBaseline.cases.length !== 270) {
+  fail("seeded battle parity is not 270 cases");
+}
 
 const stickFingers = spawnSync(process.execPath, ["tools/stick-two-finger.mjs"], { stdio: "inherit", env: childEnv });
 if (stickFingers.status !== 0) process.exit(stickFingers.status || 1);
@@ -2502,11 +2513,240 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
   console.log("sky mask check skipped (no atlas on disk)");
 }
 
+function runHitFeelChecks() {
+  const clocks = { n: 0 };
+  const feel = {};
+  feel.window = feel;
+  feel.console = console;
+  feel.setTimeout = function () { clocks.n += 1; return clocks.n; };
+  feel.clearTimeout = function () {};
+  feel.setInterval = function () { clocks.n += 1; return clocks.n; };
+  feel.clearInterval = function () {};
+  feel.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  feel.document = {
+    readyState: "complete",
+    getElementById: () => null,
+    addEventListener() {},
+    createElement() { return { getContext: () => null, width: 0, height: 0 }; }
+  };
+  feel.Art = { battleBg() {}, sprite() {}, calm() { return false; } };
+  feel.performance = { now: () => 0 };
+  vm.createContext(feel);
+  const files = [
+    "js/data.js", "js/data/skills.js", "js/data/items.js", "js/data/party.js",
+    "js/data/enemies.js", "js/data/encounters.js", "js/dialogue.js",
+    "js/audio.js", "js/music.js", "js/sfx.js", "js/save.js", "js/sim.js",
+    "js/battle/events.js", "js/battle/formula.js", "js/battle/state.js",
+    "js/battle/timeline.js", "js/battle/ai.js", "js/battle/rewards.js",
+    "js/battle/feel.js", "js/battle/resolver.js", "js/battle/battle.js",
+    "js/draw/deps.js",
+    "js/battle/renderer.js", "js/battle/audio.js"
+  ].concat(BATTLE_DRAW);
+  files.forEach((file) => {
+    vm.runInContext(fs.readFileSync(file, "utf8"), feel, { filename: file });
+  });
+  const L = feel.SF;
+  if (!L.ShakeFx || !L.SlashTrail || !L.KillFreeze || !L.HitFlash) fail("hit objects did not load");
+  ["ShakeFx", "SlashTrail", "KillFreeze", "HitFlash"].forEach((name) => {
+    if (L[name].owner !== name) fail(name + " owner");
+    if (!L[name]._attached) fail(name + " was not spawned from the battle screen");
+  });
+  if (L.BattleFeel.FLASH_TINT !== 0.35 || L.BattleFeel.FLASH_TINT_MS !== 100) fail("soft tint was recolored");
+  if (L.BattleFeel.HIT_PAUSE_MS !== 60) fail("normal hit pause changed");
+  const frame = L.BattleFeel.FRAME_MS / 1000;
+  let clock = 100000;
+  L.BattleFeel.now = function () { return clock; };
+  const play = L.fresh();
+  play.mode = "play";
+  L.state = play;
+  L.ensureParty(play);
+  L.Battle.instant = false;
+  L.reduceMotion = false;
+  L.Battle.rngSeed = 4;
+  if (!L.Battle.start("em_wisps")) fail("hit feel battle did not start");
+  const b = play.battle;
+  const hero = b.actors.find((a) => a.side === "party");
+  const foes = b.actors.filter((a) => a.side === "foe");
+  const foe = foes[0];
+  const other = foes[1];
+  foes.forEach((actor) => { actor.hp = actor.maxHp; actor.alive = true; });
+  hero.sp = hero.maxSp;
+  b.phase = "menu";
+  b.actorId = hero.id;
+  b.hitPause = 0;
+  L.ShakeFx.clear();
+  L.SlashTrail.clear();
+  L.HitFlash.clear();
+  L.KillFreeze.clear();
+
+  const expected = L.BattleFormula.damage(hero, foe, L.SKILLS.attack).amount;
+  foe.hp = 80;
+  if (!L.Battle.playerAct({ type: "skill", skillId: "attack", targetId: foe.id })) fail("physical attack did not act");
+  if (80 - foe.hp !== expected) fail("physical damage changed (" + (80 - foe.hp) + " vs " + expected + ")");
+  if (b.hitPause > frame * 5) fail("a normal hit took the killing-blow hold (" + b.hitPause + ")");
+  if (L.ShakeFx.live.length !== 1 || L.ShakeFx.live[0].kind !== "hit" || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_PX) {
+    fail("shake did not spawn on a damaging hit");
+  }
+  if (L.ShakeFx.live[0].frames !== L.BattleFeel.SHAKE_FRAMES) fail("shake frame count");
+  const hitOff = L.ShakeFx.sample();
+  if (Math.abs(hitOff.x) !== L.BattleFeel.SHAKE_PX) fail("shake offset " + hitOff.x);
+  if (L.HitFlash.live.length !== 1 || L.HitFlash.live[0].id !== foe.id) fail("hit flash missed the target");
+  if (L.HitFlash.live[0].frames !== 2 || L.HitFlash.live[0].alpha !== 1) fail("hit flash was not a full white 2-frame blink");
+  if (L.SlashTrail.live.length !== 1 || L.SlashTrail.live[0].actorId !== hero.id) fail("slash did not attach to the attacker");
+  if (L.KillFreeze.live.length || L.KillFreeze.slowing) fail("a normal hit froze like a kill");
+
+  b.phase = "menu";
+  b.actorId = hero.id;
+  hero.sp = hero.maxSp;
+  const beforeSpell = foe.hp;
+  if (!L.Battle.playerAct({ type: "skill", skillId: "shard_bolt", targetId: foe.id })) fail("spell did not act");
+  if (!(foe.hp < beforeSpell)) fail("spell damage changed");
+  if (L.SlashTrail.live.length) fail("a spell left a slash trail");
+  if (!L.ShakeFx.live.length || L.ShakeFx.live[0].kind !== "hit") fail("a damaging spell did not shake");
+  if (!L.HitFlash.live.some((row) => row.id === foe.id)) fail("a damaging spell did not flash");
+
+  b.phase = "menu";
+  b.actorId = hero.id;
+  hero.sp = hero.maxSp;
+  L.ShakeFx.clear();
+  L.HitFlash.clear();
+  L.SlashTrail.clear();
+  if (!L.Battle.playerAct({ type: "skill", skillId: "mend", targetId: hero.id })) fail("heal did not act");
+  if (L.ShakeFx.live.length || L.HitFlash.live.length || L.SlashTrail.live.length) fail("a heal spawned hit effects");
+  L.BattleEvents.emit("action", { actorId: hero.id, action: { type: "item", itemId: "ember_salt" } });
+  if (L.SlashTrail.live.length) fail("an item spawned a slash");
+  L.BattleEvents.emit("hit", { tgt: foe.id, amount: 0 });
+  if (L.ShakeFx.live.length || L.HitFlash.live.length) fail("a zero-damage hit spawned effects");
+
+  L.ShakeFx.clear();
+  L.BattleEvents.emit("crit-ready", {});
+  L.BattleEvents.emit("hit", { src: hero.id, tgt: foe.id, amount: 4 });
+  if (!L.ShakeFx.live.length || L.ShakeFx.live[0].kind !== "crit" || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_CRIT_PX) {
+    fail("crit-ready did not enlarge the shake");
+  }
+  if (!(L.ShakeFx.live[0].px > L.BattleFeel.SHAKE_PX)) fail("a crit was not bigger than a hit");
+  L.ShakeFx.clear();
+  L.BattleEvents.emit("hit", { src: hero.id, tgt: foe.id, amount: 4, crit: true });
+  if (!L.ShakeFx.live.length || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_CRIT_PX) fail("crit flag did not enlarge the shake");
+  L.ShakeFx.spawn("hit");
+  if (L.ShakeFx.live[0].kind !== "crit") fail("a later hit replaced a stronger shake");
+
+  foe.hp = 1;
+  foe.alive = true;
+  b.phase = "menu";
+  b.actorId = hero.id;
+  b.hitPause = 0;
+  hero.sp = hero.maxSp;
+  if (!L.Battle.playerAct({ type: "skill", skillId: "attack", targetId: foe.id })) fail("killing blow did not act");
+  if (foe.hp !== 0 || foe.alive) fail("killing blow did not defeat");
+  if (other.alive !== true) fail("the other foe was removed");
+  if (!L.ShakeFx.live.length || L.ShakeFx.live[0].kind !== "kill" || L.ShakeFx.live[0].px !== L.BattleFeel.SHAKE_KILL_PX) {
+    fail("killing blow shake");
+  }
+  if (!(L.ShakeFx.live[0].px > L.BattleFeel.SHAKE_CRIT_PX)) fail("a kill was not bigger than a crit");
+  if (L.KillFreeze.live.length !== 1 || L.KillFreeze.holdFrames !== L.BattleFeel.KILL_FREEZE_FRAMES) fail("kill freeze did not spawn");
+  if (!L.KillFreeze.slowing) fail("kill freeze did not arm slow-motion");
+  if (b.hitPause < L.BattleFeel.KILL_FREEZE_FRAMES * frame - 0.0001) fail("kill hold was " + b.hitPause);
+  if (!L.SlashTrail.live.length) fail("the killing swing had no slash");
+  const held = b.hitPause;
+  b.hitPause = 0;
+  const slowed = L.KillFreeze.scale(b, 0.05);
+  if (!(slowed > 0 && slowed < 0.05 * 0.5)) fail("slow-motion ease was " + slowed);
+  b.hitPause = held;
+
+  const flashBorn = L.HitFlash.live.length ? L.HitFlash.live[0].born : clock;
+  clock = flashBorn + L.BattleFeel.HIT_FLASH_FRAMES * L.BattleFeel.FRAME_MS;
+  L.HitFlash.sweep();
+  if (L.HitFlash.live.length) fail("hit flash leaked past 2 frames");
+  clock = flashBorn + L.BattleFeel.SHAKE_KILL_FRAMES * L.BattleFeel.FRAME_MS;
+  L.ShakeFx.sweep();
+  if (L.ShakeFx.live.length) fail("shake leaked past its frames");
+  clock = flashBorn + L.BattleFeel.SLASH_FRAMES * L.BattleFeel.FRAME_MS;
+  L.SlashTrail.sweep();
+  if (L.SlashTrail.live.length) fail("slash trail leaked past the swing");
+  clock = flashBorn + (L.BattleFeel.KILL_FREEZE_FRAMES + L.BattleFeel.KILL_SLOW_FRAMES) * L.BattleFeel.FRAME_MS;
+  L.KillFreeze.sweep();
+  if (L.KillFreeze.live.length) fail("kill freeze leaked past the ease");
+
+  L.reduceMotion = true;
+  other.hp = 1;
+  other.alive = true;
+  b.phase = "menu";
+  b.actorId = hero.id;
+  b.hitPause = 0;
+  hero.sp = hero.maxSp;
+  L.ShakeFx.clear();
+  L.HitFlash.clear();
+  L.SlashTrail.clear();
+  L.KillFreeze.clear();
+  if (!L.Battle.playerAct({ type: "skill", skillId: "attack", targetId: other.id })) fail("reduced kill did not act");
+  if (L.ShakeFx.live.length) fail("reduced motion still shook");
+  if (!L.ShakeFx.reduced) fail("shake was not disabled under reduced motion");
+  if (L.ShakeFx.sample().x !== 0 || L.ShakeFx.sample().y !== 0) fail("reduced shake offset");
+  if (!L.HitFlash.live.length || !(L.HitFlash.live[0].alpha < 1)) fail("reduced hit flash was not kept quieter");
+  if (L.HitFlash.live[0].frames !== 2) fail("reduced hit flash dropped its frames");
+  if (!L.SlashTrail.live.length || !(L.SlashTrail.live[0].alpha < L.BattleFeel.SLASH_ALPHA)) fail("reduced slash was not kept quieter");
+  if (L.KillFreeze.slowing) fail("reduced motion still slowed time");
+  if (L.KillFreeze.holdFrames !== L.BattleFeel.KILL_FREEZE_REDUCED_FRAMES) fail("reduced kill stop was " + L.KillFreeze.holdFrames);
+  if (!(b.hitPause > 0) || b.hitPause > L.BattleFeel.KILL_FREEZE_REDUCED_FRAMES * frame + 0.0001) {
+    fail("reduced kill stop length " + b.hitPause);
+  }
+  if (L.KillFreeze.scale(b, 0.05) !== 0.05) fail("reduced motion scaled the clock");
+
+  L.reduceMotion = false;
+  feel.matchMedia = function () { return { matches: true }; };
+  L.ShakeFx.clear();
+  L.KillFreeze.clear();
+  L.HitFlash.clear();
+  L.SlashTrail.clear();
+  L.BattleEvents.emit("action", { actorId: hero.id, action: { type: "skill", skillId: "attack" } });
+  L.BattleEvents.emit("hit", { src: hero.id, tgt: hero.id, amount: 6, crit: true });
+  L.BattleEvents.emit("kill", { src: hero.id, tgt: hero.id });
+  if (L.ShakeFx.live.length) fail("prefers-reduced-motion still shook");
+  if (L.KillFreeze.slowing || L.KillFreeze.holdFrames !== 2) fail("prefers-reduced-motion slow-mo");
+  if (!L.HitFlash.live.length || !(L.HitFlash.live[0].alpha < 1)) fail("prefers-reduced-motion dropped the flash");
+  if (!L.SlashTrail.live.length || !(L.SlashTrail.live[0].alpha < L.BattleFeel.SLASH_ALPHA)) fail("prefers-reduced-motion dropped the slash");
+  feel.matchMedia = function () { return { matches: false }; };
+
+  L.Battle.instant = true;
+  b.hitPause = 0;
+  L.KillFreeze.clear();
+  L.BattleEvents.emit("kill", { src: hero.id, tgt: foe.id });
+  L.BattleEvents.emit("hit-pause", { ms: 60 });
+  if (b.hitPause !== 0) fail("an instant battle took a kill hold");
+  if (L.KillFreeze.slowing) fail("an instant battle armed slow-motion");
+  if (!L.KillFreeze.live.length) fail("an instant kill did not spawn the freeze object");
+
+  const fake = {
+    setTransform() {}, save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {},
+    arcTo() {}, closePath() {}, fill() {}, stroke() {}, rect() {}, clip() {},
+    fillRect() {}, strokeRect() {}, fillText() {}, translate() {}, ellipse() {}, arc() {},
+    drawImage() {},
+    measureText(t) { return { width: String(t || "").length * 7 }; },
+    imageSmoothingEnabled: false
+  };
+  L.drawBattle(fake, 844, 390, 1);
+
+  b.phase = "result";
+  if (!b.result) b.result = { win: true, fled: false, xp: 0, gold: 0, items: [], levels: [] };
+  L.Battle.confirmResult();
+  if (play.battle) fail("battle did not end");
+  ["ShakeFx", "SlashTrail", "HitFlash", "KillFreeze"].forEach((name) => {
+    const fx = L[name];
+    if (fx.live.length) fail(name + " leaked after the battle");
+    if (fx.timers.length) fail(name + " left a timer");
+  });
+  if (clocks.n !== 0) fail("hit feel started " + clocks.n + " timers");
+}
+
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.32"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.33"')) fail("version was not bumped");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
+  }
+  if (!dataJs.includes("Hits land harder: screen shake, slash trails, a white hit flash, and a dramatic freeze on the killing blow.")) {
+    fail("whats new hit feel line");
   }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
@@ -2519,7 +2759,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.32")) fail("html version");
+  if (!html.includes("v0.4.33")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }

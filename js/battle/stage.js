@@ -473,6 +473,8 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH, dock) {
     });
   });
   drawBattleFx(ctx, b, spots);
+  // SlashTrail and HitFlash read this layout from their own paint.
+  return { foes: foeSpots, party: partySpots };
 }
 
 var FX = {
