@@ -39,6 +39,9 @@ SF.BattleFormula = {
     }
     if (target.guard) raw = Math.round(raw * 0.5);
     raw = Math.max(1, raw);
+    if (SF.tune && typeof SF.tune.damageScale === "number" && SF.tune.damageScale !== 1) {
+      raw = Math.max(1, Math.round(raw * SF.tune.damageScale));
+    }
     return { amount: raw, element: element || "", note: note };
   },
 

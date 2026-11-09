@@ -23,11 +23,17 @@
     return feel().FRAME_MS > 0 ? feel().FRAME_MS : 1000 / 60;
   }
 
+  function shakePx() {
+    if (SF.tune && typeof SF.tune.shakePx === "number") return SF.tune.shakePx;
+    return feel().SHAKE_PX || 3;
+  }
+
   function spec(kind) {
     var f = feel();
-    if (kind === "kill") return { px: f.SHAKE_KILL_PX || 8, frames: f.SHAKE_KILL_FRAMES || 14 };
-    if (kind === "crit") return { px: f.SHAKE_CRIT_PX || 5, frames: f.SHAKE_CRIT_FRAMES || 12 };
-    return { px: f.SHAKE_PX || 3, frames: f.SHAKE_FRAMES || 10 };
+    var px = shakePx();
+    if (kind === "kill") return { px: px * 8 / 3, frames: f.SHAKE_KILL_FRAMES || 14 };
+    if (kind === "crit") return { px: px * 5 / 3, frames: f.SHAKE_CRIT_FRAMES || 12 };
+    return { px: px, frames: f.SHAKE_FRAMES || 10 };
   }
 
   SF.ShakeFx = {

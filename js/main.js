@@ -73,6 +73,8 @@ SF.prepareAssets = function () {
 };
 
 SF.boot = function () {
+  if (SF.TuningConfig) SF.TuningConfig.attach();
+  if (SF.TuningDrawer) SF.TuningDrawer.attach();
   if (window.Art && Art.wantsGallery && Art.wantsGallery()) {
     Art.openGallery();
     return;

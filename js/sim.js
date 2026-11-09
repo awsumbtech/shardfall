@@ -658,7 +658,7 @@ SF.dashLanding = function (x0, y0, x1, y1) {
 
 SF.startDash = function (p) {
   if (p.dashCd > 0 || p.dashT > 0) return false;
-  var speed = p.shardstep ? SF.DASH_SPEED_PLUS : SF.DASH_SPEED;
+  var speed = p.shardstep ? SF.DASH_SPEED_PLUS : (SF.tune && typeof SF.tune.dashSpeed === "number" ? SF.tune.dashSpeed : SF.DASH_SPEED);
   if (!p.shardstep && SF.state && SF.state.upgrades && SF.state.upgrades.longstep) speed *= SF.LONGSTEP || 1;
   var dirx = p.fx || 0;
   var diry = p.fy || 0;
@@ -1368,7 +1368,7 @@ SF.updatePlayer = function (dt) {
         var guided = SF.guideRope(p.x, p.y, nx, ny);
         if (guided) { nx = guided.x; ny = guided.y; }
       }
-      var sp = 150 * Math.min(1, mag);
+      var sp = (SF.tune && typeof SF.tune.walkSpeed === "number" ? SF.tune.walkSpeed : 150) * Math.min(1, mag);
       if (p.swinging && p.swingT < 0.16) sp *= 0.55;
       p.x += nx * sp * dt;
       p.y += ny * sp * dt;
