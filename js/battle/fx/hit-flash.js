@@ -1,9 +1,10 @@
 "use strict";
 
-// HitFlash turns the target pure white for a couple of frames.
-// It is a second layer on top of the soft tint in BattleStage.
+// HitFlash records a damaging hit on the target for a couple of frames.
 // It does not read FLASH_TINT, and it does not change that tint.
-// A heal does not flash. Reduced motion keeps the flash at a lower alpha.
+// A white-flash sprite is not in this repo. This object does not recolor
+// the actor and does not fill a rectangle in its place.
+// A heal does not flash. Reduced motion keeps the record at a lower alpha.
 
 (function () {
   function feel() { return SF.BattleFeel || {}; }
@@ -18,15 +19,6 @@
 
   function frameMs() {
     return feel().FRAME_MS > 0 ? feel().FRAME_MS : 1000 / 60;
-  }
-
-  function findSpot(list, id) {
-    var i;
-    if (!list) return null;
-    for (i = 0; i < list.length; i++) {
-      if (list[i].actor && list[i].actor.id === id) return list[i];
-    }
-    return null;
   }
 
   SF.HitFlash = {
@@ -104,79 +96,10 @@
       SF.HitFlash.live = next;
     },
 
-    paint: function (ctx, b, foes, party) {
+    // The flash record stays on the target id. Painting waits on a real
+    // flash sprite. None is in the tree, so this does not touch the canvas.
+    paint: function () {
       SF.HitFlash.sweep();
-      if (!ctx || !SF.HitFlash.live.length || !b) return;
-      var i;
-      for (i = 0; i < SF.HitFlash.live.length; i++) {
-        SF.HitFlash.paintOne(ctx, b, SF.HitFlash.live[i], foes, party);
-      }
-    },
-
-    paintOne: function (ctx, b, row, foes, party) {
-      var spot = findSpot(foes, row.id) || findSpot(party, row.id);
-      if (!spot || !spot.actor || !spot.hit) return;
-      var actor = spot.actor;
-      var nudge = SF.BattleGfx && SF.BattleGfx.actorNudge ? SF.BattleGfx.actorNudge(b, actor) : { x: 0, y: 0 };
-      if (SF.HitFlash.paintSprite(ctx, b, spot, actor, nudge, row.alpha)) return;
-      if (!ctx.fillRect) return;
-      ctx.save();
-      ctx.globalAlpha = row.alpha;
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(
-        Math.round(spot.hit.x + nudge.x),
-        Math.round(spot.hit.y + nudge.y),
-        Math.max(1, Math.round(spot.hit.w)),
-        Math.max(1, Math.round(spot.hit.h))
-      );
-      ctx.restore();
-    },
-
-    // Redraws the target into a scratch and keeps only its opaque pixels,
-    // filled white. The soft tint underneath is a different draw.
-    paintSprite: function (ctx, b, spot, actor, nudge, alpha) {
-      if (!ctx || !ctx.drawImage || typeof document === "undefined" || !document.createElement) return false;
-      var hit = spot.hit;
-      if (!(hit.w > 0) || !(hit.h > 0)) return false;
-      var pad = 2;
-      var w = Math.ceil(hit.w) + pad * 2;
-      var h = Math.ceil(hit.h) + pad * 2;
-      if (w > 800 || h > 800) return false;
-      var scratch = SF.HitFlash._scratch;
-      if (!scratch) {
-        scratch = document.createElement("canvas");
-        SF.HitFlash._scratch = scratch;
-      }
-      if (!scratch || !scratch.getContext) return false;
-      if (scratch.width !== w) scratch.width = w;
-      if (scratch.height !== h) scratch.height = h;
-      var sctx = scratch.getContext("2d");
-      if (!sctx || !sctx.setTransform || !sctx.clearRect || !sctx.fillRect) return false;
-      sctx.setTransform(1, 0, 0, 1, 0, 0);
-      sctx.globalCompositeOperation = "source-over";
-      sctx.globalAlpha = 1;
-      sctx.clearRect(0, 0, w, h);
-      sctx.imageSmoothingEnabled = false;
-      var pose = SF.BattleGfx.battlePose(b, actor);
-      var facing = actor.side === "party" ? "left" : "right";
-      SF.BattleGfx.drawSprite(
-        sctx,
-        actor.sprite,
-        spot.x - hit.x + pad,
-        spot.feet - hit.y + pad,
-        spot.scale,
-        pose,
-        facing
-      );
-      sctx.globalCompositeOperation = "source-in";
-      sctx.fillStyle = "#fff";
-      sctx.fillRect(0, 0, w, h);
-      sctx.globalCompositeOperation = "source-over";
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(scratch, Math.round(hit.x + nudge.x - pad), Math.round(hit.y + nudge.y - pad));
-      ctx.restore();
-      return true;
     },
 
     clear: function () {

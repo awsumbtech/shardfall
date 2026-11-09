@@ -1,10 +1,12 @@
 "use strict";
 
-// SlashTrail draws the arc of a physical swing and parents it to the attacker.
+// SlashTrail records a physical swing and parents that record to the attacker.
 // A spell, a heal, an item, or a non-attack command does not get one.
-// The arc is removed when the swing time ends. It does not change damage,
-// pose selection, or the elemental sparks already on the stage.
-// Reduced motion: the arc stays, shorter and fainter.
+// The record is removed when the swing time ends.
+// There is no slash-arc image in this repo. art/fx-tiles.png is a flat shadow
+// stamp and art/meta-tiles.png is solid debug color. Neither is a slash.
+// This object does not stroke, plot, or build a bitmap in its place.
+// Reduced motion: the record stays, and its stored alpha is lower.
 
 (function () {
   function feel() { return SF.BattleFeel || {}; }
@@ -34,15 +36,6 @@
     if (skill.mag || skill.heal || skill.scan || skill.defUp || skill.spdUp || skill.steal) return false;
     if (!(skill.power > 0) && skill.id !== "attack") return false;
     return true;
-  }
-
-  function findSpot(list, id) {
-    var i;
-    if (!list) return null;
-    for (i = 0; i < list.length; i++) {
-      if (list[i].actor && list[i].actor.id === id) return list[i];
-    }
-    return null;
   }
 
   SF.SlashTrail = {
@@ -122,58 +115,10 @@
       }
     },
 
-    paint: function (ctx, b, foes, party) {
+    // The swing is still attached to the attacker id on the live record.
+    // Painting waits on a real slash sprite. None is in the tree.
+    paint: function () {
       SF.SlashTrail.sweep();
-      if (!ctx || !SF.SlashTrail.live.length || !b) return;
-      var i;
-      for (i = 0; i < SF.SlashTrail.live.length; i++) {
-        SF.SlashTrail.paintOne(ctx, b, SF.SlashTrail.live[i], foes, party);
-      }
-    },
-
-    paintOne: function (ctx, b, row, foes, party) {
-      var spot = findSpot(party, row.actorId) || findSpot(foes, row.actorId);
-      if (!spot || !spot.actor) return;
-      var ms = frameMs();
-      var dur = Math.max(1, row.frames * ms);
-      var p = Math.max(0, Math.min(1, (now() - row.born) / dur));
-      var fade = 1 - p;
-      if (!(fade > 0.02)) return;
-      var actor = spot.actor;
-      var nudge = SF.BattleGfx && SF.BattleGfx.actorNudge ? SF.BattleGfx.actorNudge(b, actor) : { x: 0, y: 0 };
-      var forward = actor.side === "party" ? -1 : 1;
-      var h = spot.hit && spot.hit.h ? spot.hit.h : 40;
-      var radius = Math.max(22, h * 0.62);
-      if (row.reduced) radius *= 0.55;
-      var ox = spot.x + nudge.x + forward * Math.max(8, h * 0.16);
-      var oy = spot.feet + nudge.y - h * 0.58;
-      var steps = 7;
-      var pts = [];
-      var s;
-      for (s = 0; s <= steps; s++) {
-        var u = s / steps;
-        var along = (u - 0.5) * radius * 1.35;
-        var bulge = Math.sin(u * Math.PI) * radius;
-        pts.push({ x: Math.round(ox + forward * bulge), y: Math.round(oy + along) });
-      }
-      if (!ctx.beginPath || !ctx.moveTo || !ctx.lineTo || !ctx.stroke) return;
-      ctx.save();
-      ctx.globalAlpha = row.alpha * fade;
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (s = 1; s < pts.length; s++) ctx.lineTo(pts[s].x, pts[s].y);
-      ctx.strokeStyle = "#ffe7a8";
-      ctx.lineWidth = row.reduced ? 2 : 5;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (s = 1; s < pts.length; s++) ctx.lineTo(pts[s].x, pts[s].y);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = row.reduced ? 1 : 2;
-      ctx.stroke();
-      ctx.restore();
     },
 
     clear: function () {
