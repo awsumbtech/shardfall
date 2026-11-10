@@ -1,0 +1,6 @@
+node_modules/
+dist/
+src/tiled/emberhold.tmx
+src/tiled/emberhold-full.tmx
+src/tiled/tilesets/
+.vite/

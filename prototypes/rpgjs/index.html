@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Shardfall RPG-JS spike</title>
+  <style>
+    html, body, #rpg {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #14202a;
+      touch-action: none;
+    }
+    #readout {
+      position: fixed;
+      left: 8px;
+      top: 8px;
+      z-index: 30;
+      max-width: min(520px, calc(100vw - 16px));
+      color: #f3e6d0;
+      font: 13px/1.45 ui-sans-serif, system-ui, sans-serif;
+      background: rgba(8, 10, 14, 0.72);
+      padding: 6px 8px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="rpg"></div>
+  <p id="readout" data-x="" data-y="" data-kept-x="" data-kept-y="" data-note="loading">loading Emberhold</p>
+  <script type="module" src="/src/standalone.ts"></script>
+</body>
+</html>

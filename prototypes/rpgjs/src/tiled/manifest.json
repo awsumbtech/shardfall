@@ -1,0 +1,207 @@
+{
+  "source": "maps/emberhold.tmj",
+  "copiedFrom": "js/content/maps/emberhold.tmj",
+  "full": "src/tiled/emberhold-full.tmx",
+  "playable": "src/tiled/emberhold.tmx",
+  "note": "emberhold-full.tmx keeps every layer and tileset. Its Kenmi images are not in the repo; the client stops before drawing if the first tileset 404s. emberhold.tmx is the map the scene actually runs: Kenmi gids cleared, missing tilesets omitted, empty layers dropped, and the invisible collision/height/paths layers left only in the full file because the renderer repaints every nonzero tile every frame.",
+  "tilesets": [
+    {
+      "name": "kenmi-grass",
+      "firstgid": 1,
+      "tilecount": 160,
+      "columns": 16,
+      "lastgid": 160,
+      "tsx": "tilesets/kenmi-grass.tsx",
+      "image": "images/missing/kenmi-grass.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_1.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-grassMid",
+      "firstgid": 161,
+      "tilecount": 1,
+      "columns": 1,
+      "lastgid": 161,
+      "tsx": "tilesets/kenmi-grassMid.tsx",
+      "image": "images/missing/kenmi-grassMid.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-pathMid",
+      "firstgid": 162,
+      "tilecount": 1,
+      "columns": 1,
+      "lastgid": 162,
+      "tsx": "tilesets/kenmi-pathMid.tsx",
+      "image": "images/missing/kenmi-pathMid.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-pathDecor",
+      "firstgid": 163,
+      "tilecount": 3,
+      "columns": 3,
+      "lastgid": 165,
+      "tsx": "tilesets/kenmi-pathDecor.tsx",
+      "image": "images/missing/kenmi-pathDecor.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Decoration.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-stone",
+      "firstgid": 166,
+      "tilecount": 84,
+      "columns": 14,
+      "lastgid": 249,
+      "tsx": "tilesets/kenmi-stone.tsx",
+      "image": "images/missing/kenmi-stone.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-volcano",
+      "firstgid": 250,
+      "tilecount": 261,
+      "columns": 29,
+      "lastgid": 510,
+      "tsx": "tilesets/kenmi-volcano.tsx",
+      "image": "images/missing/kenmi-volcano.png",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-bridge",
+      "firstgid": 511,
+      "tilecount": 36,
+      "columns": 9,
+      "lastgid": 546,
+      "tsx": "tilesets/kenmi-bridge.tsx",
+      "image": "images/missing/kenmi-bridge.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Bridge/Bridge_Wood.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-grass2",
+      "firstgid": 547,
+      "tilecount": 160,
+      "columns": 16,
+      "lastgid": 706,
+      "tsx": "tilesets/kenmi-grass2.tsx",
+      "image": "images/missing/kenmi-grass2.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_2.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-grass2Mid",
+      "firstgid": 707,
+      "tilecount": 1,
+      "columns": 1,
+      "lastgid": 707,
+      "tsx": "tilesets/kenmi-grass2Mid.tsx",
+      "image": "images/missing/kenmi-grass2Mid.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_2_Middle.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-grass3",
+      "firstgid": 708,
+      "tilecount": 160,
+      "columns": 16,
+      "lastgid": 867,
+      "tsx": "tilesets/kenmi-grass3.tsx",
+      "image": "images/missing/kenmi-grass3.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_3.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-grass3Mid",
+      "firstgid": 868,
+      "tilecount": 1,
+      "columns": 1,
+      "lastgid": 868,
+      "tsx": "tilesets/kenmi-grass3Mid.tsx",
+      "image": "images/missing/kenmi-grass3Mid.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_3_Middle.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-odecor",
+      "firstgid": 869,
+      "tilecount": 234,
+      "columns": 9,
+      "lastgid": 1102,
+      "tsx": "tilesets/kenmi-odecor.tsx",
+      "image": "images/missing/kenmi-odecor.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-flowers",
+      "firstgid": 1103,
+      "tilecount": 100,
+      "columns": 10,
+      "lastgid": 1202,
+      "tsx": "tilesets/kenmi-flowers.tsx",
+      "image": "images/missing/kenmi-flowers.png",
+      "original": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-vrocks",
+      "firstgid": 1203,
+      "tilecount": 72,
+      "columns": 8,
+      "lastgid": 1274,
+      "tsx": "tilesets/kenmi-vrocks.tsx",
+      "image": "images/missing/kenmi-vrocks.png",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Volcano_Props/Volcano_Rocks.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-vplants",
+      "firstgid": 1275,
+      "tilecount": 42,
+      "columns": 6,
+      "lastgid": 1316,
+      "tsx": "tilesets/kenmi-vplants.tsx",
+      "image": "images/missing/kenmi-vplants.png",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Volcano_Props/Volcano_Plants.png",
+      "present": false
+    },
+    {
+      "name": "kenmi-fx",
+      "firstgid": 1317,
+      "tilecount": 4,
+      "columns": 4,
+      "lastgid": 1320,
+      "tsx": "tilesets/kenmi-fx.tsx",
+      "image": "images/fx-tiles.png",
+      "original": "art/fx-tiles.png",
+      "present": true
+    },
+    {
+      "name": "kenmi-volcanoDim",
+      "firstgid": 1321,
+      "tilecount": 261,
+      "columns": 29,
+      "lastgid": 1581,
+      "tsx": "tilesets/kenmi-volcanoDim.tsx",
+      "image": "images/missing/kenmi-volcanoDim.png",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png",
+      "present": false
+    },
+    {
+      "name": "meta",
+      "firstgid": 1582,
+      "tilecount": 6,
+      "columns": 6,
+      "lastgid": 1587,
+      "tsx": "tilesets/meta.tsx",
+      "image": "images/meta-tiles.png",
+      "original": "art/meta-tiles.png",
+      "present": true
+    }
+  ]
+}
