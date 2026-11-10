@@ -8,10 +8,9 @@ const SLOT = 0;
 export function Maren(): EventDefinition {
   return {
     name: "maren",
-    async onInit() {
+    onInit() {
       this.setHitbox(16, 16);
-      const sheet = await resolveSpriteSheet("npc-maren");
-      if (sheet) this.setGraphic("npc-maren");
+      if (resolveSpriteSheet("npc-maren")) this.setGraphic("npc-maren");
     },
     async onAction(player: RpgPlayer) {
       const here = coords(player);

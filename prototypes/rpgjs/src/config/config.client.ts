@@ -1,7 +1,7 @@
 import { provideClientGlobalConfig, provideClientModules, withMobile } from "@rpgjs/client";
 import { provideTiledMap } from "@rpgjs/tiledmap/client";
 import { provideMain } from "../modules/main/index.ts";
-import { resolveSpriteSheet } from "../sprites.ts";
+import { marenSheet, resolveSpriteSheet, wayfarerSheet } from "../sprites.ts";
 
 export default {
   providers: [
@@ -14,6 +14,7 @@ export default {
         buttons: { action: true, back: true, dash: true },
       }),
       {
+        spritesheets: [wayfarerSheet(), marenSheet()],
         spritesheetResolver: resolveSpriteSheet,
         engine: {
           onStart(engine: any) {

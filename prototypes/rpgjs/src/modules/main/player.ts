@@ -3,10 +3,8 @@ import { bridgeGui } from "../../gui-bridge.ts";
 import { publish } from "../../readout.ts";
 import { resolveSpriteSheet } from "../../sprites.ts";
 
-async function graphicIfPresent(entity: { setGraphic: (id: string) => void }, id: string) {
-  const sheet = await resolveSpriteSheet(id);
-  if (!sheet) return;
-  entity.setGraphic(id);
+function useSheet(entity: { setGraphic: (id: string) => void }, id: string) {
+  if (resolveSpriteSheet(id)) entity.setGraphic(id);
 }
 
 // maren marker in the tmj is the point at 1088, 288.
@@ -19,7 +17,7 @@ export const player: RpgPlayerHooks = {
     player.name = "Wayfarer";
     bridgeGui(player);
     player.setHitbox(16, 16);
-    await graphicIfPresent(player, "wayfarer");
+    useSheet(player, "wayfarer");
     try {
       const ok = await player.changeMap("emberhold", START);
       publish(player, ok ? "map" : "map rejected");

@@ -1,74 +1,107 @@
 import { Animation, Direction } from "@rpgjs/common";
 
-// Wayfarer grid from art/atlas.config.json: 64px cells, 6 frames.
-// Rows: idle down, idle side, idle up, walk down, walk side, walk up.
-// RPG-JS RMSpritesheet maps down/left/right/up onto the first four rows, so
-// this descriptor points walk at rows 3-5 instead. Left and right share the
-// single side row. The files themselves are not in the repo yet.
-export const SHEET = {
-  cell: 64,
-  columns: 6,
-  rows: 6,
-  width: 384,
-  height: 384,
+// 16px tiles. The south stand's opaque body is 30×63 inside the 112 cell.
+// Half scale draws that body at 15×31.5 px: about 1 tile wide and 2 tiles tall.
+export const WORLD_SCALE = 0.5;
+
+// wayfarer-outfitB.png is 896×448, 8×4 cells of 112.
+// Rows are S, E, N, W. The opaque sole of the south stand is y=89, x center 56.
+// The 80×80 body pivot (40, 75) centered in the cell is (56, 91).
+const WAYFARER_CELL = 112;
+const WAYFARER_FOOT: [number, number] = [56 / WAYFARER_CELL, 90 / WAYFARER_CELL];
+const WALK_FRAMES = 8;
+const FRAME_TIME = 8;
+
+// npc-maren.png is 80×80, one south-facing stand. Opaque sole is (39, 74).
+const MAREN_SIZE = 80;
+const MAREN_FOOT: [number, number] = [39 / MAREN_SIZE, 74 / MAREN_SIZE];
+
+const WAYFARER_ROW: Record<string, number> = {
+  [Direction.Down]: 0,
+  [Direction.Right]: 1,
+  [Direction.Up]: 2,
+  [Direction.Left]: 3,
 };
 
-const SLOTS: Record<string, string> = {
-  wayfarer: "wayfarer-outfitB.png",
-  "npc-maren": "npc-maren.png",
-};
-
-const resolved = new Map<string, Promise<ReturnType<typeof spritesheetFor> | undefined>>();
-
-const ROW: Record<string, { stand: number; walk: number }> = {
-  [Direction.Down]: { stand: 0, walk: 3 },
-  [Direction.Left]: { stand: 1, walk: 4 },
-  [Direction.Right]: { stand: 1, walk: 4 },
-  [Direction.Up]: { stand: 2, walk: 5 },
-};
-
-function walkFrames(row: number) {
-  const frames = [];
-  for (let column = 0; column < SHEET.columns; column += 1) {
-    frames.push({ time: column * 10, frameX: column, frameY: row });
+function frames(row: number, count: number) {
+  const timeline = [];
+  for (let column = 0; column < count; column += 1) {
+    timeline.push({
+      time: column * FRAME_TIME,
+      frameX: column,
+      frameY: row,
+    });
   }
-  frames.push({ time: SHEET.columns * 10 });
-  return frames;
+  timeline.push({ time: count * FRAME_TIME });
+  return timeline;
 }
 
-export function spritesheetFor(id: string, image: string) {
+function directionFrames(walkColumns: number) {
   return {
-    id,
-    image,
-    width: SHEET.width,
-    height: SHEET.height,
-    framesWidth: SHEET.columns,
-    framesHeight: SHEET.rows,
-    textures: {
-      [Animation.Stand]: {
-        animations: ({ direction }: { direction: string }) => {
-          const row = ROW[direction]?.stand ?? 0;
-          return [[{ time: 0, frameX: 0, frameY: row }]];
-        },
+    [Animation.Stand]: {
+      animations: ({ direction }: { direction: string }) => {
+        const row = WAYFARER_ROW[direction] ?? 0;
+        return [[{ time: 0, frameX: 0, frameY: row }]];
       },
-      [Animation.Walk]: {
-        animations: ({ direction }: { direction: string }) => {
-          const row = ROW[direction]?.walk ?? 3;
-          return [walkFrames(row)];
-        },
+    },
+    [Animation.Walk]: {
+      animations: ({ direction }: { direction: string }) => {
+        const row = WAYFARER_ROW[direction] ?? 0;
+        return [frames(row, walkColumns)];
       },
     },
   };
 }
 
+export function wayfarerSheet() {
+  return {
+    id: "wayfarer",
+    image: "wayfarer-outfitB.png",
+    width: 896,
+    height: 448,
+    framesWidth: 8,
+    framesHeight: 4,
+    rectWidth: WAYFARER_CELL,
+    rectHeight: WAYFARER_CELL,
+    scale: [WORLD_SCALE, WORLD_SCALE],
+    anchor: WAYFARER_FOOT,
+    // Local offset so the foot sits on the bottom center of the 16px hitbox.
+    x: 8,
+    y: 16,
+    textures: directionFrames(WALK_FRAMES),
+  };
+}
+
+export function marenSheet() {
+  return {
+    id: "npc-maren",
+    image: "npc-maren.png",
+    width: MAREN_SIZE,
+    height: MAREN_SIZE,
+    framesWidth: 1,
+    framesHeight: 1,
+    rectWidth: MAREN_SIZE,
+    rectHeight: MAREN_SIZE,
+    scale: [WORLD_SCALE, WORLD_SCALE],
+    anchor: MAREN_FOOT,
+    x: 8,
+    y: 16,
+    textures: {
+      [Animation.Stand]: {
+        animations: () => [[{ time: 0, frameX: 0, frameY: 0 }]],
+      },
+      [Animation.Walk]: {
+        animations: () => [[{ time: 0, frameX: 0, frameY: 0 }]],
+      },
+    },
+  };
+}
+
+const SHEETS: Record<string, ReturnType<typeof wayfarerSheet>> = {
+  wayfarer: wayfarerSheet(),
+  "npc-maren": marenSheet(),
+};
+
 export function resolveSpriteSheet(id: string) {
-  const image = SLOTS[id];
-  if (!image) return undefined;
-  const cached = resolved.get(id);
-  if (cached) return cached;
-  const pending = fetch(image, { method: "HEAD" })
-    .then((response) => response.ok ? spritesheetFor(id, image) : undefined)
-    .catch(() => undefined);
-  resolved.set(id, pending);
-  return pending;
+  return SHEETS[id];
 }

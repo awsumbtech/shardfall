@@ -63,14 +63,21 @@ Present: `kenmi-fx` → `art/fx-tiles.png` (38 cells), `meta` → `art/meta-tile
 
 ## Sprite sheets
 
-Slots, not files:
+The PixelDoll sheets from commit `7457f94` are wired in `src/sprites.ts`. Scale is `0.5` on both. The south stand's opaque body is 30×63 inside the 112 cell, so half scale draws it at 15×31.5 px: about one 16px tile wide and two tiles tall. Maren uses the same scale, so her 45×62 opaque stand is about 22×31 px.
 
-- `assets/wayfarer-outfitB.png` — player graphic `wayfarer`
-- `assets/npc-maren.png` — event graphic `npc-maren`
+`wayfarer-outfitB.png` is 896×448, eight 112×112 frames across and four rows. Rows are S, E, N, W, mapped to `Direction.Down`, `Right`, `Up`, `Left`. Stand is frame 0 of the facing row. Walk is all eight frames of that row, 8 ticks apart. The foot anchor is `(56, 90)` in the cell, as a ratio `[0.5, 90/112]`. The opaque sole of the south stand is y=89. Centering the 80×80 body pivot `(40, 75)` in the cell lands on `(56, 91)`. The handoff's "~101" sits below the pixels, so the anchor uses the measured sole. `x: 8, y: 16` puts that anchor on the bottom center of the 16×16 hitbox.
 
-Expected grid, from `art/atlas.config.json`: 64×64, 6 columns × 6 rows. Rows are idle down, idle side, idle up, walk down, walk side, walk up. `Presets.RMSpritesheet` maps down/left/right/up onto the first four rows, so `src/sprites.ts` points walk at rows 3–5. Left and right share the single side row. There is no flip flag in that descriptor.
+`npc-maren.png` is one 80×80 south-facing stand. `framesWidth` and `framesHeight` are both 1. Stand and walk both play that single frame, so she does not turn. Her foot is `(39, 74)`.
 
-`resolveSpriteSheet` HEADs the file and returns `undefined` on 404. The game still runs. There is no drawn stand-in. The Wayfarer and Maren are invisible. A dropped-in PNG of that grid would be picked up on the next load without a code change. If the real NPC sheet is a different grid, change `SHEET` in `src/sprites.ts`.
+RPG-JS does not take a list of named rects. `framesWidth` / `framesHeight` are the column and row counts, and `rectWidth` / `rectHeight` are the cell. `textures.stand` and `textures.walk` are functions of `{ direction }` that return a timeline of `{ time, frameX, frameY }`. `scale` and `anchor` are arrays on the sheet; a bare number cannot be spread into `sprite.scale.set`. An 8-frame row works. The engine does not know the letters S/E/N/W, and it does not mirror a row: west is its own row of eight frames.
+
+A `footAnchor` field on each frame is rewritten into a new object on every animation pass and overflowed the signal stack, so the spike does not use it.
+
+`js/assets/sheet.js` is a different job. It stores one image and a grid or a list of named rectangles (`r0c0`, or clip names). The caller asks for a frame by name or index. It does not play a direction timeline, does not own stand versus walk, and does not place a foot anchor. Our field animator does that outside the sheet. RPG-JS folds the timeline, the direction, the scale, and the anchor into the sheet object.
+
+Art, not the engine: the south walk's legs barely change across the eight frames, and the west row is a mirror of the east row, so the staff swaps hands. The engine plays those frames as they are.
+
+The running map still drops the 16 missing Kenmi tilesets, so a 404 cannot abort the scene. It also marks the markers object layer visible. RPG-JS parents the sprites to each object layer and hides that layer when Tiled marks it invisible. With markers visible, the Wayfarer and Maren both draw on the empty ground.
 
 ## Event scripting
 
@@ -133,7 +140,7 @@ Borrow only where the spike actually earned it:
 | Piece | Effort | Risk | Take |
 | --- | --- | --- | --- |
 | Tiled loader (`@rpgjs/tiledmap` / `@canvasengine/tiled`) | large | high | Leave it. `js/tiles/tmjmap.js` already reads this tmj, including collision, height, and stairs. Their loader wants TMX, external TSX, a `collision` property, and `z`. |
-| Sprite-sheet system | small for the grid idea, large to adopt the renderer | low for the idea, high for the Pixi dependency | Keep `js/assets/sheet.js`. Their RM preset does not match the 6×6 Wayfarer sheet. The useful note is the row map in `src/sprites.ts`. |
+| Sprite-sheet system | small for a direction timeline, large to adopt the renderer | low for the idea, high for the Pixi dependency | Their API did take the 112px cell and the 8-frame rows, once `framesWidth` was the column count and `rectWidth` was 112. `js/assets/sheet.js` still fits our named clips better. The weak south legs and the west staff swap are in the PNG. |
 | Event scripting (`showText` / `showChoices` and the dialog box) | medium to lift the dialog, large to move `js/dialogue.js` onto their events | medium | The dialog is the part worth a second look. The socket bridge, the stack overflow, and the stuck `canMove` are the cost. |
 | Save / load slots | small to sit beside `shardfall.v1`, medium to replace it | medium | The slot write and the position restore worked. The snapshot is not our save document. |
 

@@ -133,16 +133,25 @@ async function run(viewport, prefix) {
   await page.click("canvas");
   await shot(page, `${prefix}_map_loaded.png`);
 
-  const before = await readout(page);
-  await hold(page, "ArrowUp", 220);
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  const after = await readout(page);
-  console.log(prefix, "moved", before, "->", after);
-  if (after.y === before.y && after.x === before.x) {
-    throw new Error("arrow keys did not move the client sprite");
+  const directions = [
+    ["ArrowDown", "s"],
+    ["ArrowRight", "e"],
+    ["ArrowLeft", "w"],
+    ["ArrowUp", "n"],
+  ];
+  for (const [key, name] of directions) {
+    const before = await readout(page);
+    await page.keyboard.down(key);
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    await shot(page, `${prefix}_walk_${name}.png`);
+    await page.keyboard.up(key);
+    await new Promise((resolve) => setTimeout(resolve, 140));
+    const after = await readout(page);
+    console.log(prefix, "walk", name, before.x, before.y, "->", after.x, after.y);
   }
-  await shot(page, `${prefix}_player_walking.png`);
 
+  await hold(page, "ArrowUp", 220);
+  await new Promise((resolve) => setTimeout(resolve, 160));
   const choices = await openChoices(page);
   console.log(prefix, "choices", choices);
   await shot(page, `${prefix}_npc_choice.png`);

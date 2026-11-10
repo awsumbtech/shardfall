@@ -149,7 +149,11 @@ function stripMissing(layers, missing) {
       continue;
     }
     if (layer.type === "objectgroup") {
-      kept.push(layer);
+      // RPG-JS draws players and events inside every object layer, and it
+      // hides that whole layer when Tiled marks it invisible. Markers is the
+      // layer that holds Maren. One visible copy is enough; the other object
+      // layers would stack extra copies of the same sprites.
+      if (layer.name === "markers") kept.push({ ...layer, visible: true });
       continue;
     }
     if (layer.type !== "tilelayer" || !layer.data) continue;
