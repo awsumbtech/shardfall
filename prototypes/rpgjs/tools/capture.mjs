@@ -1,5 +1,5 @@
 // Drive the built spike in headless Chrome and save the requested screenshots.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
@@ -36,6 +36,50 @@ function logPage(page, label) {
       console.log(`[${label} ${response.status()}] ${url}`);
     }
   });
+}
+
+async function wayfarerView(page, viewport) {
+  return page.evaluate((view) => {
+    const root = window.__engine?.canvasApp?.stage;
+    if (!root) return { present: false, drawn: false, reason: "no stage" };
+    let match = null;
+    const walk = (node) => {
+      if (!node || match) return;
+      const width = node.texture?.width || 0;
+      const height = node.texture?.height || 0;
+      if (node.label === "Sprite" && width === 112 && height === 112) match = node;
+      (node.children || []).forEach(walk);
+    };
+    walk(root);
+    if (!match) return { present: false, drawn: false, reason: "no 112 sprite" };
+    const bounds = match.getBounds();
+    const box = {
+      x: Math.round(bounds.x),
+      y: Math.round(bounds.y),
+      w: Math.round(bounds.width),
+      h: Math.round(bounds.height),
+    };
+    const onScreen = box.w > 0 && box.h > 0
+      && box.x < view.width && box.y < view.height
+      && box.x + box.w > 0 && box.y + box.h > 0;
+    let ancestorHidden = false;
+    let node = match;
+    while (node) {
+      if (node.visible === false || node.renderable === false) ancestorHidden = true;
+      node = node.parent;
+    }
+    const sprite = Object.values(window.__engine.sceneMap?.players?.() || {})[0];
+    const graphics = sprite && (typeof sprite.graphics === "function" ? sprite.graphics() : sprite.graphics);
+    return {
+      present: true,
+      sheet: 112,
+      graphics: graphics || null,
+      box,
+      onScreen,
+      ancestorHidden,
+      drawn: !ancestorHidden && onScreen && match.alpha > 0,
+    };
+  }, viewport);
 }
 
 async function clientPos(page) {
@@ -210,11 +254,13 @@ async function run(viewport, prefix) {
     throw new Error(`${prefix} client y did not move 48px: saved ${savedPos.y}, away ${awayPos ? awayPos.y : "none"}, dy ${awayDy}`);
   }
 
+  const awayReadout = await readout(page);
+  // Direct player.load. Maren's "Return to the kept place" choice is not clicked.
   const loadResult = await page.evaluate(async () => {
     const player = window.__spike?.player;
     if (!player || typeof player.load !== "function") return { ok: false, error: "no player.load" };
     const loaded = await player.load(0, { reason: "load", source: "capture" }, { changeMap: true });
-    return { ok: !!(loaded && loaded.ok) };
+    return { ok: !!(loaded && loaded.ok), via: "player.load" };
   });
   const restoreStart = Date.now();
   let restoredPos = null;
@@ -224,22 +270,34 @@ async function run(viewport, prefix) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   const restoreDy = restoredPos ? Math.abs(restoredPos.y - savedPos.y) : null;
-  const pass = restoreDy != null && restoreDy <= 2;
+  const positionPass = restoreDy != null && restoreDy <= 2;
+  const afterReadout = await readout(page);
+  const view = await wayfarerView(page, viewport);
+  const pass = positionPass && view.drawn === true;
   const record = {
     viewport: prefix,
     saved: savedPos,
+    savedServerY: Number(savedReadout.serverY),
     away: awayPos,
     awayDy,
+    awayServerY: Number(awayReadout.serverY),
     restored: restoredPos,
     restoreDy,
+    afterServerY: Number(afterReadout.serverY),
     loadOk: loadResult.ok,
+    loadVia: loadResult.via,
+    wayfarer: view,
+    positionPass,
     pass,
   };
   runs.push(record);
   logLine(prefix, "after load", record);
   await new Promise((resolve) => setTimeout(resolve, 400));
   await shot(page, `${prefix}_save_load.png`);
-  if (!pass) {
+  if (!view.drawn) {
+    throw new Error(`${prefix} Wayfarer is not drawn after load: ${JSON.stringify(view)}`);
+  }
+  if (!positionPass) {
     throw new Error(`${prefix} load did not restore client y within 2px: saved ${savedPos.y}, away ${awayPos.y} (dy ${awayDy}), after load ${restoredPos ? restoredPos.y : "none"} (dy ${restoreDy}), loadOk ${loadResult.ok}`);
   }
   } finally {
@@ -247,9 +305,44 @@ async function run(viewport, prefix) {
   }
 }
 
+async function captureFullMap() {
+  const full = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "map", "emberhold-full.tmx"));
+  const browser = await puppeteer.launch({
+    executablePath: chrome,
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-gl=angle", "--use-angle=swiftshader", "--enable-webgl"],
+  });
+  const page = await browser.newPage();
+  const misses = [];
+  page.on("response", (response) => {
+    const url = response.url();
+    if (response.status() >= 400 && url.includes("/map/")) misses.push(`${response.status()} ${url}`);
+  });
+  await page.setRequestInterception(true);
+  page.on("request", (request) => {
+    if (request.url().includes("/map/emberhold.tmx")) {
+      request.respond({ status: 200, contentType: "application/xml", body: full });
+      return;
+    }
+    request.continue();
+  });
+  await page.setViewport(landscape);
+  await page.goto(base, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await new Promise((resolve) => setTimeout(resolve, 2500));
+  await shot(page, "landscape_844x390_full_map_missing_kenmi.png");
+  logLine("full map misses", misses.slice(0, 6));
+  await browser.close();
+}
+
 const landscape = { width: 844, height: 390, deviceScaleFactor: 1 };
 const portrait = { width: 390, height: 844, deviceScaleFactor: 1 };
 const failures = [];
+try {
+  await captureFullMap();
+} catch (error) {
+  failures.push(error instanceof Error ? error.message : String(error));
+  logLine("full map FAILED", error instanceof Error ? error.message : String(error));
+}
 for (const [viewport, prefix] of [[landscape, "landscape_844x390"], [portrait, "portrait_390x844"]]) {
   try {
     await run(viewport, prefix);

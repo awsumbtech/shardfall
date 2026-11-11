@@ -3,44 +3,86 @@
     {
       "viewport": "landscape_844x390",
       "saved": {
-        "x": 1090,
+        "x": 1083,
         "y": 304
       },
+      "savedServerY": 304,
       "away": {
-        "x": 1090,
-        "y": 364
+        "x": 1083,
+        "y": 366
       },
-      "awayDy": 60,
+      "awayDy": 62,
+      "awayServerY": 320,
       "restored": {
-        "x": 1090,
-        "y": 364
+        "x": 1083,
+        "y": 366
       },
-      "restoreDy": 60,
+      "restoreDy": 62,
+      "afterServerY": 304,
       "loadOk": true,
+      "loadVia": "player.load",
+      "wayfarer": {
+        "present": true,
+        "sheet": 112,
+        "graphics": {
+          "0": "wayfarer"
+        },
+        "box": {
+          "x": 402,
+          "y": 166,
+          "w": 56,
+          "h": 56
+        },
+        "onScreen": true,
+        "ancestorHidden": true,
+        "drawn": false
+      },
+      "positionPass": false,
       "pass": false
     },
     {
       "viewport": "portrait_390x844",
       "saved": {
-        "x": 1091,
+        "x": 1083,
         "y": 304
       },
+      "savedServerY": 304,
       "away": {
-        "x": 1091,
-        "y": 369
+        "x": 1083,
+        "y": 366
       },
-      "awayDy": 65,
+      "awayDy": 62,
+      "awayServerY": 320,
       "restored": {
-        "x": 1091,
-        "y": 369
+        "x": 1083,
+        "y": 366
       },
-      "restoreDy": 65,
+      "restoreDy": 62,
+      "afterServerY": 304,
       "loadOk": true,
+      "loadVia": "player.load",
+      "wayfarer": {
+        "present": true,
+        "sheet": 112,
+        "graphics": {
+          "0": "wayfarer"
+        },
+        "box": {
+          "x": 175,
+          "y": 337,
+          "w": 56,
+          "h": 56
+        },
+        "onScreen": true,
+        "ancestorHidden": true,
+        "drawn": false
+      },
+      "positionPass": false,
       "pass": false
     }
   ],
   "failures": [
-    "landscape_844x390 load did not restore client y within 2px: saved 304, away 364 (dy 60), after load 364 (dy 60), loadOk true",
-    "portrait_390x844 load did not restore client y within 2px: saved 304, away 369 (dy 65), after load 369 (dy 65), loadOk true"
+    "landscape_844x390 Wayfarer is not drawn after load: {\"present\":true,\"sheet\":112,\"graphics\":{\"0\":\"wayfarer\"},\"box\":{\"x\":402,\"y\":166,\"w\":56,\"h\":56},\"onScreen\":true,\"ancestorHidden\":true,\"drawn\":false}",
+    "portrait_390x844 Wayfarer is not drawn after load: {\"present\":true,\"sheet\":112,\"graphics\":{\"0\":\"wayfarer\"},\"box\":{\"x\":175,\"y\":337,\"w\":56,\"h\":56},\"onScreen\":true,\"ancestorHidden\":true,\"drawn\":false}"
   ]
 }

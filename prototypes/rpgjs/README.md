@@ -15,4 +15,4 @@ pnpm preview
 
 Open the preview and walk with the arrow keys. The on-screen A button talks. Headless Chrome's Space key did not fire the action control. `engine.processAction({ action: "action" })` did, which is the same control as the on-screen A button. Enter advances the first line to the choices. The on-screen stick is RPG-JS's mobile controls, forced on so a desktop browser shows them. Maren is the point named `maren` on the map. The choice can keep the current place or return to it. Slot storage is `localStorage` key `shardfall-rpgjs-spike`.
 
-Sprite sheets are slots, not files. See `assets/README.md`. What carried, what broke, and what is worth borrowing is in `FINDINGS.md`.
+The sprite sheets are the committed files in `assets/`. See `assets/README.md`. What carried, what broke, and what is worth borrowing is in `FINDINGS.md`.
