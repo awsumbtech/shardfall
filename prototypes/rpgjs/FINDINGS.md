@@ -15,7 +15,7 @@ The running scene is `src/tiled/emberhold.tmx`, produced from a copy of `js/cont
 - `art/fx-tiles.png` and `art/meta-tiles.png` are the only tile images in the repo. They load. The other 16 tilesets 404.
 - Arrow keys move the client sprite one tile per press. Built-in mobile controls (stick, A, B, and a dash button labeled R here) draw in both 844×390 and 390×844.
 - `showText` / `showChoices` can show the RPG-JS dialog. Maren's three TEMP choices render. Choosing "Keep this place" calls `player.save(0)`.
-- `LocalStorageSaveStorageStrategy` wrote slot 0 under `shardfall-rpgjs-spike`. After the client sprite walked from y 304 to y 351, choosing "Return to the kept place" put the sprite back at y 304.
+- `LocalStorageSaveStorageStrategy` wrote slot 0 under `shardfall-rpgjs-spike`. Load does not restore the client sprite. Landscape saved client (1090, 304), walked to client y 364 (dy 60), and after load the client y was still 364 (dy 60) while server y was 304. Portrait saved client (1091, 304), walked to client y 369 (dy 65), and after load the client y was still 369 (dy 65) while server y was 304. `loadOk` was true in both. Numbers: `prototypes/rpgjs/evidence/capture-log.json`.
 
 ## What broke
 
@@ -93,7 +93,7 @@ Choices:
 
 ## Save and load
 
-Server: `provideSaveStorage(new LocalStorageSaveStorageStrategy({ key: "shardfall-rpgjs-spike" }))`. Client calls go through `player.save(0)` and `player.load(0)`. The slot metadata recorded `map: "emberhold"`. The snapshot included y 304 and the `keptY` variable. Load returned `{ ok: true }` and the client sprite moved from the walked-away y (351 in the portrait run, 355 in the landscape run) back to 304.
+Server: `provideSaveStorage(new LocalStorageSaveStorageStrategy({ key: "shardfall-rpgjs-spike" }))`. Client calls go through `player.save(0)` and `player.load(0)`. The slot metadata recorded `map: "emberhold"`. The snapshot included y 304 and the `keptY` variable. Load returned `{ ok: true }` and set the server player back to the saved y. It did not move the client sprite. Landscape: saved client y 304, away client y 364 (dy 60), after load client y 364 (dy 60). Portrait: saved client y 304, away client y 369 (dy 65), after load client y 369 (dy 65). Both fail the 2px check. The log is `prototypes/rpgjs/evidence/capture-log.json`. The 844×390 and 390×844 shots are the PNG files in `prototypes/rpgjs/evidence/`.
 
 The live readout's "kept" line often goes blank after a GUI closes, while the slot still holds the snapshot. Trust the slot, then `load`. Our `js/save.js` document (`shardfall.v1`, versions 1–4, quest flags, party, inventory) is a different shape. This spike does not read or write it.
 
@@ -142,9 +142,17 @@ Borrow only where the spike actually earned it:
 | Tiled loader (`@rpgjs/tiledmap` / `@canvasengine/tiled`) | large | high | Leave it. `js/tiles/tmjmap.js` already reads this tmj, including collision, height, and stairs. Their loader wants TMX, external TSX, a `collision` property, and `z`. |
 | Sprite-sheet system | small for a direction timeline, large to adopt the renderer | low for the idea, high for the Pixi dependency | Their API did take the 112px cell and the 8-frame rows, once `framesWidth` was the column count and `rectWidth` was 112. `js/assets/sheet.js` still fits our named clips better. The weak south legs and the west staff swap are in the PNG. |
 | Event scripting (`showText` / `showChoices` and the dialog box) | medium to lift the dialog, large to move `js/dialogue.js` onto their events | medium | The dialog is the part worth a second look. The socket bridge, the stack overflow, and the stuck `canMove` are the cost. |
-| Save / load slots | small to sit beside `shardfall.v1`, medium to replace it | medium | The slot write and the position restore worked. The snapshot is not our save document. |
+| Save / load slots | small to sit beside `shardfall.v1`, medium to replace it | medium | The slot write worked. Load sets the server player back and leaves the client sprite at the walked-away y. The snapshot is not our save document. |
 
-Confidence: high on the loader measurements (the probe and the 404 are repeatable), medium-high on save/load and the dialog once the bridge is in, medium on the migration size.
+Confidence: high on the loader measurements (the probe and the 404 are repeatable), high that this run's load does not move the client sprite (the log fails the 2px check), medium on the dialog once the bridge is in, medium on the migration size.
+
+## Evidence
+
+`node tools/capture.mjs` writes `prototypes/rpgjs/evidence/`. The save/load assert walks at least 48px away and then calls `player.load` without walking back. This run exits non-zero because the client y stayed put. The positions are in `capture-log.json` and `capture-log.txt`.
+
+844×390: `landscape_844x390_map_loaded.png`, `landscape_844x390_walk_s.png`, `landscape_844x390_walk_e.png`, `landscape_844x390_walk_n.png`, `landscape_844x390_walk_w.png`, `landscape_844x390_npc_choice.png`, `landscape_844x390_save_load.png`.
+
+390×844: `portrait_390x844_map_loaded.png`, `portrait_390x844_walk_s.png`, `portrait_390x844_walk_e.png`, `portrait_390x844_walk_n.png`, `portrait_390x844_walk_w.png`, `portrait_390x844_npc_choice.png`, `portrait_390x844_save_load.png`.
 
 ## How to run
 

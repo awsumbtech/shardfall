@@ -11,6 +11,7 @@ function useSheet(entity: { setGraphic: (id: string) => void }, id: string) {
 // The player starts two tiles south of that point so a short walk reaches it.
 // The wake checkpoint (848, 1040) is left unused; it is a long walk from Maren.
 const START = { x: 1088, y: 320 };
+let readoutTimer = 0;
 
 export const player: RpgPlayerHooks = {
   async onConnected(player: RpgPlayer) {
@@ -26,8 +27,14 @@ export const player: RpgPlayerHooks = {
       publish(player, `map error: ${message}`);
       console.error(error);
     }
-    window.setInterval(() => publish(player), 200);
+    if (readoutTimer) window.clearInterval(readoutTimer);
+    readoutTimer = window.setInterval(() => publish(player), 200);
     (window as unknown as { __spike?: unknown }).__spike = { player };
+  },
+  onDisconnected() {
+    if (!readoutTimer) return;
+    window.clearInterval(readoutTimer);
+    readoutTimer = 0;
   },
   onLoad(player: RpgPlayer) {
     publish(player, "loaded");

@@ -40,7 +40,7 @@ export function Maren(): EventDefinition {
       }
       if (choice.value === "load") {
         const loaded = await player.load(SLOT, { reason: "load", source: "maren" }, { changeMap: true });
-        publish(player, loaded.ok ? "loaded" : "empty slot");
+        publish(player, loaded && loaded.ok ? "loaded" : "empty slot");
       }
     },
   };

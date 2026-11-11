@@ -1,12 +1,12 @@
-# Sprite-sheet slots
+# Sprite sheets
 
-These files are not in the tree. Drop the real sheets on these paths. Do not draw stand-ins, and do not commit the Kenmi atlas.
+The committed sheets are the PixelDoll v0.2 prototype exports. Do not draw stand-ins, and do not commit the Kenmi atlas or the source zips.
 
-| File | Owns | Expected grid, until a real sheet says otherwise |
+| File | Owns | Grid |
 | --- | --- | --- |
-| `wayfarer-outfitB.png` | player graphic `wayfarer` | 64×64 cells, 6 columns × 6 rows (384×384). Rows, from `art/atlas.config.json`: idle down, idle side, idle up, walk down, walk side, walk up. Six frames each. |
-| `npc-maren.png` | event graphic `npc-maren` | Same grid is registered so a matching sheet would animate. Change `src/sprites.ts` if the real NPC sheet is different. |
+| `wayfarer-outfitB.png` | player graphic `wayfarer` | 112px cells, 8 columns × 4 rows (896×448). Rows are S, E, N, W. Eight walk frames per row. Stand is the first frame of the facing row. |
+| `npc-maren.png` | event graphic `npc-maren` | 80×80, one south-facing stand. |
 
-A missing file is the intended state. The game still loads the map, walks, talks, and saves. The graphic is simply absent.
+`src/sprites.ts` registers those grids. Scale is 0.5 so the Wayfarer reads at about one 16px tile wide and two tiles tall.
 
 `src/tiled/images/fx-tiles.png` and `src/tiled/images/meta-tiles.png` are copies of the real `art/fx-tiles.png` and `art/meta-tiles.png` already in the repo. Every other tileset image the map names is listed in `src/tiled/manifest.json` and is not created.

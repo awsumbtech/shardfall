@@ -1,0 +1,34 @@
+landscape_844x390 loaded {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot landscape_844x390_map_loaded.png {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot landscape_844x390_walk_s.png {"text":"SPIKE Emberhold · now 1088, 346 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"346","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk s 1088 320 -> 1088 372
+shot landscape_844x390_walk_e.png {"text":"SPIKE Emberhold · now 1107, 373 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1107","y":"373","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk e 1088 372 -> 1136 373
+shot landscape_844x390_walk_w.png {"text":"SPIKE Emberhold · now 1122, 373 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1122","y":"373","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk w 1136 373 -> 1094 373
+shot landscape_844x390_walk_n.png {"text":"SPIKE Emberhold · now 1090, 366 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1090","y":"366","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk n 1094 373 -> 1090 334
+landscape_844x390 choices 3
+shot landscape_844x390_npc_choice.png {"text":"SPIKE Emberhold · now 1090, 304 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1090","y":"304","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 saved {"readout":{"text":"SPIKE Emberhold · now 1090, 304 · server 1090, 304 · kept 1090, 304 · saved · Kenmi sheets missing","x":"1090","y":"304","serverX":"1090","serverY":"304","keptX":"1090","keptY":"304","note":"saved"},"client":{"x":1090,"y":304}}
+landscape_844x390 walked away {"savedY":304,"away":{"x":1090,"y":364},"clientDy":60}
+landscape_844x390 after load {"viewport":"landscape_844x390","saved":{"x":1090,"y":304},"away":{"x":1090,"y":364},"awayDy":60,"restored":{"x":1090,"y":364},"restoreDy":60,"loadOk":true,"pass":false}
+shot landscape_844x390_save_load.png {"text":"SPIKE Emberhold · now 1090, 364 · server 1090, 304 · kept 1090, 304 · loaded · Kenmi sheets missing","x":"1090","y":"364","serverX":"1090","serverY":"304","keptX":"1090","keptY":"304","note":"loaded"}
+landscape_844x390 FAILED landscape_844x390 load did not restore client y within 2px: saved 304, away 364 (dy 60), after load 364 (dy 60), loadOk true
+portrait_390x844 loaded {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot portrait_390x844_map_loaded.png {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot portrait_390x844_walk_s.png {"text":"SPIKE Emberhold · now 1088, 348 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"348","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk s 1088 320 -> 1088 370
+shot portrait_390x844_walk_e.png {"text":"SPIKE Emberhold · now 1113, 370 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1113","y":"370","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk e 1088 370 -> 1137 370
+shot portrait_390x844_walk_w.png {"text":"SPIKE Emberhold · now 1117, 370 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1117","y":"370","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk w 1137 370 -> 1092 370
+shot portrait_390x844_walk_n.png {"text":"SPIKE Emberhold · now 1091, 351 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1091","y":"351","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk n 1092 370 -> 1091 322
+portrait_390x844 choices 3
+shot portrait_390x844_npc_choice.png {"text":"SPIKE Emberhold · now 1091, 304 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1091","y":"304","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 saved {"readout":{"text":"SPIKE Emberhold · now 1091, 304 · server 1091, 304 · kept 1091, 304 · saved · Kenmi sheets missing","x":"1091","y":"304","serverX":"1091","serverY":"304","keptX":"1091","keptY":"304","note":"saved"},"client":{"x":1091,"y":304}}
+portrait_390x844 walked away {"savedY":304,"away":{"x":1091,"y":369},"clientDy":65}
+portrait_390x844 after load {"viewport":"portrait_390x844","saved":{"x":1091,"y":304},"away":{"x":1091,"y":369},"awayDy":65,"restored":{"x":1091,"y":369},"restoreDy":65,"loadOk":true,"pass":false}
+shot portrait_390x844_save_load.png {"text":"SPIKE Emberhold · now 1091, 369 · server 1091, 304 · kept 1091, 304 · loaded · Kenmi sheets missing","x":"1091","y":"369","serverX":"1091","serverY":"304","keptX":"1091","keptY":"304","note":"loaded"}
+portrait_390x844 FAILED portrait_390x844 load did not restore client y within 2px: saved 304, away 369 (dy 65), after load 369 (dy 65), loadOk true
