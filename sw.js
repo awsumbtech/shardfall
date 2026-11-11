@@ -25,6 +25,7 @@ var SHELL = [
   "js/content/dialogue/act1-scenes.js",
   "js/content/dialogue/towns.js",
   "js/content/dialogue/world.js",
+  "js/ui/choice-box.js",
   "js/dialogue.js",
   "js/audio.js",
   "js/music.js",

@@ -5234,4 +5234,284 @@ function runGroundChecks() {
   console.log("ground checks ok, markers " + map.markers.length + ", walked " + reach.length + ", gaps " + gapReport.join(", ") + ", old saves " + checked);
 }
 
+function installChoiceDom(context) {
+  function makeEl(tag) {
+    const classes = new Set();
+    const el = {
+      tagName: String(tag || "").toUpperCase(),
+      children: [],
+      parentNode: null,
+      style: {},
+      textContent: "",
+      id: "",
+      alt: "",
+      type: "",
+      naturalWidth: 0,
+      onload: null,
+      onerror: null,
+      _src: "",
+      _listeners: {},
+      attributes: {},
+      classList: null,
+      setAttribute(name, value) {
+        this.attributes[name] = String(value);
+        if (name === "id") this.id = String(value);
+      },
+      getAttribute(name) {
+        return Object.prototype.hasOwnProperty.call(this.attributes, name) ? this.attributes[name] : null;
+      },
+      removeAttribute(name) {
+        delete this.attributes[name];
+      },
+      appendChild(child) {
+        if (!child) return child;
+        if (child.parentNode) child.parentNode.removeChild(child);
+        child.parentNode = this;
+        this.children.push(child);
+        return child;
+      },
+      removeChild(child) {
+        const at = this.children.indexOf(child);
+        if (at >= 0) this.children.splice(at, 1);
+        if (child) child.parentNode = null;
+        return child;
+      },
+      addEventListener(type, fn) {
+        if (!this._listeners[type]) this._listeners[type] = [];
+        this._listeners[type].push(fn);
+      },
+      removeEventListener(type, fn) {
+        const list = this._listeners[type] || [];
+        const at = list.indexOf(fn);
+        if (at >= 0) list.splice(at, 1);
+      },
+      dispatchEvent(ev) {
+        const list = (this._listeners[ev.type] || []).slice();
+        list.forEach((fn) => fn(ev));
+        return true;
+      },
+      focus() {}
+    };
+    el.classList = {
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); },
+      toggle(name, on) {
+        const force = arguments.length > 1 ? !!on : !classes.has(name);
+        if (force) classes.add(name);
+        else classes.delete(name);
+      }
+    };
+    Object.defineProperty(el, "className", {
+      get() { return Array.from(classes).join(" "); },
+      set(value) {
+        classes.clear();
+        String(value || "").split(/\s+/).filter(Boolean).forEach((name) => classes.add(name));
+      }
+    });
+    Object.defineProperty(el, "src", {
+      get() { return el._src; },
+      set(value) {
+        el._src = String(value);
+        el.naturalWidth = 0;
+        if (typeof el.onerror === "function") el.onerror();
+      }
+    });
+    return el;
+  }
+
+  function matches(el, sel) {
+    if (sel.charAt(0) === ".") return el.classList.contains(sel.slice(1));
+    if (sel.charAt(0) === "#") return el.id === sel.slice(1);
+    return el.tagName === sel.toUpperCase();
+  }
+
+  function walk(el, sel, out) {
+    el.children.forEach((child) => {
+      if (matches(child, sel)) out.push(child);
+      walk(child, sel, out);
+    });
+  }
+
+  function findId(el, id) {
+    if (el.id === id) return el;
+    for (let i = 0; i < el.children.length; i++) {
+      const hit = findId(el.children[i], id);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  const body = makeEl("body");
+  const head = makeEl("head");
+  const docListeners = {};
+  context.document = {
+    body,
+    head,
+    createElement: makeEl,
+    getElementById(id) {
+      return findId(body, id) || findId(head, id);
+    },
+    addEventListener(type, fn) {
+      if (!docListeners[type]) docListeners[type] = [];
+      docListeners[type].push(fn);
+    },
+    removeEventListener(type, fn) {
+      const list = docListeners[type] || [];
+      const at = list.indexOf(fn);
+      if (at >= 0) list.splice(at, 1);
+    },
+    dispatchEvent(ev) {
+      (docListeners[ev.type] || []).slice().forEach((fn) => fn(ev));
+      return true;
+    },
+    querySelector(sel) {
+      return this.querySelectorAll(sel)[0] || null;
+    },
+    querySelectorAll(sel) {
+      const out = [];
+      walk(head, sel, out);
+      walk(body, sel, out);
+      return out;
+    }
+  };
+
+  const winListeners = {};
+  context.addEventListener = (type, fn) => {
+    if (!winListeners[type]) winListeners[type] = [];
+    winListeners[type].push(fn);
+  };
+  context.removeEventListener = (type, fn) => {
+    const list = winListeners[type] || [];
+    const at = list.indexOf(fn);
+    if (at >= 0) list.splice(at, 1);
+  };
+  context.dispatchEvent = (ev) => {
+    (winListeners[ev.type] || []).slice().forEach((fn) => fn(ev));
+    return true;
+  };
+}
+
+function assertChoiceInside(name, rect, vw, vh) {
+  if (!(rect.w > 0) || !(rect.h > 0)) fail(name + " has no size");
+  if (rect.x < -0.01 || rect.y < -0.01 || rect.x + rect.w > vw + 0.01 || rect.y + rect.h > vh + 0.01) {
+    fail(name + " leaves " + vw + "x" + vh + " at " + rect.x + "," + rect.y + " " + rect.w + "x" + rect.h);
+  }
+}
+
+async function runChoiceBoxChecks() {
+  const dlgSrc = fs.readFileSync("js/dialogue.js", "utf8");
+  const openCount = (dlgSrc.match(/SF\.ChoiceBox\.open\s*\(/g) || []).length;
+  if (openCount !== 1) fail("dialogue runner should call ChoiceBox.open once, found " + openCount);
+  const boxSrc = fs.readFileSync("js/ui/choice-box.js", "utf8");
+  if (/linear-gradient|fillRect|getContext\(/.test(boxSrc)) fail("ChoiceBox draws panel art");
+  if (!boxSrc.includes("prefers-reduced-motion")) fail("ChoiceBox does not mention reduced motion");
+  ["assets/ui/choicebox-panel.png", "assets/ui/choice-cursor.png"].forEach((file) => {
+    if (!fs.existsSync(file)) fail("missing asset slot " + file);
+    if (fs.statSync(file).size !== 0) fail(file + " is not an empty slot");
+  });
+
+  const choiceCtx = {};
+  choiceCtx.window = choiceCtx;
+  choiceCtx.console = console;
+  installChoiceDom(choiceCtx);
+  choiceCtx.innerWidth = 390;
+  choiceCtx.innerHeight = 844;
+  vm.createContext(choiceCtx);
+  [
+    "js/content/dialogue/emberhold.js",
+    "js/ui/choice-box.js",
+    "js/dialogue.js"
+  ].forEach((file) => {
+    vm.runInContext(fs.readFileSync(file, "utf8"), choiceCtx, { filename: file });
+  });
+
+  const Box = choiceCtx.SF.ChoiceBox;
+  [[390, 844], [844, 390]].forEach(([w, h]) => {
+    const laid = Box.layout(w, h, 3);
+    assertChoiceInside("choice box", laid.box, w, h);
+    if (!laid.targets || laid.targets.length !== 3) fail("expected 3 targets at " + w + "x" + h);
+    laid.targets.forEach((target, i) => {
+      assertChoiceInside("choice target " + i, target, w, h);
+      if (target.w < 44 || target.h < 44) fail("target under 44px at " + w + "x" + h);
+      if (target.x < laid.box.x || target.y < laid.box.y ||
+        target.x + target.w > laid.box.x + laid.box.w + 0.01 ||
+        target.y + target.h > laid.box.y + laid.box.h + 0.01) {
+        fail("target " + i + " is outside the choice box at " + w + "x" + h);
+      }
+    });
+  });
+
+  const labels = ["What's the Hush?", "What is this thing in my hand?", "I'll get them."];
+  const introChoices = choiceCtx.SF.dialogueNodes["emberhold.maren.intro"].choices.map((choice) => choice.text);
+  if (introChoices.join("|") !== labels.join("|")) fail("Maren choice text changed: " + introChoices.join("|"));
+
+  let keyed = null;
+  const keyPromise = Box.open({
+    choices: labels.map((text, i) => ({ id: "k" + i, text: text })),
+    onPick: (id) => { keyed = id; }
+  });
+  if (!choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox did not open");
+  const note = choiceCtx.document.querySelector(".sf-choicebox-note");
+  if (!note || note.textContent !== "Empty: choicebox-panel.png, choice-cursor.png") {
+    fail("empty asset slots were not shown: " + (note && note.textContent));
+  }
+  const cssEl = choiceCtx.document.getElementById("sf-choicebox-css");
+  if (!cssEl || cssEl.textContent.indexOf("prefers-reduced-motion") < 0) fail("reduced motion css missing");
+  if (cssEl.textContent.indexOf("linear-gradient") >= 0) fail("choice css paints a gradient");
+  if (cssEl.textContent.indexOf("min-height:" + Box.SPEC.targetH + "px") < 0) fail("css target height drifted");
+  choiceCtx.document.dispatchEvent({ type: "keydown", code: "ArrowDown", preventDefault() {}, stopPropagation() {} });
+  choiceCtx.document.dispatchEvent({ type: "keydown", code: "Enter", preventDefault() {}, stopPropagation() {} });
+  const keyId = await keyPromise;
+  if (keyId !== "k1" || keyed !== "k1") fail("keyboard pick returned " + keyId);
+  if (choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox stayed open after the key pick");
+
+  choiceCtx.SF.reduceFlash = true;
+  choiceCtx.SF.state = { mode: "play", flags: {}, shardsHeld: 0 };
+  let branchPromise = null;
+  const realOpen = Box.open.bind(Box);
+  choiceCtx.SF.ChoiceBox.open = (opts) => {
+    branchPromise = realOpen(opts);
+    return branchPromise;
+  };
+  choiceCtx.SF.startDialogue("emberhold.maren.intro");
+  let guard = 0;
+  while (choiceCtx.SF.state.mode === "dialogue" && choiceCtx.SF.state.dialogue.phase !== "choice" && guard < 24) {
+    choiceCtx.SF.state.dialogue.lock = 0;
+    choiceCtx.SF.advanceDialogue();
+    guard += 1;
+  }
+  const asking = choiceCtx.SF.state.dialogue;
+  if (!asking || asking.phase !== "choice") fail("Maren did not offer choices");
+  const shown = choiceCtx.document.querySelectorAll(".sf-choice-label").map((el) => el.textContent);
+  if (shown.join("|") !== labels.join("|")) fail("ChoiceBox labels " + shown.join("|"));
+  const root = choiceCtx.document.getElementById("sf-choicebox");
+  const portrait = Box.layout(choiceCtx.innerWidth, choiceCtx.innerHeight, 3);
+  if (root.style.width !== portrait.box.w + "px" || root.style.height !== portrait.box.h + "px") {
+    fail("portrait box " + root.style.width + " by " + root.style.height);
+  }
+  choiceCtx.innerWidth = 844;
+  choiceCtx.innerHeight = 390;
+  choiceCtx.dispatchEvent({ type: "resize" });
+  const landscape = Box.layout(844, 390, 3);
+  if (root.style.left !== landscape.box.x + "px" || root.style.top !== landscape.box.y + "px" ||
+    root.style.width !== landscape.box.w + "px" || root.style.height !== landscape.box.h + "px") {
+    fail("landscape box moved to " + root.style.left + "," + root.style.top + " " + root.style.width + "x" + root.style.height);
+  }
+  const buttons = choiceCtx.document.querySelectorAll("button");
+  if (buttons.length !== 3) fail("expected 3 choice targets, found " + buttons.length);
+  buttons[0].dispatchEvent({ type: "pointerdown", preventDefault() {}, stopPropagation() {} });
+  const branchId = await branchPromise;
+  if (branchId !== "emberhold.maren.ask_hush#0") fail("dialogue pick id " + branchId);
+  if (choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox stayed open after the dialogue pick");
+  const branched = choiceCtx.SF.state.dialogue;
+  const hush = choiceCtx.SF.dialogueNodes["emberhold.maren.ask_hush"];
+  if (!branched || branched.id !== "emberhold.maren.ask_hush") fail("dialogue did not branch to the Hush");
+  if (branched.full !== hush.lines[0]) fail("branch line was not Maren's existing Hush line");
+  if (choiceCtx.SF.state.flags.asked_maren !== "hush") fail("asked_maren was not set");
+  console.log("choicebox ok");
+}
+
+await runChoiceBoxChecks();
+
 console.log("smoke ok");

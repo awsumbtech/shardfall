@@ -332,6 +332,42 @@ function enterChoice() {
   d.choices = visible;
   d.done = true;
   d.lock = 0.08;
+  // Single attach point. ChoiceBox returns the picked id, then removes itself.
+  hookChoiceBox(visible);
+}
+
+function choicePickId(choice, index) {
+  var next = choice && choice.next ? String(choice.next) : "choice";
+  return next + "#" + index;
+}
+
+function hookChoiceBox(visible) {
+  if (!SF.ChoiceBox || typeof SF.ChoiceBox.open !== "function") return;
+  if (typeof document === "undefined" || !document.createElement) return;
+  var choices = [];
+  var i;
+  for (i = 0; i < visible.length; i++) {
+    choices.push({
+      id: choicePickId(visible[i], i),
+      text: visible[i] && visible[i].text != null ? String(visible[i].text) : ""
+    });
+  }
+  SF.ChoiceBox.open({
+    choices: choices,
+    onPick: function (id) {
+      var s = SF.state;
+      var d = s && s.dialogue;
+      if (!d || d.phase !== "choice" || !d.choices) return;
+      var idx = -1;
+      var j;
+      for (j = 0; j < d.choices.length; j++) {
+        if (choicePickId(d.choices[j], j) === id) idx = j;
+      }
+      if (idx < 0) return;
+      d.lock = 0;
+      SF.chooseDialogue(idx);
+    }
+  });
 }
 
 SF.startDialogue = function (id) {
