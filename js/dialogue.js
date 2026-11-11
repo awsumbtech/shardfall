@@ -332,8 +332,9 @@ function enterChoice() {
   d.choices = visible;
   d.done = true;
   d.lock = 0.08;
-  // Single attach point. ChoiceBox returns the picked id, then removes itself.
-  hookChoiceBox(visible);
+  // One hand-off. When ChoiceBox is loaded it owns the choices, and the
+  // old choice buttons are not painted. Speaker, line, and portrait stay.
+  d.choiceBox = hookChoiceBox(visible);
 }
 
 function choicePickId(choice, index) {
@@ -342,8 +343,8 @@ function choicePickId(choice, index) {
 }
 
 function hookChoiceBox(visible) {
-  if (!SF.ChoiceBox || typeof SF.ChoiceBox.open !== "function") return;
-  if (typeof document === "undefined" || !document.createElement) return;
+  if (!SF.ChoiceBox || typeof SF.ChoiceBox.open !== "function") return false;
+  if (typeof document === "undefined" || !document.createElement) return false;
   var choices = [];
   var i;
   for (i = 0; i < visible.length; i++) {
@@ -352,22 +353,27 @@ function hookChoiceBox(visible) {
       text: visible[i] && visible[i].text != null ? String(visible[i].text) : ""
     });
   }
-  SF.ChoiceBox.open({
-    choices: choices,
-    onPick: function (id) {
-      var s = SF.state;
-      var d = s && s.dialogue;
-      if (!d || d.phase !== "choice" || !d.choices) return;
-      var idx = -1;
-      var j;
-      for (j = 0; j < d.choices.length; j++) {
-        if (choicePickId(d.choices[j], j) === id) idx = j;
+  try {
+    SF.ChoiceBox.open({
+      choices: choices,
+      onPick: function (id) {
+        var s = SF.state;
+        var d = s && s.dialogue;
+        if (!d || d.phase !== "choice" || !d.choices) return;
+        var idx = -1;
+        var j;
+        for (j = 0; j < d.choices.length; j++) {
+          if (choicePickId(d.choices[j], j) === id) idx = j;
+        }
+        if (idx < 0) return;
+        d.lock = 0;
+        SF.chooseDialogue(idx);
       }
-      if (idx < 0) return;
-      d.lock = 0;
-      SF.chooseDialogue(idx);
-    }
-  });
+    });
+  } catch (err) {
+    return false;
+  }
+  return true;
 }
 
 SF.startDialogue = function (id) {
@@ -909,13 +915,14 @@ SF.paintDialogue = function () {
   renderLine(line, text);
   var typing = d.phase !== "choice" && !d.done && !linesInstant();
   line.classList.toggle("typing", typing);
-  var choiceKey = d.id + "|" + (d.phase === "choice" ? d.choices.map(function (c) { return c.text; }).join("|") : "");
+  var handoff = !!d.choiceBox;
+  var choiceKey = d.id + "|" + (d.phase === "choice" && !handoff ? d.choices.map(function (c) { return c.text; }).join("|") : "");
   if (box.dataset.key !== choiceKey) {
     box.dataset.key = choiceKey;
     box.dataset.hi = "";
     box.textContent = "";
     d.choiceIndex = 0;
-    if (d.phase === "choice") {
+    if (d.phase === "choice" && !handoff) {
       d.choices.forEach(function (c, i) {
         var b = document.createElement("button");
         b.type = "button";

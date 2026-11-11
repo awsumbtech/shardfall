@@ -23,7 +23,13 @@ SF.ChoiceBox = {
   _live: null,
   _css: "",
 
-  layout: function (vw, vh, count) {
+  hits: function (a, b) {
+    if (!a || !b) return false;
+    if (!(a.w > 0) || !(a.h > 0) || !(b.w > 0) || !(b.h > 0)) return false;
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  },
+
+  layout: function (vw, vh, count, text) {
     var n = count | 0;
     if (n < 1) n = 1;
     vw = vw > 0 ? vw : 0;
@@ -36,9 +42,27 @@ SF.ChoiceBox = {
     if (!(boxH > 0)) boxH = 1;
     var boxX = Math.floor((vw - boxW) / 2);
     if (boxX < 0) boxX = 0;
-    if (boxX + boxW > vw) boxW = Math.max(1, vw - boxX);
     var boxY = vh - SPEC.margin - boxH;
+    if (text && text.w > 0 && text.h > 0) {
+      var aboveY = Math.floor(text.y - SPEC.margin - boxH);
+      var above = { x: boxX, y: aboveY, w: boxW, h: boxH };
+      var rightX = Math.ceil(text.x + text.w + SPEC.margin);
+      var rightW = Math.min(SPEC.maxW, vw - SPEC.margin - rightX);
+      var rightY = Math.max(SPEC.margin, Math.min(Math.floor(text.y), vh - SPEC.margin - boxH));
+      var right = { x: rightX, y: rightY, w: rightW, h: boxH };
+      if (aboveY >= SPEC.margin && !SF.ChoiceBox.hits(above, text)) {
+        boxY = aboveY;
+      } else if (rightW >= SPEC.targetH && !SF.ChoiceBox.hits(right, text)) {
+        boxX = right.x;
+        boxY = right.y;
+        boxW = right.w;
+      } else if (aboveY >= 0) {
+        boxY = aboveY;
+      }
+    }
+    if (boxX < 0) boxX = 0;
     if (boxY < 0) boxY = 0;
+    if (boxX + boxW > vw) boxW = Math.max(1, vw - boxX);
     if (boxY + boxH > vh) boxH = Math.max(1, vh - boxY);
     var innerX = boxX + SPEC.inset;
     var innerW = boxW - SPEC.inset * 2;
@@ -146,10 +170,34 @@ function applyFrame(root, on) {
   root.style.borderImageSource = "none";
 }
 
+function speakerTextRect() {
+  if (typeof document === "undefined" || !document.getElementById) return null;
+  var ids = ["who", "line"];
+  var box = null;
+  var i;
+  for (i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (!el || el.hidden || !el.getBoundingClientRect) continue;
+    var r = el.getBoundingClientRect();
+    if (!(r.width > 0) || !(r.height > 0)) continue;
+    var part = { x: r.left, y: r.top, w: r.width, h: r.height };
+    if (!box) {
+      box = part;
+      continue;
+    }
+    var x1 = Math.min(box.x, part.x);
+    var y1 = Math.min(box.y, part.y);
+    var x2 = Math.max(box.x + box.w, part.x + part.w);
+    var y2 = Math.max(box.y + box.h, part.y + part.h);
+    box = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }
+  return box;
+}
+
 function place(session) {
   var vw = window.innerWidth || 0;
   var vh = window.innerHeight || 0;
-  var laid = SF.ChoiceBox.layout(vw, vh, session.choices.length);
+  var laid = SF.ChoiceBox.layout(vw, vh, session.choices.length, speakerTextRect());
   session.root.style.left = laid.box.x + "px";
   session.root.style.top = laid.box.y + "px";
   session.root.style.width = laid.box.w + "px";
@@ -176,7 +224,7 @@ function paintSelection(session) {
     session.buttons[i].classList.toggle("is-on", on);
     if (on) {
       session.buttons[i].setAttribute("aria-current", "true");
-      session.marks[i].appendChild(session.cursor);
+      if (session.cursorOk && session.cursor) session.marks[i].appendChild(session.cursor);
     } else {
       session.buttons[i].removeAttribute("aria-current");
     }
@@ -208,17 +256,14 @@ function openBox(list, onPick) {
 
   var status = document.createElement("p");
   status.className = "sf-choicebox-status";
-  var panel = document.createElement("img");
-  panel.className = "sf-choicebox-panel";
-  panel.alt = "choicebox-panel.png missing";
   var note = document.createElement("span");
   note.className = "sf-choicebox-note";
-  status.appendChild(panel);
   status.appendChild(note);
 
+  var panel = document.createElement("img");
+  panel.alt = "";
   var cursor = document.createElement("img");
-  cursor.className = "sf-choice-cursor";
-  cursor.alt = "choice-cursor.png missing";
+  cursor.alt = "";
 
   var buttons = [];
   var marks = [];
@@ -326,15 +371,28 @@ function openBox(list, onPick) {
   refreshNote(session);
   document.addEventListener("keydown", onKey);
   window.addEventListener("resize", onResize);
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(function () {
+      if (!session.settled) place(session);
+    });
+  }
 
   watchImage(panel, function (ok) {
     if (session.settled) return;
     session.panelOk = !!ok;
+    if (ok) {
+      panel.className = "sf-choicebox-panel";
+      status.insertBefore(panel, note);
+    }
     refreshNote(session);
   });
   watchImage(cursor, function (ok) {
     if (session.settled) return;
     session.cursorOk = !!ok;
+    if (ok) {
+      cursor.className = "sf-choice-cursor";
+      paintSelection(session);
+    }
     refreshNote(session);
   });
   panel.src = SPEC.panel;

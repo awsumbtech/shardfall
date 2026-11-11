@@ -1,8 +1,11 @@
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const FIELD_DRAW = [
   "js/draw/deps.js",
@@ -5408,8 +5411,8 @@ async function runChoiceBoxChecks() {
   if (!boxSrc.includes("prefers-reduced-motion")) fail("ChoiceBox does not mention reduced motion");
   ["assets/ui/choicebox-panel.png", "assets/ui/choice-cursor.png"].forEach((file) => {
     if (!fs.existsSync(file)) fail("missing asset slot " + file);
-    if (fs.statSync(file).size !== 0) fail(file + " is not an empty slot");
   });
+  const slotsEmpty = ["assets/ui/choicebox-panel.png", "assets/ui/choice-cursor.png"].every((file) => fs.statSync(file).size === 0);
 
   const choiceCtx = {};
   choiceCtx.window = choiceCtx;
@@ -5431,12 +5434,17 @@ async function runChoiceBoxChecks() {
     const laid = Box.layout(w, h, 3);
     assertChoiceInside("choice box", laid.box, w, h);
     if (!laid.targets || laid.targets.length !== 3) fail("expected 3 targets at " + w + "x" + h);
-    laid.targets.forEach((target, i) => {
+    const text = { x: 12, y: h - 110, w: w - 24, h: 72 };
+    const cleared = Box.layout(w, h, 3, text);
+    assertChoiceInside("choice box beside the line", cleared.box, w, h);
+    if (Box.hits(cleared.box, text)) fail("choice box intersects dialogue text at " + w + "x" + h);
+    cleared.targets.forEach((target, i) => {
       assertChoiceInside("choice target " + i, target, w, h);
       if (target.w < 44 || target.h < 44) fail("target under 44px at " + w + "x" + h);
-      if (target.x < laid.box.x || target.y < laid.box.y ||
-        target.x + target.w > laid.box.x + laid.box.w + 0.01 ||
-        target.y + target.h > laid.box.y + laid.box.h + 0.01) {
+      if (Box.hits(target, text)) fail("choice target intersects dialogue text at " + w + "x" + h);
+      if (target.x < cleared.box.x || target.y < cleared.box.y ||
+        target.x + target.w > cleared.box.x + cleared.box.w + 0.01 ||
+        target.y + target.h > cleared.box.y + cleared.box.h + 0.01) {
         fail("target " + i + " is outside the choice box at " + w + "x" + h);
       }
     });
@@ -5453,9 +5461,10 @@ async function runChoiceBoxChecks() {
   });
   if (!choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox did not open");
   const note = choiceCtx.document.querySelector(".sf-choicebox-note");
-  if (!note || note.textContent !== "Empty: choicebox-panel.png, choice-cursor.png") {
+  if (!note || note.textContent.indexOf("Empty: choicebox-panel.png") < 0 || note.textContent.indexOf("choice-cursor.png") < 0) {
     fail("empty asset slots were not shown: " + (note && note.textContent));
   }
+  if (choiceCtx.document.querySelectorAll("img").length !== 0) fail("a failed slot image was rendered");
   const cssEl = choiceCtx.document.getElementById("sf-choicebox-css");
   if (!cssEl || cssEl.textContent.indexOf("prefers-reduced-motion") < 0) fail("reduced motion css missing");
   if (cssEl.textContent.indexOf("linear-gradient") >= 0) fail("choice css paints a gradient");
@@ -5483,6 +5492,7 @@ async function runChoiceBoxChecks() {
   }
   const asking = choiceCtx.SF.state.dialogue;
   if (!asking || asking.phase !== "choice") fail("Maren did not offer choices");
+  if (asking.choiceBox !== true) fail("enterChoice did not hand the choices to ChoiceBox");
   const shown = choiceCtx.document.querySelectorAll(".sf-choice-label").map((el) => el.textContent);
   if (shown.join("|") !== labels.join("|")) fail("ChoiceBox labels " + shown.join("|"));
   const root = choiceCtx.document.getElementById("sf-choicebox");
@@ -5509,7 +5519,153 @@ async function runChoiceBoxChecks() {
   if (!branched || branched.id !== "emberhold.maren.ask_hush") fail("dialogue did not branch to the Hush");
   if (branched.full !== hush.lines[0]) fail("branch line was not Maren's existing Hush line");
   if (choiceCtx.SF.state.flags.asked_maren !== "hush") fail("asked_maren was not set");
+  await assertLiveChoiceFit(slotsEmpty);
   console.log("choicebox ok");
+}
+
+function loadChoicePlaywright() {
+  const require = createRequire(fileURLToPath(import.meta.url));
+  const candidates = ["playwright-core", "/tmp/pw/node_modules/playwright-core"];
+  for (const name of candidates) {
+    try { return require(name); } catch (err) { /* next */ }
+  }
+  fail("choice geometry needs playwright-core");
+  return null;
+}
+
+function liveRectsHit(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+async function assertLiveChoiceFit(slotsEmpty) {
+  const pw = loadChoicePlaywright();
+  const chromium = (pw.default || pw).chromium;
+  const chrome = process.env.CHROME || "/usr/bin/google-chrome";
+  if (!fs.existsSync(chrome)) fail("choice geometry needs chrome at " + chrome);
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const types = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".json": "application/json",
+    ".webmanifest": "application/manifest+json",
+    ".tmj": "application/json"
+  };
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url, "http://127.0.0.1");
+    let rel = decodeURIComponent(url.pathname);
+    if (rel === "/") rel = "/index.html";
+    const file = path.normalize(path.join(root, rel));
+    if (!file.startsWith(root) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      res.writeHead(404);
+      res.end("missing");
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": types[path.extname(file)] || "application/octet-stream",
+      "Cache-Control": "no-store"
+    });
+    fs.createReadStream(file).pipe(res);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = "http://127.0.0.1:" + server.address().port;
+  const browser = await chromium.launch({
+    executablePath: chrome,
+    args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+  });
+  try {
+    for (const [width, height] of [[390, 844], [844, 390]]) {
+      const context = await browser.newContext({
+        viewport: { width, height },
+        deviceScaleFactor: 1,
+        hasTouch: true,
+        isMobile: true
+      });
+      await context.addInitScript(() => {
+        const stub = {
+          controller: null,
+          addEventListener() {},
+          removeEventListener() {},
+          register() { return Promise.resolve({}); },
+          ready: Promise.resolve({ active: null })
+        };
+        try {
+          Object.defineProperty(navigator, "serviceWorker", { configurable: true, get() { return stub; } });
+        } catch (err) { /* ignore */ }
+      });
+      const page = await context.newPage();
+      const errors = [];
+      page.on("pageerror", (err) => errors.push(String(err)));
+      await page.goto(origin + "/index.html", { waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => window.SF && SF.startDialogue && SF.fresh);
+      const report = await page.evaluate(async () => {
+        SF.uiModal = null;
+        const s = SF.fresh();
+        s.mode = "play";
+        SF.state = s;
+        SF.startDialogue("emberhold.maren.intro");
+        let guard = 0;
+        while (SF.state.mode === "dialogue" && SF.state.dialogue && SF.state.dialogue.phase !== "choice" && guard < 30) {
+          SF.state.dialogue.lock = 0;
+          SF.advanceDialogue();
+          guard += 1;
+        }
+        if (SF.syncUI) SF.syncUI();
+        window.dispatchEvent(new Event("resize"));
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        function boxOf(el) {
+          if (!el || !el.getBoundingClientRect) return null;
+          const r = el.getBoundingClientRect();
+          return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+        }
+        const choice = document.getElementById("sf-choicebox");
+        const targets = [...document.querySelectorAll("#sf-choicebox button")].map(boxOf);
+        return {
+          choice: boxOf(choice),
+          line: boxOf(document.getElementById("line")),
+          who: boxOf(document.getElementById("who")),
+          targets,
+          oldButtons: document.querySelectorAll("#dlg-choices button").length,
+          images: [...document.querySelectorAll("#sf-choicebox img")].map((img) => img.naturalWidth),
+          note: (document.querySelector(".sf-choicebox-note") || {}).textContent || "",
+          lineText: (document.getElementById("line") || {}).textContent || "",
+          handed: !!(SF.state.dialogue && SF.state.dialogue.choiceBox),
+          vw: window.innerWidth,
+          vh: window.innerHeight
+        };
+      });
+      await context.close();
+      if (errors.length) fail(width + "x" + height + " page error " + errors[0]);
+      if (!report.handed) fail(width + "x" + height + " did not hand off to ChoiceBox");
+      if (report.oldButtons !== 0) fail(width + "x" + height + " still painted " + report.oldButtons + " old choice buttons");
+      if (!report.choice || !report.line) fail(width + "x" + height + " missing choice or line rect");
+      if (report.lineText.indexOf("My knees") < 0) fail(width + "x" + height + " line was " + report.lineText);
+      if (liveRectsHit(report.choice, report.line)) {
+        fail(width + "x" + height + " ChoiceBox intersects the dialogue line");
+      }
+      if (report.who && report.who.height > 0 && liveRectsHit(report.choice, report.who)) {
+        fail(width + "x" + height + " ChoiceBox intersects the speaker name");
+      }
+      report.targets.forEach((target, i) => {
+        if (!target || target.width < 44 || target.height < 44) fail(width + "x" + height + " target " + i + " under 44px");
+        if (target.left < -1 || target.top < -1 || target.right > report.vw + 1 || target.bottom > report.vh + 1) {
+          fail(width + "x" + height + " target " + i + " leaves the viewport");
+        }
+        if (liveRectsHit(target, report.line)) fail(width + "x" + height + " target " + i + " intersects the dialogue line");
+      });
+      if (slotsEmpty) {
+        if (report.images.length !== 0) fail(width + "x" + height + " rendered an empty slot image");
+        if (report.note.indexOf("Empty:") !== 0) fail(width + "x" + height + " missing empty-slot notice");
+      } else if (report.images.some((widthPx) => !(widthPx > 0))) {
+        fail(width + "x" + height + " rendered a broken slot image");
+      }
+    }
+  } finally {
+    await browser.close();
+    server.close();
+  }
 }
 
 await runChoiceBoxChecks();
