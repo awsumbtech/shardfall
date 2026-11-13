@@ -40,6 +40,11 @@ jobs:
           mkdir -p _site
           cp index.html sw.js manifest.webmanifest _site/
           cp -r css js icons _site/
+          mkdir -p _site/assets/ui
+          cp -r assets/ui/. _site/assets/ui/
+
+      - name: Check published UI assets
+        run: node tools/check-site.mjs --site _site --workflow
 
       - name: Checkout art packs
         id: assets
@@ -95,6 +100,9 @@ jobs:
             printf '%s\n' "$leaked"
             exit 1
           fi
+
+      - name: Check published site
+        run: node tools/check-site.mjs --site _site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

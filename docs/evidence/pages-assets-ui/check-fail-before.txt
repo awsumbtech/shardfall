@@ -1,0 +1,9 @@
+# check-site against a _site assembled the old way (no assets/ui copy)
+# 2026-11-12 20:01:10 EST
+# repo 1ca6e6b (working tree, before this evidence commit)
+
+check-site: game UI assets: assets/ui/choice-cursor.png, assets/ui/choicebox-panel.png
+check-site: missing published file assets/ui/choice-cursor.png
+check-site: missing published file assets/ui/choicebox-panel.png
+check-site: FAIL
+exit=1
