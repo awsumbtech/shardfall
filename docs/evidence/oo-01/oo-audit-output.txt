@@ -1,16 +1,16 @@
 # node tools/oo-audit.mjs
-# 2026-11-13 05:35:57 UTC
-# repo 41a7d5d895a62e0daba4f0a43f92e11d3ddaad49 (working tree, before this evidence commit)
+# 2026-11-13 05:50:39 UTC
+# repo 644f188a5640231d8d0fd4c9f7bad64fcd79e6a3 (working tree, before this evidence commit)
 
 OoAudit
 total = visual + leaked + sfAssigns + redefined
-visual call sites: 4037
+visual call sites: 4044
   js/art/actors.js  1227
   js/art/buildings.js  529
   js/art/props.js  468
   js/art/scenes.js  452
   js/art/characters.js  293
-  js/dialogue.js  220
+  js/dialogue.js  221
   js/art/world.js  138
   js/draw/actors.js  131
   js/grapple.js  91
@@ -20,17 +20,17 @@ visual call sites: 4037
   js/art/core.js  39
   js/draw/pickups.js  36
   js/battle/gfx.js  31
+  js/battle/hud.js  31
   js/draw/minimap.js  28
-  js/battle/hud.js  27
   js/title.js  27
   js/draw/sky.js  19
   js/draw/effects.js  16
   js/draw/guides.js  16
-  js/battle/stage.js  14
+  js/battle/stage.js  15
   js/draw/entities.js  13
   index.html  10
+  js/draw/terrain.js  8
   js/draw/field.js  7
-  js/draw/terrain.js  7
   js/assets/crystal.js  6
   js/props/renderer.js  1
 leaked window names: 166
@@ -220,5 +220,5 @@ allowlist: 16 entries, excluded 46 visual hits
   not scanned: tools/props-handoff/kenmi-dense.js (A13 Props hand-off prototypes — tools/props-handoff/kenmi-dense.js)
   not scanned: tools/props-handoff/registry-prototype.js (A13 Props hand-off prototypes — tools/props-handoff/registry-prototype.js)
   not scanned: art/meta-tiles.png (A13 Meta tiles — art/meta-tiles.png)
-OO-AUDIT: 5155 remaining
+OO-AUDIT: 5162 remaining
 exit=0
