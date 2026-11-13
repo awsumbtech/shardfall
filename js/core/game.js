@@ -3,15 +3,21 @@
 // One job: the composition root. It keeps a live reference to the existing
 // SF state, holds the canvas and viewport bootstrap, runs the frame loop,
 // and registers child objects. window.SF stays the compatibility alias.
+// The constructor and the SF.game root are published in js/main.js.
+// attach does not write the root. game.state / game.sf accessors live there
+// too, as counted write-through to the compatibility bag.
 (function () {
-  var SF = window.SF || {};
-  window.SF = SF;
+  var Game = window.SF && window.SF.Game;
+  if (typeof Game !== "function") {
+    throw new Error("Game constructor missing");
+  }
 
-  function Game() {
+  Game.prototype.init = function () {
     this.parent = null;
     this._attached = false;
     this._entries = [];
     this._seq = 0;
+    this._lastFrame = 0;
     // Canvas and viewport bootstrap. These lived as scattered SF.* members.
     this.view = null;
     this.map = null;
@@ -24,41 +30,13 @@
     this.BASE_H = 360;
     this.ASPECT_MIN = 4 / 3;
     this.ASPECT_MAX = 21 / 9;
-  }
-
-  function bag() {
-    return window.SF || null;
-  }
-
-  // Same object SF.state already points at. Reading and writing go through
-  // the compatibility alias, so a later SF.state = fresh() stays visible here.
-  Object.defineProperty(Game.prototype, "sf", {
-    enumerable: true,
-    configurable: true,
-    get: function () {
-      return bag();
-    }
-  });
-
-  Object.defineProperty(Game.prototype, "state", {
-    enumerable: true,
-    configurable: true,
-    get: function () {
-      var host = bag();
-      return host ? host.state : undefined;
-    },
-    set: function (value) {
-      var host = bag();
-      if (host) host.state = value;
-    }
-  });
+    return this;
+  };
 
   Game.prototype.attach = function (parent) {
     if (!parent || this._attached) return this;
     this.parent = parent;
     this._attached = true;
-    var host = bag();
-    if (host) host.game = this;
     return this;
   };
 
@@ -110,29 +88,34 @@
   // path. Child VisualObjects are not walked from here yet.
   Game.prototype.startLoop = function () {
     var game = this;
-    var last = performance.now();
-    function frame(now) {
-      var dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      if (game.portraitLock) {
-        SF.draw();
-        SF.syncUI();
-        if (SF.noteOverlayPaint) SF.noteOverlayPaint();
-        requestAnimationFrame(frame);
-        return;
-      }
-      SF.update(dt);
-      if (SF.feel) {
-        try { SF.feel(dt); } catch (err) { /* a sound cue must not stop the frame */ }
-      }
-      game._resizeTick = (game._resizeTick || 0) + 1;
-      if (game._resizeTick % 30 === 0 && SF.resize) SF.resize();
+    this._lastFrame = performance.now();
+    requestAnimationFrame(function tick(now) {
+      game.frame(now);
+      requestAnimationFrame(tick);
+    });
+    return this;
+  };
+
+  Game.prototype.frame = function (now) {
+    var last = this._lastFrame || now;
+    var dt = Math.min(0.05, (now - last) / 1000);
+    this._lastFrame = now;
+    var SF = window.SF;
+    if (this.portraitLock) {
       SF.draw();
       SF.syncUI();
       if (SF.noteOverlayPaint) SF.noteOverlayPaint();
-      requestAnimationFrame(frame);
+      return this;
     }
-    requestAnimationFrame(frame);
+    SF.update(dt);
+    if (SF.feel) {
+      try { SF.feel(dt); } catch (err) { /* a sound cue must not stop the frame */ }
+    }
+    this._resizeTick = (this._resizeTick || 0) + 1;
+    if (this._resizeTick % 30 === 0 && SF.resize) SF.resize();
+    SF.draw();
+    SF.syncUI();
+    if (SF.noteOverlayPaint) SF.noteOverlayPaint();
     return this;
   };
 
@@ -154,6 +137,4 @@
     }
     return this;
   };
-
-  if (typeof SF.defineGame === "function") SF.defineGame(Game);
 })();

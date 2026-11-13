@@ -3,15 +3,36 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-// Core files call these so the constructors are published from this file,
-// which already has assignment headroom. New files cannot gain SF.* sites
-// without failing the per-file ratchet on origin/main.
-SF.defineVisualObject = function (ctor) {
-  SF.VisualObject = ctor;
+// Counted publication of the core constructors and the Game root. These
+// assigns live here so js/core/* stays at zero SF.* sites (the per-file
+// ratchet treats a new file as 0). Methods and statics attach in the
+// objects' own files, which load after this one.
+SF.VisualObject = function VisualObject(spec) {
+  this.init(spec);
 };
-SF.defineGame = function (ctor) {
-  SF.Game = ctor;
+SF.Game = function Game() {
+  this.init();
 };
+
+// Counted write-through to the compatibility bag. Lives here so js/core/game.js
+// stays at zero SF.* sites. Removed when GameState (step 10) owns the state.
+Object.defineProperty(SF.Game.prototype, "sf", {
+  enumerable: true,
+  configurable: true,
+  get: function () {
+    return SF;
+  }
+});
+Object.defineProperty(SF.Game.prototype, "state", {
+  enumerable: true,
+  configurable: true,
+  get: function () {
+    return SF.state;
+  },
+  set: function (value) {
+    SF.state = value;
+  }
+});
 
 // Stamp the moment an overlay is first painted. A press that went down
 // before that stamp is not a press on the overlay. Returning to the field
@@ -88,9 +109,13 @@ SF.boot = function () {
     return;
   }
   try { SF.prepareAssets(); } catch (err) { /* missing art must not stop boot */ }
-  if (SF.Game && !SF.game) new SF.Game().attach(window);
+  if (typeof SF.Game !== "function") throw new Error("Game root is missing");
+  if (!SF.game) {
+    SF.game = new SF.Game();
+    SF.game.attach(window);
+  }
   var game = SF.game;
-  if (!game) return;
+  if (!game) throw new Error("Game root is missing");
   game.view = document.getElementById("view");
   game.map = document.getElementById("minimap");
   game.ctx = game.view.getContext("2d", { alpha: false }) || game.view.getContext("2d");
@@ -113,7 +138,7 @@ SF.boot = function () {
 
 SF.resize = function () {
   var game = SF.game;
-  if (!game) return;
+  if (!game) throw new Error("Game root is missing");
   var canvas = game.view;
   if (!canvas) return;
   var vv = window.visualViewport;

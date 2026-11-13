@@ -5957,11 +5957,15 @@ function runOo02Checks() {
   }
   if (!worker.includes('CACHE = "shardfall-v0.4.35"')) fail("cache version moved");
   const mainJs = fs.readFileSync("js/main.js", "utf8");
-  if (!mainJs.includes("new SF.Game().attach(window)")) fail("boot does not attach the Game root");
+  if (!mainJs.includes("SF.VisualObject = function VisualObject")) fail("main.js does not assign SF.VisualObject");
+  if (!mainJs.includes("SF.Game = function Game")) fail("main.js does not assign SF.Game");
+  if (!mainJs.includes("SF.game = new SF.Game()")) fail("boot does not assign SF.game");
+  if (!mainJs.includes("SF.game.attach(window)")) fail("boot does not attach the Game root");
   if (!mainJs.includes("game.startLoop()")) fail("boot does not start the Game loop");
-  if (!mainJs.includes("SF.defineGame =") || !mainJs.includes("SF.defineVisualObject =")) {
-    fail("main.js does not publish the core constructors");
+  if (mainJs.includes("SF.defineGame") || mainJs.includes("SF.defineVisualObject")) {
+    fail("define* shims are still in main.js");
   }
+  if (!mainJs.includes('throw new Error("Game root is missing")')) fail("boot does not throw when the Game root is missing");
   const movedOffSf = [
     "SF.view =", "SF.map =", "SF.ctx =", "SF.portraitLock", "SF._resizeTick",
     "SF.resizeWrites", "SF.BASE_W", "SF.BASE_H", "SF.ASPECT_MIN", "SF.ASPECT_MAX",
@@ -5972,12 +5976,21 @@ function runOo02Checks() {
   }
   const gameJs = fs.readFileSync("js/core/game.js", "utf8");
   const visualJs = fs.readFileSync("js/core/visual-object.js", "utf8");
-  if (!gameJs.includes("Game.prototype.startLoop")) fail("Game has no startLoop");
-  if (gameJs.includes("SF.Game =") || visualJs.includes("SF.VisualObject =")) {
-    fail("core files still assign constructors on SF");
+  if (!gameJs.includes("Game.prototype.startLoop") || !gameJs.includes("Game.prototype.frame")) {
+    fail("Game has no startLoop or frame");
   }
-  if (!gameJs.includes("SF.defineGame") || !visualJs.includes("SF.defineVisualObject")) {
-    fail("core files do not publish through main.js");
+  if (gameJs.includes("SF.Game =") || visualJs.includes("SF.VisualObject =") || gameJs.includes("SF.game =") || gameJs.includes("SF.state =")) {
+    fail("core files still assign constructors or bag members on SF");
+  }
+  if (gameJs.includes("defineGame") || visualJs.includes("defineVisualObject") || gameJs.includes("function bag") || gameJs.includes("host.game")) {
+    fail("define* or host/bag shims are still in the core files");
+  }
+  const freeHelpers = ["function num(", "function imageSize(", "function rectOf(", "function resolveAsset(", "function anchorOffset("];
+  for (const token of freeHelpers) {
+    if (visualJs.includes(token)) fail("VisualObject still has a free helper: " + token);
+  }
+  if (!visualJs.includes("VisualObject.num =") || !visualJs.includes("VisualObject.resolveAsset =")) {
+    fail("VisualObject helpers were not moved to statics");
   }
   if (typeof SF.VisualObject !== "function" || typeof SF.Game !== "function") {
     fail("VisualObject or Game did not load");
@@ -5997,7 +6010,9 @@ function runOo02Checks() {
   if (root.portraitLock !== false || root._resizeTick !== 0 || root.resizeWrites !== 0 || root.pixelScale !== 1) {
     problems.push("Game loop fields were not initialized");
   }
-  if (typeof root.startLoop !== "function") problems.push("Game.startLoop is missing");
+  if (typeof root.startLoop !== "function" || typeof root.frame !== "function") {
+    problems.push("Game.startLoop or Game.frame is missing");
+  }
   context.console = {
     log: prevConsole.log.bind(prevConsole),
     warn: prevConsole.warn.bind(prevConsole),
@@ -6055,7 +6070,9 @@ function runOo02Checks() {
     root.attach({ id: "other-host" });
     if (context.window.SF !== alias) problems.push("Game replaced window.SF");
     if (root.parent !== context.window) problems.push("Game attach was not single");
-    if (alias.game !== root) problems.push("Game root was not published on SF");
+    if (alias.game === root) problems.push("attach published SF.game");
+    SF.game = root;
+    if (alias.game !== root) problems.push("SF.game was not the Game root");
     if (root.sf !== alias) problems.push("game.sf is not the SF alias");
     if (root.state !== originalState) problems.push("game.state is not SF.state");
     originalState.oo02probe = 1;

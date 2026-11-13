@@ -4,7 +4,7 @@
   "totals": {
     "visual": 4044,
     "leaked": 166,
-    "sfMembers": 677,
+    "sfMembers": 676,
     "sfAssigns": 900,
     "redefined": 44,
     "total": 5154
@@ -335,7 +335,7 @@
     },
     "js/main.js": {
       "leaked": 1,
-      "sfMembers": 27,
+      "sfMembers": 26,
       "sfAssigns": 30
     },
     "js/menu/field.js": {

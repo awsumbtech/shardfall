@@ -1,5 +1,5 @@
+# Official OO-02 tamper after items 1-8
 # node tools/oo-audit-tamper.mjs
-# 2026-11-13 13:57:03 UTC
 
 === raised baseline ===
 OoAudit
@@ -62,4 +62,3 @@ OO-AUDIT: 1 remaining
 exit=0
 
 oo-audit-tamper: PASS
-exit=0

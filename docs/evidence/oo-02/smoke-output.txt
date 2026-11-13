@@ -1,7 +1,5 @@
+# Official OO-02 full smoke after items 1-8 (no skips)
 # node tools/smoke.mjs
-# 2026-11-13 13:55:33 UTC
-# official full run, no skips, after Game took ownership of loop/bootstrap members
-# working tree not yet committed
 
 defend halves 8 to 4
 defend queue before (ct 320): Wayfarer @ Wayfarer 1000, Wisp 1 985, Wisp 2 984
@@ -92,7 +90,7 @@ leaked window names: 166
   js/main.js  1
   js/save.js  1
   js/vaultgate.js  1
-SF members assigned: 677 distinct, 900 sites
+SF members assigned: 676 distinct, 900 sites
   js/cinder.js  85 sites
   js/world.js  79 sites
   js/sim.js  60 sites
@@ -304,4 +302,3 @@ sky mask check skipped (no atlas on disk)
 choicebox ok
 oo02 ok
 smoke ok
-exit=0
