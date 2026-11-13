@@ -110,7 +110,7 @@ function cssText() {
     + "gap:" + gap + "px;padding:" + inset + "px;box-sizing:border-box;overflow:hidden;"
     + "background:transparent;color:#f6f2ea;"
     + "font-family:\"Avenir Next\",\"Segoe UI\",system-ui,sans-serif;"
-    + "touch-action:manipulation;}"
+    + "touch-action:manipulation;image-rendering:pixelated;image-rendering:crisp-edges;}"
     + "#sf-choicebox *{box-sizing:border-box;}"
     + "#sf-choicebox button{display:flex;align-items:center;gap:8px;width:100%;margin:0;padding:0;"
     + "flex:0 0 " + targetH + "px;height:" + targetH + "px;min-height:" + targetH + "px;"
@@ -119,12 +119,12 @@ function cssText() {
     + "text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}"
     + "#sf-choicebox button.is-on .sf-choice-label{font-weight:700;}"
     + "#sf-choicebox .sf-choice-mark{width:24px;height:24px;flex:0 0 24px;overflow:hidden;}"
-    + "#sf-choicebox .sf-choice-cursor{width:24px;height:24px;display:block;object-fit:contain;}"
+    + "#sf-choicebox .sf-choice-cursor{width:24px;height:24px;display:block;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;}"
     + "#sf-choicebox .sf-choice-label{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}"
     + "#sf-choicebox .sf-choicebox-status{display:flex;align-items:center;gap:6px;margin:0;overflow:hidden;"
     + "height:" + statusH + "px;flex:0 0 " + statusH + "px;white-space:nowrap;"
     + "font-size:13px;line-height:16px;}"
-    + "#sf-choicebox .sf-choicebox-panel{width:24px;height:24px;flex:0 0 24px;object-fit:contain;}"
+    + "#sf-choicebox .sf-choicebox-panel{width:24px;height:24px;flex:0 0 24px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;}"
     + "@media (prefers-reduced-motion:reduce){#sf-choicebox,#sf-choicebox *{animation:none !important;transition:none !important;}}";
 }
 
@@ -377,13 +377,11 @@ function openBox(list, onPick) {
     });
   }
 
+  // The panel PNG is applied as a 9-slice border-image. Do not also
+  // insert a 24x24 copy of that texture into the status row.
   watchImage(panel, function (ok) {
     if (session.settled) return;
     session.panelOk = !!ok;
-    if (ok) {
-      panel.className = "sf-choicebox-panel";
-      status.insertBefore(panel, note);
-    }
     refreshNote(session);
   });
   watchImage(cursor, function (ok) {
