@@ -1,6 +1,6 @@
 # node tools/oo-audit.mjs --against-ref origin/main
-# 2026-11-13 13:45:14 UTC
-# working tree after rebase onto d1ebcd8 + v0.4.35 bump (not yet committed)
+# 2026-11-13 13:57:03 UTC
+# after Game took ownership of loop/bootstrap members; baseline lowered to 5154
 
 OoAudit
 total = visual + leaked + sfAssigns + redefined
@@ -81,7 +81,7 @@ leaked window names: 166
   js/main.js  1
   js/save.js  1
   js/vaultgate.js  1
-SF members assigned: 686 distinct, 910 sites
+SF members assigned: 677 distinct, 900 sites
   js/cinder.js  85 sites
   js/world.js  79 sites
   js/sim.js  60 sites
@@ -91,7 +91,7 @@ SF members assigned: 686 distinct, 910 sites
   js/content/maps/v2layout.js  47 sites
   js/data.js  41 sites
   js/input.js  40 sites
-  js/main.js  38 sites
+  js/main.js  30 sites
   js/draw/actors.js  29 sites
   js/grapple.js  26 sites
   js/dialogue.js  25 sites
@@ -153,8 +153,6 @@ SF members assigned: 686 distinct, 910 sites
   js/content/dialogue/cinderveil.js  1 sites
   js/content/dialogue/world.js  1 sites
   js/content/maps/kinds.js  1 sites
-  js/core/game.js  1 sites
-  js/core/visual-object.js  1 sites
   js/data/enemies.js  1 sites
   js/draw/deps.js  1 sites
   js/feel.js  1 sites
@@ -222,21 +220,6 @@ allowlist: 16 entries, excluded 46 visual hits
   not scanned: tools/props-handoff/kenmi-dense.js (A13 Props hand-off prototypes — tools/props-handoff/kenmi-dense.js)
   not scanned: tools/props-handoff/registry-prototype.js (A13 Props hand-off prototypes — tools/props-handoff/registry-prototype.js)
   not scanned: art/meta-tiles.png (A13 Meta tiles — art/meta-tiles.png)
-oo-audit: count rose
-  js/core/game.js sfMembers 0 -> 1
-  js/core/game.js sfAssigns 0 -> 1
-  js/core/visual-object.js sfMembers 0 -> 1
-  js/core/visual-object.js sfAssigns 0 -> 1
-  total sfMembers 684 -> 686
-  total sfAssigns 908 -> 910
-  total total 5162 -> 5164
-oo-audit: live counts are above origin/main
-  js/core/game.js sfMembers 0 -> 1
-  js/core/game.js sfAssigns 0 -> 1
-  js/core/visual-object.js sfMembers 0 -> 1
-  js/core/visual-object.js sfAssigns 0 -> 1
-  total sfMembers 684 -> 686
-  total sfAssigns 908 -> 910
-  total total 5162 -> 5164
-OO-AUDIT: 5164 remaining
-exit=1
+oo-audit: counts are within origin/main
+OO-AUDIT: 5154 remaining
+exit=0

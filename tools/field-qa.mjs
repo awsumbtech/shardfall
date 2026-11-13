@@ -1011,7 +1011,7 @@ const nameClear = await page.evaluate(() => {
   SF.state.dialogue = null;
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
-  const ctx = SF.ctx;
+  const ctx = SF.game.ctx;
   ctx.font = "600 12px \"Avenir Next\", \"Segoe UI\", system-ui, sans-serif";
   const measured = ctx.measureText(n.name);
   const width = measured.width || 66;
@@ -1128,7 +1128,7 @@ const namePixels = await page.evaluate(() => {
   const a = dev(hero.x - ax - 14, top - 16);
   const b = dev(hero.x - ax + bw + 14, foot + 8);
   const legs = dev(hero.x - ax - 14, foot - 14);
-  const canvas = SF.view;
+  const canvas = SF.game.view;
   function clip(p, q) {
     return {
       x0: Math.max(0, Math.min(p.x, q.x)),
@@ -1141,7 +1141,7 @@ const namePixels = await page.evaluate(() => {
     const w = rect.x1 - rect.x0;
     const h = rect.y1 - rect.y0;
     if (w < 2 || h < 2) return -1;
-    const img = SF.ctx.getImageData(rect.x0, rect.y0, w, h).data;
+    const img = SF.game.ctx.getImageData(rect.x0, rect.y0, w, h).data;
     let n = 0;
     for (let i = 0; i < img.length; i += 4) if (pred(img[i], img[i + 1], img[i + 2])) n++;
     return n;
@@ -1272,14 +1272,14 @@ const ground = await page.evaluate(() => {
     const offsets = [[0, 0], [28, 20], [-24, 28], [12, 40]];
     let bestSum = -1;
     let screen = null;
-    const canvas = SF.view;
+    const canvas = SF.game.view;
     offsets.forEach((pair) => {
       const wx = cx + pair[0];
       const wy = cy + pair[1];
       const dx = Math.round(wx * pxScale + ox);
       const dy = Math.round(wy * pxScale + oy);
       if (dx < 1 || dy < 1 || dx >= canvas.width - 1 || dy >= canvas.height - 1) return;
-      const px = SF.ctx.getImageData(dx, dy, 1, 1).data;
+      const px = SF.game.ctx.getImageData(dx, dy, 1, 1).data;
       const sum = px[0] + px[1] + px[2];
       if (sum > bestSum) {
         bestSum = sum;

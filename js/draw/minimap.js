@@ -3,7 +3,7 @@
 // MapLayer: the corner map of the drift.
 
 SF.drawMap = function () {
-  var canvas = SF.map;
+  var canvas = SF.game && SF.game.map;
   var s = SF.state;
   if (!canvas || !s || s.mode === "title") return;
   if (!SF._mapCtx || SF._mapCtx.canvas !== canvas) SF._mapCtx = canvas.getContext("2d");

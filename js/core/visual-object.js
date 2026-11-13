@@ -130,5 +130,5 @@
     return this;
   };
 
-  SF.VisualObject = VisualObject;
+  if (typeof SF.defineVisualObject === "function") SF.defineVisualObject(VisualObject);
 })();

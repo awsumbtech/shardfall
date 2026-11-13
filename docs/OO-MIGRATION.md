@@ -16,15 +16,15 @@ node tools/oo-audit.mjs --write-baseline
 
 A bracket whose text is a drawing method is counted (`ctx["fillRect"]` and `` ctx[`fillRect`] ``). `ctx[name]` is a known gap when `name` is a variable. `style.clipPath` and `setProperty("clip-path")` are counted when the property name is a string literal that installs a path, shadow, or gradient. `setProperty(name, ...)` is a known gap when `name` is not a string literal.
 
-The committed baseline is `tools/oo-baseline.json` (v0.4.34):
+The committed baseline is `tools/oo-baseline.json` (v0.4.35):
 
 | Signal | Count |
 |---|---|
 | Visual call sites | 4044 |
 | Leaked window names | 166 |
-| SF members assigned | 684 distinct (908 sites) |
+| SF members assigned | 677 distinct (900 sites) |
 | SF functions defined in more than one file | 44 |
-| **OO-AUDIT remaining** | **5162** |
+| **OO-AUDIT remaining** | **5154** |
 
 `OO-AUDIT` total = visual + leaked names + SF assignment sites + multi-file SF functions. The goal is `OO-AUDIT: 0 remaining`.
 

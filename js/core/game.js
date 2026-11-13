@@ -1,7 +1,8 @@
 "use strict";
 
 // One job: the composition root. It keeps a live reference to the existing
-// SF state and registers child objects. window.SF stays the compatibility alias.
+// SF state, holds the canvas and viewport bootstrap, runs the frame loop,
+// and registers child objects. window.SF stays the compatibility alias.
 (function () {
   var SF = window.SF || {};
   window.SF = SF;
@@ -11,6 +12,18 @@
     this._attached = false;
     this._entries = [];
     this._seq = 0;
+    // Canvas and viewport bootstrap. These lived as scattered SF.* members.
+    this.view = null;
+    this.map = null;
+    this.ctx = null;
+    this.portraitLock = false;
+    this._resizeTick = 0;
+    this.resizeWrites = 0;
+    this.pixelScale = 1;
+    this.BASE_W = 640;
+    this.BASE_H = 360;
+    this.ASPECT_MIN = 4 / 3;
+    this.ASPECT_MAX = 21 / 9;
   }
 
   function bag() {
@@ -93,6 +106,36 @@
     return out;
   };
 
+  // The page frame loop. It still calls the existing SF.update / SF.draw
+  // path. Child VisualObjects are not walked from here yet.
+  Game.prototype.startLoop = function () {
+    var game = this;
+    var last = performance.now();
+    function frame(now) {
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (game.portraitLock) {
+        SF.draw();
+        SF.syncUI();
+        if (SF.noteOverlayPaint) SF.noteOverlayPaint();
+        requestAnimationFrame(frame);
+        return;
+      }
+      SF.update(dt);
+      if (SF.feel) {
+        try { SF.feel(dt); } catch (err) { /* a sound cue must not stop the frame */ }
+      }
+      game._resizeTick = (game._resizeTick || 0) + 1;
+      if (game._resizeTick % 30 === 0 && SF.resize) SF.resize();
+      SF.draw();
+      SF.syncUI();
+      if (SF.noteOverlayPaint) SF.noteOverlayPaint();
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    return this;
+  };
+
   // Not called from the frame loop. Present so a later step can walk children.
   Game.prototype.update = function (dt) {
     var list = this.ordered();
@@ -112,5 +155,5 @@
     return this;
   };
 
-  SF.Game = Game;
+  if (typeof SF.defineGame === "function") SF.defineGame(Game);
 })();

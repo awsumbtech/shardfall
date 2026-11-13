@@ -3,8 +3,9 @@
 // FieldDraw runs the field layers in the order the picture has always used. The paint lives in js/draw/.
 
 SF.draw = function () {
-  var canvas = SF.view;
-  var ctx = SF.ctx;
+  var game = SF.game;
+  var canvas = game && game.view;
+  var ctx = game && game.ctx;
   var s = SF.state;
   if (!canvas || !ctx || !s || !SF.blobs) return;
   var w = SF.viewW;

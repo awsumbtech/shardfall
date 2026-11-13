@@ -3,6 +3,16 @@
 var SF = window.SF || {};
 window.SF = SF;
 
+// Core files call these so the constructors are published from this file,
+// which already has assignment headroom. New files cannot gain SF.* sites
+// without failing the per-file ratchet on origin/main.
+SF.defineVisualObject = function (ctor) {
+  SF.VisualObject = ctor;
+};
+SF.defineGame = function (ctor) {
+  SF.Game = ctor;
+};
+
 // Stamp the moment an overlay is first painted. A press that went down
 // before that stamp is not a press on the overlay. Returning to the field
 // does not move the stamp, so a Stay click is not thrown out for being
@@ -78,9 +88,12 @@ SF.boot = function () {
     return;
   }
   try { SF.prepareAssets(); } catch (err) { /* missing art must not stop boot */ }
-  SF.view = document.getElementById("view");
-  SF.map = document.getElementById("minimap");
-  SF.ctx = SF.view.getContext("2d", { alpha: false }) || SF.view.getContext("2d");
+  if (SF.Game && !SF.game) new SF.Game().attach(window);
+  var game = SF.game;
+  if (!game) return;
+  game.view = document.getElementById("view");
+  game.map = document.getElementById("minimap");
+  game.ctx = game.view.getContext("2d", { alpha: false }) || game.view.getContext("2d");
   SF.buildWorld();
   SF.cacheSprites();
   if (window.Art && Art.preload) Art.preload();
@@ -88,8 +101,6 @@ SF.boot = function () {
   if (SF.loadCalm) SF.loadCalm();
   SF.state = SF.fresh();
   SF.state.mode = "title";
-  // Game holds this same state object. The frame loop below is unchanged.
-  if (SF.Game && !SF.game) new SF.Game().attach(window);
   SF.bindInput();
   SF.bindUI();
   SF.resize();
@@ -97,41 +108,13 @@ SF.boot = function () {
   if (window.visualViewport) window.visualViewport.addEventListener("resize", SF.resize);
   window.addEventListener("orientationchange", SF.resize);
   SF.syncUI();
-  var last = performance.now();
-  function frame(now) {
-    var dt = Math.min(0.05, (now - last) / 1000);
-    last = now;
-    if (SF.portraitLock) {
-      SF.draw();
-      SF.syncUI();
-      if (SF.noteOverlayPaint) SF.noteOverlayPaint();
-      requestAnimationFrame(frame);
-      return;
-    }
-    SF.update(dt);
-    if (SF.feel) {
-      try { SF.feel(dt); } catch (err) { /* a sound cue must not stop the frame */ }
-    }
-    SF._resizeTick = (SF._resizeTick || 0) + 1;
-    if (SF._resizeTick % 30 === 0) SF.resize();
-    SF.draw();
-    SF.syncUI();
-    if (SF.noteOverlayPaint) SF.noteOverlayPaint();
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
+  game.startLoop();
 };
 
-SF.resizeWrites = 0;
-
-SF.BASE_W = 640;
-SF.BASE_H = 360;
-
-SF.ASPECT_MIN = 4 / 3;
-SF.ASPECT_MAX = 21 / 9;
-
 SF.resize = function () {
-  var canvas = SF.view;
+  var game = SF.game;
+  if (!game) return;
+  var canvas = game.view;
   if (!canvas) return;
   var vv = window.visualViewport;
   var cssW = Math.max(1, Math.round(vv && vv.width ? vv.width : window.innerWidth));
@@ -139,7 +122,7 @@ SF.resize = function () {
   var dpr = Math.min(window.devicePixelRatio || 1, 3);
   var upright = cssH > cssW * 1.12 && cssW <= 900;
   document.body.dataset.portrait = upright ? "1" : "0";
-  SF.portraitLock = upright;
+  game.portraitLock = upright;
   var scale = 1;
   var logicalW = cssW;
   var logicalH = cssH;
@@ -149,21 +132,21 @@ SF.resize = function () {
     logicalH = cssH;
   } else if (SF.debugOverview) {
     scale = 1;
-    logicalW = Math.max(SF.BASE_W, cssW);
-    logicalH = Math.max(SF.BASE_H, cssH);
-  } else if (cssH < SF.BASE_H) {
-    scale = cssH / SF.BASE_H;
+    logicalW = Math.max(game.BASE_W, cssW);
+    logicalH = Math.max(game.BASE_H, cssH);
+  } else if (cssH < game.BASE_H) {
+    scale = cssH / game.BASE_H;
     if (!(scale > 0)) scale = 1;
     logicalW = Math.max(1, Math.floor(cssW / scale));
     logicalH = Math.max(1, Math.floor(cssH / scale));
   } else {
-    scale = Math.max(1, Math.floor(cssH / SF.BASE_H));
+    scale = Math.max(1, Math.floor(cssH / game.BASE_H));
     logicalW = Math.max(1, Math.floor(cssW / scale));
     logicalH = Math.max(1, Math.floor(cssH / scale));
   }
   if (!upright && !SF.debugOverview) {
-    if (logicalW / logicalH > SF.ASPECT_MAX) logicalW = Math.max(1, Math.floor(logicalH * SF.ASPECT_MAX));
-    else if (logicalW / logicalH < SF.ASPECT_MIN) logicalH = Math.max(1, Math.floor(logicalW / SF.ASPECT_MIN));
+    if (logicalW / logicalH > game.ASPECT_MAX) logicalW = Math.max(1, Math.floor(logicalH * game.ASPECT_MAX));
+    else if (logicalW / logicalH < game.ASPECT_MIN) logicalH = Math.max(1, Math.floor(logicalW / game.ASPECT_MIN));
   }
   var frameW = logicalW * scale;
   var frameH = logicalH * scale;
@@ -189,20 +172,20 @@ SF.resize = function () {
   if (canvas.width !== bw || canvas.height !== bh) {
     canvas.width = bw;
     canvas.height = bh;
-    SF.resizeWrites += 1;
+    game.resizeWrites += 1;
   }
   SF._bw = bw;
   SF._bh = bh;
   SF._cssW = cssW;
   SF._cssH = cssH;
   SF.dpr = back;
-  SF.pixelScale = scale;
+  game.pixelScale = scale;
   SF.viewW = logicalW;
   SF.viewH = logicalH;
   SF.zoom = 1;
   if (SF.touchPrimary) document.body.dataset.touch = SF.touchPrimary() ? "1" : "0";
 
-  var map = SF.map;
+  var map = game.map;
   if (!map) return;
   var mapRect = map.getBoundingClientRect();
   if (mapRect.width < 8 || mapRect.height < 8) return;
@@ -218,4 +201,3 @@ SF.resize = function () {
   }
 };
 
-SF.boot();

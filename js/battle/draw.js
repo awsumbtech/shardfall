@@ -38,8 +38,9 @@ SF.Battle.UI = SF.BattleUI;
 
 SF.draw = function () {
   var s = SF.state;
-  if (s && s.battle && (s.mode === "battle" || s.mode === "results") && SF.view && SF.ctx) {
-    SF.BattleUI.draw(SF.ctx, SF.viewW || 1, SF.viewH || 1, SF.dpr || 1);
+  var game = SF.game;
+  if (s && s.battle && (s.mode === "battle" || s.mode === "results") && game && game.view && game.ctx) {
+    SF.BattleUI.draw(game.ctx, SF.viewW || 1, SF.viewH || 1, SF.dpr || 1);
     return;
   }
   if (baseDraw) baseDraw();

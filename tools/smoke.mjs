@@ -93,6 +93,7 @@ for (const file of [
   "js/menu/field.js",
   "js/draw/deps.js",
   "js/world.js",
+  "js/main.js",
   "js/core/visual-object.js",
   "js/core/game.js"
 ]) {
@@ -5946,16 +5947,38 @@ function runOo02Checks() {
   }
   const page = fs.readFileSync("index.html", "utf8");
   const worker = fs.readFileSync("sw.js", "utf8");
+  const mainAt = page.indexOf('src="js/main.js"');
   const visualAt = page.indexOf('src="js/core/visual-object.js"');
   const gameAt = page.indexOf('src="js/core/game.js"');
-  const mainAt = page.indexOf('src="js/main.js"');
-  if (!(visualAt >= 0 && gameAt > visualAt && mainAt > gameAt)) fail("core scripts are out of order");
+  if (!(mainAt >= 0 && visualAt > mainAt && gameAt > visualAt)) fail("core scripts are out of order");
+  if (page.indexOf("SF.boot();") < gameAt) fail("page does not boot after the Game root");
   for (const file of coreFiles) {
     if (!worker.includes('"' + file + '"')) fail("precache omits " + file);
   }
   if (!worker.includes('CACHE = "shardfall-v0.4.35"')) fail("cache version moved");
   const mainJs = fs.readFileSync("js/main.js", "utf8");
   if (!mainJs.includes("new SF.Game().attach(window)")) fail("boot does not attach the Game root");
+  if (!mainJs.includes("game.startLoop()")) fail("boot does not start the Game loop");
+  if (!mainJs.includes("SF.defineGame =") || !mainJs.includes("SF.defineVisualObject =")) {
+    fail("main.js does not publish the core constructors");
+  }
+  const movedOffSf = [
+    "SF.view =", "SF.map =", "SF.ctx =", "SF.portraitLock", "SF._resizeTick",
+    "SF.resizeWrites", "SF.BASE_W", "SF.BASE_H", "SF.ASPECT_MIN", "SF.ASPECT_MAX",
+    "SF.pixelScale"
+  ];
+  for (const token of movedOffSf) {
+    if (mainJs.includes(token)) fail("boot still assigns " + token + " on SF");
+  }
+  const gameJs = fs.readFileSync("js/core/game.js", "utf8");
+  const visualJs = fs.readFileSync("js/core/visual-object.js", "utf8");
+  if (!gameJs.includes("Game.prototype.startLoop")) fail("Game has no startLoop");
+  if (gameJs.includes("SF.Game =") || visualJs.includes("SF.VisualObject =")) {
+    fail("core files still assign constructors on SF");
+  }
+  if (!gameJs.includes("SF.defineGame") || !visualJs.includes("SF.defineVisualObject")) {
+    fail("core files do not publish through main.js");
+  }
   if (typeof SF.VisualObject !== "function" || typeof SF.Game !== "function") {
     fail("VisualObject or Game did not load");
   }
@@ -5967,6 +5990,14 @@ function runOo02Checks() {
   let artCalls = 0;
   const originalState = SF.state;
   const root = new SF.Game();
+  if (root.BASE_W !== 640 || root.BASE_H !== 360 || root.ASPECT_MIN !== 4 / 3 || root.ASPECT_MAX !== 21 / 9) {
+    problems.push("Game viewport constants were not stored");
+  }
+  if (root.view || root.map || root.ctx) problems.push("Game canvases were pre-attached");
+  if (root.portraitLock !== false || root._resizeTick !== 0 || root.resizeWrites !== 0 || root.pixelScale !== 1) {
+    problems.push("Game loop fields were not initialized");
+  }
+  if (typeof root.startLoop !== "function") problems.push("Game.startLoop is missing");
   context.console = {
     log: prevConsole.log.bind(prevConsole),
     warn: prevConsole.warn.bind(prevConsole),
