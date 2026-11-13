@@ -27,13 +27,16 @@ jobs:
 
       - name: OO audit with main's script
         run: |
-          if git cat-file -e "origin/main:tools/oo-audit.mjs"; then
-            tmp=$(mktemp /tmp/oo-audit-main.XXXXXX.mjs)
-            git show "origin/main:tools/oo-audit.mjs" > "$tmp"
-            node "$tmp" --against-ref origin/main
-          else
+          set -euo pipefail
+          git rev-parse --verify origin/main >/dev/null
+          listed=$(git ls-tree --name-only origin/main tools/oo-audit.mjs)
+          if [ -z "$listed" ]; then
             echo "oo-audit: origin/main has no tools/oo-audit.mjs; first run is allowed"
+            exit 0
           fi
+          tmp=$(mktemp /tmp/oo-audit-main.XXXXXX.mjs)
+          git show "origin/main:tools/oo-audit.mjs" > "$tmp"
+          node "$tmp" --against-ref origin/main
 
       - name: OO audit tamper test
         run: node tools/oo-audit-tamper.mjs
