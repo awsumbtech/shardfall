@@ -5448,6 +5448,17 @@ async function runChoiceBoxChecks() {
         fail("target " + i + " is outside the choice box at " + w + "x" + h);
       }
     });
+    const withStatus = Box.layout(w, h, 3, text, true);
+    const noStatus = Box.layout(w, h, 3, text, false);
+    if (withStatus.status.h !== Box.SPEC.statusH) fail("status band not reserved at " + w + "x" + h);
+    if (noStatus.status.h !== 0) fail("status band reserved while assets load at " + w + "x" + h);
+    if (!(withStatus.box.h - noStatus.box.h >= Box.SPEC.statusH)) {
+      fail("loaded layout did not drop the status band at " + w + "x" + h);
+    }
+    noStatus.targets.forEach((target, i) => {
+      if (target.w < 44 || target.h < 44) fail("loaded target under 44px at " + w + "x" + h);
+      if (Box.hits(target, text)) fail("loaded target intersects dialogue text at " + w + "x" + h);
+    });
   });
 
   const labels = ["What's the Hush?", "What is this thing in my hand?", "I'll get them."];
@@ -5469,6 +5480,8 @@ async function runChoiceBoxChecks() {
   if (!cssEl || cssEl.textContent.indexOf("prefers-reduced-motion") < 0) fail("reduced motion css missing");
   if (cssEl.textContent.indexOf("linear-gradient") >= 0) fail("choice css paints a gradient");
   if (cssEl.textContent.indexOf("min-height:" + Box.SPEC.targetH + "px") < 0) fail("css target height drifted");
+  if (Box.SPEC.zIndex >= 80) fail("ChoiceBox z-index " + Box.SPEC.zIndex + " is not below the rotate gate");
+  if (cssEl.textContent.indexOf("z-index:" + Box.SPEC.zIndex) < 0) fail("choice css z-index drifted");
   choiceCtx.document.dispatchEvent({ type: "keydown", code: "ArrowDown", preventDefault() {}, stopPropagation() {} });
   choiceCtx.document.dispatchEvent({ type: "keydown", code: "Enter", preventDefault() {}, stopPropagation() {} });
   const keyId = await keyPromise;
@@ -5496,14 +5509,14 @@ async function runChoiceBoxChecks() {
   const shown = choiceCtx.document.querySelectorAll(".sf-choice-label").map((el) => el.textContent);
   if (shown.join("|") !== labels.join("|")) fail("ChoiceBox labels " + shown.join("|"));
   const root = choiceCtx.document.getElementById("sf-choicebox");
-  const portrait = Box.layout(choiceCtx.innerWidth, choiceCtx.innerHeight, 3);
+  const portrait = Box.layout(choiceCtx.innerWidth, choiceCtx.innerHeight, 3, null, true);
   if (root.style.width !== portrait.box.w + "px" || root.style.height !== portrait.box.h + "px") {
     fail("portrait box " + root.style.width + " by " + root.style.height);
   }
   choiceCtx.innerWidth = 844;
   choiceCtx.innerHeight = 390;
   choiceCtx.dispatchEvent({ type: "resize" });
-  const landscape = Box.layout(844, 390, 3);
+  const landscape = Box.layout(844, 390, 3, null, true);
   if (root.style.left !== landscape.box.x + "px" || root.style.top !== landscape.box.y + "px" ||
     root.style.width !== landscape.box.w + "px" || root.style.height !== landscape.box.h + "px") {
     fail("landscape box moved to " + root.style.left + "," + root.style.top + " " + root.style.width + "x" + root.style.height);
@@ -5614,7 +5627,20 @@ async function assertLiveChoiceFit(slotsEmpty) {
         }
         if (SF.syncUI) SF.syncUI();
         window.dispatchEvent(new Event("resize"));
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await new Promise((resolve) => {
+          const start = performance.now();
+          function tick() {
+            const choice = document.getElementById("sf-choicebox");
+            const style = choice && getComputedStyle(choice);
+            const panelReady = !!(style && style.borderImageSource && style.borderImageSource.indexOf("choicebox-panel") >= 0);
+            const cursor = document.querySelector("#sf-choicebox img.sf-choice-cursor");
+            const cursorReady = !!(cursor && cursor.naturalWidth > 0);
+            const slotsMissing = !!(document.querySelector(".sf-choicebox-note") && (document.querySelector(".sf-choicebox-note").textContent || "").indexOf("Empty:") === 0);
+            if ((panelReady && cursorReady) || slotsMissing || performance.now() - start > 3000) resolve();
+            else requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        });
         function boxOf(el) {
           if (!el || !el.getBoundingClientRect) return null;
           const r = el.getBoundingClientRect();
@@ -5622,14 +5648,31 @@ async function assertLiveChoiceFit(slotsEmpty) {
         }
         const choice = document.getElementById("sf-choicebox");
         const targets = [...document.querySelectorAll("#sf-choicebox button")].map(boxOf);
+        const status = document.querySelector(".sf-choicebox-status");
+        const rotate = document.getElementById("rotate");
+        const choiceBox = boxOf(choice);
+        let rotateOnTop = null;
+        if (choiceBox && rotate) {
+          const cx = Math.floor((choiceBox.left + choiceBox.right) / 2);
+          const cy = Math.floor((choiceBox.top + choiceBox.bottom) / 2);
+          const hit = document.elementFromPoint(cx, cy);
+          rotateOnTop = !!(hit && (hit.id === "rotate" || (hit.closest && hit.closest("#rotate"))));
+        }
         return {
-          choice: boxOf(choice),
+          choice: choiceBox,
           line: boxOf(document.getElementById("line")),
           who: boxOf(document.getElementById("who")),
           targets,
           oldButtons: document.querySelectorAll("#dlg-choices button").length,
           images: [...document.querySelectorAll("#sf-choicebox img")].map((img) => img.naturalWidth),
           note: (document.querySelector(".sf-choicebox-note") || {}).textContent || "",
+          statusHeight: status ? status.getBoundingClientRect().height : 0,
+          statusHidden: !!(status && status.hidden),
+          hasStatusClass: !!(choice && choice.classList.contains("has-status")),
+          choiceZ: choice ? getComputedStyle(choice).zIndex : "",
+          rotateZ: rotate ? getComputedStyle(rotate).zIndex : "",
+          rotateDisplay: rotate ? getComputedStyle(rotate).display : "",
+          rotateOnTop,
           lineText: (document.getElementById("line") || {}).textContent || "",
           handed: !!(SF.state.dialogue && SF.state.dialogue.choiceBox),
           vw: window.innerWidth,
@@ -5658,8 +5701,26 @@ async function assertLiveChoiceFit(slotsEmpty) {
       if (slotsEmpty) {
         if (report.images.length !== 0) fail(width + "x" + height + " rendered an empty slot image");
         if (report.note.indexOf("Empty:") !== 0) fail(width + "x" + height + " missing empty-slot notice");
-      } else if (report.images.some((widthPx) => !(widthPx > 0))) {
-        fail(width + "x" + height + " rendered a broken slot image");
+        if (!(report.statusHeight >= 24) || !report.hasStatusClass) {
+          fail(width + "x" + height + " empty-slot notice has no status band");
+        }
+      } else {
+        if (report.images.some((widthPx) => !(widthPx > 0))) {
+          fail(width + "x" + height + " rendered a broken slot image");
+        }
+        if (report.note) fail(width + "x" + height + " showed empty-slot notice " + JSON.stringify(report.note));
+        if (report.statusHeight > 0.5 || report.hasStatusClass || !report.statusHidden) {
+          fail(width + "x" + height + " reserved a status band while assets loaded");
+        }
+      }
+      const choiceZ = parseFloat(report.choiceZ);
+      const rotateZ = parseFloat(report.rotateZ);
+      if (!(choiceZ < rotateZ)) {
+        fail(width + "x" + height + " ChoiceBox z-index " + report.choiceZ + " is not below the rotate gate " + report.rotateZ);
+      }
+      if (width < height) {
+        if (report.rotateDisplay !== "flex") fail(width + "x" + height + " rotate gate was " + report.rotateDisplay);
+        if (!report.rotateOnTop) fail(width + "x" + height + " rotate gate was not on top of ChoiceBox");
       }
     }
   } finally {

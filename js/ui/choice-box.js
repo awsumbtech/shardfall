@@ -14,6 +14,8 @@ var SPEC = {
   gap: 4,
   targetH: 44,
   maxW: 420,
+  // Below #rotate (80) so the portrait gate stays readable; above #dialogue (7).
+  zIndex: 20,
   panel: "assets/ui/choicebox-panel.png",
   cursor: "assets/ui/choice-cursor.png"
 };
@@ -29,14 +31,17 @@ SF.ChoiceBox = {
     return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   },
 
-  layout: function (vw, vh, count, text) {
+  layout: function (vw, vh, count, text, showStatus) {
     var n = count | 0;
     if (n < 1) n = 1;
     vw = vw > 0 ? vw : 0;
     vh = vh > 0 ? vh : 0;
+    var statusOn = !!showStatus;
+    var statusH = statusOn ? SPEC.statusH : 0;
+    var gaps = statusOn ? n : Math.max(0, n - 1);
     var boxW = Math.min(SPEC.maxW, vw - SPEC.margin * 2);
     if (!(boxW > 0)) boxW = vw > 0 ? vw : 1;
-    var boxH = SPEC.inset * 2 + SPEC.statusH + n * SPEC.targetH + n * SPEC.gap;
+    var boxH = SPEC.inset * 2 + statusH + n * SPEC.targetH + gaps * SPEC.gap;
     var maxH = vh - SPEC.margin * 2;
     if (maxH > 0 && boxH > maxH) boxH = maxH;
     if (!(boxH > 0)) boxH = 1;
@@ -67,7 +72,7 @@ SF.ChoiceBox = {
     var innerX = boxX + SPEC.inset;
     var innerW = boxW - SPEC.inset * 2;
     if (innerW < 1) innerW = 1;
-    var y0 = boxY + SPEC.inset + SPEC.statusH + SPEC.gap;
+    var y0 = boxY + SPEC.inset + statusH + (statusOn ? SPEC.gap : 0);
     var targets = [];
     var i;
     for (i = 0; i < n; i++) {
@@ -84,7 +89,7 @@ SF.ChoiceBox = {
         x: innerX,
         y: boxY + SPEC.inset,
         w: innerW,
-        h: SPEC.statusH
+        h: statusH
       },
       targets: targets
     };
@@ -106,9 +111,9 @@ function cssText() {
   var statusH = SPEC.statusH;
   var targetH = SPEC.targetH;
   return ""
-    + "#sf-choicebox{position:fixed;z-index:120;margin:0;display:flex;flex-direction:column;"
+    + "#sf-choicebox{position:fixed;z-index:" + SPEC.zIndex + ";margin:0;display:flex;flex-direction:column;"
     + "gap:" + gap + "px;padding:" + inset + "px;box-sizing:border-box;overflow:hidden;"
-    + "background:transparent;color:#f6f2ea;"
+    + "background:transparent;color:#f6f2ea;pointer-events:auto;"
     + "font-family:\"Avenir Next\",\"Segoe UI\",system-ui,sans-serif;"
     + "touch-action:manipulation;image-rendering:pixelated;image-rendering:crisp-edges;}"
     + "#sf-choicebox *{box-sizing:border-box;}"
@@ -121,9 +126,10 @@ function cssText() {
     + "#sf-choicebox .sf-choice-mark{width:24px;height:24px;flex:0 0 24px;overflow:hidden;}"
     + "#sf-choicebox .sf-choice-cursor{width:24px;height:24px;display:block;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;}"
     + "#sf-choicebox .sf-choice-label{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}"
-    + "#sf-choicebox .sf-choicebox-status{display:flex;align-items:center;gap:6px;margin:0;overflow:hidden;"
-    + "height:" + statusH + "px;flex:0 0 " + statusH + "px;white-space:nowrap;"
+    + "#sf-choicebox .sf-choicebox-status{display:none;align-items:center;gap:6px;margin:0;overflow:hidden;"
+    + "height:0;flex:0 0 0;white-space:nowrap;"
     + "font-size:13px;line-height:16px;}"
+    + "#sf-choicebox.has-status .sf-choicebox-status{display:flex;height:" + statusH + "px;flex:0 0 " + statusH + "px;}"
     + "#sf-choicebox .sf-choicebox-panel{width:24px;height:24px;flex:0 0 24px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;}"
     + "@media (prefers-reduced-motion:reduce){#sf-choicebox,#sf-choicebox *{animation:none !important;transition:none !important;}}";
 }
@@ -194,17 +200,51 @@ function speakerTextRect() {
   return box;
 }
 
+function hostNode() {
+  return (typeof document !== "undefined" && document.getElementById)
+    ? (document.getElementById("chrome") || document.body)
+    : null;
+}
+
+// Layout is in viewport pixels. When the box lives inside #chrome, map
+// those numbers into chrome's (possibly zoomed) coordinate space.
+function applyBox(root, laid) {
+  var left = laid.box.x;
+  var top = laid.box.y;
+  var width = laid.box.w;
+  var height = laid.box.h;
+  var host = root && root.parentNode;
+  if (host && host.id === "chrome" && host.getBoundingClientRect) {
+    var r = host.getBoundingClientRect();
+    var hx = host.offsetWidth || r.width || 1;
+    var hy = host.offsetHeight || r.height || 1;
+    var sx = r.width / hx;
+    var sy = r.height / hy;
+    if (!(sx > 0)) sx = 1;
+    if (!(sy > 0)) sy = 1;
+    left = (laid.box.x - r.left) / sx;
+    top = (laid.box.y - r.top) / sy;
+    width = laid.box.w / sx;
+    height = laid.box.h / sy;
+    root.style.position = "absolute";
+  } else {
+    root.style.position = "fixed";
+  }
+  root.style.left = left + "px";
+  root.style.top = top + "px";
+  root.style.width = width + "px";
+  root.style.height = height + "px";
+}
+
 function place(session) {
   var vw = window.innerWidth || 0;
   var vh = window.innerHeight || 0;
-  var laid = SF.ChoiceBox.layout(vw, vh, session.choices.length, speakerTextRect());
-  session.root.style.left = laid.box.x + "px";
-  session.root.style.top = laid.box.y + "px";
-  session.root.style.width = laid.box.w + "px";
-  session.root.style.height = laid.box.h + "px";
+  var laid = SF.ChoiceBox.layout(vw, vh, session.choices.length, speakerTextRect(), statusShowing(session));
+  applyBox(session.root, laid);
 }
 
 function noteFor(session) {
+  if (!session.panelSettled || !session.cursorSettled) return "";
   var missing = [];
   if (!session.panelOk) missing.push("choicebox-panel.png");
   if (!session.cursorOk) missing.push("choice-cursor.png");
@@ -212,9 +252,17 @@ function noteFor(session) {
   return "Empty: " + missing.join(", ");
 }
 
+function statusShowing(session) {
+  return !!noteFor(session);
+}
+
 function refreshNote(session) {
+  var show = statusShowing(session);
   session.note.textContent = noteFor(session);
   applyFrame(session.root, session.panelOk);
+  session.status.hidden = !show;
+  session.root.classList.toggle("has-status", show);
+  if (!session.settled) place(session);
 }
 
 function paintSelection(session) {
@@ -248,10 +296,11 @@ function openBox(list, onPick) {
   root.setAttribute("role", "dialog");
   root.setAttribute("aria-label", "Choices");
   root.style.position = "fixed";
-  root.style.zIndex = "120";
+  root.style.zIndex = String(SPEC.zIndex);
   root.style.margin = "0";
   root.style.background = "transparent";
   root.style.boxSizing = "border-box";
+  root.style.pointerEvents = "auto";
   applyFrame(root, false);
 
   var status = document.createElement("p");
@@ -296,10 +345,13 @@ function openBox(list, onPick) {
     marks: marks,
     cursor: cursor,
     note: note,
+    status: status,
     root: root,
     index: 0,
     panelOk: false,
     cursorOk: false,
+    panelSettled: false,
+    cursorSettled: false,
     settled: false,
     onPick: onPick,
     resolve: null,
@@ -365,7 +417,9 @@ function openBox(list, onPick) {
   session.onResize = onResize;
   SF.ChoiceBox._live = session;
 
-  document.body.appendChild(root);
+  var host = hostNode();
+  if (host) host.appendChild(root);
+  else document.body.appendChild(root);
   place(session);
   paintSelection(session);
   refreshNote(session);
@@ -381,11 +435,13 @@ function openBox(list, onPick) {
   // insert a 24x24 copy of that texture into the status row.
   watchImage(panel, function (ok) {
     if (session.settled) return;
+    session.panelSettled = true;
     session.panelOk = !!ok;
     refreshNote(session);
   });
   watchImage(cursor, function (ok) {
     if (session.settled) return;
+    session.cursorSettled = true;
     session.cursorOk = !!ok;
     if (ok) {
       cursor.className = "sf-choice-cursor";
