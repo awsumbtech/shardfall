@@ -487,9 +487,9 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 2. **Version numbers.** PR #56 keeps v0.4.35. v0.4.34 belongs to OO-01. PRs #50 and #51 get renumbered when they are rebased; they are not touched now.
 3. **VisualObject missing-asset placeholder.** When an image is missing, `VisualObject.missingAsset` shows a real authored placeholder image and also logs an error. It never falls back to code art. The placeholder art does not exist yet: the hook stays, defaults to null and logs only, and it is tracked as an open item waiting on Game Art & Motion for the art (Part D item 10).
 
-### Needs Brian's own yes
+### Settled (Brian's own words)
 
-1. **Smoke in CI.** Whether `.github/workflows/ci.yml` should also run `node tools/smoke.mjs` still needs Brian's own yes. Changes to `ci.yml` already require his sign-off.
+1. **Smoke in CI.** Brian, 9:23 AM ET Nov 13, relayed by Chief of Staff: "Yes, add the smoke test to Shardfall's CI". That covers editing `.github/workflows/ci.yml` to run `node tools/smoke.mjs` on every pull request, after the existing audit and tamper steps, and nothing else in `ci.yml`. The existing audit steps and their fail-closed behavior are unchanged.
 
 ### Pending
 

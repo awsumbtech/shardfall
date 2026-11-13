@@ -40,3 +40,14 @@ jobs:
 
       - name: OO audit tamper test
         run: node tools/oo-audit-tamper.mjs
+
+      # pngjs is in package.json; playwright-core launches the runner's
+      # preinstalled Chrome at /usr/bin/google-chrome (or $CHROME).
+      - name: Install smoke dependencies
+        run: |
+          set -euo pipefail
+          npm ci
+          npm install --no-save --no-package-lock playwright-core@1.59.1
+
+      - name: Smoke test
+        run: node tools/smoke.mjs
