@@ -2,7 +2,7 @@
 
 Step OO-02, v0.4.35. Structure only: the running game still draws and plays the way it does on main. Opacity and fade are not part of VisualObject. That ruling is still open. ChoiceBox is not used as a window skin here.
 
-`docs/OO-MIGRATION.md` step 2 lists `VisualObject` + `Game` root + `SceneRouter` (`js/core/`). This PR ships VisualObject and the Game root only. SceneRouter is deferred to a later PR. It is not in this tree, and nothing here routes field vs battle.
+`docs/OO-MIGRATION.md` step 2 is `VisualObject` + the `Game` root. SceneRouter is step 2b, a later PR (Chief of Staff call applying Brian's standing rules, Nov 13 9:02 AM ET, not Brian's own words). It is not in this tree, and nothing here routes field vs battle.
 
 Features frozen; no art changes.
 
@@ -14,7 +14,7 @@ Features frozen; no art changes.
 
 3. **File and attach point.** `js/core/visual-object.js`. The only attach point is `attach(parent)`. The constructor is published as `SF.VisualObject` from `js/main.js` through `SF.defineVisualObject`.
 
-4. **What it does not change.** The frame loop does not call it, so nothing on screen changes. A missing or unloaded image does not paint, and it does not fall back to code-drawn art. There is no opacity, fade, tint, or filter. The missing-asset hook is `SF.VisualObject.missingAsset`: assign an already loaded image there. Until that image is set, a missing asset only writes a console error. It does not read ChoiceBox or any window skin.
+4. **What it does not change.** The frame loop does not call it, so nothing on screen changes. There is no opacity, fade, tint, or filter. It does not read ChoiceBox or any window skin. When an image is missing, `SF.VisualObject.missingAsset` is the hook for a real authored placeholder image, and a console error is also logged. It never falls back to code art. The placeholder art does not exist yet, so the hook stays, defaults to null, and currently logs only (open item for Game Art & Motion). Chief of Staff call applying Brian's standing rules (Nov 13 9:02 AM ET), not Brian's own words.
 
 ## Game
 

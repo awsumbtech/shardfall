@@ -419,7 +419,8 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | # | PR (object group) | Covers | Depends on | Art |
 |---|---|---|---|---|
 | 1 | `oo-audit` ratchet: `tools/oo-audit.mjs` + smoke hook + baseline from this doc. Fails if any file's draw-API, CSS-art, `SF.*` or leaked-global count goes up. PR Verifier then has a machine check for "no code-drawn visuals remain" (baseline reaches 0). | A, B | none | (no art) |
-| 2 | `VisualObject` contract + `Game` root + `SceneRouter` (`js/core/`) | B1 | 1 | (no art) |
+| 2 | `VisualObject` contract + `Game` root (`js/core/`). PR #56, v0.4.35 | B1 | 1 | (no art) |
+| 2b | `SceneRouter` (`js/core/scene-router.js`). Split out of step 2 as a later PR | B1 | 2 | (no art) |
 | 3 | Wrap leaked top-level scripts (dialogue, music, choice-box, sfx, menu/field, title, feel, art/core, audio, ui) | B1 | 1 | (no art) |
 | 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2 | PENDING: reusing `choicebox-panel.png` as the window skin. Nothing may depend on that reuse |
 | 5 | `UiButton` + `Icon` + slider thumb + caret | U3, U9, U11, U13 | 4 | art: button 9-slice, 6 icons, thumb, caret |
@@ -457,7 +458,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 40 | PWA icons from real art | U22 | 21 | art: icon set |
 | 41 | Delete `js/art/*`, `AssetRegistry.codeCanvas`, `SpriteRenderer.drawCode`, all primitive fallbacks; retarget gallery/QA tools; audit baseline = 0 | everything | all | none |
 
-Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already exists, and every screen shows it. #1-#3 and the (no art) steps can run while Game Art & Motion works on the art.
+Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already exists, and every screen shows it. #1-#3, #2b, and the (no art) steps can run while Game Art & Motion works on the art.
 
 ## Part D: art asks for Game Art & Motion (in PR order)
 
@@ -470,16 +471,25 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 7. **Battle** (PR 25-27): 8 layered backdrops (sky/far/mid/floor, ~480x270): emberhold_meadow, emberhold_scar, cinderveil_ash, ember_vault, saltmere_shore, saltmere_wreck, highspire_road, hush_deck; backdrop drift sprites; target bracket 4f; foe name plate 9-slice.
 8. **World** (PR 31-35): tilesets and Tiled maps for Cinderveil, Saltmere, Highspire, Gullrock, Drift and towns; prop variants (dead/burnt/charred trees, bush_dead, tuft_dead, basalt, charred log/stump, burnt fences, crate, barrel, signpost, sign, stones); 19 buildings (great lamp unlit/lit, workshop, hut, skiff, stilt, stall, raft, wreck hull, gate arch, ruin, lair, vault door, bench, plank, inn lantern, quay bell, rope bridge, dock deck).
 9. **Sky and screens** (PR 36-38, 40): sky plates per island (dusk + lit), cloud layer, hush edge, title key art + logo, voyage scene + sailing skiff 4f, minimap icons 8x8 + per-island map image, sail-chart background + 7 island cards, chimney smoke, hook post, arena cracks decal, rope segment + hook head, ash pool 4f, PWA icon set.
+10. **Missing-asset placeholder** (VisualObject hook, step 2): one real authored image shown when a VisualObject's image is missing or unloaded. Wired through `SF.VisualObject.missingAsset`, with a console error. Never a code-art fallback. Open until Game Art & Motion delivers the art; the hook stays and currently defaults to null (log only).
 
-## Part E: open questions and uncertainties
-
-v0.4.34 belongs to OO-01. v0.4.35 belongs to OO-02. PR #50 renumbers when it resumes.
+## Part E: rulings, open questions, and notes
 
 ### Settled (Brian's standing rules)
 
 1. **Procedural sprite sheets (E.1, step 18).** The game-art foe and fx sheets (`shardfall/foes`, `shardfall/fx`) are not real art. Regenerate them. Step 18 does not ship those procedural sheets.
 2. **`art/fx-tiles.png` (E.2).** Treat it the same way unless it is shown to be authored or generated art. Regenerate it. It is the 64×16 translucent shadow strip used as `ground.fx`. Its provenance is not recorded beyond `tools/ehmap/README.md:9`.
 3. **Missing Kenmi atlas (E.4).** If the Kenmi atlas is missing, show a real placeholder image plus an error, and never fall back to code art. The atlas still depends on the deploy key (`.github/workflows/pages.yml`).
+
+### Settled (Chief of Staff call applying Brian's standing rules (Nov 13 9:02 AM ET), not Brian's own words)
+
+1. **SceneRouter is step 2b.** SceneRouter is split out of step 2 as a later PR. Step 2 (PR #56) is the `VisualObject` contract and the `Game` root only.
+2. **Version numbers.** PR #56 keeps v0.4.35. v0.4.34 belongs to OO-01. PRs #50 and #51 get renumbered when they are rebased; they are not touched now.
+3. **VisualObject missing-asset placeholder.** When an image is missing, `VisualObject.missingAsset` shows a real authored placeholder image and also logs an error. It never falls back to code art. The placeholder art does not exist yet: the hook stays, defaults to null and logs only, and it is tracked as an open item waiting on Game Art & Motion for the art (Part D item 10).
+
+### Needs Brian's own yes
+
+1. **Smoke in CI.** Whether `.github/workflows/ci.yml` should also run `node tools/smoke.mjs` still needs Brian's own yes. Changes to `ci.yml` already require his sign-off.
 
 ### Pending
 
