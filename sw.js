@@ -112,6 +112,8 @@ var SHELL = [
   "js/props/renderer.js",
   "js/props/decorlayer.js",
   "js/content/props/emberhold-dense.json",
+  "js/core/visual-object.js",
+  "js/core/game.js",
   "js/main.js",
   "assets/ui/choicebox-panel.png",
   "assets/ui/choice-cursor.png"

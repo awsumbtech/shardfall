@@ -88,6 +88,8 @@ SF.boot = function () {
   if (SF.loadCalm) SF.loadCalm();
   SF.state = SF.fresh();
   SF.state.mode = "title";
+  // Game holds this same state object. The frame loop below is unchanged.
+  if (SF.Game && !SF.game) new SF.Game().attach(window);
   SF.bindInput();
   SF.bindUI();
   SF.resize();
