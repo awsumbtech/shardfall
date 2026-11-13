@@ -510,6 +510,7 @@ Nothing may depend on these until Brian rules.
 | `game.state` / `game.sf` write-through (`SF.state =` in `js/main.js`) | `js/main.js` (counted), accessors on `Game.prototype` | step 10 `GameState` |
 | `SF.boot` and `SF.resize` still functions on the bag | `js/main.js` | step 10 `GameLoop` and step 39 `Viewport` |
 | `SF.viewW`, `SF.viewH`, `SF.dpr`, `SF.zoom` still on the bag | `js/main.js` resize and draw-layer readers | step 39 `Viewport` |
+| `Game.prototype.update` / `Game.prototype.draw` child walkers, unused: the frame loop still calls `SF.update` / `SF.draw` | `js/core/game.js:122-139` | step 10 `GameLoop` (loop switches to the Game walkers, then the bag `SF.update` / `SF.draw` go) |
 
 3. **Fail-closed boot and resize.** `SF.boot` and `SF.resize` throw `Error("Game root is missing")` when the Game constructor or the `SF.game` instance is missing. They no longer return silently.
 4. `js/art/buildings.js` is not in `index.html`. `js/art/world.js:308-312` injects it with `document.write`.
