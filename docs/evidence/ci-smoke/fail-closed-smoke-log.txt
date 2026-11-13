@@ -1,0 +1,16 @@
+oo-audit	Smoke test	﻿2026-11-13T14:25:47.5646028Z ##[group]Run node tools/smoke.mjs
+oo-audit	Smoke test	2026-11-13T14:25:47.5646232Z ^[[36;1mnode tools/smoke.mjs^[[0m
+oo-audit	Smoke test	2026-11-13T14:25:47.5662084Z shell: /usr/bin/bash -e {0}
+oo-audit	Smoke test	2026-11-13T14:25:47.5662234Z ##[endgroup]
+oo-audit	Smoke test	2026-11-13T14:25:47.6619276Z file:///home/runner/work/shardfall/shardfall/tools/smoke.mjs:10
+oo-audit	Smoke test	2026-11-13T14:25:47.6620090Z throw new Error("ci-smoke fail-closed probe");
+oo-audit	Smoke test	2026-11-13T14:25:47.6620658Z       ^
+oo-audit	Smoke test	2026-11-13T14:25:47.6620785Z 
+oo-audit	Smoke test	2026-11-13T14:25:47.6620849Z Error: ci-smoke fail-closed probe
+oo-audit	Smoke test	2026-11-13T14:25:47.6621074Z     at file:///home/runner/work/shardfall/shardfall/tools/smoke.mjs:10:7
+oo-audit	Smoke test	2026-11-13T14:25:47.6621358Z     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+oo-audit	Smoke test	2026-11-13T14:25:47.6621626Z     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+oo-audit	Smoke test	2026-11-13T14:25:47.6621922Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+oo-audit	Smoke test	2026-11-13T14:25:47.6622091Z 
+oo-audit	Smoke test	2026-11-13T14:25:47.6622140Z Node.js v22.23.4
+oo-audit	Smoke test	2026-11-13T14:25:47.6671362Z ##[error]Process completed with exit code 1.
