@@ -1,0 +1,648 @@
+{
+  "packages": {
+    "tiledParser": "@canvasengine/tiled@2.4.1",
+    "rpgjsClientFetch": "hardcoded .tmx",
+    "fetchesTmj": false,
+    "externalTilesetLoop": true
+  },
+  "tmj": {
+    "ok": false,
+    "error": "Error: Text data outside of root node.\nLine: 0\nColumn: 1282636\nChar: }"
+  },
+  "embeddedTileset": {
+    "ok": true,
+    "tilesetKeys": [
+      "image",
+      "firstgid",
+      "name",
+      "tilewidth",
+      "tileheight",
+      "tilecount",
+      "columns"
+    ],
+    "source": null,
+    "image": "images/meta-tiles.png",
+    "loaderWouldFetchSource": false
+  },
+  "tmx": {
+    "ok": true,
+    "bytes": 1280858,
+    "width": 170,
+    "height": 112,
+    "tilewidth": 16,
+    "tileheight": 16,
+    "tilesets": [
+      {
+        "firstgid": 1,
+        "source": "tilesets/kenmi-grass.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 161,
+        "source": "tilesets/kenmi-grassMid.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 162,
+        "source": "tilesets/kenmi-pathMid.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 163,
+        "source": "tilesets/kenmi-pathDecor.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 166,
+        "source": "tilesets/kenmi-stone.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 250,
+        "source": "tilesets/kenmi-volcano.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 511,
+        "source": "tilesets/kenmi-bridge.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 547,
+        "source": "tilesets/kenmi-grass2.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 707,
+        "source": "tilesets/kenmi-grass2Mid.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 708,
+        "source": "tilesets/kenmi-grass3.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 868,
+        "source": "tilesets/kenmi-grass3Mid.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 869,
+        "source": "tilesets/kenmi-odecor.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 1103,
+        "source": "tilesets/kenmi-flowers.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 1203,
+        "source": "tilesets/kenmi-vrocks.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 1275,
+        "source": "tilesets/kenmi-vplants.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 1317,
+        "source": "tilesets/kenmi-fx.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 1321,
+        "source": "tilesets/kenmi-volcanoDim.tsx",
+        "name": null
+      },
+      {
+        "firstgid": 1582,
+        "source": "tilesets/meta.tsx",
+        "name": null
+      }
+    ],
+    "layerCount": 39,
+    "mapProperties": {
+      "island": "emberhold",
+      "private": "Kenmi Cute Fantasy, do not redistribute"
+    },
+    "maren": {
+      "x": 1088,
+      "y": 288,
+      "type": "npc",
+      "point": true
+    }
+  },
+  "playable": {
+    "ok": true,
+    "bytes": 52976,
+    "tilesets": [
+      "tilesets/kenmi-fx.tsx",
+      "tilesets/meta.tsx"
+    ],
+    "layerCount": 5
+  },
+  "fidelity": {
+    "tmjLayers": 39,
+    "parsedLayers": 39,
+    "diffs": [
+      {
+        "name": "L0/ground",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/patch",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/ash",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/ashpatch",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/path",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/decor",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/ashdecor",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/seam",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L0/cliff",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/ground",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/ash",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/ashpatch",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/path",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/decor",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/ashdecor",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/shadow",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/footfx",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L1/cliff",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L2/ground",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L2/path",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L2/decor",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L2/shadow",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L2/cliff",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L3/ground",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L3/decor",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L3/shadow",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "L3/cliff",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      },
+      {
+        "name": "bridges",
+        "type": "tilelayer",
+        "problems": [
+          "props [role] -> []"
+        ]
+      }
+    ]
+  },
+  "tilesetFiles": [
+    {
+      "source": "tilesets/kenmi-grass.tsx",
+      "ok": true,
+      "name": "kenmi-grass",
+      "tilecount": 160,
+      "columns": 16,
+      "image": "images/missing/kenmi-grass.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-grassMid.tsx",
+      "ok": true,
+      "name": "kenmi-grassMid",
+      "tilecount": 1,
+      "columns": 1,
+      "image": "images/missing/kenmi-grassMid.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-pathMid.tsx",
+      "ok": true,
+      "name": "kenmi-pathMid",
+      "tilecount": 1,
+      "columns": 1,
+      "image": "images/missing/kenmi-pathMid.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-pathDecor.tsx",
+      "ok": true,
+      "name": "kenmi-pathDecor",
+      "tilecount": 3,
+      "columns": 3,
+      "image": "images/missing/kenmi-pathDecor.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-stone.tsx",
+      "ok": true,
+      "name": "kenmi-stone",
+      "tilecount": 84,
+      "columns": 14,
+      "image": "images/missing/kenmi-stone.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-volcano.tsx",
+      "ok": true,
+      "name": "kenmi-volcano",
+      "tilecount": 261,
+      "columns": 29,
+      "image": "images/missing/kenmi-volcano.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-bridge.tsx",
+      "ok": true,
+      "name": "kenmi-bridge",
+      "tilecount": 36,
+      "columns": 9,
+      "image": "images/missing/kenmi-bridge.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-grass2.tsx",
+      "ok": true,
+      "name": "kenmi-grass2",
+      "tilecount": 160,
+      "columns": 16,
+      "image": "images/missing/kenmi-grass2.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-grass2Mid.tsx",
+      "ok": true,
+      "name": "kenmi-grass2Mid",
+      "tilecount": 1,
+      "columns": 1,
+      "image": "images/missing/kenmi-grass2Mid.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-grass3.tsx",
+      "ok": true,
+      "name": "kenmi-grass3",
+      "tilecount": 160,
+      "columns": 16,
+      "image": "images/missing/kenmi-grass3.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-grass3Mid.tsx",
+      "ok": true,
+      "name": "kenmi-grass3Mid",
+      "tilecount": 1,
+      "columns": 1,
+      "image": "images/missing/kenmi-grass3Mid.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-odecor.tsx",
+      "ok": true,
+      "name": "kenmi-odecor",
+      "tilecount": 234,
+      "columns": 9,
+      "image": "images/missing/kenmi-odecor.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-flowers.tsx",
+      "ok": true,
+      "name": "kenmi-flowers",
+      "tilecount": 100,
+      "columns": 10,
+      "image": "images/missing/kenmi-flowers.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-vrocks.tsx",
+      "ok": true,
+      "name": "kenmi-vrocks",
+      "tilecount": 72,
+      "columns": 8,
+      "image": "images/missing/kenmi-vrocks.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-vplants.tsx",
+      "ok": true,
+      "name": "kenmi-vplants",
+      "tilecount": 42,
+      "columns": 6,
+      "image": "images/missing/kenmi-vplants.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-fx.tsx",
+      "ok": true,
+      "name": "kenmi-fx",
+      "tilecount": 4,
+      "columns": 4,
+      "image": "images/fx-tiles.png",
+      "imageExists": true,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/kenmi-volcanoDim.tsx",
+      "ok": true,
+      "name": "kenmi-volcanoDim",
+      "tilecount": 261,
+      "columns": 29,
+      "image": "images/missing/kenmi-volcanoDim.png",
+      "imageExists": false,
+      "tileTypes": []
+    },
+    {
+      "source": "tilesets/meta.tsx",
+      "ok": true,
+      "name": "meta",
+      "tilecount": 6,
+      "columns": 6,
+      "image": "images/meta-tiles.png",
+      "imageExists": true,
+      "tileTypes": [
+        "blocked",
+        "h0",
+        "h1",
+        "h2",
+        "h3",
+        "stair"
+      ]
+    }
+  ],
+  "images": [
+    {
+      "name": "kenmi-grass",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_1.png",
+      "servedAs": "images/missing/kenmi-grass.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-grassMid",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
+      "servedAs": "images/missing/kenmi-grassMid.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-pathMid",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+      "servedAs": "images/missing/kenmi-pathMid.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-pathDecor",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Path_Decoration.png",
+      "servedAs": "images/missing/kenmi-pathDecor.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-stone",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png",
+      "servedAs": "images/missing/kenmi-stone.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-volcano",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png",
+      "servedAs": "images/missing/kenmi-volcano.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-bridge",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Bridge/Bridge_Wood.png",
+      "servedAs": "images/missing/kenmi-bridge.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-grass2",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_2.png",
+      "servedAs": "images/missing/kenmi-grass2.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-grass2Mid",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_2_Middle.png",
+      "servedAs": "images/missing/kenmi-grass2Mid.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-grass3",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_Tiles_3.png",
+      "servedAs": "images/missing/kenmi-grass3.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-grass3Mid",
+      "original": "vendor/kenmi/Cute_Fantasy/Tiles/Grass/Grass_3_Middle.png",
+      "servedAs": "images/missing/kenmi-grass3Mid.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-odecor",
+      "original": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Outdoor_Decor.png",
+      "servedAs": "images/missing/kenmi-odecor.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-flowers",
+      "original": "vendor/kenmi/Cute_Fantasy/Outdoor decoration/Flowers.png",
+      "servedAs": "images/missing/kenmi-flowers.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-vrocks",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Volcano_Props/Volcano_Rocks.png",
+      "servedAs": "images/missing/kenmi-vrocks.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-vplants",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Volcano_Props/Volcano_Plants.png",
+      "servedAs": "images/missing/kenmi-vplants.png",
+      "fileExists": false
+    },
+    {
+      "name": "kenmi-fx",
+      "original": "art/fx-tiles.png",
+      "servedAs": "images/fx-tiles.png",
+      "fileExists": true
+    },
+    {
+      "name": "kenmi-volcanoDim",
+      "original": "vendor/kenmi/Cute_Fantasy_Volcano/Tiles/Volcano_Tiles.png",
+      "servedAs": "images/missing/kenmi-volcanoDim.png",
+      "fileExists": false
+    },
+    {
+      "name": "meta",
+      "original": "art/meta-tiles.png",
+      "servedAs": "images/meta-tiles.png",
+      "fileExists": true
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+shot landscape_844x390_full_map_missing_kenmi.png {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+full map misses ["404 http://127.0.0.1:4173/map/images/missing/kenmi-grass.png"]
+landscape_844x390 loaded {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot landscape_844x390_map_loaded.png {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot landscape_844x390_walk_s.png {"text":"SPIKE Emberhold · now 1088, 350 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"350","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk s 1088 320 -> 1088 368
+shot landscape_844x390_walk_e.png {"text":"SPIKE Emberhold · now 1116, 368 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1116","y":"368","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk e 1088 368 -> 1134 368
+shot landscape_844x390_walk_w.png {"text":"SPIKE Emberhold · now 1106, 368 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1106","y":"368","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk w 1134 368 -> 1083 368
+shot landscape_844x390_walk_n.png {"text":"SPIKE Emberhold · now 1083, 350 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1083","y":"350","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 walk n 1083 368 -> 1083 323
+landscape_844x390 choices 3
+shot landscape_844x390_npc_choice.png {"text":"SPIKE Emberhold · now 1083, 304 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1083","y":"304","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+landscape_844x390 saved {"readout":{"text":"SPIKE Emberhold · now 1083, 304 · server 1083, 304 · kept 1083, 304 · saved · Kenmi sheets missing","x":"1083","y":"304","serverX":"1083","serverY":"304","keptX":"1083","keptY":"304","note":"saved"},"client":{"x":1083,"y":304}}
+landscape_844x390 walked away {"savedY":304,"away":{"x":1083,"y":366},"clientDy":62}
+landscape_844x390 after load {"viewport":"landscape_844x390","saved":{"x":1083,"y":304},"savedServerY":304,"away":{"x":1083,"y":366},"awayDy":62,"awayServerY":320,"restored":{"x":1083,"y":366},"restoreDy":62,"afterServerY":304,"loadOk":true,"loadVia":"player.load","wayfarer":{"present":true,"sheet":112,"graphics":{"0":"wayfarer"},"box":{"x":402,"y":166,"w":56,"h":56},"onScreen":true,"ancestorHidden":true,"drawn":false},"positionPass":false,"pass":false}
+shot landscape_844x390_save_load.png {"text":"SPIKE Emberhold · now 1083, 366 · server 1083, 304 · kept 1083, 304 · loaded · Kenmi sheets missing","x":"1083","y":"366","serverX":"1083","serverY":"304","keptX":"1083","keptY":"304","note":"loaded"}
+landscape_844x390 FAILED landscape_844x390 Wayfarer is not drawn after load: {"present":true,"sheet":112,"graphics":{"0":"wayfarer"},"box":{"x":402,"y":166,"w":56,"h":56},"onScreen":true,"ancestorHidden":true,"drawn":false}
+portrait_390x844 loaded {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot portrait_390x844_map_loaded.png {"text":"SPIKE Emberhold · now 1088, 320 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"320","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+shot portrait_390x844_walk_s.png {"text":"SPIKE Emberhold · now 1088, 343 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1088","y":"343","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk s 1088 320 -> 1088 370
+shot portrait_390x844_walk_e.png {"text":"SPIKE Emberhold · now 1106, 370 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1106","y":"370","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk e 1088 370 -> 1134 370
+shot portrait_390x844_walk_w.png {"text":"SPIKE Emberhold · now 1119, 370 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1119","y":"370","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk w 1134 370 -> 1087 370
+shot portrait_390x844_walk_n.png {"text":"SPIKE Emberhold · now 1083, 359 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1083","y":"359","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 walk n 1087 370 -> 1083 329
+portrait_390x844 choices 3
+shot portrait_390x844_npc_choice.png {"text":"SPIKE Emberhold · now 1083, 304 · server 1088, 320 · kept none · map · Kenmi sheets missing","x":"1083","y":"304","serverX":"1088","serverY":"320","keptX":"","keptY":"","note":"map"}
+portrait_390x844 saved {"readout":{"text":"SPIKE Emberhold · now 1083, 304 · server 1083, 304 · kept 1083, 304 · saved · Kenmi sheets missing","x":"1083","y":"304","serverX":"1083","serverY":"304","keptX":"1083","keptY":"304","note":"saved"},"client":{"x":1083,"y":304}}
+portrait_390x844 walked away {"savedY":304,"away":{"x":1083,"y":366},"clientDy":62}
+portrait_390x844 after load {"viewport":"portrait_390x844","saved":{"x":1083,"y":304},"savedServerY":304,"away":{"x":1083,"y":366},"awayDy":62,"awayServerY":320,"restored":{"x":1083,"y":366},"restoreDy":62,"afterServerY":304,"loadOk":true,"loadVia":"player.load","wayfarer":{"present":true,"sheet":112,"graphics":{"0":"wayfarer"},"box":{"x":175,"y":337,"w":56,"h":56},"onScreen":true,"ancestorHidden":true,"drawn":false},"positionPass":false,"pass":false}
+shot portrait_390x844_save_load.png {"text":"SPIKE Emberhold · now 1083, 366 · server 1083, 304 · kept 1083, 304 · loaded · Kenmi sheets missing","x":"1083","y":"366","serverX":"1083","serverY":"304","keptX":"1083","keptY":"304","note":"loaded"}
+portrait_390x844 FAILED portrait_390x844 Wayfarer is not drawn after load: {"present":true,"sheet":112,"graphics":{"0":"wayfarer"},"box":{"x":175,"y":337,"w":56,"h":56},"onScreen":true,"ancestorHidden":true,"drawn":false}

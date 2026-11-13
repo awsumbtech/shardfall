@@ -1,0 +1,88 @@
+{
+  "runs": [
+    {
+      "viewport": "landscape_844x390",
+      "saved": {
+        "x": 1083,
+        "y": 304
+      },
+      "savedServerY": 304,
+      "away": {
+        "x": 1083,
+        "y": 366
+      },
+      "awayDy": 62,
+      "awayServerY": 320,
+      "restored": {
+        "x": 1083,
+        "y": 366
+      },
+      "restoreDy": 62,
+      "afterServerY": 304,
+      "loadOk": true,
+      "loadVia": "player.load",
+      "wayfarer": {
+        "present": true,
+        "sheet": 112,
+        "graphics": {
+          "0": "wayfarer"
+        },
+        "box": {
+          "x": 402,
+          "y": 166,
+          "w": 56,
+          "h": 56
+        },
+        "onScreen": true,
+        "ancestorHidden": true,
+        "drawn": false
+      },
+      "positionPass": false,
+      "pass": false
+    },
+    {
+      "viewport": "portrait_390x844",
+      "saved": {
+        "x": 1083,
+        "y": 304
+      },
+      "savedServerY": 304,
+      "away": {
+        "x": 1083,
+        "y": 366
+      },
+      "awayDy": 62,
+      "awayServerY": 320,
+      "restored": {
+        "x": 1083,
+        "y": 366
+      },
+      "restoreDy": 62,
+      "afterServerY": 304,
+      "loadOk": true,
+      "loadVia": "player.load",
+      "wayfarer": {
+        "present": true,
+        "sheet": 112,
+        "graphics": {
+          "0": "wayfarer"
+        },
+        "box": {
+          "x": 175,
+          "y": 337,
+          "w": 56,
+          "h": 56
+        },
+        "onScreen": true,
+        "ancestorHidden": true,
+        "drawn": false
+      },
+      "positionPass": false,
+      "pass": false
+    }
+  ],
+  "failures": [
+    "landscape_844x390 Wayfarer is not drawn after load: {\"present\":true,\"sheet\":112,\"graphics\":{\"0\":\"wayfarer\"},\"box\":{\"x\":402,\"y\":166,\"w\":56,\"h\":56},\"onScreen\":true,\"ancestorHidden\":true,\"drawn\":false}",
+    "portrait_390x844 Wayfarer is not drawn after load: {\"present\":true,\"sheet\":112,\"graphics\":{\"0\":\"wayfarer\"},\"box\":{\"x\":175,\"y\":337,\"w\":56,\"h\":56},\"onScreen\":true,\"ancestorHidden\":true,\"drawn\":false}"
+  ]
+}

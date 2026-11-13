@@ -1,0 +1,18 @@
+# RPG-JS Emberhold spike
+
+Not for shipping. Do not merge. Do not deploy this to GitHub Pages.
+
+This folder is a standalone RPG-JS v5 client. It loads a generated TMX of `maps/emberhold.tmj` (a copy of `js/content/maps/emberhold.tmj`). The main game is untouched.
+
+```bash
+cd prototypes/rpgjs
+pnpm install
+pnpm build
+pnpm preview
+```
+
+`pnpm build` writes `dist/`. npm 10 can crash while resolving this tree; pnpm 10 installed it. See `FINDINGS.md`.
+
+Open the preview and walk with the arrow keys. The on-screen A button talks. Headless Chrome's Space key did not fire the action control. `engine.processAction({ action: "action" })` did, which is the same control as the on-screen A button. Enter advances the first line to the choices. The on-screen stick is RPG-JS's mobile controls, forced on so a desktop browser shows them. Maren is the point named `maren` on the map. The choice can keep the current place or return to it. Slot storage is `localStorage` key `shardfall-rpgjs-spike`.
+
+The sprite sheets are the committed files in `assets/`. See `assets/README.md`. What carried, what broke, and what is worth borrowing is in `FINDINGS.md`.
