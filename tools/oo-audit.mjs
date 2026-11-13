@@ -41,7 +41,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+function resolveRoot() {
+  const beside = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  if (fs.existsSync(path.join(beside, "js")) && fs.existsSync(path.join(beside, "index.html"))) return beside;
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, "js")) && fs.existsSync(path.join(cwd, "index.html"))) return cwd;
+  return beside;
+}
+
+const ROOT = resolveRoot();
 const ALLOW_PATH = path.join(ROOT, "tools", "oo-audit-allow.json");
 const BASELINE_PATH = path.join(ROOT, "tools", "oo-baseline.json");
 
@@ -610,6 +618,29 @@ function scanJs(src, inArt) {
     return "";
   }
 
+  function firstStringArg(parenAt) {
+    let j = parenAt + 1;
+    while (j < n && (src[j] === " " || src[j] === "\t" || src[j] === "\n" || src[j] === "\r")) j += 1;
+    const q = src[j];
+    if (q !== "\"" && q !== "'" && q !== "`") return "";
+    j += 1;
+    let word = "";
+    while (j < n && src[j] !== q && src[j] !== "\n") {
+      if (src[j] === "\\") {
+        word += src[j + 1] || "";
+        j += 2;
+        continue;
+      }
+      word += src[j];
+      j += 1;
+    }
+    return word;
+  }
+
+  function cssArtProperty(name) {
+    return name === "clip-path" || name === "box-shadow" || name === "background" || name === "background-image" || name === "filter";
+  }
+
   function noteStyle(op, from) {
     if (!styleProp || op !== "=") {
       styleProp = null;
@@ -627,8 +658,8 @@ function scanJs(src, inArt) {
     } else if (kind === "filter") {
       if (value !== "none") visual.push({ line: at, kind: "filter" });
     } else if (kind === "cssArt") {
-      if (prop === "boxShadow") {
-        if (value && value !== "none") visual.push({ line: at, kind: "boxShadow" });
+      if (prop === "boxShadow" || prop === "clipPath") {
+        if (value && value !== "none") visual.push({ line: at, kind: prop });
       } else if (/(?:linear|radial|conic)-gradient\s*\(|box-shadow\s*:|clip-path\s*:/.test(value)) {
         visual.push({ line: at, kind: prop || "cssText" });
       }
@@ -653,7 +684,7 @@ function scanJs(src, inArt) {
       if (waitForFn) waitForFn = null;
       styleProp = null;
       const text = readString(c);
-      if ((c === "\"" || c === "'") && bracketDepth > 0 && CANVAS_CALLS.has(text)) computedName = text;
+      if ((c === "\"" || c === "'" || c === "`") && bracketDepth > 0 && CANVAS_CALLS.has(text)) computedName = text;
       mark("str", "");
       continue;
     }
@@ -743,7 +774,7 @@ function scanJs(src, inArt) {
       if (prevKind === "dot" && (word === "shadowBlur" || word === "globalCompositeOperation" || word === "filter")) {
         styleProp = { kind: word, line: atLine };
       }
-      if (prevKind === "dot" && (word === "background" || word === "backgroundImage" || word === "boxShadow" || word === "cssText")) {
+      if (prevKind === "dot" && (word === "background" || word === "backgroundImage" || word === "boxShadow" || word === "cssText" || word === "clipPath")) {
         styleProp = { kind: "cssArt", prop: word, line: atLine };
       }
 
@@ -778,6 +809,9 @@ function scanJs(src, inArt) {
       } else if (prevKind === "ident") {
         const kind = classify(prevText, callObject, i);
         if (kind) visual.push({ line: line, kind: kind });
+        else if (prevText === "setProperty" && cssArtProperty(firstStringArg(i))) {
+          visual.push({ line: line, kind: "setProperty" });
+        }
       }
       parenDepth += 1;
       i += 1;
