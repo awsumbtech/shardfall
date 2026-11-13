@@ -2,6 +2,10 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4.33 — Hits land harder
+
+A hit now shakes the battle, a swing leaves a slash, and the target flashes white. The blow that defeats someone stops, then eases back up to speed. Reduce motion turns the shake and that slow-motion off. The flash and the slash stay, quieter.
+
 ## v0.4 — Act 1, again
 
 The game is a landscape now. The picture is 640 by 360, scaled in whole steps, with black bars when the window does not match.

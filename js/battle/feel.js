@@ -24,8 +24,47 @@ SF.BattleFeel = {
   IMPACT_PORTION: 0.2,
   // Soft hit tint. Alpha starts here and falls to 0 over FLASH_TINT_MS.
   // Time, not frames, so a 120Hz phone still shows it.
+  // HitFlash does not read these. It paints its own white on top.
   FLASH_TINT: 0.35,
   FLASH_TINT_MS: 100,
+
+  // One presentation frame, at 60Hz. The four hit objects below count
+  // time with this. The lengths started from a juice note (shake 3px
+  // over 10 frames, white flash 2 frames, kill stop 9 frames) and were
+  // tuned so a turn-based hit reads and then gets out of the way.
+  FRAME_MS: 1000 / 60,
+
+  // ShakeFx. The offset decays to rest across the frame count.
+  // A killing blow is larger than a normal hit.
+  // A crit-sized shake is not wired: the rules never emit a crit.
+  // Reduced motion does not spawn a shake.
+  SHAKE_PX: 3,
+  SHAKE_FRAMES: 10,
+  SHAKE_KILL_PX: 8,
+  SHAKE_KILL_FRAMES: 14,
+
+  // HitFlash. A short record on the target, layered beside the soft tint.
+  // It does not recolor that tint. The white sprite it would draw is not
+  // in the repo, so the record is not painted. Reduced motion keeps it
+  // at a lower stored alpha.
+  HIT_FLASH_FRAMES: 2,
+  HIT_FLASH_ALPHA: 1,
+  HIT_FLASH_REDUCED_ALPHA: 0.42,
+
+  // SlashTrail. Physical swings only. The record is parented to the
+  // attacker and removed when the swing time is up. No slash image is
+  // shipped, so nothing is stroked. Reduced motion stores a lower alpha.
+  SLASH_FRAMES: 12,
+  SLASH_ALPHA: 0.92,
+  SLASH_REDUCED_ALPHA: 0.34,
+
+  // KillFreeze. A killing blow holds longer than HIT_PAUSE_MS, then
+  // eases from a slow clock back to full speed. Reduced motion keeps
+  // a 2-frame stop and does not slow the clock.
+  KILL_FREEZE_FRAMES: 9,
+  KILL_FREEZE_REDUCED_FRAMES: 2,
+  KILL_SLOW_FRAMES: 8,
+  KILL_SLOW_FROM: 0.22,
 
   now: function () {
     if (typeof performance !== "undefined" && performance.now) return performance.now();
