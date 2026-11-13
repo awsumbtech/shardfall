@@ -5407,7 +5407,9 @@ async function runChoiceBoxChecks() {
   const openCount = (dlgSrc.match(/SF\.ChoiceBox\.open\s*\(/g) || []).length;
   if (openCount !== 1) fail("dialogue runner should call ChoiceBox.open once, found " + openCount);
   const boxSrc = fs.readFileSync("js/ui/choice-box.js", "utf8");
-  if (/linear-gradient|fillRect|getContext\(/.test(boxSrc)) fail("ChoiceBox draws panel art");
+  if (/linear-gradient|radial-gradient|conic-gradient|box-shadow|fillRect|fillStyle|strokeStyle|getContext\(|<svg|\barc\(|[\s.]fill\(|[\s.]stroke\(/.test(boxSrc)) {
+    fail("ChoiceBox draws panel art");
+  }
   if (!boxSrc.includes("prefers-reduced-motion")) fail("ChoiceBox does not mention reduced motion");
   ["assets/ui/choicebox-panel.png", "assets/ui/choice-cursor.png"].forEach((file) => {
     if (!fs.existsSync(file)) fail("missing asset slot " + file);
@@ -5532,6 +5534,161 @@ async function runChoiceBoxChecks() {
   if (!branched || branched.id !== "emberhold.maren.ask_hush") fail("dialogue did not branch to the Hush");
   if (branched.full !== hush.lines[0]) fail("branch line was not Maren's existing Hush line");
   if (choiceCtx.SF.state.flags.asked_maren !== "hush") fail("asked_maren was not set");
+
+  const uiSrc = fs.readFileSync("js/ui.js", "utf8");
+  if ((uiSrc.match(/SF\.ChoiceBox\.sync/g) || []).length < 3) {
+    fail("ChoiceBox.sync is missing from a mode-change point in ui.js");
+  }
+  if (!dlgSrc.includes("s.dialogue.choiceBox) return")) {
+    fail("old dialogue key handler does not stand aside while ChoiceBox is open");
+  }
+
+  function buttonLabel(button) {
+    if (!button) return "";
+    const kids = button.children || [];
+    for (let i = 0; i < kids.length; i++) {
+      if (kids[i].classList && kids[i].classList.contains("sf-choice-label")) return kids[i].textContent;
+    }
+    return button.textContent || "";
+  }
+
+  function highlightedLabel() {
+    const buttons = choiceCtx.document.querySelectorAll("button");
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].classList && buttons[i].classList.contains("is-on") && buttons[i].parentNode && buttons[i].parentNode.id === "sf-choicebox") {
+        return buttonLabel(buttons[i]);
+      }
+    }
+    return "";
+  }
+
+  function openMarenChoices() {
+    choiceCtx.SF.reduceFlash = true;
+    choiceCtx.SF.state = { mode: "play", flags: {}, shardsHeld: 0 };
+    choiceCtx.SF.syncUI = function () { choiceCtx.SF.ChoiceBox.sync(); };
+    choiceCtx.SF.startDialogue("emberhold.maren.intro");
+    let steps = 0;
+    while (choiceCtx.SF.state.mode === "dialogue" && choiceCtx.SF.state.dialogue.phase !== "choice" && steps < 24) {
+      choiceCtx.SF.state.dialogue.lock = 0;
+      choiceCtx.SF.advanceDialogue();
+      steps += 1;
+    }
+    if (!choiceCtx.SF.state.dialogue || choiceCtx.SF.state.dialogue.phase !== "choice") fail("Maren did not offer choices for F1/F2");
+    if (choiceCtx.SF.state.dialogue.choiceBox !== true) fail("enterChoice did not hand off for F1/F2");
+    if (!Box.isOpen()) fail("ChoiceBox was not open for F1/F2");
+  }
+
+  function sendKey(code) {
+    choiceCtx.document.dispatchEvent({ type: "keydown", code: code, preventDefault() {}, stopPropagation() {} });
+  }
+
+  // F2: keyboard — old moveChoice stands aside; the highlighted row is the one picked.
+  openMarenChoices();
+  let oldMoves = 0;
+  const realMove = choiceCtx.SF.moveChoice.bind(choiceCtx.SF);
+  choiceCtx.SF.moveChoice = function (dir) {
+    oldMoves += 1;
+    return realMove(dir);
+  };
+  sendKey("ArrowDown");
+  if (oldMoves !== 0) fail("old moveChoice ran while ChoiceBox was open");
+  if (Box.index() !== 1) fail("keyboard highlight was " + Box.index());
+  if (choiceCtx.SF.state.dialogue.choiceIndex !== 1) fail("keyboard did not keep dialogue.choiceIndex on the highlight");
+  if (highlightedLabel() !== "What is this thing in my hand?") {
+    fail("keyboard highlight was not on the second row: " + JSON.stringify(highlightedLabel()));
+  }
+  sendKey("Enter");
+  if (!choiceCtx.SF.state.dialogue || choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") {
+    fail("keyboard Enter picked " + ((choiceCtx.SF.state.dialogue && choiceCtx.SF.state.dialogue.id) || "nothing") + " instead of the highlighted row");
+  }
+  if (choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") fail("keyboard pick did not branch to the hand line");
+  if (Box.isOpen()) fail("ChoiceBox stayed open after the keyboard highlight pick");
+  choiceCtx.SF.moveChoice = realMove;
+
+  // F2: pad — move then A picks the highlighted row, not the stale choiceIndex.
+  openMarenChoices();
+  choiceCtx.SF.inputState = { padX: 0, padY: 0, padAEdge: false };
+  choiceCtx.SF._padChoiceDir = 0;
+  choiceCtx.SF.inputState.padY = 1;
+  choiceCtx.SF.tickChoicePad();
+  if (Box.index() !== 1) fail("pad highlight was " + Box.index());
+  if (choiceCtx.SF.state.dialogue.choiceIndex !== 1) fail("pad did not keep dialogue.choiceIndex on the highlight");
+  if (highlightedLabel() !== "What is this thing in my hand?") {
+    fail("pad highlight was not on the second row: " + JSON.stringify(highlightedLabel()));
+  }
+  choiceCtx.SF.inputState.padY = 0;
+  choiceCtx.SF.tickChoicePad();
+  choiceCtx.SF.inputState.padAEdge = true;
+  choiceCtx.SF.tickChoicePad();
+  if (!choiceCtx.SF.state.dialogue || choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") {
+    fail("pad A picked " + ((choiceCtx.SF.state.dialogue && choiceCtx.SF.state.dialogue.id) || "nothing") + " instead of the highlighted row");
+  }
+  if (choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") fail("pad pick did not branch to the hand line");
+  if (Box.isOpen()) fail("ChoiceBox stayed open after the pad highlight pick");
+
+  // F1: pause suspends the box; resume restores it and the highlight.
+  openMarenChoices();
+  sendKey("ArrowDown");
+  if (Box.index() !== 1) fail("F1 setup highlight was " + Box.index());
+  const sPause = choiceCtx.SF.state;
+  sPause.pausedFrom = "dialogue";
+  sPause.mode = "pause";
+  Box.sync();
+  if (Box.isOpen() || choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox stayed open after pause");
+  if (!Box._held) fail("pause did not park the ChoiceBox session");
+  sendKey("Enter");
+  if (choiceCtx.SF.state.mode !== "pause") fail("paused key pick escaped pause");
+  if (choiceCtx.SF.state.dialogue.phase !== "choice") fail("pause key listener settled the choice");
+  sPause.mode = "dialogue";
+  Box.sync();
+  if (!Box.isOpen()) fail("ChoiceBox did not restore after resume");
+  if (Box.index() !== 1) fail("resume lost the highlight, now " + Box.index());
+  if (highlightedLabel() !== "What is this thing in my hand?") {
+    fail("resume did not restore the highlighted row: " + JSON.stringify(highlightedLabel()));
+  }
+
+  // F1: load replaces the journey and must close the parked box.
+  sPause.pausedFrom = "dialogue";
+  sPause.mode = "pause";
+  Box.sync();
+  if (!Box._held) fail("pause did not park the box before load");
+  choiceCtx.SF.state = { mode: "play", flags: {}, shardsHeld: 0 };
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("load left ChoiceBox or its listeners alive");
+  }
+
+  // F1: title from an open (and a parked) box.
+  openMarenChoices();
+  choiceCtx.SF.state.mode = "title";
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("title left ChoiceBox alive");
+  }
+  openMarenChoices();
+  choiceCtx.SF.state.pausedFrom = "dialogue";
+  choiceCtx.SF.state.mode = "pause";
+  Box.sync();
+  choiceCtx.SF.state.mode = "title";
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("title from pause left ChoiceBox parked");
+  }
+
+  // F1: end of dialogue / abort (a new node) closes the box.
+  openMarenChoices();
+  choiceCtx.SF.state.dialogue = null;
+  choiceCtx.SF.state.mode = "play";
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("ending dialogue left ChoiceBox alive");
+  }
+  openMarenChoices();
+  choiceCtx.SF.startDialogue("emberhold.wake");
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("starting a new dialogue left ChoiceBox alive");
+  }
+
   await assertLiveChoiceFit(slotsEmpty);
   console.log("choicebox ok");
 }

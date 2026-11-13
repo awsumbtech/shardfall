@@ -455,6 +455,11 @@ SF.moveChoice = function (dir) {
   var s = SF.state;
   var d = s && s.dialogue;
   if (!d || s.mode !== "dialogue" || d.phase !== "choice" || !d.choices || !d.choices.length) return;
+  // ChoiceBox owns the highlight while it is the choice UI.
+  if (d.choiceBox && SF.ChoiceBox && typeof SF.ChoiceBox.move === "function") {
+    SF.ChoiceBox.move(dir);
+    return;
+  }
   var n = d.choices.length;
   var i = d.choiceIndex || 0;
   d.choiceIndex = (i + dir + n) % n;
@@ -464,10 +469,19 @@ SF.moveChoice = function (dir) {
 SF.confirmChoice = function () {
   var d = SF.state && SF.state.dialogue;
   if (!d || d.phase !== "choice") return;
+  if (d.choiceBox && SF.ChoiceBox && typeof SF.ChoiceBox.confirm === "function") {
+    SF.ChoiceBox.confirm();
+    return;
+  }
   SF.chooseDialogue(d.choiceIndex || 0);
 };
 
 SF.tickChoicePad = function () {
+  var d = SF.state && SF.state.dialogue;
+  if (d && d.choiceBox && SF.ChoiceBox && typeof SF.ChoiceBox.tickPad === "function") {
+    SF.ChoiceBox.tickPad();
+    return;
+  }
   var i = SF.inputState;
   if (!i) return;
   var dir = 0;
@@ -1004,6 +1018,8 @@ if (SF._dialogueUi) {
   document.addEventListener("keydown", function (e) {
     var s = SF.state;
     if (!s || s.mode !== "dialogue" || !s.dialogue || s.dialogue.phase !== "choice") return;
+    // ChoiceBox owns keyboard input while it is open.
+    if (s.dialogue.choiceBox) return;
     var dir = 0;
     if (e.code === "ArrowDown" || e.code === "ArrowRight") dir = 1;
     else if (e.code === "ArrowUp" || e.code === "ArrowLeft") dir = -1;

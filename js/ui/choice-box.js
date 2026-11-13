@@ -1,7 +1,8 @@
 "use strict";
 
 // ChoiceBox shows the choices, takes one tap or key, returns that id,
-// and removes itself. js/dialogue.js is the only caller.
+// and removes itself. js/dialogue.js opens it. close/suspend/resume are
+// owned here and hooked from the mode-change points in js/ui.js.
 
 var SF = window.SF || {};
 window.SF = SF;
@@ -95,13 +96,112 @@ SF.ChoiceBox = {
     };
   },
 
+  _held: null,
+
   open: function (opts) {
     opts = opts || {};
+    SF.ChoiceBox._held = null;
     if (SF.ChoiceBox._live) SF.ChoiceBox._live.cancel();
     if (typeof document === "undefined" || !document.body || !document.createElement) {
       return Promise.resolve(null);
     }
-    return openBox(opts.choices || [], opts.onPick);
+    return openBox(opts.choices || [], opts.onPick, opts.index || 0, null);
+  },
+
+  isOpen: function () {
+    var session = SF.ChoiceBox._live;
+    return !!(session && session.root && session.root.parentNode && !session.settled);
+  },
+
+  index: function () {
+    if (SF.ChoiceBox._live) return SF.ChoiceBox._live.index || 0;
+    if (SF.ChoiceBox._held) return SF.ChoiceBox._held.index || 0;
+    return 0;
+  },
+
+  move: function (dir) {
+    var session = SF.ChoiceBox._live;
+    if (!session || session.settled) return;
+    var n = session.choices.length;
+    if (!n || !dir) return;
+    setIndex(session, session.index + dir);
+  },
+
+  confirm: function () {
+    var session = SF.ChoiceBox._live;
+    if (!session || session.settled || !session.choices.length) return;
+    session.settle(session.choices[session.index].id);
+  },
+
+  tickPad: function () {
+    var session = SF.ChoiceBox._live;
+    if (!session || session.settled) return;
+    var i = SF.inputState;
+    if (!i) return;
+    var dir = 0;
+    if ((i.padY || 0) > 0.5) dir = 1;
+    else if ((i.padY || 0) < -0.5) dir = -1;
+    else if ((i.padX || 0) > 0.5) dir = 1;
+    else if ((i.padX || 0) < -0.5) dir = -1;
+    if (dir && dir !== SF._padChoiceDir) SF.ChoiceBox.move(dir);
+    SF._padChoiceDir = dir;
+    if (i.padAEdge) {
+      i.padAEdge = false;
+      SF.ChoiceBox.confirm();
+    }
+  },
+
+  // Hide the box and drop listeners, but keep the pick so resume can restore it.
+  suspend: function () {
+    var session = SF.ChoiceBox._live;
+    if (!session || session.settled) return;
+    SF.ChoiceBox._held = {
+      choices: session.choices,
+      index: session.index,
+      onPick: session.onPick,
+      resolve: session.resolve
+    };
+    destroy(session);
+  },
+
+  resume: function () {
+    var held = SF.ChoiceBox._held;
+    if (!held) return null;
+    SF.ChoiceBox._held = null;
+    if (SF.ChoiceBox._live) SF.ChoiceBox._live.cancel();
+    if (typeof document === "undefined" || !document.body || !document.createElement) {
+      SF.ChoiceBox._held = held;
+      return null;
+    }
+    return openBox(held.choices, held.onPick, held.index, held.resolve);
+  },
+
+  // Abort: tear down the live box and drop any parked session. No onPick.
+  close: function () {
+    var session = SF.ChoiceBox._live;
+    SF.ChoiceBox._held = null;
+    if (!session) return;
+    if (!session.settled) {
+      session.settled = true;
+      if (session.resolve) session.resolve(null);
+    }
+    destroy(session);
+  },
+
+  // Called from js/ui.js at mode-change points (syncUI, pauseGame, resumeGame).
+  sync: function () {
+    var s = SF.state;
+    var d = s && s.dialogue;
+    var inChoice = !!(s && s.mode === "dialogue" && d && d.phase === "choice" && d.choiceBox);
+    if (inChoice) {
+      if (!SF.ChoiceBox._live && SF.ChoiceBox._held) SF.ChoiceBox.resume();
+      return;
+    }
+    if (s && s.mode === "pause" && d && d.phase === "choice" && d.choiceBox) {
+      SF.ChoiceBox.suspend();
+      return;
+    }
+    if (SF.ChoiceBox._live || SF.ChoiceBox._held) SF.ChoiceBox.close();
   }
 };
 
@@ -119,7 +219,7 @@ function cssText() {
     + "#sf-choicebox *{box-sizing:border-box;}"
     + "#sf-choicebox button{display:flex;align-items:center;gap:8px;width:100%;margin:0;padding:0;"
     + "flex:0 0 " + targetH + "px;height:" + targetH + "px;min-height:" + targetH + "px;"
-    + "border:0;border-radius:0;background:transparent;box-shadow:none;appearance:none;"
+    + "border:0;border-radius:0;background:transparent;appearance:none;"
     + "color:#f6f2ea;font:16px/1.2 \"Avenir Next\",\"Segoe UI\",system-ui,sans-serif;"
     + "text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;}"
     + "#sf-choicebox button.is-on .sf-choice-label{font-weight:700;}"
@@ -279,7 +379,16 @@ function paintSelection(session) {
   }
 }
 
-function openBox(list, onPick) {
+function setIndex(session, index) {
+  var n = session.choices.length;
+  if (!n) return;
+  session.index = ((index % n) + n) % n;
+  paintSelection(session);
+  var d = SF.state && SF.state.dialogue;
+  if (d && d.choiceBox) d.choiceIndex = session.index;
+}
+
+function openBox(list, onPick, startIndex, existingResolve) {
   ensureCss();
   var choices = [];
   var i;
@@ -347,7 +456,7 @@ function openBox(list, onPick) {
     note: note,
     status: status,
     root: root,
-    index: 0,
+    index: startIndex || 0,
     panelOk: false,
     cursorOk: false,
     panelSettled: false,
@@ -358,9 +467,13 @@ function openBox(list, onPick) {
     cancel: null
   };
 
+  if (session.index < 0 || session.index >= choices.length) session.index = 0;
+  session.settle = settle;
+
   function settle(id) {
     if (session.settled) return;
     session.settled = true;
+    SF.ChoiceBox._held = null;
     var cb = session.onPick;
     var resolve = session.resolve;
     try {
@@ -387,8 +500,7 @@ function openBox(list, onPick) {
     else if (code === "ArrowUp" || code === "ArrowLeft") dir = -1;
     if (dir) {
       if (e.preventDefault) e.preventDefault();
-      session.index = (session.index + dir + n) % n;
-      paintSelection(session);
+      setIndex(session, session.index + dir);
       return;
     }
     if (e.repeat) return;
@@ -452,6 +564,10 @@ function openBox(list, onPick) {
   panel.src = SPEC.panel;
   cursor.src = SPEC.cursor;
 
+  if (existingResolve) {
+    session.resolve = existingResolve;
+    return null;
+  }
   return new Promise(function (resolve) {
     session.resolve = resolve;
   });
