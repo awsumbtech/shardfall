@@ -7,8 +7,6 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-throw new Error("ci-smoke fail-closed probe");
-
 const FIELD_DRAW = [
   "js/draw/deps.js",
   "js/draw/field.js",
