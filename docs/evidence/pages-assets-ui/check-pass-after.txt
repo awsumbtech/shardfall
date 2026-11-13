@@ -1,0 +1,12 @@
+# check-site against a _site assembled the same way as the fixed pages.yml
+# 2026-11-12 20:01:10 EST
+# repo 1ca6e6b (working tree, before this evidence commit)
+
+check-site: assembled /workspace/sf-choicebox/_site
+check-site: game UI assets: assets/ui/choice-cursor.png, assets/ui/choicebox-panel.png
+check-site: ok assets/ui/choice-cursor.png (375 bytes)
+check-site: ok assets/ui/choicebox-panel.png (811 bytes)
+check-site: pages.yml copies assets/ui/
+check-site: pages.yml runs tools/check-site.mjs
+check-site: PASS
+exit=0

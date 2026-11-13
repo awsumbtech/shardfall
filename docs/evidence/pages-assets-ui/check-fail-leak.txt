@@ -1,0 +1,10 @@
+# check-site against a _site that also has assets/secret/ (must fail)
+# 2026-11-12 20:01:10 EST
+
+check-site: game UI assets: assets/ui/choice-cursor.png, assets/ui/choicebox-panel.png
+check-site: ok assets/ui/choice-cursor.png (375 bytes)
+check-site: ok assets/ui/choicebox-panel.png (811 bytes)
+check-site: published asset outside assets/ui/ and assets/atlas/: assets/secret/kenmi-note.txt
+check-site: published asset folder outside assets/ui/ and assets/atlas/: assets/secret
+check-site: FAIL
+exit=1

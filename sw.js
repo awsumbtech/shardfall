@@ -3,7 +3,7 @@
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
 // CACHE is the precache version. A new name drops every older shell.
-var CACHE = "shardfall-v0.4.32";
+var CACHE = "shardfall-v0.4.33";
 
 var SHELL = [
   "index.html",
@@ -112,7 +112,9 @@ var SHELL = [
   "js/props/renderer.js",
   "js/props/decorlayer.js",
   "js/content/props/emberhold-dense.json",
-  "js/main.js"
+  "js/main.js",
+  "assets/ui/choicebox-panel.png",
+  "assets/ui/choice-cursor.png"
 ];
 
 // assets/atlas/* stays off this list. A missing manifest must not fail install.

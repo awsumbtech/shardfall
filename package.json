@@ -5,6 +5,7 @@
   "scripts": {
     "atlas": "node tools/atlas/cli.js --config art/atlas.config.json --out assets/atlas",
     "smoke": "node tools/smoke.mjs",
+    "site": "node tools/check-site.mjs --assemble --workflow",
     "shards": "node tools/shard-check.mjs"
   },
   "dependencies": {
