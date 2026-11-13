@@ -2490,6 +2490,9 @@ await runAssetChecks();
 const ooAudit = spawnSync(process.execPath, ["tools/oo-audit.mjs"], { stdio: "inherit", env: childEnv });
 if (ooAudit.status !== 0) process.exit(ooAudit.status || 1);
 
+const ooTamper = spawnSync(process.execPath, ["tools/oo-audit-tamper.mjs"], { stdio: "inherit", env: childEnv });
+if (ooTamper.status !== 0) process.exit(ooTamper.status || 1);
+
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 

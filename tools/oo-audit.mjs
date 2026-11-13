@@ -7,10 +7,13 @@
 //
 // Visual call sites (js/, css/, index.html), after tools/oo-audit-allow.json:
 //   Canvas: fillRect, strokeRect, rect, arc, arcTo, ellipse, beginPath, moveTo,
-//   lineTo, bezierCurveTo, quadraticCurveTo, closePath, fill(), stroke(),
+//   lineTo, bezierCurveTo, quadraticCurveTo, closePath, clip, fill(), stroke(),
 //   createLinearGradient, createRadialGradient, createConicGradient, createPattern,
 //   shadowBlur (not 0), globalCompositeOperation (not "source-over"),
 //   ctx.filter (not "none"), putImageData, createImageData.
+//   Computed calls count too: ctx["fillRect"](...).
+//   JS assignments to style.background, style.backgroundImage, style.boxShadow,
+//   and style.cssText count when they install a gradient, shadow, or clip-path.
 //   Everything under js/art/: those calls, plus every other call that is not a
 //   language/runtime helper (Math, array methods, DOM bookkeeping, text APIs,
 //   drawImage). Gallery lines and the missing-sprite placeholder are allowlisted.
@@ -33,6 +36,7 @@
 // The goal is 0. A count that goes down still passes; re-run --write-baseline.
 // --write-baseline refuses to record a rise.
 
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -44,7 +48,7 @@ const BASELINE_PATH = path.join(ROOT, "tools", "oo-baseline.json");
 const CANVAS_CALLS = new Set([
   "fillRect", "strokeRect", "rect", "arc", "arcTo", "ellipse",
   "beginPath", "moveTo", "lineTo", "bezierCurveTo", "quadraticCurveTo", "closePath",
-  "fill", "stroke",
+  "clip", "fill", "stroke",
   "createLinearGradient", "createRadialGradient", "createConicGradient", "createPattern",
   "putImageData", "createImageData"
 ]);
@@ -114,8 +118,11 @@ OoAudit.prototype.run = function (argv) {
   if (!this.parent) throw new Error("OoAudit.run before attach");
   const opts = parseArgs(argv);
   if (opts.help) {
-    console.log("Usage: node tools/oo-audit.mjs [--write-baseline] [--verbose]");
+    console.log("Usage: node tools/oo-audit.mjs [--write-baseline] [--against-ref <ref>] [--verbose]");
     console.log("Fails when any visual, leaked-name, SF assignment, or redefinition count rises.");
+    console.log("--against-ref loads <ref>:tools/oo-baseline.json and also fails when the");
+    console.log("working baseline or the live counts are above that ref. A ref with no");
+    console.log("baseline file yet is the first baseline and is allowed.");
     console.log("OO-AUDIT total = visual + leaked + sfAssigns + redefined. Goal: 0.");
     return 0;
   }
@@ -133,26 +140,84 @@ OoAudit.prototype.run = function (argv) {
   }
   const diff = compare(current, baseline);
   printDiff(diff);
-  console.log("OO-AUDIT: " + current.totals.total + " remaining");
-  if (diff.rises.length) return 1;
-  if (diff.falls.length) {
+  let code = diff.rises.length ? 1 : 0;
+  if (!diff.rises.length && diff.falls.length) {
     console.log("hint: counts fell; re-run node tools/oo-audit.mjs --write-baseline");
   }
-  return 0;
+  if (opts.againstRef) {
+    const held = holdAgainstRef(opts.againstRef, current, baseline);
+    if (held !== 0) code = held;
+  }
+  console.log("OO-AUDIT: " + current.totals.total + " remaining");
+  return code;
 };
 
 function parseArgs(argv) {
-  const opts = { writeBaseline: false, verbose: false, help: false };
-  for (const arg of argv) {
+  const opts = { writeBaseline: false, verbose: false, help: false, againstRef: "" };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
     if (arg === "--write-baseline") opts.writeBaseline = true;
     else if (arg === "--verbose") opts.verbose = true;
     else if (arg === "--help" || arg === "-h") opts.help = true;
-    else {
+    else if (arg === "--against-ref") {
+      opts.againstRef = argv[i + 1];
+      i += 1;
+      if (!opts.againstRef || opts.againstRef.startsWith("--")) {
+        console.error("oo-audit: --against-ref needs a git ref");
+        process.exit(1);
+      }
+    } else {
       console.error("oo-audit: unknown argument " + arg);
       process.exit(1);
     }
   }
   return opts;
+}
+
+function holdAgainstRef(ref, current, baseline) {
+  const loaded = readBaselineFromRef(ref);
+  if (loaded.error) return 1;
+  if (loaded.missing) {
+    console.log("oo-audit: " + ref + " has no tools/oo-baseline.json; first baseline is allowed");
+    return 0;
+  }
+  const baseDiff = compare(baseline, loaded.baseline);
+  const liveDiff = compare(current, loaded.baseline);
+  let code = 0;
+  if (baseDiff.rises.length) {
+    console.error("oo-audit: working baseline is above " + ref);
+    for (const row of baseDiff.rises) console.error("  " + row);
+    code = 1;
+  }
+  if (liveDiff.rises.length) {
+    console.error("oo-audit: live counts are above " + ref);
+    for (const row of liveDiff.rises) console.error("  " + row);
+    code = 1;
+  }
+  if (!code) console.log("oo-audit: counts are within " + ref);
+  return code;
+}
+
+function readBaselineFromRef(ref) {
+  const show = spawnSync("git", ["show", ref + ":tools/oo-baseline.json"], {
+    cwd: ROOT,
+    encoding: "utf8"
+  });
+  if (show.status === 0) {
+    try {
+      return { baseline: JSON.parse(show.stdout), missing: false, error: false };
+    } catch (err) {
+      console.error("oo-audit: " + ref + ":tools/oo-baseline.json is not JSON");
+      return { error: true };
+    }
+  }
+  const err = ((show.stderr || "") + (show.stdout || "")).trim();
+  if (/does not exist in|exists on disk, but not in|Path 'tools\/oo-baseline\.json' does not exist/i.test(err)) {
+    return { baseline: null, missing: true, error: false };
+  }
+  console.error("oo-audit: git show " + ref + ":tools/oo-baseline.json failed");
+  if (err) console.error(err);
+  return { error: true };
 }
 
 function loadAllow() {
@@ -221,7 +286,9 @@ function relPath(full) {
 }
 
 function gameVersion() {
-  const text = fs.readFileSync(path.join(ROOT, "js", "data.js"), "utf8");
+  const file = path.join(ROOT, "js", "data.js");
+  if (!fs.existsSync(file)) return "";
+  const text = fs.readFileSync(file, "utf8");
   const match = text.match(/SF\.VERSION = "([^"]+)"/);
   return match ? match[1] : "";
 }
@@ -372,6 +439,8 @@ function scanJs(src, inArt) {
   let member = null;
   let waitForFn = null;
   let styleProp = null;
+  let computedName = "";
+  let computedObject = "";
 
   function bump(ch) {
     if (ch === "\n") line += 1;
@@ -435,17 +504,24 @@ function scanJs(src, inArt) {
 
   function readString(quote) {
     i += 1;
+    let word = "";
     while (i < n) {
-      const c = src[i];
-      bump(c);
-      if (c === "\\") {
-        if (i + 1 < n) bump(src[i + 1]);
+      const ch = src[i];
+      if (ch === "\\") {
+        bump(ch);
+        if (i + 1 < n) {
+          bump(src[i + 1]);
+          word += src[i + 1];
+        }
         i += 2;
         continue;
       }
+      bump(ch);
       i += 1;
-      if (c === quote) break;
+      if (ch === quote) break;
+      word += ch;
     }
+    return word;
   }
 
   function readNumber() {
@@ -541,6 +617,7 @@ function scanJs(src, inArt) {
     }
     const value = peekValue(from);
     const kind = styleProp.kind;
+    const prop = styleProp.prop || "";
     const at = styleProp.line;
     styleProp = null;
     if (kind === "shadowBlur") {
@@ -549,6 +626,12 @@ function scanJs(src, inArt) {
       if (value !== "source-over") visual.push({ line: at, kind: "globalCompositeOperation" });
     } else if (kind === "filter") {
       if (value !== "none") visual.push({ line: at, kind: "filter" });
+    } else if (kind === "cssArt") {
+      if (prop === "boxShadow") {
+        if (value && value !== "none") visual.push({ line: at, kind: "boxShadow" });
+      } else if (/(?:linear|radial|conic)-gradient\s*\(|box-shadow\s*:|clip-path\s*:/.test(value)) {
+        visual.push({ line: at, kind: prop || "cssText" });
+      }
     }
   }
 
@@ -569,7 +652,8 @@ function scanJs(src, inArt) {
       if (member && !member.counted) member = null;
       if (waitForFn) waitForFn = null;
       styleProp = null;
-      readString(c);
+      const text = readString(c);
+      if ((c === "\"" || c === "'") && bracketDepth > 0 && CANVAS_CALLS.has(text)) computedName = text;
       mark("str", "");
       continue;
     }
@@ -659,6 +743,9 @@ function scanJs(src, inArt) {
       if (prevKind === "dot" && (word === "shadowBlur" || word === "globalCompositeOperation" || word === "filter")) {
         styleProp = { kind: word, line: atLine };
       }
+      if (prevKind === "dot" && (word === "background" || word === "backgroundImage" || word === "boxShadow" || word === "cssText")) {
+        styleProp = { kind: "cssArt", prop: word, line: atLine };
+      }
 
       callObject = object;
       prevIdent = word;
@@ -679,7 +766,11 @@ function scanJs(src, inArt) {
       if (member && !member.counted) member = null;
       if (waitForFn) waitForFn = null;
       styleProp = null;
-      if (sawFunction) {
+      if (prevKind === "brack-end" && computedName) {
+        const kind = classify(computedName, computedObject, i);
+        if (kind) visual.push({ line: line, kind: kind });
+        computedName = "";
+      } else if (sawFunction) {
         fnNameTaken = true;
         sawFunction = false;
         wantFnBody = true;
@@ -709,6 +800,8 @@ function scanJs(src, inArt) {
       if (member && !member.counted) member = null;
       if (waitForFn) waitForFn = null;
       styleProp = null;
+      computedObject = prevKind === "ident" ? prevIdent : "";
+      computedName = "";
       bracketDepth += 1;
       i += 1;
       mark("brack", "[");
@@ -719,6 +812,9 @@ function scanJs(src, inArt) {
       bracketDepth = Math.max(0, bracketDepth - 1);
       i += 1;
       mark("brack-end", "]");
+      let j = i;
+      while (j < n && (src[j] === " " || src[j] === "\t" || src[j] === "\n" || src[j] === "\r")) j += 1;
+      if (src[j] !== "(") computedName = "";
       continue;
     }
 

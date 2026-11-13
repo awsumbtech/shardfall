@@ -1,5 +1,7 @@
 # Runs the OO audit on every pull request.
-# The Pages workflow also runs it before a main deploy.
+# The check compares the working baseline and the live counts with origin/main,
+# so a hand-edited tools/oo-baseline.json cannot hide a rise.
+# The Pages workflow also runs the plain audit before a main deploy.
 # check-site.mjs stays in pages.yml; this file does not assemble or publish.
 
 name: OO audit
@@ -17,5 +19,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: OO audit
-        run: node tools/oo-audit.mjs
+      - name: Fetch main
+        run: git fetch origin main --depth=1
+
+      - name: OO audit against main
+        run: node tools/oo-audit.mjs --against-ref origin/main
+
+      - name: OO audit tamper test
+        run: node tools/oo-audit-tamper.mjs

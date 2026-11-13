@@ -2,26 +2,27 @@
 
 ## Audit gate
 
-`tools/oo-audit.mjs` is the machine check for this order. It counts code-drawn visual call sites in `js/`, `css/`, and `index.html`, plus non-object signals: top-level names leaked onto `window`, `SF.*` assignment sites, and `SF` functions defined in more than one file. Diagnostics listed in A13 stay out through `tools/oo-audit-allow.json`. Each allowlist entry cites the doc row and a reason. Scroll-fade masks (Part E item 10) are allowlisted with them.
+`tools/oo-audit.mjs` is the machine check for this order. It counts code-drawn visual call sites in `js/`, `css/`, and `index.html` (canvas drawing, including `clip()` and `ctx["fillRect"]`, CSS gradients, box-shadow, clip-path, and filter, and JS assignments that install a gradient, box-shadow, or clip-path through `style.background`, `style.boxShadow`, or `style.cssText`), plus non-object signals: top-level names leaked onto `window`, `SF.*` assignment sites, and `SF` functions defined in more than one file. Diagnostics listed in A13 stay out through `tools/oo-audit-allow.json`. Each allowlist entry cites the doc row and a reason. Scroll-fade masks (Part E item 10) are allowlisted with them.
 
 Run it from the repo root:
 
 ```bash
 node tools/oo-audit.mjs
+node tools/oo-audit.mjs --against-ref origin/main
 node tools/oo-audit.mjs --write-baseline
 ```
 
-`node tools/smoke.mjs` runs it with the other checks. GitHub runs it on every pull request (`.github/workflows/ci.yml`) and again in the Pages workflow before a `main` deploy. The existing `tools/check-site.mjs` steps are unchanged.
+`node tools/smoke.mjs` runs the audit and `tools/oo-audit-tamper.mjs`. On a pull request, `.github/workflows/ci.yml` fetches `main` and runs `node tools/oo-audit.mjs --against-ref origin/main`. That mode loads `git show <ref>:tools/oo-baseline.json` and fails if any per-file or per-category count in the working baseline or in the live counts is above that ref. A ref that has no baseline file yet is the first baseline and is allowed. The Pages workflow still runs the plain audit before a `main` deploy. The existing `tools/check-site.mjs` steps are unchanged.
 
 The committed baseline is `tools/oo-baseline.json` (v0.4.34):
 
 | Signal | Count |
 |---|---|
-| Visual call sites | 4037 |
+| Visual call sites | 4044 |
 | Leaked window names | 166 |
 | SF members assigned | 684 distinct (908 sites) |
 | SF functions defined in more than one file | 44 |
-| **OO-AUDIT remaining** | **5155** |
+| **OO-AUDIT remaining** | **5162** |
 
 `OO-AUDIT` total = visual + leaked names + SF assignment sites + multi-file SF functions. The goal is `OO-AUDIT: 0 remaining`.
 
@@ -52,7 +53,7 @@ Status: draft for `docs/OO-MIGRATION.md`. The inventory below is a read-only aud
 2. **Real art today covers only:** the field hero paper-doll (`kenmi.hero.*`), Emberhold ground tiles (`kenmi.tile.*`), 75 Emberhold prop keys (`kenmi.prop.*`, smoke included), and the ChoiceBox panel and cursor (`assets/ui/`). Kenmi is wired for Emberhold only (`js/props/decorlayer.js:10-11`, `js/draw/terrain.js:973-975`). Every other island, all battles, all portraits and all NPCs are code art.
 3. **There are two fallback layers under the code art.** Primitive canvas drawings (`SF.drawMaren`, `SF.drawProp`, `SF.drawWorldFoe`, and others) run when `Art` is missing. Both layers have to go.
 4. **Flashes and tints still on main:** battle white hit box (`js/battle/stage.js:300-346`), field foe hurt bloom (`js/draw/actors.js:487-498`), baked hurt white-out (`js/art/actors.js:1377-1384`), CSS red hurt vignette (`css/style.css:125-132`), runtime cold-lamp recolor of a Kenmi sprite (`js/props/renderer.js:17-45`).
-5. **Structure:** about 684 distinct `SF.*` members are assigned across `js/`; 39 `SF` functions are defined in more than one file, and 26 wrap the previous definition (monkey-patch chains). Ten script files leak top-level functions onto `window`.
+5. **Structure:** `tools/oo-audit.mjs` counts 684 distinct `SF.*` members, 908 assignment sites, 44 `SF` functions defined in more than one file, and 166 leaked window names. The hand pass had said 39 multi-file functions and ten files. The ten files are the ones that leak the most names (`js/dialogue.js`, `js/music.js`, `js/ui/choice-box.js`, `js/sfx.js`, `js/menu/field.js`, `js/title.js`, `js/feel.js`, `js/art/core.js`, `js/audio.js`, `js/ui.js`). The 166 is every top-level `var` and `function`, plus a top-level `window.Name =`, in every classic script, including `var SF` once per file. The 44 includes those 39 and the `SF[name] = wrapped` list in `js/input.js`.
 
 ## Counts
 
@@ -156,7 +157,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 
 | # | Visual | What it looks like | file:line | Category | Owner object (file) | Real art needed | Existing coverage |
 |---|---|---|---|---|---|---|---|
-| E1 | Glow blobs (8 cached radial gradients) | Soft cyan/gold/rose/violet glows, cloud/mist/dusk/shadow puffs | js/draw/field.js:31-55; used at js/draw/effects.js:7, actors.js:189, 239, 373, 404, 453, props.js:171, pickups.js:30, 43, 91, 118, 121, entities.js:218-219, sky.js:30, terrain.js:958, grapple.js:574, assets/crystal.js:84-85 | effect | `GlowSprite` in `js/fx/glow-sprite.js` | Glow sprites 16/32/64 px x4 colours (+ optional 4f pulse); cloud/mist puffs 128-256 px | none |
+| E1 | Glow blobs (8 cached radial gradients) | Soft cyan/gold/rose/violet glows, cloud/mist/dusk/shadow puffs | js/draw/field.js:31-55; used at js/draw/effects.js:7, actors.js:189, 239, 373, 404, 453, props.js:171, pickups.js:30, 43, 91, 118, 121, entities.js:218-219, sky.js:30, terrain.js:958, grapple.js:574, js/assets/crystal.js:84-85 | effect | `GlowSprite` in `js/fx/glow-sprite.js` | Glow sprites 16/32/64 px x4 colours (+ optional 4f pulse); cloud/mist puffs 128-256 px | none |
 | E2 | Foot shadows | Dark ellipse under actors; banded rect shadow in battle | js/draw/actors.js:5-12; js/battle/stage.js:146-165; js/draw/terrain.js:958 | effect | `FootShadow` in `js/fx/foot-shadow.js` | Shadow sprites S/M/L (e.g. 16x6, 24x8, 48x14) | Kenmi `ground.fx` shadow tiles (in-house `art/fx-tiles.png`) cover tile shadows only |
 | E3 | Hero foot ring | Cyan ellipse ring under the hero | js/draw/entities.js:205-211 | effect | `HeroMarker` in `js/fx/hero-marker.js` | Ring sprite 24x12 (2f pulse) | none |
 | E4 | Hero swing arc | Cream arc stroke on attack | js/draw/entities.js:222-232 | effect | `SlashTrail` in `js/fx/slash-trail.js` (PR49) | Slash sheet 4-6f, 4 directions | game-art `fx/slash` (procedural); PR49 blocked on source sprites |
@@ -418,7 +419,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 1 | `oo-audit` ratchet: `tools/oo-audit.mjs` + smoke hook + baseline from this doc. Fails if any file's draw-API, CSS-art, `SF.*` or leaked-global count goes up. PR Verifier then has a machine check for "no code-drawn visuals remain" (baseline reaches 0). | A, B | none | (no art) |
 | 2 | `VisualObject` contract + `Game` root + `SceneRouter` (`js/core/`) | B1 | 1 | (no art) |
 | 3 | Wrap leaked top-level scripts (dialogue, music, choice-box, sfx, menu/field, title, feel, art/core, audio, ui) | B1 | 1 | (no art) |
-| 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2 | reuse approved `choicebox-panel.png` (Brian's OK needed) |
+| 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2 | PENDING: reusing `choicebox-panel.png` as the window skin. Nothing may depend on that reuse |
 | 5 | `UiButton` + `Icon` + slider thumb + caret | U3, U9, U11, U13 | 4 | art: button 9-slice, 6 icons, thumb, caret |
 | 6 | `GlowSprite` (replaces `SF.blobs`) | E1 | 2 | art: 4 glows + 3 puffs |
 | 7 | `FootShadow` + `HeroMarker` | E2, E3 | 6 | art: shadows S/M/L, ring |
@@ -432,7 +433,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 15 | `Pickup`, `LampCrystal`, `GuideMarker` | K1, K2, U20 | 6 | art: shard, cog, lamp crystal, marks |
 | 16 | Real `lamp_cold` frame (delete `recolorCold`) + canopy ruling | L3, L4 | none | art: cold lamp frame |
 | 17 | `FieldFoe`, `FoeBrain`, `FoeSpawner`, `CinderMaw` extraction | B2 sim/grapple | 10 | (no art) |
-| 18 | `FoeSprite` for the 7 Act 1 field foes; hurt/death clips replace X1-X5 | F1, F3, F4, F5, F9, F12, F13, X1-X5 | 17 (+13 for the impact spark) | game-art foe sheets **if Brian accepts procedural provenance**; else art: 7 foes |
+| 18 | `FoeSprite` for the 7 Act 1 field foes; hurt/death clips replace X1-X5 | F1, F3, F4, F5, F9, F12, F13, X1-X5 | 17 (+13 for the impact spark) | art: regenerate the 7 foe sheets. Procedural game-art sheets are not real art |
 | 19 | `FoeTell`, `Projectile`, `ParticleSystem`, `ShockRing` | X6, E8, E9, E10 | 17 | art: tells, projectile, particles, ring |
 | 20 | Dialogue split: `DialogueScript`, `DialogueRunner`, `DialogueBox`, `EndCard`, `Portrait` | B2 dialogue, U14 | 3 | art: portrait frame |
 | 21 | Party: `CharacterSprite` + hero battle sheet + portraits | P1, P2, P3 | 20 | art: 3 party battle sheets, Kestrel/Tamsin field, 3 portraits |
@@ -458,11 +459,11 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 
 ## Part D: art asks for Game Art & Motion (in PR order)
 
-1. **UI kit** (PR 4-9, 14): window 9-slice (or approval to reuse `choicebox-panel.png`); button 9-slice (normal/pressed/selected/disabled); 6 icons 32x32 (speaker on/off, pause, back, talk, dash, grapple); slider thumb 26x26; caret 8x8 2f; stick base 128x128 + knob 56x56; 4 action-button faces (idle/pressed/ready); cooldown wipe 12f; HP/SP bar frame + fill; hurt vignette + plain vignette PNGs.
+1. **UI kit** (PR 4-9, 14): window 9-slice (reusing `choicebox-panel.png` is PENDING; nothing may depend on that reuse); button 9-slice (normal/pressed/selected/disabled); 6 icons 32x32 (speaker on/off, pause, back, talk, dash, grapple); slider thumb 26x26; caret 8x8 2f; stick base 128x128 + knob 56x56; 4 action-button faces (idle/pressed/ready); cooldown wipe 12f; HP/SP bar frame + fill; hurt vignette + plain vignette PNGs.
 2. **Glow and shadow** (PR 6-7): glow sprites 16/32/64 px in cyan, gold, rose and violet; cloud/mist/dusk puffs 128-256 px; foot shadows S/M/L; hero foot ring 2f.
 3. **Hero FX** (PR 12-13): palm glow 4f, dash trail/afterimage, hand crystal 2f; PR49 HitFlash + SlashTrail **replacement source sprites** (already requested).
 4. **Pickups** (PR 15-16): shard 16x16 idle 4f, cog, lamp crystal cold/lit/flare 4f each, quest diamond 4f, edge arrow, bobber 4f, interact ring 2f, real unlit Kenmi-style path lamp frame.
-5. **Field foes** (PR 18-19, 26): 14 foes; field 4-dir idle/walk + battle idle/attack/cast/hurt/death, portrait 64x64. Nine have procedural game-art sheets already (names differ: code `ashling` = art `ashmite`, code `cinderhound` = art `cinderbrute`). Missing: saltwisp, choir_soldier, hush_raider, drowned, stormgull, sentinel, tidewyrm. Also telegraph ring 6f, aim arrow, slam mark, projectile 4f, spark/ember/ash/dust particles, shock ring 6f, 4 element bursts 6f.
+5. **Field foes** (PR 18-19, 26): 14 foes; field 4-dir idle/walk + battle idle/attack/cast/hurt/death, portrait 64x64. Regenerate every sheet. The procedural game-art foe and fx sheets are not real art (names differ where a procedural file exists: code `ashling` = file `ashmite`, code `cinderhound` = file `cinderbrute`). No sheet yet for saltwisp, choir_soldier, hush_raider, drowned, stormgull, sentinel, tidewyrm. Also telegraph ring 6f, aim arrow, slam mark, projectile 4f, spark/ember/ash/dust particles, shock ring 6f, 4 element bursts 6f.
 6. **Cast** (PR 21-24): Wayfarer battle sheet + portrait; Kestrel and Tamsin field 4-dir + battle + portrait; 18 NPC field sheets (4-dir idle 2f / walk 4f) + portraits; pip_lark duo portrait; 14 icon badges; 10 item icons 16x16; portrait frame.
 7. **Battle** (PR 25-27): 8 layered backdrops (sky/far/mid/floor, ~480x270): emberhold_meadow, emberhold_scar, cinderveil_ash, ember_vault, saltmere_shore, saltmere_wreck, highspire_road, hush_deck; backdrop drift sprites; target bracket 4f; foe name plate 9-slice.
 8. **World** (PR 31-35): tilesets and Tiled maps for Cinderveil, Saltmere, Highspire, Gullrock, Drift and towns; prop variants (dead/burnt/charred trees, bush_dead, tuft_dead, basalt, charred log/stump, burnt fences, crate, barrel, signpost, sign, stones); 19 buildings (great lamp unlit/lit, workshop, hut, skiff, stilt, stall, raft, wreck hull, gate arch, ruin, lair, vault door, bench, plank, inn lantern, quay bell, rope bridge, dock deck).
@@ -470,10 +471,23 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 
 ## Part E: open questions and uncertainties
 
-1. **Procedural sprite sheets.** The game-art foe and fx sheets (`shardfall/foes`, `shardfall/fx`) say "original procedural pixel art, drawn entirely by code in `generator/`". They are real PNG sheets from Game Art & Motion, but code-generated. Brian needs to rule whether they count as real art. PR49's rule already bans derived white frames.
-2. **`art/fx-tiles.png`** (64x16 translucent shadow tiles, used as `ground.fx`) is in-house. Its provenance is not recorded beyond `tools/ehmap/README.md:9`.
-3. **Alpha used as a look:** canopy see-through (L4), death fades (X4), i-frame alpha (E6), scene fade (S5). Are they allowed transparency or banned tricks? Brian needs to rule.
-4. **Kenmi is Emberhold-only** and depends on the deploy key (`.github/workflows/pages.yml`). If the atlas fails, the game falls back to code art today. After step 41 it needs a non-art placeholder or a hard fail.
+v0.4.34 belongs to OO-01. PR #50 renumbers when it resumes.
+
+### Settled (Brian's standing rules)
+
+1. **Procedural sprite sheets (E.1, step 18).** The game-art foe and fx sheets (`shardfall/foes`, `shardfall/fx`) are not real art. Regenerate them. Step 18 does not ship those procedural sheets.
+2. **`art/fx-tiles.png` (E.2).** Treat it the same way unless it is shown to be authored or generated art. Regenerate it. It is the 64×16 translucent shadow strip used as `ground.fx`. Its provenance is not recorded beyond `tools/ehmap/README.md:9`.
+3. **Missing Kenmi atlas (E.4).** If the Kenmi atlas is missing, show a real placeholder image plus an error, and never fall back to code art. The atlas still depends on the deploy key (`.github/workflows/pages.yml`).
+
+### Pending
+
+Nothing may depend on these until Brian rules.
+
+1. **Alpha used as a look (E.3, L4). PENDING.** Canopy see-through (L4), death fades (X4), i-frame alpha (E6), and scene fade (S5). Nothing may depend on whether these are allowed transparency or banned tricks.
+2. **ChoiceBox panel as the window skin (step 4). PENDING.** Reusing `assets/ui/choicebox-panel.png` for `UiSkin`. Nothing may depend on that reuse.
+
+### Other notes
+
 5. `js/art/buildings.js` is not in `index.html`. `js/art/world.js:308-312` injects it with `document.write`.
 6. `chest`/`chest_open` are registered twice (`js/art/world.js:25-50` and `js/art/props.js:857-858`). The later `props.js` registration wins.
 7. Sootwing field look mismatch: `SF.FOE_LOOK.sootwing.sprite = "ashling"` (`js/content/maps/kinds.js:22`) and `SF.KIND_SPRITE.sootwing = "sootwing"` (`js/draw/actors.js:339`).

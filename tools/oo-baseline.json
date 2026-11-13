@@ -2,12 +2,12 @@
   "version": "0.4.34",
   "formula": "visual + leaked + sfAssigns + redefined",
   "totals": {
-    "visual": 4037,
+    "visual": 4044,
     "leaked": 166,
     "sfMembers": 684,
     "sfAssigns": 908,
     "redefined": 44,
-    "total": 5155
+    "total": 5162
   },
   "files": {
     "css/style.css": {
@@ -117,7 +117,7 @@
       "sfAssigns": 2
     },
     "js/battle/hud.js": {
-      "visual": 27,
+      "visual": 31,
       "sfMembers": 1,
       "sfAssigns": 1
     },
@@ -141,7 +141,7 @@
       "sfAssigns": 1
     },
     "js/battle/stage.js": {
-      "visual": 14,
+      "visual": 15,
       "sfMembers": 1,
       "sfAssigns": 1
     },
@@ -248,7 +248,7 @@
       "sfAssigns": 2
     },
     "js/dialogue.js": {
-      "visual": 220,
+      "visual": 221,
       "leaked": 30,
       "sfMembers": 21,
       "sfAssigns": 25
@@ -308,7 +308,7 @@
       "sfAssigns": 17
     },
     "js/draw/terrain.js": {
-      "visual": 7,
+      "visual": 8,
       "sfMembers": 46,
       "sfAssigns": 48
     },
