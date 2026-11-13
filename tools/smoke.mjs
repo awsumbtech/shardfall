@@ -2182,7 +2182,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.33"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.34"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2487,6 +2487,12 @@ runGroundChecks();
 
 await runAssetChecks();
 
+const ooAudit = spawnSync(process.execPath, ["tools/oo-audit.mjs"], { stdio: "inherit", env: childEnv });
+if (ooAudit.status !== 0) process.exit(ooAudit.status || 1);
+
+const ooTamper = spawnSync(process.execPath, ["tools/oo-audit-tamper.mjs"], { stdio: "inherit", env: childEnv });
+if (ooTamper.status !== 0) process.exit(ooTamper.status || 1);
+
 const shardCheck = spawnSync(process.execPath, ["tools/shard-check.mjs"], { stdio: "inherit", env: childEnv });
 if (shardCheck.status !== 0) process.exit(shardCheck.status || 1);
 
@@ -2511,12 +2517,15 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.33"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.34"')) fail("version was not bumped");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
   if (!dataJs.includes("ChoiceBox panel/cursor art now published to the live site.")) {
     fail("whats new pages ui art line");
+  }
+  if (!dataJs.includes("Behind the scenes: a guard so code-drawn pictures do not grow. Nothing looks different.")) {
+    fail("whats new oo audit line");
   }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
@@ -2529,7 +2538,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.33")) fail("html version");
+  if (!html.includes("v0.4.34")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }

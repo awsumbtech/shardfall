@@ -1,0 +1,98 @@
+{
+  "entries": [
+    {
+      "file": "js/art/gallery.js",
+      "start": 1,
+      "end": 181,
+      "doc": "A13 Art gallery (?gallery) — js/art/gallery.js:1-181",
+      "reason": "Diagnostic sheet viewer, not shipped artwork. Remove with the code-art engine, or keep as a viewer over real PNGs."
+    },
+    {
+      "file": "js/art/core.js",
+      "start": 241,
+      "end": 252,
+      "doc": "A13 Missing-sprite placeholder — js/art/core.js:241-252",
+      "reason": "Dev-only magenta placeholder when a sprite id has no maker."
+    },
+    {
+      "file": "js/sim.js",
+      "start": 1454,
+      "end": 1456,
+      "doc": "A13 Debug camera / overview (no drawing) — js/sim.js:1454-1456",
+      "reason": "Debug camera target. The inventory lists it as not art."
+    },
+    {
+      "file": "js/sim.js",
+      "start": 1476,
+      "end": 1476,
+      "doc": "A13 Debug camera / overview (no drawing) — js/sim.js:1476",
+      "reason": "Debug overview camera clamp. No drawing."
+    },
+    {
+      "file": "js/main.js",
+      "start": 148,
+      "end": 162,
+      "doc": "A13 Debug camera / overview (no drawing) — js/main.js:148, 162",
+      "reason": "Debug overview viewport sizing. No drawing."
+    },
+    {
+      "file": "css/style.css",
+      "start": 1312,
+      "end": 1324,
+      "doc": "A13 Art gallery (?gallery) — css/style.css:1312-1324",
+      "reason": "Checkerboard behind gallery cells, not game art."
+    },
+    {
+      "file": "css/style.css",
+      "start": 1516,
+      "end": 1528,
+      "doc": "Part E item 10 — css/style.css:1516-1528",
+      "reason": "Scroll-fade masks are not counted as art."
+    },
+    {
+      "file": "tools/prop-contact.html",
+      "doc": "A13 Prop contact page — tools/prop-contact.html",
+      "reason": "Dev tool. Outside the js/, css/, and index.html scan."
+    },
+    {
+      "file": "tools/character-sheet.mjs",
+      "doc": "A13 QA renderers — tools/character-sheet.mjs",
+      "reason": "QA renderer that rasterizes code art. Outside the js/, css/, and index.html scan."
+    },
+    {
+      "file": "tools/battle-sheet.mjs",
+      "doc": "A13 QA renderers — tools/battle-sheet.mjs",
+      "reason": "QA renderer that rasterizes code art. Outside the js/, css/, and index.html scan."
+    },
+    {
+      "file": "tools/field-qa.mjs",
+      "doc": "A13 QA renderers — tools/field-qa.mjs",
+      "reason": "QA renderer that rasterizes code art. Outside the js/, css/, and index.html scan."
+    },
+    {
+      "file": "tools/sky-mask.mjs",
+      "doc": "A13 QA renderers — tools/sky-mask.mjs",
+      "reason": "QA renderer. Outside the js/, css/, and index.html scan."
+    },
+    {
+      "file": "tools/smoke.mjs",
+      "doc": "A13 QA renderers — tools/smoke.mjs",
+      "reason": "Smoke harness. Outside the js/, css/, and index.html scan. Retarget as rows convert."
+    },
+    {
+      "file": "tools/props-handoff/kenmi-dense.js",
+      "doc": "A13 Props hand-off prototypes — tools/props-handoff/kenmi-dense.js",
+      "reason": "Dev prototype. Outside the js/, css/, and index.html scan."
+    },
+    {
+      "file": "tools/props-handoff/registry-prototype.js",
+      "doc": "A13 Props hand-off prototypes — tools/props-handoff/registry-prototype.js",
+      "reason": "Dev prototype. Outside the js/, css/, and index.html scan."
+    },
+    {
+      "file": "art/meta-tiles.png",
+      "doc": "A13 Meta tiles — art/meta-tiles.png",
+      "reason": "Collision meta image, not a code-drawn call site. Confirm it is never drawn as art."
+    }
+  ]
+}

@@ -3,8 +3,9 @@
 # Pages is already set to build_type=workflow, so this file is the publish source.
 #
 # The private art repo is packed into _site/assets/atlas/ when the deploy key
-# works. A failed checkout or packer only warns: the site still publishes, and
-# the game keeps drawing the code art.
+# works. A failed checkout or packer only warns, and the site still publishes.
+# Ruling E.4 removes the code-art fallback: a missing atlas shows a real
+# placeholder image and an error. This workflow does not change that behavior.
 
 name: Deploy to GitHub Pages
 
@@ -31,6 +32,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: OO audit
+        run: node tools/oo-audit.mjs
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

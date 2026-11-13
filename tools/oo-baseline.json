@@ -1,0 +1,638 @@
+{
+  "version": "0.4.34",
+  "formula": "visual + leaked + sfAssigns + redefined",
+  "totals": {
+    "visual": 4044,
+    "leaked": 166,
+    "sfMembers": 684,
+    "sfAssigns": 908,
+    "redefined": 44,
+    "total": 5162
+  },
+  "files": {
+    "css/style.css": {
+      "visual": 57
+    },
+    "index.html": {
+      "visual": 10
+    },
+    "js/art/actors.js": {
+      "visual": 1227
+    },
+    "js/art/buildings.js": {
+      "visual": 529
+    },
+    "js/art/characters.js": {
+      "visual": 293
+    },
+    "js/art/core.js": {
+      "visual": 39,
+      "leaked": 6
+    },
+    "js/art/props.js": {
+      "visual": 468
+    },
+    "js/art/scenes.js": {
+      "visual": 452
+    },
+    "js/art/world.js": {
+      "visual": 138
+    },
+    "js/assets/animator.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/assets/crystal.js": {
+      "visual": 6,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/assets/loader.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/assets/manifest.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/assets/registry.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/assets/renderer.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/assets/rig.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/assets/sheet.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/audio.js": {
+      "leaked": 5,
+      "sfMembers": 6,
+      "sfAssigns": 6
+    },
+    "js/battle/ai.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/audio.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/battle.js": {
+      "leaked": 2,
+      "sfMembers": 21,
+      "sfAssigns": 23
+    },
+    "js/battle/draw.js": {
+      "leaked": 1,
+      "sfMembers": 3,
+      "sfAssigns": 3
+    },
+    "js/battle/events.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/feel.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/formula.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/gfx.js": {
+      "visual": 31,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/battle/hud.js": {
+      "visual": 31,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/input.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/renderer.js": {
+      "leaked": 1,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/battle/resolver.js": {
+      "leaked": 1,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/battle/rewards.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/stage.js": {
+      "visual": 15,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/state.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/battle/timeline.js": {
+      "leaked": 1,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/cinder.js": {
+      "leaked": 1,
+      "sfMembers": 73,
+      "sfAssigns": 85
+    },
+    "js/content/dialogue/act1-scenes.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/content/dialogue/cinderveil.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/content/dialogue/emberhold.js": {
+      "sfMembers": 4,
+      "sfAssigns": 4
+    },
+    "js/content/dialogue/towns.js": {
+      "sfMembers": 4,
+      "sfAssigns": 4
+    },
+    "js/content/dialogue/world.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/content/maps/chart.js": {
+      "leaked": 1,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/content/maps/cinderveil.js": {
+      "leaked": 1
+    },
+    "js/content/maps/drift.js": {
+      "leaked": 1
+    },
+    "js/content/maps/emberhold.js": {
+      "leaked": 1
+    },
+    "js/content/maps/gullrock.js": {
+      "leaked": 1
+    },
+    "js/content/maps/highspire.js": {
+      "leaked": 1
+    },
+    "js/content/maps/kinds.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/content/maps/saltmere.js": {
+      "leaked": 1
+    },
+    "js/content/maps/towns.js": {
+      "sfMembers": 6,
+      "sfAssigns": 7
+    },
+    "js/content/maps/v2layout.js": {
+      "leaked": 1,
+      "sfMembers": 37,
+      "sfAssigns": 47
+    },
+    "js/data.js": {
+      "leaked": 1,
+      "sfMembers": 41,
+      "sfAssigns": 41
+    },
+    "js/data/encounters.js": {
+      "leaked": 1,
+      "sfMembers": 4,
+      "sfAssigns": 4
+    },
+    "js/data/enemies.js": {
+      "leaked": 1,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/data/items.js": {
+      "leaked": 2,
+      "sfMembers": 7,
+      "sfAssigns": 7
+    },
+    "js/data/party.js": {
+      "leaked": 2,
+      "sfMembers": 13,
+      "sfAssigns": 13
+    },
+    "js/data/skills.js": {
+      "leaked": 1,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/dialogue.js": {
+      "visual": 221,
+      "leaked": 30,
+      "sfMembers": 21,
+      "sfAssigns": 25
+    },
+    "js/draw.js": {
+      "sfMembers": 6,
+      "sfAssigns": 6
+    },
+    "js/draw/actors.js": {
+      "visual": 131,
+      "leaked": 1,
+      "sfMembers": 28,
+      "sfAssigns": 29
+    },
+    "js/draw/deps.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/draw/effects.js": {
+      "visual": 16,
+      "sfMembers": 6,
+      "sfAssigns": 6
+    },
+    "js/draw/entities.js": {
+      "visual": 13,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/draw/field.js": {
+      "visual": 7,
+      "sfMembers": 17,
+      "sfAssigns": 17
+    },
+    "js/draw/guides.js": {
+      "visual": 16,
+      "sfMembers": 20,
+      "sfAssigns": 20
+    },
+    "js/draw/minimap.js": {
+      "visual": 28,
+      "sfMembers": 3,
+      "sfAssigns": 3
+    },
+    "js/draw/pickups.js": {
+      "visual": 36,
+      "sfMembers": 8,
+      "sfAssigns": 8
+    },
+    "js/draw/props.js": {
+      "visual": 74,
+      "sfMembers": 3,
+      "sfAssigns": 3
+    },
+    "js/draw/sky.js": {
+      "visual": 19,
+      "sfMembers": 17,
+      "sfAssigns": 17
+    },
+    "js/draw/terrain.js": {
+      "visual": 8,
+      "sfMembers": 46,
+      "sfAssigns": 48
+    },
+    "js/feel.js": {
+      "leaked": 8,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/grapple.js": {
+      "visual": 91,
+      "leaked": 1,
+      "sfMembers": 26,
+      "sfAssigns": 26
+    },
+    "js/haptics.js": {
+      "leaked": 2,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/input.js": {
+      "leaked": 1,
+      "sfMembers": 30,
+      "sfAssigns": 40
+    },
+    "js/main.js": {
+      "leaked": 1,
+      "sfMembers": 34,
+      "sfAssigns": 38
+    },
+    "js/menu/field.js": {
+      "leaked": 12,
+      "sfMembers": 13,
+      "sfAssigns": 58
+    },
+    "js/music.js": {
+      "leaked": 20,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/props/catalog.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/props/decorlayer.js": {
+      "sfMembers": 16,
+      "sfAssigns": 17
+    },
+    "js/props/footprint.js": {
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/props/grid.js": {
+      "sfMembers": 4,
+      "sfAssigns": 4
+    },
+    "js/props/registry.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/props/renderer.js": {
+      "visual": 1,
+      "sfMembers": 3,
+      "sfAssigns": 3
+    },
+    "js/pwa.js": {
+      "leaked": 2,
+      "sfMembers": 7,
+      "sfAssigns": 17
+    },
+    "js/save.js": {
+      "leaked": 1,
+      "sfMembers": 10,
+      "sfAssigns": 11
+    },
+    "js/sfx.js": {
+      "leaked": 12,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/sim.js": {
+      "leaked": 2,
+      "sfMembers": 60,
+      "sfAssigns": 60
+    },
+    "js/tiles/adopt.js": {
+      "sfMembers": 14,
+      "sfAssigns": 16
+    },
+    "js/tiles/bridge.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/tiles/dashassist.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/tiles/renderer.js": {
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/tiles/skyedge.js": {
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/tiles/skymask.js": {
+      "sfMembers": 3,
+      "sfAssigns": 3
+    },
+    "js/tiles/tmjmap.js": {
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/title.js": {
+      "visual": 27,
+      "leaked": 8,
+      "sfMembers": 1,
+      "sfAssigns": 1
+    },
+    "js/ui.js": {
+      "leaked": 4,
+      "sfMembers": 28,
+      "sfAssigns": 49
+    },
+    "js/ui/choice-box.js": {
+      "leaked": 18,
+      "sfMembers": 2,
+      "sfAssigns": 2
+    },
+    "js/vaultgate.js": {
+      "leaked": 1,
+      "sfMembers": 4,
+      "sfAssigns": 4
+    },
+    "js/world.js": {
+      "visual": 60,
+      "sfMembers": 79,
+      "sfAssigns": 79
+    }
+  },
+  "redefined": {
+    "actionFor": [
+      "js/sim.js",
+      "js/world.js"
+    ],
+    "applySwing": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "audit": [
+      "js/content/maps/v2layout.js",
+      "js/sim.js"
+    ],
+    "auditCinder": [
+      "js/cinder.js",
+      "js/content/maps/v2layout.js"
+    ],
+    "bindUI": [
+      "js/ui.js",
+      "js/world.js"
+    ],
+    "buyUpgrade": [
+      "js/battle/battle.js",
+      "js/cinder.js"
+    ],
+    "circle": [
+      "js/content/maps/v2layout.js",
+      "js/data.js"
+    ],
+    "closeChest": [
+      "js/input.js",
+      "js/world.js"
+    ],
+    "closeFieldMenu": [
+      "js/input.js",
+      "js/menu/field.js"
+    ],
+    "closeHand": [
+      "js/cinder.js",
+      "js/input.js"
+    ],
+    "closeSettings": [
+      "js/input.js",
+      "js/ui.js"
+    ],
+    "closeWorldPanel": [
+      "js/input.js",
+      "js/world.js"
+    ],
+    "coachLine": [
+      "js/cinder.js",
+      "js/sim.js",
+      "js/world.js"
+    ],
+    "consumeAttack": [
+      "js/battle/battle.js",
+      "js/input.js"
+    ],
+    "damageEnemy": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "dashSing": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "draw": [
+      "js/battle/draw.js",
+      "js/draw.js"
+    ],
+    "drawActor": [
+      "js/draw/actors.js",
+      "js/world.js"
+    ],
+    "drawChest": [
+      "js/props/decorlayer.js",
+      "js/world.js"
+    ],
+    "drawPropArt": [
+      "js/draw/props.js",
+      "js/props/decorlayer.js"
+    ],
+    "fresh": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "killEnemy": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "lampIsLit": [
+      "js/cinder.js",
+      "js/world.js"
+    ],
+    "loadEnemies": [
+      "js/cinder.js",
+      "js/world.js"
+    ],
+    "makeEnemies": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "mountIsland": [
+      "js/cinder.js",
+      "js/props/decorlayer.js",
+      "js/tiles/adopt.js"
+    ],
+    "npcHidden": [
+      "js/cinder.js",
+      "js/content/maps/towns.js"
+    ],
+    "objectivePoint": [
+      "js/cinder.js",
+      "js/sim.js"
+    ],
+    "pauseGame": [
+      "js/menu/field.js",
+      "js/ui.js"
+    ],
+    "questText": [
+      "js/cinder.js",
+      "js/data.js"
+    ],
+    "resumeGame": [
+      "js/input.js",
+      "js/ui.js"
+    ],
+    "secretVisible": [
+      "js/cinder.js",
+      "js/sim.js"
+    ],
+    "snapshotEnemies": [
+      "js/cinder.js",
+      "js/world.js"
+    ],
+    "startSwing": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "startVoyage": [
+      "js/cinder.js",
+      "js/world.js"
+    ],
+    "syncUI": [
+      "js/menu/field.js",
+      "js/ui.js",
+      "js/world.js"
+    ],
+    "touchFoe": [
+      "js/battle/battle.js",
+      "js/world.js"
+    ],
+    "tryInteract": [
+      "js/sim.js",
+      "js/world.js"
+    ],
+    "update": [
+      "js/battle/battle.js",
+      "js/sim.js",
+      "js/world.js"
+    ],
+    "updateEnemy": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "updatePlayer": [
+      "js/battle/battle.js",
+      "js/sim.js"
+    ],
+    "updateVoyage": [
+      "js/cinder.js",
+      "js/world.js"
+    ],
+    "walkable": [
+      "js/content/maps/towns.js",
+      "js/content/maps/v2layout.js",
+      "js/data.js",
+      "js/tiles/adopt.js",
+      "js/vaultgate.js"
+    ],
+    "zoneAt": [
+      "js/content/maps/v2layout.js",
+      "js/data.js",
+      "js/tiles/adopt.js",
+      "js/vaultgate.js"
+    ]
+  }
+}
