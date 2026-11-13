@@ -473,7 +473,7 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 
 ## Part E: open questions and uncertainties
 
-v0.4.34 belongs to OO-01. PR #50 renumbers when it resumes.
+v0.4.34 belongs to OO-01. v0.4.35 belongs to OO-02. PR #50 renumbers when it resumes.
 
 ### Settled (Brian's standing rules)
 

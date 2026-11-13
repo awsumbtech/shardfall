@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.34";
+SF.VERSION = "0.4.35";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -58,7 +58,8 @@ SF.WHATS_NEW = [
   "Emberhold's Lampfoot village and Lowmoor Quay are larger, and Act 1 has new scenes there, on the crossing, and with Hesk, Ilsa, and Tamsin.",
   "Cleaned up a stray grass patch floating in the sky near the start.",
   "ChoiceBox panel/cursor art now published to the live site.",
-  "Behind the scenes: a guard so code-drawn pictures do not grow. Nothing looks different."
+  "Behind the scenes: a guard so code-drawn pictures do not grow. Nothing looks different.",
+  "Behind the scenes: a VisualObject base and a Game root. Nothing looks different."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

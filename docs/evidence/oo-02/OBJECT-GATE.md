@@ -1,6 +1,10 @@
 # OO-02 object gate
 
-Step OO-02. Structure only: the running game still draws and plays the way it does on main. Opacity and fade are not part of VisualObject. That ruling is still open. ChoiceBox is not used as a window skin here.
+Step OO-02, v0.4.35. Structure only: the running game still draws and plays the way it does on main. Opacity and fade are not part of VisualObject. That ruling is still open. ChoiceBox is not used as a window skin here.
+
+`docs/OO-MIGRATION.md` step 2 lists `VisualObject` + `Game` root + `SceneRouter` (`js/core/`). This PR ships VisualObject and the Game root only. SceneRouter is deferred to a later PR. It is not in this tree, and nothing here routes field vs battle.
+
+Features frozen; no art changes.
 
 ## VisualObject
 
@@ -20,4 +24,20 @@ Step OO-02. Structure only: the running game still draws and plays the way it do
 
 3. **File and attach point.** `js/core/game.js`. The only attach point is `attach(parent)`, called from `SF.boot` as `new SF.Game().attach(window)`. A child's `attach` is what calls `register`. That is the parent's list, not a second attach point.
 
-4. **What it does not change.** `window.SF` stays the same object, as the compatibility alias. `game.state` is that bag's `SF.state`, not a copy, and writing `game.state` writes `SF.state`. Boot does not change mode, input, drawing, or the version. ChoiceBox is not involved.
+4. **What it does not change.** `window.SF` stays the same object, as the compatibility alias. `game.state` is that bag's `SF.state`, not a copy, and writing `game.state` writes `SF.state`. Boot does not change mode, input, drawing, or the play loop. ChoiceBox is not involved. The v0.4.35 strings refresh the shell cache.
+
+## Audit
+
+`node tools/oo-audit.mjs --against-ref origin/main` fails on a real count rise. The baseline was not raised. `tools/oo-audit.mjs`, `tools/oo-audit-tamper.mjs`, `tools/oo-audit-allow.json`, and `.github/workflows/ci.yml` were not edited.
+
+| Signal | origin/main (v0.4.34) | OO-02 working tree (v0.4.35) |
+|---|---|---|
+| Visual call sites | 4044 | 4044 (unchanged) |
+| Leaked window names | 166 | 166 (unchanged) |
+| SF members assigned | 684 distinct (908 sites) | 686 distinct (910 sites) |
+| SF functions defined in more than one file | 44 | 44 (unchanged) |
+| **OO-AUDIT remaining** | **5162** | **5164** |
+
+The two new sites are the constructors published on the compatibility bag: `SF.VisualObject = VisualObject` in `js/core/visual-object.js` and `SF.Game = Game` in `js/core/game.js`. VisualObject's `ctx.drawImage` is not a visual call site; `drawImage` is in the audit's skip list (real bitmap/atlas blits, not code-drawn primitives).
+
+`node tools/oo-audit-tamper.mjs` passes. Official `node tools/smoke.mjs` exits at the embedded audit because of that rise. The rest of smoke, including `oo02 ok`, passed in a local run that recorded the audit failure and continued; that skip is not in the committed `tools/smoke.mjs`. Evidence: `docs/evidence/oo-02/oo-audit-output.txt`, `docs/evidence/oo-02/tamper-output.txt`, `docs/evidence/oo-02/smoke-output.txt`.
