@@ -1,8 +1,11 @@
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const FIELD_DRAW = [
   "js/draw/deps.js",
@@ -5233,5 +5236,656 @@ function runGroundChecks() {
   if (before && G.walkable(0, 20) !== meadow) fail("leaving the tile world changed the code walk");
   console.log("ground checks ok, markers " + map.markers.length + ", walked " + reach.length + ", gaps " + gapReport.join(", ") + ", old saves " + checked);
 }
+
+function installChoiceDom(context) {
+  function makeEl(tag) {
+    const classes = new Set();
+    const el = {
+      tagName: String(tag || "").toUpperCase(),
+      children: [],
+      parentNode: null,
+      style: {},
+      textContent: "",
+      id: "",
+      alt: "",
+      type: "",
+      naturalWidth: 0,
+      onload: null,
+      onerror: null,
+      _src: "",
+      _listeners: {},
+      attributes: {},
+      classList: null,
+      setAttribute(name, value) {
+        this.attributes[name] = String(value);
+        if (name === "id") this.id = String(value);
+      },
+      getAttribute(name) {
+        return Object.prototype.hasOwnProperty.call(this.attributes, name) ? this.attributes[name] : null;
+      },
+      removeAttribute(name) {
+        delete this.attributes[name];
+      },
+      appendChild(child) {
+        if (!child) return child;
+        if (child.parentNode) child.parentNode.removeChild(child);
+        child.parentNode = this;
+        this.children.push(child);
+        return child;
+      },
+      removeChild(child) {
+        const at = this.children.indexOf(child);
+        if (at >= 0) this.children.splice(at, 1);
+        if (child) child.parentNode = null;
+        return child;
+      },
+      addEventListener(type, fn) {
+        if (!this._listeners[type]) this._listeners[type] = [];
+        this._listeners[type].push(fn);
+      },
+      removeEventListener(type, fn) {
+        const list = this._listeners[type] || [];
+        const at = list.indexOf(fn);
+        if (at >= 0) list.splice(at, 1);
+      },
+      dispatchEvent(ev) {
+        const list = (this._listeners[ev.type] || []).slice();
+        list.forEach((fn) => fn(ev));
+        return true;
+      },
+      focus() {}
+    };
+    el.classList = {
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); },
+      toggle(name, on) {
+        const force = arguments.length > 1 ? !!on : !classes.has(name);
+        if (force) classes.add(name);
+        else classes.delete(name);
+      }
+    };
+    Object.defineProperty(el, "className", {
+      get() { return Array.from(classes).join(" "); },
+      set(value) {
+        classes.clear();
+        String(value || "").split(/\s+/).filter(Boolean).forEach((name) => classes.add(name));
+      }
+    });
+    Object.defineProperty(el, "src", {
+      get() { return el._src; },
+      set(value) {
+        el._src = String(value);
+        el.naturalWidth = 0;
+        if (typeof el.onerror === "function") el.onerror();
+      }
+    });
+    return el;
+  }
+
+  function matches(el, sel) {
+    if (sel.charAt(0) === ".") return el.classList.contains(sel.slice(1));
+    if (sel.charAt(0) === "#") return el.id === sel.slice(1);
+    return el.tagName === sel.toUpperCase();
+  }
+
+  function walk(el, sel, out) {
+    el.children.forEach((child) => {
+      if (matches(child, sel)) out.push(child);
+      walk(child, sel, out);
+    });
+  }
+
+  function findId(el, id) {
+    if (el.id === id) return el;
+    for (let i = 0; i < el.children.length; i++) {
+      const hit = findId(el.children[i], id);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  const body = makeEl("body");
+  const head = makeEl("head");
+  const docListeners = {};
+  context.document = {
+    body,
+    head,
+    createElement: makeEl,
+    getElementById(id) {
+      return findId(body, id) || findId(head, id);
+    },
+    addEventListener(type, fn) {
+      if (!docListeners[type]) docListeners[type] = [];
+      docListeners[type].push(fn);
+    },
+    removeEventListener(type, fn) {
+      const list = docListeners[type] || [];
+      const at = list.indexOf(fn);
+      if (at >= 0) list.splice(at, 1);
+    },
+    dispatchEvent(ev) {
+      (docListeners[ev.type] || []).slice().forEach((fn) => fn(ev));
+      return true;
+    },
+    querySelector(sel) {
+      return this.querySelectorAll(sel)[0] || null;
+    },
+    querySelectorAll(sel) {
+      const out = [];
+      walk(head, sel, out);
+      walk(body, sel, out);
+      return out;
+    }
+  };
+
+  const winListeners = {};
+  context.addEventListener = (type, fn) => {
+    if (!winListeners[type]) winListeners[type] = [];
+    winListeners[type].push(fn);
+  };
+  context.removeEventListener = (type, fn) => {
+    const list = winListeners[type] || [];
+    const at = list.indexOf(fn);
+    if (at >= 0) list.splice(at, 1);
+  };
+  context.dispatchEvent = (ev) => {
+    (winListeners[ev.type] || []).slice().forEach((fn) => fn(ev));
+    return true;
+  };
+}
+
+function assertChoiceInside(name, rect, vw, vh) {
+  if (!(rect.w > 0) || !(rect.h > 0)) fail(name + " has no size");
+  if (rect.x < -0.01 || rect.y < -0.01 || rect.x + rect.w > vw + 0.01 || rect.y + rect.h > vh + 0.01) {
+    fail(name + " leaves " + vw + "x" + vh + " at " + rect.x + "," + rect.y + " " + rect.w + "x" + rect.h);
+  }
+}
+
+async function runChoiceBoxChecks() {
+  const dlgSrc = fs.readFileSync("js/dialogue.js", "utf8");
+  const openCount = (dlgSrc.match(/SF\.ChoiceBox\.open\s*\(/g) || []).length;
+  if (openCount !== 1) fail("dialogue runner should call ChoiceBox.open once, found " + openCount);
+  const boxSrc = fs.readFileSync("js/ui/choice-box.js", "utf8");
+  if (/linear-gradient|radial-gradient|conic-gradient|box-shadow|fillRect|fillStyle|strokeStyle|getContext\(|<svg|\barc\(|[\s.]fill\(|[\s.]stroke\(/.test(boxSrc)) {
+    fail("ChoiceBox draws panel art");
+  }
+  if (!boxSrc.includes("prefers-reduced-motion")) fail("ChoiceBox does not mention reduced motion");
+  ["assets/ui/choicebox-panel.png", "assets/ui/choice-cursor.png"].forEach((file) => {
+    if (!fs.existsSync(file)) fail("missing asset slot " + file);
+  });
+  const slotsEmpty = ["assets/ui/choicebox-panel.png", "assets/ui/choice-cursor.png"].every((file) => fs.statSync(file).size === 0);
+
+  const choiceCtx = {};
+  choiceCtx.window = choiceCtx;
+  choiceCtx.console = console;
+  installChoiceDom(choiceCtx);
+  choiceCtx.innerWidth = 390;
+  choiceCtx.innerHeight = 844;
+  vm.createContext(choiceCtx);
+  [
+    "js/content/dialogue/emberhold.js",
+    "js/ui/choice-box.js",
+    "js/dialogue.js"
+  ].forEach((file) => {
+    vm.runInContext(fs.readFileSync(file, "utf8"), choiceCtx, { filename: file });
+  });
+
+  const Box = choiceCtx.SF.ChoiceBox;
+  [[390, 844], [844, 390]].forEach(([w, h]) => {
+    const laid = Box.layout(w, h, 3);
+    assertChoiceInside("choice box", laid.box, w, h);
+    if (!laid.targets || laid.targets.length !== 3) fail("expected 3 targets at " + w + "x" + h);
+    const text = { x: 12, y: h - 110, w: w - 24, h: 72 };
+    const cleared = Box.layout(w, h, 3, text);
+    assertChoiceInside("choice box beside the line", cleared.box, w, h);
+    if (Box.hits(cleared.box, text)) fail("choice box intersects dialogue text at " + w + "x" + h);
+    cleared.targets.forEach((target, i) => {
+      assertChoiceInside("choice target " + i, target, w, h);
+      if (target.w < 44 || target.h < 44) fail("target under 44px at " + w + "x" + h);
+      if (Box.hits(target, text)) fail("choice target intersects dialogue text at " + w + "x" + h);
+      if (target.x < cleared.box.x || target.y < cleared.box.y ||
+        target.x + target.w > cleared.box.x + cleared.box.w + 0.01 ||
+        target.y + target.h > cleared.box.y + cleared.box.h + 0.01) {
+        fail("target " + i + " is outside the choice box at " + w + "x" + h);
+      }
+    });
+    const withStatus = Box.layout(w, h, 3, text, true);
+    const noStatus = Box.layout(w, h, 3, text, false);
+    if (withStatus.status.h !== Box.SPEC.statusH) fail("status band not reserved at " + w + "x" + h);
+    if (noStatus.status.h !== 0) fail("status band reserved while assets load at " + w + "x" + h);
+    if (!(withStatus.box.h - noStatus.box.h >= Box.SPEC.statusH)) {
+      fail("loaded layout did not drop the status band at " + w + "x" + h);
+    }
+    noStatus.targets.forEach((target, i) => {
+      if (target.w < 44 || target.h < 44) fail("loaded target under 44px at " + w + "x" + h);
+      if (Box.hits(target, text)) fail("loaded target intersects dialogue text at " + w + "x" + h);
+    });
+  });
+
+  const labels = ["What's the Hush?", "What is this thing in my hand?", "I'll get them."];
+  const introChoices = choiceCtx.SF.dialogueNodes["emberhold.maren.intro"].choices.map((choice) => choice.text);
+  if (introChoices.join("|") !== labels.join("|")) fail("Maren choice text changed: " + introChoices.join("|"));
+
+  let keyed = null;
+  const keyPromise = Box.open({
+    choices: labels.map((text, i) => ({ id: "k" + i, text: text })),
+    onPick: (id) => { keyed = id; }
+  });
+  if (!choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox did not open");
+  const note = choiceCtx.document.querySelector(".sf-choicebox-note");
+  if (!note || note.textContent.indexOf("Empty: choicebox-panel.png") < 0 || note.textContent.indexOf("choice-cursor.png") < 0) {
+    fail("empty asset slots were not shown: " + (note && note.textContent));
+  }
+  if (choiceCtx.document.querySelectorAll("img").length !== 0) fail("a failed slot image was rendered");
+  const cssEl = choiceCtx.document.getElementById("sf-choicebox-css");
+  if (!cssEl || cssEl.textContent.indexOf("prefers-reduced-motion") < 0) fail("reduced motion css missing");
+  if (cssEl.textContent.indexOf("linear-gradient") >= 0) fail("choice css paints a gradient");
+  if (cssEl.textContent.indexOf("min-height:" + Box.SPEC.targetH + "px") < 0) fail("css target height drifted");
+  if (Box.SPEC.zIndex >= 80) fail("ChoiceBox z-index " + Box.SPEC.zIndex + " is not below the rotate gate");
+  if (cssEl.textContent.indexOf("z-index:" + Box.SPEC.zIndex) < 0) fail("choice css z-index drifted");
+  choiceCtx.document.dispatchEvent({ type: "keydown", code: "ArrowDown", preventDefault() {}, stopPropagation() {} });
+  choiceCtx.document.dispatchEvent({ type: "keydown", code: "Enter", preventDefault() {}, stopPropagation() {} });
+  const keyId = await keyPromise;
+  if (keyId !== "k1" || keyed !== "k1") fail("keyboard pick returned " + keyId);
+  if (choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox stayed open after the key pick");
+
+  choiceCtx.SF.reduceFlash = true;
+  choiceCtx.SF.state = { mode: "play", flags: {}, shardsHeld: 0 };
+  let branchPromise = null;
+  const realOpen = Box.open.bind(Box);
+  choiceCtx.SF.ChoiceBox.open = (opts) => {
+    branchPromise = realOpen(opts);
+    return branchPromise;
+  };
+  choiceCtx.SF.startDialogue("emberhold.maren.intro");
+  let guard = 0;
+  while (choiceCtx.SF.state.mode === "dialogue" && choiceCtx.SF.state.dialogue.phase !== "choice" && guard < 24) {
+    choiceCtx.SF.state.dialogue.lock = 0;
+    choiceCtx.SF.advanceDialogue();
+    guard += 1;
+  }
+  const asking = choiceCtx.SF.state.dialogue;
+  if (!asking || asking.phase !== "choice") fail("Maren did not offer choices");
+  if (asking.choiceBox !== true) fail("enterChoice did not hand the choices to ChoiceBox");
+  const shown = choiceCtx.document.querySelectorAll(".sf-choice-label").map((el) => el.textContent);
+  if (shown.join("|") !== labels.join("|")) fail("ChoiceBox labels " + shown.join("|"));
+  const root = choiceCtx.document.getElementById("sf-choicebox");
+  const portrait = Box.layout(choiceCtx.innerWidth, choiceCtx.innerHeight, 3, null, true);
+  if (root.style.width !== portrait.box.w + "px" || root.style.height !== portrait.box.h + "px") {
+    fail("portrait box " + root.style.width + " by " + root.style.height);
+  }
+  choiceCtx.innerWidth = 844;
+  choiceCtx.innerHeight = 390;
+  choiceCtx.dispatchEvent({ type: "resize" });
+  const landscape = Box.layout(844, 390, 3, null, true);
+  if (root.style.left !== landscape.box.x + "px" || root.style.top !== landscape.box.y + "px" ||
+    root.style.width !== landscape.box.w + "px" || root.style.height !== landscape.box.h + "px") {
+    fail("landscape box moved to " + root.style.left + "," + root.style.top + " " + root.style.width + "x" + root.style.height);
+  }
+  const buttons = choiceCtx.document.querySelectorAll("button");
+  if (buttons.length !== 3) fail("expected 3 choice targets, found " + buttons.length);
+  buttons[0].dispatchEvent({ type: "pointerdown", preventDefault() {}, stopPropagation() {} });
+  const branchId = await branchPromise;
+  if (branchId !== "emberhold.maren.ask_hush#0") fail("dialogue pick id " + branchId);
+  if (choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox stayed open after the dialogue pick");
+  const branched = choiceCtx.SF.state.dialogue;
+  const hush = choiceCtx.SF.dialogueNodes["emberhold.maren.ask_hush"];
+  if (!branched || branched.id !== "emberhold.maren.ask_hush") fail("dialogue did not branch to the Hush");
+  if (branched.full !== hush.lines[0]) fail("branch line was not Maren's existing Hush line");
+  if (choiceCtx.SF.state.flags.asked_maren !== "hush") fail("asked_maren was not set");
+
+  const uiSrc = fs.readFileSync("js/ui.js", "utf8");
+  if ((uiSrc.match(/SF\.ChoiceBox\.sync/g) || []).length < 3) {
+    fail("ChoiceBox.sync is missing from a mode-change point in ui.js");
+  }
+  if (!dlgSrc.includes("s.dialogue.choiceBox) return")) {
+    fail("old dialogue key handler does not stand aside while ChoiceBox is open");
+  }
+
+  function buttonLabel(button) {
+    if (!button) return "";
+    const kids = button.children || [];
+    for (let i = 0; i < kids.length; i++) {
+      if (kids[i].classList && kids[i].classList.contains("sf-choice-label")) return kids[i].textContent;
+    }
+    return button.textContent || "";
+  }
+
+  function highlightedLabel() {
+    const buttons = choiceCtx.document.querySelectorAll("button");
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].classList && buttons[i].classList.contains("is-on") && buttons[i].parentNode && buttons[i].parentNode.id === "sf-choicebox") {
+        return buttonLabel(buttons[i]);
+      }
+    }
+    return "";
+  }
+
+  function openMarenChoices() {
+    choiceCtx.SF.reduceFlash = true;
+    choiceCtx.SF.state = { mode: "play", flags: {}, shardsHeld: 0 };
+    choiceCtx.SF.syncUI = function () { choiceCtx.SF.ChoiceBox.sync(); };
+    choiceCtx.SF.startDialogue("emberhold.maren.intro");
+    let steps = 0;
+    while (choiceCtx.SF.state.mode === "dialogue" && choiceCtx.SF.state.dialogue.phase !== "choice" && steps < 24) {
+      choiceCtx.SF.state.dialogue.lock = 0;
+      choiceCtx.SF.advanceDialogue();
+      steps += 1;
+    }
+    if (!choiceCtx.SF.state.dialogue || choiceCtx.SF.state.dialogue.phase !== "choice") fail("Maren did not offer choices for F1/F2");
+    if (choiceCtx.SF.state.dialogue.choiceBox !== true) fail("enterChoice did not hand off for F1/F2");
+    if (!Box.isOpen()) fail("ChoiceBox was not open for F1/F2");
+  }
+
+  function sendKey(code) {
+    choiceCtx.document.dispatchEvent({ type: "keydown", code: code, preventDefault() {}, stopPropagation() {} });
+  }
+
+  // F2: keyboard — old moveChoice stands aside; the highlighted row is the one picked.
+  openMarenChoices();
+  let oldMoves = 0;
+  const realMove = choiceCtx.SF.moveChoice.bind(choiceCtx.SF);
+  choiceCtx.SF.moveChoice = function (dir) {
+    oldMoves += 1;
+    return realMove(dir);
+  };
+  sendKey("ArrowDown");
+  if (oldMoves !== 0) fail("old moveChoice ran while ChoiceBox was open");
+  if (Box.index() !== 1) fail("keyboard highlight was " + Box.index());
+  if (choiceCtx.SF.state.dialogue.choiceIndex !== 1) fail("keyboard did not keep dialogue.choiceIndex on the highlight");
+  if (highlightedLabel() !== "What is this thing in my hand?") {
+    fail("keyboard highlight was not on the second row: " + JSON.stringify(highlightedLabel()));
+  }
+  sendKey("Enter");
+  if (!choiceCtx.SF.state.dialogue || choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") {
+    fail("keyboard Enter picked " + ((choiceCtx.SF.state.dialogue && choiceCtx.SF.state.dialogue.id) || "nothing") + " instead of the highlighted row");
+  }
+  if (choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") fail("keyboard pick did not branch to the hand line");
+  if (Box.isOpen()) fail("ChoiceBox stayed open after the keyboard highlight pick");
+  choiceCtx.SF.moveChoice = realMove;
+
+  // F2: pad — move then A picks the highlighted row, not the stale choiceIndex.
+  openMarenChoices();
+  choiceCtx.SF.inputState = { padX: 0, padY: 0, padAEdge: false };
+  choiceCtx.SF._padChoiceDir = 0;
+  choiceCtx.SF.inputState.padY = 1;
+  choiceCtx.SF.tickChoicePad();
+  if (Box.index() !== 1) fail("pad highlight was " + Box.index());
+  if (choiceCtx.SF.state.dialogue.choiceIndex !== 1) fail("pad did not keep dialogue.choiceIndex on the highlight");
+  if (highlightedLabel() !== "What is this thing in my hand?") {
+    fail("pad highlight was not on the second row: " + JSON.stringify(highlightedLabel()));
+  }
+  choiceCtx.SF.inputState.padY = 0;
+  choiceCtx.SF.tickChoicePad();
+  choiceCtx.SF.inputState.padAEdge = true;
+  choiceCtx.SF.tickChoicePad();
+  if (!choiceCtx.SF.state.dialogue || choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") {
+    fail("pad A picked " + ((choiceCtx.SF.state.dialogue && choiceCtx.SF.state.dialogue.id) || "nothing") + " instead of the highlighted row");
+  }
+  if (choiceCtx.SF.state.dialogue.id !== "emberhold.maren.ask_hand") fail("pad pick did not branch to the hand line");
+  if (Box.isOpen()) fail("ChoiceBox stayed open after the pad highlight pick");
+
+  // F1: pause suspends the box; resume restores it and the highlight.
+  openMarenChoices();
+  sendKey("ArrowDown");
+  if (Box.index() !== 1) fail("F1 setup highlight was " + Box.index());
+  const sPause = choiceCtx.SF.state;
+  sPause.pausedFrom = "dialogue";
+  sPause.mode = "pause";
+  Box.sync();
+  if (Box.isOpen() || choiceCtx.document.getElementById("sf-choicebox")) fail("ChoiceBox stayed open after pause");
+  if (!Box._held) fail("pause did not park the ChoiceBox session");
+  sendKey("Enter");
+  if (choiceCtx.SF.state.mode !== "pause") fail("paused key pick escaped pause");
+  if (choiceCtx.SF.state.dialogue.phase !== "choice") fail("pause key listener settled the choice");
+  sPause.mode = "dialogue";
+  Box.sync();
+  if (!Box.isOpen()) fail("ChoiceBox did not restore after resume");
+  if (Box.index() !== 1) fail("resume lost the highlight, now " + Box.index());
+  if (highlightedLabel() !== "What is this thing in my hand?") {
+    fail("resume did not restore the highlighted row: " + JSON.stringify(highlightedLabel()));
+  }
+
+  // F1: load replaces the journey and must close the parked box.
+  sPause.pausedFrom = "dialogue";
+  sPause.mode = "pause";
+  Box.sync();
+  if (!Box._held) fail("pause did not park the box before load");
+  choiceCtx.SF.state = { mode: "play", flags: {}, shardsHeld: 0 };
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("load left ChoiceBox or its listeners alive");
+  }
+
+  // F1: title from an open (and a parked) box.
+  openMarenChoices();
+  choiceCtx.SF.state.mode = "title";
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("title left ChoiceBox alive");
+  }
+  openMarenChoices();
+  choiceCtx.SF.state.pausedFrom = "dialogue";
+  choiceCtx.SF.state.mode = "pause";
+  Box.sync();
+  choiceCtx.SF.state.mode = "title";
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("title from pause left ChoiceBox parked");
+  }
+
+  // F1: end of dialogue / abort (a new node) closes the box.
+  openMarenChoices();
+  choiceCtx.SF.state.dialogue = null;
+  choiceCtx.SF.state.mode = "play";
+  Box.sync();
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("ending dialogue left ChoiceBox alive");
+  }
+  openMarenChoices();
+  choiceCtx.SF.startDialogue("emberhold.wake");
+  if (Box.isOpen() || Box._held || choiceCtx.document.getElementById("sf-choicebox")) {
+    fail("starting a new dialogue left ChoiceBox alive");
+  }
+
+  await assertLiveChoiceFit(slotsEmpty);
+  console.log("choicebox ok");
+}
+
+function loadChoicePlaywright() {
+  const require = createRequire(fileURLToPath(import.meta.url));
+  const candidates = ["playwright-core", "/tmp/pw/node_modules/playwright-core"];
+  for (const name of candidates) {
+    try { return require(name); } catch (err) { /* next */ }
+  }
+  fail("choice geometry needs playwright-core");
+  return null;
+}
+
+function liveRectsHit(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+async function assertLiveChoiceFit(slotsEmpty) {
+  const pw = loadChoicePlaywright();
+  const chromium = (pw.default || pw).chromium;
+  const chrome = process.env.CHROME || "/usr/bin/google-chrome";
+  if (!fs.existsSync(chrome)) fail("choice geometry needs chrome at " + chrome);
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const types = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".json": "application/json",
+    ".webmanifest": "application/manifest+json",
+    ".tmj": "application/json"
+  };
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url, "http://127.0.0.1");
+    let rel = decodeURIComponent(url.pathname);
+    if (rel === "/") rel = "/index.html";
+    const file = path.normalize(path.join(root, rel));
+    if (!file.startsWith(root) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      res.writeHead(404);
+      res.end("missing");
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": types[path.extname(file)] || "application/octet-stream",
+      "Cache-Control": "no-store"
+    });
+    fs.createReadStream(file).pipe(res);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = "http://127.0.0.1:" + server.address().port;
+  const browser = await chromium.launch({
+    executablePath: chrome,
+    args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+  });
+  try {
+    for (const [width, height] of [[390, 844], [844, 390]]) {
+      const context = await browser.newContext({
+        viewport: { width, height },
+        deviceScaleFactor: 1,
+        hasTouch: true,
+        isMobile: true
+      });
+      await context.addInitScript(() => {
+        const stub = {
+          controller: null,
+          addEventListener() {},
+          removeEventListener() {},
+          register() { return Promise.resolve({}); },
+          ready: Promise.resolve({ active: null })
+        };
+        try {
+          Object.defineProperty(navigator, "serviceWorker", { configurable: true, get() { return stub; } });
+        } catch (err) { /* ignore */ }
+      });
+      const page = await context.newPage();
+      const errors = [];
+      page.on("pageerror", (err) => errors.push(String(err)));
+      await page.goto(origin + "/index.html", { waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => window.SF && SF.startDialogue && SF.fresh);
+      const report = await page.evaluate(async () => {
+        SF.uiModal = null;
+        const s = SF.fresh();
+        s.mode = "play";
+        SF.state = s;
+        SF.startDialogue("emberhold.maren.intro");
+        let guard = 0;
+        while (SF.state.mode === "dialogue" && SF.state.dialogue && SF.state.dialogue.phase !== "choice" && guard < 30) {
+          SF.state.dialogue.lock = 0;
+          SF.advanceDialogue();
+          guard += 1;
+        }
+        if (SF.syncUI) SF.syncUI();
+        window.dispatchEvent(new Event("resize"));
+        await new Promise((resolve) => {
+          const start = performance.now();
+          function tick() {
+            const choice = document.getElementById("sf-choicebox");
+            const style = choice && getComputedStyle(choice);
+            const panelReady = !!(style && style.borderImageSource && style.borderImageSource.indexOf("choicebox-panel") >= 0);
+            const cursor = document.querySelector("#sf-choicebox img.sf-choice-cursor");
+            const cursorReady = !!(cursor && cursor.naturalWidth > 0);
+            const slotsMissing = !!(document.querySelector(".sf-choicebox-note") && (document.querySelector(".sf-choicebox-note").textContent || "").indexOf("Empty:") === 0);
+            if ((panelReady && cursorReady) || slotsMissing || performance.now() - start > 3000) resolve();
+            else requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        });
+        function boxOf(el) {
+          if (!el || !el.getBoundingClientRect) return null;
+          const r = el.getBoundingClientRect();
+          return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+        }
+        const choice = document.getElementById("sf-choicebox");
+        const targets = [...document.querySelectorAll("#sf-choicebox button")].map(boxOf);
+        const status = document.querySelector(".sf-choicebox-status");
+        const rotate = document.getElementById("rotate");
+        const choiceBox = boxOf(choice);
+        let rotateOnTop = null;
+        if (choiceBox && rotate) {
+          const cx = Math.floor((choiceBox.left + choiceBox.right) / 2);
+          const cy = Math.floor((choiceBox.top + choiceBox.bottom) / 2);
+          const hit = document.elementFromPoint(cx, cy);
+          rotateOnTop = !!(hit && (hit.id === "rotate" || (hit.closest && hit.closest("#rotate"))));
+        }
+        return {
+          choice: choiceBox,
+          line: boxOf(document.getElementById("line")),
+          who: boxOf(document.getElementById("who")),
+          targets,
+          oldButtons: document.querySelectorAll("#dlg-choices button").length,
+          images: [...document.querySelectorAll("#sf-choicebox img")].map((img) => img.naturalWidth),
+          note: (document.querySelector(".sf-choicebox-note") || {}).textContent || "",
+          statusHeight: status ? status.getBoundingClientRect().height : 0,
+          statusHidden: !!(status && status.hidden),
+          hasStatusClass: !!(choice && choice.classList.contains("has-status")),
+          choiceZ: choice ? getComputedStyle(choice).zIndex : "",
+          rotateZ: rotate ? getComputedStyle(rotate).zIndex : "",
+          rotateDisplay: rotate ? getComputedStyle(rotate).display : "",
+          rotateOnTop,
+          lineText: (document.getElementById("line") || {}).textContent || "",
+          handed: !!(SF.state.dialogue && SF.state.dialogue.choiceBox),
+          vw: window.innerWidth,
+          vh: window.innerHeight
+        };
+      });
+      await context.close();
+      if (errors.length) fail(width + "x" + height + " page error " + errors[0]);
+      if (!report.handed) fail(width + "x" + height + " did not hand off to ChoiceBox");
+      if (report.oldButtons !== 0) fail(width + "x" + height + " still painted " + report.oldButtons + " old choice buttons");
+      if (!report.choice || !report.line) fail(width + "x" + height + " missing choice or line rect");
+      if (report.lineText.indexOf("My knees") < 0) fail(width + "x" + height + " line was " + report.lineText);
+      if (liveRectsHit(report.choice, report.line)) {
+        fail(width + "x" + height + " ChoiceBox intersects the dialogue line");
+      }
+      if (report.who && report.who.height > 0 && liveRectsHit(report.choice, report.who)) {
+        fail(width + "x" + height + " ChoiceBox intersects the speaker name");
+      }
+      report.targets.forEach((target, i) => {
+        if (!target || target.width < 44 || target.height < 44) fail(width + "x" + height + " target " + i + " under 44px");
+        if (target.left < -1 || target.top < -1 || target.right > report.vw + 1 || target.bottom > report.vh + 1) {
+          fail(width + "x" + height + " target " + i + " leaves the viewport");
+        }
+        if (liveRectsHit(target, report.line)) fail(width + "x" + height + " target " + i + " intersects the dialogue line");
+      });
+      if (slotsEmpty) {
+        if (report.images.length !== 0) fail(width + "x" + height + " rendered an empty slot image");
+        if (report.note.indexOf("Empty:") !== 0) fail(width + "x" + height + " missing empty-slot notice");
+        if (!(report.statusHeight >= 24) || !report.hasStatusClass) {
+          fail(width + "x" + height + " empty-slot notice has no status band");
+        }
+      } else {
+        if (report.images.some((widthPx) => !(widthPx > 0))) {
+          fail(width + "x" + height + " rendered a broken slot image");
+        }
+        if (report.note) fail(width + "x" + height + " showed empty-slot notice " + JSON.stringify(report.note));
+        if (report.statusHeight > 0.5 || report.hasStatusClass || !report.statusHidden) {
+          fail(width + "x" + height + " reserved a status band while assets loaded");
+        }
+      }
+      const choiceZ = parseFloat(report.choiceZ);
+      const rotateZ = parseFloat(report.rotateZ);
+      if (!(choiceZ < rotateZ)) {
+        fail(width + "x" + height + " ChoiceBox z-index " + report.choiceZ + " is not below the rotate gate " + report.rotateZ);
+      }
+      if (width < height) {
+        if (report.rotateDisplay !== "flex") fail(width + "x" + height + " rotate gate was " + report.rotateDisplay);
+        if (!report.rotateOnTop) fail(width + "x" + height + " rotate gate was not on top of ChoiceBox");
+      }
+    }
+  } finally {
+    await browser.close();
+    server.close();
+  }
+}
+
+await runChoiceBoxChecks();
 
 console.log("smoke ok");

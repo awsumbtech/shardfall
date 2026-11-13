@@ -61,6 +61,7 @@ SF.pauseGame = function () {
   s.mode = "pause";
   SF.pauseNote = "";
   SF.saveGame({ silent: true });
+  if (SF.ChoiceBox && typeof SF.ChoiceBox.sync === "function") SF.ChoiceBox.sync();
 };
 
 SF.resumeGame = function () {
@@ -70,6 +71,7 @@ SF.resumeGame = function () {
   s.mode = s.pausedFrom || "play";
   if (s.mode === "pause" || s.mode === "title") s.mode = "play";
   SF.pauseNote = "";
+  if (SF.ChoiceBox && typeof SF.ChoiceBox.sync === "function") SF.ChoiceBox.sync();
 };
 
 SF.openNews = function () {
@@ -375,6 +377,7 @@ function showPlaceBanner(name) {
 SF.syncUI = function () {
   var s = SF.state;
   if (!s) return;
+  if (SF.ChoiceBox && typeof SF.ChoiceBox.sync === "function") SF.ChoiceBox.sync();
   document.body.dataset.mode = s.mode;
   document.body.dataset.modal = SF.uiModal ? "1" : "0";
   document.body.dataset.reveal = s.revealPan ? "1" : "0";
