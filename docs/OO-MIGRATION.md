@@ -1,6 +1,33 @@
 # Shardfall OO migration: inventory and conversion order
 
-Status: draft for `docs/OO-MIGRATION.md`. Read-only audit. Nothing in the game was changed.
+## Audit gate
+
+`tools/oo-audit.mjs` is the machine check for this order. It counts code-drawn visual call sites in `js/`, `css/`, and `index.html`, plus non-object signals: top-level names leaked onto `window`, `SF.*` assignment sites, and `SF` functions defined in more than one file. Diagnostics listed in A13 stay out through `tools/oo-audit-allow.json`. Each allowlist entry cites the doc row and a reason. Scroll-fade masks (Part E item 10) are allowlisted with them.
+
+Run it from the repo root:
+
+```bash
+node tools/oo-audit.mjs
+node tools/oo-audit.mjs --write-baseline
+```
+
+`node tools/smoke.mjs` runs it with the other checks. GitHub runs it on every pull request (`.github/workflows/ci.yml`) and again in the Pages workflow before a `main` deploy. The existing `tools/check-site.mjs` steps are unchanged.
+
+The committed baseline is `tools/oo-baseline.json` (v0.4.34):
+
+| Signal | Count |
+|---|---|
+| Visual call sites | 4037 |
+| Leaked window names | 166 |
+| SF members assigned | 684 distinct (908 sites) |
+| SF functions defined in more than one file | 44 |
+| **OO-AUDIT remaining** | **5155** |
+
+`OO-AUDIT` total = visual + leaked names + SF assignment sites + multi-file SF functions. The goal is `OO-AUDIT: 0 remaining`.
+
+Rule: each conversion PR must lower the count and update the baseline (`node tools/oo-audit.mjs --write-baseline`). A count that rises fails the audit. A count that falls still passes, and the tool prints a hint to rewrite the baseline. `--write-baseline` will not record a rise.
+
+Status: draft for `docs/OO-MIGRATION.md`. The inventory below is a read-only audit of the game. PR 1 adds this gate and leaves play and pictures unchanged.
 
 - Source: `awsumbtech/shardfall` main @ `e519f5ec34f68ab5f90210541cc6da3546d20ab0` (v0.4.33, merge of PR #54, 2026-11-12 8:07 PM ET).
 - Order (Brian, 11:56 PM ET, Nov 12, via Chief of Staff): convert all of Shardfall to objects with real image art before any feature, dialogue or wording work. "Not just art, all of it object oriented."

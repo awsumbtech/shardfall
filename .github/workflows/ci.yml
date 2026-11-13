@@ -1,0 +1,21 @@
+# Runs the OO audit on every pull request.
+# The Pages workflow also runs it before a main deploy.
+# check-site.mjs stays in pages.yml; this file does not assemble or publish.
+
+name: OO audit
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  oo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: OO audit
+        run: node tools/oo-audit.mjs

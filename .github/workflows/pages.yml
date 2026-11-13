@@ -32,6 +32,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: OO audit
+        run: node tools/oo-audit.mjs
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

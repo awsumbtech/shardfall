@@ -2,6 +2,10 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4.34
+
+Behind the scenes: a guard so code-drawn pictures do not grow. Nothing looks different.
+
 ## v0.4.33
 
 ChoiceBox panel/cursor art now published to the live site.
