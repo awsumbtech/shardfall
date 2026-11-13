@@ -16,15 +16,15 @@ node tools/oo-audit.mjs --write-baseline
 
 A bracket whose text is a drawing method is counted (`ctx["fillRect"]` and `` ctx[`fillRect`] ``). `ctx[name]` is a known gap when `name` is a variable. `style.clipPath` and `setProperty("clip-path")` are counted when the property name is a string literal that installs a path, shadow, or gradient. `setProperty(name, ...)` is a known gap when `name` is not a string literal.
 
-The committed baseline is `tools/oo-baseline.json` (v0.4.34):
+The committed baseline is `tools/oo-baseline.json` (v0.4.35):
 
 | Signal | Count |
 |---|---|
 | Visual call sites | 4044 |
 | Leaked window names | 166 |
-| SF members assigned | 684 distinct (908 sites) |
+| SF members assigned | 676 distinct (900 sites) |
 | SF functions defined in more than one file | 44 |
-| **OO-AUDIT remaining** | **5162** |
+| **OO-AUDIT remaining** | **5154** |
 
 `OO-AUDIT` total = visual + leaked names + SF assignment sites + multi-file SF functions. The goal is `OO-AUDIT: 0 remaining`.
 
@@ -55,7 +55,7 @@ Status: draft for `docs/OO-MIGRATION.md`. The inventory below is a read-only aud
 2. **Real art today covers only:** the field hero paper-doll (`kenmi.hero.*`), Emberhold ground tiles (`kenmi.tile.*`), 75 Emberhold prop keys (`kenmi.prop.*`, smoke included), and the ChoiceBox panel and cursor (`assets/ui/`). Kenmi is wired for Emberhold only (`js/props/decorlayer.js:10-11`, `js/draw/terrain.js:973-975`). Every other island, all battles, all portraits and all NPCs are code art.
 3. **There are two fallback layers under the code art.** Primitive canvas drawings (`SF.drawMaren`, `SF.drawProp`, `SF.drawWorldFoe`, and others) run when `Art` is missing. Both layers have to go.
 4. **Flashes and tints still on main:** battle white hit box (`js/battle/stage.js:300-346`), field foe hurt bloom (`js/draw/actors.js:487-498`), baked hurt white-out (`js/art/actors.js:1377-1384`), CSS red hurt vignette (`css/style.css:125-132`), runtime cold-lamp recolor of a Kenmi sprite (`js/props/renderer.js:17-45`).
-5. **Structure:** `tools/oo-audit.mjs` counts 684 distinct `SF.*` members, 908 assignment sites, 44 `SF` functions defined in more than one file, and 166 leaked window names. The hand pass had said 39 multi-file functions and ten files. The ten files are the ones that leak the most names (`js/dialogue.js`, `js/music.js`, `js/ui/choice-box.js`, `js/sfx.js`, `js/menu/field.js`, `js/title.js`, `js/feel.js`, `js/art/core.js`, `js/audio.js`, `js/ui.js`). The 166 is every top-level `var` and `function`, plus a top-level `window.Name =`, in every classic script, including `var SF` once per file. The 44 includes those 39 and the `SF[name] = wrapped` list in `js/input.js`.
+5. **Structure:** `tools/oo-audit.mjs` on this tree (v0.4.35, step 2a) counts 676 distinct `SF.*` members, 900 assignment sites, 44 `SF` functions defined in more than one file, and 166 leaked window names. origin/main (v0.4.34) is 684 distinct members and 908 sites (OO-AUDIT 5162). The hand pass had said 39 multi-file functions and ten files. The ten files are the ones that leak the most names (`js/dialogue.js`, `js/music.js`, `js/ui/choice-box.js`, `js/sfx.js`, `js/menu/field.js`, `js/title.js`, `js/feel.js`, `js/art/core.js`, `js/audio.js`, `js/ui.js`). The 166 is every top-level `var` and `function`, plus a top-level `window.Name =`, in every classic script, including `var SF` once per file. The 44 includes those 39 and the `SF[name] = wrapped` list in `js/input.js`.
 
 ## Counts
 
@@ -321,7 +321,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 
 | Problem | file:line | Proposed owner (file) | One job | Lifecycle |
 |---|---|---|---|---|
-| ~684 `SF.*` members on one global bag | every file; worst: `js/cinder.js` (83), `js/world.js` (78), `js/sim.js` (60), `js/menu/field.js` (49), `js/ui.js` (48), `js/draw/terrain.js` (47), `js/data.js` (41) | `Game` composition root in `js/core/game.js`; `window.SF` stays a read-only facade for QA tools (`js/draw/deps.js:5-6` says the tools need it) | Build and hold the object graph | created once in `boot`, never destroyed |
+| 676 `SF.*` members on one global bag (900 sites; origin/main was 684 / 908) | every file; worst: `js/cinder.js` (85), `js/world.js` (79), `js/sim.js` (60), `js/menu/field.js` (58), `js/ui.js` (49), `js/draw/terrain.js` (48), `js/data.js` (41) | `Game` composition root in `js/core/game.js`; `window.SF` stays a read-only facade for QA tools (`js/draw/deps.js:5-6` says the tools need it) | Build and hold the object graph | created once in `boot`, never destroyed |
 | `SF.state` is a plain bag built in one 115-line function, then patched by battle | `js/sim.js:52-166`; `js/battle/battle.js:537-546` | `GameState` in `js/core/game-state.js` | Hold save-able state; no behaviour | `GameState.fresh()` / `fromSave()` / `toSave()` |
 | `SF.update` patched 3 times | `js/sim.js:1512-1586`, `js/world.js:929-938`, `js/battle/battle.js:587-606` | `GameLoop` in `js/core/game-loop.js` with an ordered `systems[]` list | Tick systems in order | `start()`, `stop()` |
 | `SF.syncUI` patched 3 times | `js/ui.js:377-599`, `js/world.js:1490-1499`, `js/menu/field.js:434-442` | each widget owns `sync(state)`; `UiRoot` in `js/ui/ui-root.js` calls them | Fan out one sync | per frame |
@@ -331,7 +331,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 | Walk test defined 6x, zone test 4x | `SF.walkable`: `js/data.js:212`, `js/content/maps/v2layout.js:92, 825`, `js/content/maps/towns.js:293`, `js/tiles/adopt.js:87`, `js/vaultgate.js:50`; `SF.zoneAt`: `js/data.js:227`, `js/content/maps/v2layout.js:103`, `js/tiles/adopt.js:96`, `js/vaultgate.js:55` | `Walkability` in `js/world/walkability.js` composed of layers (`TileLayer`, `TownWalls`, `VaultGate`, `ShapeLayer`) | Answer "can a foot stand here" | rebuilt on island mount |
 | Battle patches field functions | `js/battle/battle.js:535-651` (`fresh`, `makeEnemies`, `updateEnemy`, `damageEnemy`, `killEnemy`, `startSwing`, `applySwing`, `dashSing`, `update`, `updatePlayer`, `consumeAttack`, `buyUpgrade`) | `BattleBridge` in `js/battle/battle-bridge.js` subscribing to field events | Start a battle from field contact | installed once |
 | `SF.drawActor` 2x, `SF.drawPropArt` 2x, `SF.drawChest` 2x, `SF.draw` 2x | `js/draw/actors.js:100`, `js/world.js:377-407`; `js/draw/props.js:5`, `js/props/decorlayer.js:112-116`; `js/world.js:527`, `js/props/decorlayer.js:119-123`; `js/draw.js:5`, `js/battle/draw.js:32-46` | visual objects (Part A owners); `SceneRouter` in `js/core/scene-router.js` picks field vs battle | | |
-| Leaked top-level names (classic scripts, no IIFE) | `js/dialogue.js` (28), `js/music.js` (20), `js/ui/choice-box.js` (18), `js/sfx.js` (12), `js/menu/field.js` (12), `js/title.js` (8), `js/feel.js` (8), `js/art/core.js` (6), `js/audio.js` (4), `js/ui.js` (4) | wrap each file; export one object | | |
+| Leaked top-level names (classic scripts, no IIFE) | `js/dialogue.js` (30), `js/music.js` (20), `js/ui/choice-box.js` (18), `js/sfx.js` (12), `js/menu/field.js` (12), `js/title.js` (8), `js/feel.js` (8), `js/art/core.js` (6), `js/audio.js` (5), `js/ui.js` (4) | wrap each file; export one object | | |
 
 ### B2. God-files and their split
 
@@ -419,15 +419,16 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | # | PR (object group) | Covers | Depends on | Art |
 |---|---|---|---|---|
 | 1 | `oo-audit` ratchet: `tools/oo-audit.mjs` + smoke hook + baseline from this doc. Fails if any file's draw-API, CSS-art, `SF.*` or leaked-global count goes up. PR Verifier then has a machine check for "no code-drawn visuals remain" (baseline reaches 0). | A, B | none | (no art) |
-| 2 | `VisualObject` contract + `Game` root + `SceneRouter` (`js/core/`) | B1 | 1 | (no art) |
+| 2a | `VisualObject` contract + `Game` root (`js/core/`). PR #56, v0.4.35 | B1 | 1 | (no art) |
+| 2b | `SceneRouter` (`js/core/scene-router.js`). Split out of step 2a as a later PR | B1 | 2a | (no art) |
 | 3 | Wrap leaked top-level scripts (dialogue, music, choice-box, sfx, menu/field, title, feel, art/core, audio, ui) | B1 | 1 | (no art) |
-| 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2 | PENDING: reusing `choicebox-panel.png` as the window skin. Nothing may depend on that reuse |
+| 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2a | PENDING: reusing `choicebox-panel.png` as the window skin. Nothing may depend on that reuse |
 | 5 | `UiButton` + `Icon` + slider thumb + caret | U3, U9, U11, U13 | 4 | art: button 9-slice, 6 icons, thumb, caret |
-| 6 | `GlowSprite` (replaces `SF.blobs`) | E1 | 2 | art: 4 glows + 3 puffs |
+| 6 | `GlowSprite` (replaces `SF.blobs`) | E1 | 2a | art: 4 glows + 3 puffs |
 | 7 | `FootShadow` + `HeroMarker` | E2, E3 | 6 | art: shadows S/M/L, ring |
 | 8 | `HpBar` | U10, X7, bars in U5 | 4 | art: bar frame + fill |
-| 9 | `HurtVignette` + `Vignette` (+ ruling on `ScreenFade`) | L2, S4, S5 | 2 | art: vignette PNGs |
-| 10 | `GameState` + `GameLoop` systems list (removes the `SF.update` chain) | B1, B2 sim/main | 2 | (no art) |
+| 9 | `HurtVignette` + `Vignette` (+ ruling on `ScreenFade`) | L2, S4, S5 | 2a | art: vignette PNGs |
+| 10 | `GameState` + `GameLoop` systems list (removes the `SF.update` chain) | B1, B2 sim/main | 2a | (no art) |
 | 11 | `Hero`, `Dash`, `FieldCombat`, `FallRescue` out of `sim.js` | B2 sim | 10 | (no art) |
 | 12 | Hero FX: `PalmGlow`, `DashTrail`, `HandCrystal` sprite | E5, E6, E7 | 11 | art: palm glow, dash trail, crystal |
 | 13 | **PR49**: `SlashTrail` + `HitFlash` | E4, L1, part of X1 | 11 | **BLOCKED**: waiting on replacement source sprites; no derived white frames, no generic burst |
@@ -442,7 +443,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 22 | `cinder.js` split: `Voyage`, `HandShop`, `CinderQuest`, `CantorActor`, `IlsaActor`, `Act1Epilogue` | B2 cinder | 10 | (no art) |
 | 23 | Act 1 NPCs | N1-N6 | 21, 22 | art: 6 NPC field sheets + portraits |
 | 24 | Town NPCs + pip_lark + icon portraits + item icons + keeper/menu faces | N7-N19, U15, U16, U17 | 23 | art: 12 NPCs, duo portrait, 14 badges, 10 item icons |
-| 25 | `BattleBackdrop` x8 + `BackdropDrift` | S6-S14, E14 | 2 | art: 8 layered backdrops |
+| 25 | `BattleBackdrop` x8 + `BackdropDrift` | S6-S14, E14 | 2a | art: 8 layered backdrops |
 | 26 | Remaining foes + `ElementBurst` | F2, F6, F7, F8, F10, F11, F14, E13 | 18 | art: 7 foes, 4 element bursts |
 | 27 | `BattleHud` widgets, `TargetCursor`, `BattleMenu`, `BattleBridge`; delete placeholders | U4, U5, U6, U21, B1 battle patch | 4, 8 | art: portrait frame, target bracket, name plate |
 | 28 | `ui.js` split: `SettingsPanel`, `PauseMenu`, `ConfirmModal`, `NewsPanel`, `TitleScreen`, `CoachHint`, `PlaceBanner`, `UiRoot` | B2 ui | 4 | (no art) |
@@ -457,7 +458,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 40 | PWA icons from real art | U22 | 21 | art: icon set |
 | 41 | Delete `js/art/*`, `AssetRegistry.codeCanvas`, `SpriteRenderer.drawCode`, all primitive fallbacks; retarget gallery/QA tools; audit baseline = 0 | everything | all | none |
 
-Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already exists, and every screen shows it. #1-#3 and the (no art) steps can run while Game Art & Motion works on the art.
+Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already exists, and every screen shows it. #1-#3, #2b, and the (no art) steps can run while Game Art & Motion works on the art.
 
 ## Part D: art asks for Game Art & Motion (in PR order)
 
@@ -470,16 +471,25 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 7. **Battle** (PR 25-27): 8 layered backdrops (sky/far/mid/floor, ~480x270): emberhold_meadow, emberhold_scar, cinderveil_ash, ember_vault, saltmere_shore, saltmere_wreck, highspire_road, hush_deck; backdrop drift sprites; target bracket 4f; foe name plate 9-slice.
 8. **World** (PR 31-35): tilesets and Tiled maps for Cinderveil, Saltmere, Highspire, Gullrock, Drift and towns; prop variants (dead/burnt/charred trees, bush_dead, tuft_dead, basalt, charred log/stump, burnt fences, crate, barrel, signpost, sign, stones); 19 buildings (great lamp unlit/lit, workshop, hut, skiff, stilt, stall, raft, wreck hull, gate arch, ruin, lair, vault door, bench, plank, inn lantern, quay bell, rope bridge, dock deck).
 9. **Sky and screens** (PR 36-38, 40): sky plates per island (dusk + lit), cloud layer, hush edge, title key art + logo, voyage scene + sailing skiff 4f, minimap icons 8x8 + per-island map image, sail-chart background + 7 island cards, chimney smoke, hook post, arena cracks decal, rope segment + hook head, ash pool 4f, PWA icon set.
+10. **Missing-asset placeholder** (VisualObject hook, step 2a): one real authored image shown when a VisualObject's image is missing or unloaded. Wired through `SF.VisualObject.missingAsset`, with a console error. Never a code-art fallback. Open until Game Art & Motion delivers the art; the hook stays and currently defaults to null (log only).
 
-## Part E: open questions and uncertainties
-
-v0.4.34 belongs to OO-01. PR #50 renumbers when it resumes.
+## Part E: rulings, open questions, and notes
 
 ### Settled (Brian's standing rules)
 
 1. **Procedural sprite sheets (E.1, step 18).** The game-art foe and fx sheets (`shardfall/foes`, `shardfall/fx`) are not real art. Regenerate them. Step 18 does not ship those procedural sheets.
 2. **`art/fx-tiles.png` (E.2).** Treat it the same way unless it is shown to be authored or generated art. Regenerate it. It is the 64×16 translucent shadow strip used as `ground.fx`. Its provenance is not recorded beyond `tools/ehmap/README.md:9`.
 3. **Missing Kenmi atlas (E.4).** If the Kenmi atlas is missing, show a real placeholder image plus an error, and never fall back to code art. The atlas still depends on the deploy key (`.github/workflows/pages.yml`).
+
+### Settled (Chief of Staff call applying Brian's standing rules (Nov 13 9:02 AM ET), not Brian's own words)
+
+1. **SceneRouter is step 2b.** SceneRouter is split out of step 2a as a later PR. Step 2a (PR #56) is the `VisualObject` contract and the `Game` root only.
+2. **Version numbers.** PR #56 keeps v0.4.35. v0.4.34 belongs to OO-01. PRs #50 and #51 get renumbered when they are rebased; they are not touched now.
+3. **VisualObject missing-asset placeholder.** When an image is missing, `VisualObject.missingAsset` shows a real authored placeholder image and also logs an error. It never falls back to code art. The placeholder art does not exist yet: the hook stays, defaults to null and logs only, and it is tracked as an open item waiting on Game Art & Motion for the art (Part D item 10).
+
+### Needs Brian's own yes
+
+1. **Smoke in CI.** Whether `.github/workflows/ci.yml` should also run `node tools/smoke.mjs` still needs Brian's own yes. Changes to `ci.yml` already require his sign-off.
 
 ### Pending
 
@@ -488,11 +498,24 @@ Nothing may depend on these until Brian rules.
 1. **Alpha used as a look (E.3, L4). PENDING.** Canopy see-through (L4), death fades (X4), i-frame alpha (E6), and scene fade (S5). Nothing may depend on whether these are allowed transparency or banned tricks.
 2. **ChoiceBox panel as the window skin (step 4). PENDING.** Reusing `assets/ui/choicebox-panel.png` for `UiSkin`. Nothing may depend on that reuse.
 
+
 ### Other notes
 
-5. `js/art/buildings.js` is not in `index.html`. `js/art/world.js:308-312` injects it with `document.write`.
-6. `chest`/`chest_open` are registered twice (`js/art/world.js:25-50` and `js/art/props.js:857-858`). The later `props.js` registration wins.
-7. Sootwing field look mismatch: `SF.FOE_LOOK.sootwing.sprite = "ashling"` (`js/content/maps/kinds.js:22`) and `SF.KIND_SPRITE.sootwing = "sootwing"` (`js/draw/actors.js:339`).
-8. Function ranges come from a brace matcher. Character/foe data ranges run from one registration to the next. Spot checks matched the files.
-9. The Nov 9 coded-art inventory was not found on disk (`/workspace/pr49-51-review/` holds only REVIEW.md and FX-ASSET-SPEC) or in this session's records, so it could not be cross-checked.
-10. Not counted as art: canvas text (names, damage numbers, logs), `text-shadow` on text, scroll-fade masks (`css/style.css:1516-1528`).
+1. **Counted publication in `js/main.js` (step 2a).** The per-file ratchet treats a new file as 0, so a literal `SF.Game =` or `SF.VisualObject =` in `js/core/` would fail `--against-ref origin/main` even when the totals fall. The counted assigns `SF.VisualObject`, `SF.Game`, and `SF.game` therefore live in `js/main.js`, an existing file with assignment headroom. Methods and statics attach in the objects' own files, which have zero `SF.*` sites. This is not a computed key, alias, or scanner-gap trick.
+2. **Remaining compatibility shims**, each with a removal step. `SF.defineGame`, `SF.defineVisualObject`, `function bag()`, `host.game = this`, and the silent `if (!game) return` exits were removed in this PR.
+
+| Shim | Where | Removal step |
+|---|---|---|
+| `window.SF` compatibility bag | every classic script; `window.SF` stays the QA/read facade | shrinks as members move onto owners; gone when the facade is no longer needed |
+| `game.state` / `game.sf` write-through (`SF.state =` in `js/main.js`) | `js/main.js` (counted), accessors on `Game.prototype` | step 10 `GameState` |
+| `SF.boot` and `SF.resize` still functions on the bag | `js/main.js` | step 10 `GameLoop` and step 39 `Viewport` |
+| `SF.viewW`, `SF.viewH`, `SF.dpr`, `SF.zoom` still on the bag | `js/main.js` resize and draw-layer readers | step 39 `Viewport` |
+| `Game.prototype.update` / `Game.prototype.draw` child walkers, unused: the frame loop still calls `SF.update` / `SF.draw` | `js/core/game.js:122-139` | step 10 `GameLoop` (loop switches to the Game walkers, then the bag `SF.update` / `SF.draw` go) |
+
+3. **Fail-closed boot and resize.** `SF.boot` and `SF.resize` throw `Error("Game root is missing")` when the Game constructor or the `SF.game` instance is missing. They no longer return silently.
+4. `js/art/buildings.js` is not in `index.html`. `js/art/world.js:308-312` injects it with `document.write`.
+5. `chest`/`chest_open` are registered twice (`js/art/world.js:25-50` and `js/art/props.js:857-858`). The later `props.js` registration wins.
+6. Sootwing field look mismatch: `SF.FOE_LOOK.sootwing.sprite = "ashling"` (`js/content/maps/kinds.js:22`) and `SF.KIND_SPRITE.sootwing = "sootwing"` (`js/draw/actors.js:339`).
+7. Function ranges come from a brace matcher. Character/foe data ranges run from one registration to the next. Spot checks matched the files.
+8. The Nov 9 coded-art inventory was not found on disk (`/workspace/pr49-51-review/` holds only REVIEW.md and FX-ASSET-SPEC) or in this session's records, so it could not be cross-checked.
+9. Not counted as art: canvas text (names, damage numbers, logs), `text-shadow` on text, scroll-fade masks (`css/style.css:1516-1528`).

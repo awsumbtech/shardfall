@@ -92,7 +92,10 @@ for (const file of [
   "js/battle/audio.js",
   "js/menu/field.js",
   "js/draw/deps.js",
-  "js/world.js"
+  "js/world.js",
+  "js/main.js",
+  "js/core/visual-object.js",
+  "js/core/game.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
@@ -2182,7 +2185,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.34"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.35"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2517,7 +2520,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.34"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.35"')) fail("version was not bumped");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
@@ -2526,6 +2529,9 @@ async function runAssetChecks() {
   }
   if (!dataJs.includes("Behind the scenes: a guard so code-drawn pictures do not grow. Nothing looks different.")) {
     fail("whats new oo audit line");
+  }
+  if (!dataJs.includes("Behind the scenes: a VisualObject base and a Game root. Nothing looks different.")) {
+    fail("whats new oo02 line");
   }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
@@ -2538,7 +2544,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.34")) fail("html version");
+  if (!html.includes("v0.4.35")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -5902,6 +5908,282 @@ async function assertLiveChoiceFit(slotsEmpty) {
   }
 }
 
+function trackCtx() {
+  const calls = [];
+  return {
+    calls,
+    drawImage() {
+      calls.push(["drawImage"].concat(Array.prototype.slice.call(arguments)));
+    },
+    fillRect() { calls.push(["fillRect"].concat(Array.prototype.slice.call(arguments))); },
+    strokeRect() { calls.push(["strokeRect"]); },
+    clearRect() { calls.push(["clearRect"]); },
+    beginPath() { calls.push(["beginPath"]); },
+    lineTo() { calls.push(["lineTo"]); },
+    arc() { calls.push(["arc"]); },
+    ellipse() { calls.push(["ellipse"]); },
+    fill() { calls.push(["fill"]); },
+    stroke() { calls.push(["stroke"]); },
+    set globalAlpha(value) { calls.push(["globalAlpha", value]); },
+    get globalAlpha() { return 1; },
+    set filter(value) { calls.push(["filter", value]); },
+    get filter() { return "none"; },
+    set fillStyle(value) { calls.push(["fillStyle", value]); },
+    set strokeStyle(value) { calls.push(["strokeStyle", value]); },
+    set shadowBlur(value) { calls.push(["shadowBlur", value]); },
+    set shadowColor(value) { calls.push(["shadowColor", value]); },
+    set globalCompositeOperation(value) { calls.push(["globalCompositeOperation", value]); }
+  };
+}
+
+function runOo02Checks() {
+  const coreFiles = ["js/core/visual-object.js", "js/core/game.js"];
+  const banned = /fillRect|strokeRect|clearRect|beginPath|lineTo|bezierCurveTo|quadraticCurveTo|createLinearGradient|createRadialGradient|createConicGradient|shadowBlur|shadowColor|globalCompositeOperation|globalAlpha|\bopacity\b|putImageData|createImageData|createPattern|ellipse\s*\(|\barc\s*\(|\.fill\s*\(|\.stroke\s*\(|\.filter\b|fillStyle|strokeStyle/;
+  for (const file of coreFiles) {
+    if (!fs.existsSync(file)) fail("missing " + file);
+    const text = fs.readFileSync(file, "utf8");
+    const hit = text.match(banned);
+    if (hit) fail(file + " draws with code (" + hit[0] + ")");
+  }
+  const page = fs.readFileSync("index.html", "utf8");
+  const worker = fs.readFileSync("sw.js", "utf8");
+  const mainAt = page.indexOf('src="js/main.js"');
+  const visualAt = page.indexOf('src="js/core/visual-object.js"');
+  const gameAt = page.indexOf('src="js/core/game.js"');
+  if (!(mainAt >= 0 && visualAt > mainAt && gameAt > visualAt)) fail("core scripts are out of order");
+  if (page.indexOf("SF.boot();") < gameAt) fail("page does not boot after the Game root");
+  for (const file of coreFiles) {
+    if (!worker.includes('"' + file + '"')) fail("precache omits " + file);
+  }
+  if (!worker.includes('CACHE = "shardfall-v0.4.35"')) fail("cache version moved");
+  const mainJs = fs.readFileSync("js/main.js", "utf8");
+  if (!mainJs.includes("SF.VisualObject = function VisualObject")) fail("main.js does not assign SF.VisualObject");
+  if (!mainJs.includes("SF.Game = function Game")) fail("main.js does not assign SF.Game");
+  if (!mainJs.includes("SF.game = new SF.Game()")) fail("boot does not assign SF.game");
+  if (!mainJs.includes("SF.game.attach(window)")) fail("boot does not attach the Game root");
+  if (!mainJs.includes("game.startLoop()")) fail("boot does not start the Game loop");
+  if (mainJs.includes("SF.defineGame") || mainJs.includes("SF.defineVisualObject")) {
+    fail("define* shims are still in main.js");
+  }
+  if (!mainJs.includes('throw new Error("Game root is missing")')) fail("boot does not throw when the Game root is missing");
+  const movedOffSf = [
+    "SF.view =", "SF.map =", "SF.ctx =", "SF.portraitLock", "SF._resizeTick",
+    "SF.resizeWrites", "SF.BASE_W", "SF.BASE_H", "SF.ASPECT_MIN", "SF.ASPECT_MAX",
+    "SF.pixelScale"
+  ];
+  for (const token of movedOffSf) {
+    if (mainJs.includes(token)) fail("boot still assigns " + token + " on SF");
+  }
+  const gameJs = fs.readFileSync("js/core/game.js", "utf8");
+  const visualJs = fs.readFileSync("js/core/visual-object.js", "utf8");
+  if (!gameJs.includes("Game.prototype.startLoop") || !gameJs.includes("Game.prototype.frame")) {
+    fail("Game has no startLoop or frame");
+  }
+  if (gameJs.includes("SF.Game =") || visualJs.includes("SF.VisualObject =") || gameJs.includes("SF.game =") || gameJs.includes("SF.state =")) {
+    fail("core files still assign constructors or bag members on SF");
+  }
+  if (gameJs.includes("defineGame") || visualJs.includes("defineVisualObject") || gameJs.includes("function bag") || gameJs.includes("host.game")) {
+    fail("define* or host/bag shims are still in the core files");
+  }
+  const freeHelpers = ["function num(", "function imageSize(", "function rectOf(", "function resolveAsset(", "function anchorOffset("];
+  for (const token of freeHelpers) {
+    if (visualJs.includes(token)) fail("VisualObject still has a free helper: " + token);
+  }
+  if (!visualJs.includes("VisualObject.num =") || !visualJs.includes("VisualObject.resolveAsset =")) {
+    fail("VisualObject helpers were not moved to statics");
+  }
+  if (typeof SF.VisualObject !== "function" || typeof SF.Game !== "function") {
+    fail("VisualObject or Game did not load");
+  }
+
+  const problems = [];
+  const errors = [];
+  const prevConsole = context.console;
+  const prevArt = context.Art;
+  let artCalls = 0;
+  const originalState = SF.state;
+  const root = new SF.Game();
+  if (root.BASE_W !== 640 || root.BASE_H !== 360 || root.ASPECT_MIN !== 4 / 3 || root.ASPECT_MAX !== 21 / 9) {
+    problems.push("Game viewport constants were not stored");
+  }
+  if (root.view || root.map || root.ctx) problems.push("Game canvases were pre-attached");
+  if (root.portraitLock !== false || root._resizeTick !== 0 || root.resizeWrites !== 0 || root.pixelScale !== 1) {
+    problems.push("Game loop fields were not initialized");
+  }
+  if (typeof root.startLoop !== "function" || typeof root.frame !== "function") {
+    problems.push("Game.startLoop or Game.frame is missing");
+  }
+  context.console = {
+    log: prevConsole.log.bind(prevConsole),
+    warn: prevConsole.warn.bind(prevConsole),
+    error() { errors.push(Array.prototype.join.call(arguments, " ")); }
+  };
+  context.Art = {
+    sprite() { artCalls += 1; }
+  };
+  SF.VisualObject.missingAsset = null;
+  try {
+    const image = { width: 10, height: 6, complete: true, naturalWidth: 10, naturalHeight: 6, id: "sprite" };
+    const visual = new SF.VisualObject({
+      image,
+      x: 20,
+      y: 30,
+      anchor: "center",
+      z: 5,
+      name: "probe",
+      opacity: 0,
+      alpha: 0
+    });
+    if (visual.parent) problems.push("VisualObject attached itself");
+    if (visual.z !== 5 || visual.x !== 20 || visual.y !== 30) problems.push("position or z was not stored");
+    const ctx = trackCtx();
+    visual.update(0.016);
+    if (ctx.calls.length) problems.push("update drew");
+    if (visual.draw(ctx) !== false) problems.push("draw ran before attach");
+    if (ctx.calls.length) problems.push("detached draw painted");
+
+    const bare = {};
+    visual.attach(bare);
+    if (visual.parent !== bare) problems.push("attach did not keep the parent");
+    visual.attach(bare);
+    if (visual.draw(ctx) !== true) problems.push("attached draw returned false");
+    const painted = ctx.calls[0];
+    if (!painted || painted[0] !== "drawImage" || painted[1] !== image) problems.push("draw did not blit the image");
+    if (painted && (painted[2] !== 0 || painted[3] !== 0 || painted[4] !== 10 || painted[5] !== 6)) {
+      problems.push("full image source rect was " + JSON.stringify(painted && painted.slice(2, 6)));
+    }
+    if (painted && (painted[6] !== 15 || painted[7] !== 27 || painted[8] !== 10 || painted[9] !== 6)) {
+      problems.push("center anchor dest was " + JSON.stringify(painted && painted.slice(6)));
+    }
+    if (ctx.calls.length !== 1) problems.push("draw used more than the image blit");
+    if (errors.length) problems.push("a loaded image logged " + errors.join(" | "));
+
+    visual.detach();
+    if (visual.parent) problems.push("detach left the parent");
+    const after = trackCtx();
+    if (visual.draw(after) !== false || after.calls.length) problems.push("detach did not stop drawing");
+
+    root.attach(null);
+    if (root.parent || SF.game === root) problems.push("Game attached to nothing");
+    const alias = context.window.SF;
+    root.attach(context.window);
+    root.attach({ id: "other-host" });
+    if (context.window.SF !== alias) problems.push("Game replaced window.SF");
+    if (root.parent !== context.window) problems.push("Game attach was not single");
+    if (alias.game === root) problems.push("attach published SF.game");
+    SF.game = root;
+    if (alias.game !== root) problems.push("SF.game was not the Game root");
+    if (root.sf !== alias) problems.push("game.sf is not the SF alias");
+    if (root.state !== originalState) problems.push("game.state is not SF.state");
+    originalState.oo02probe = 1;
+    if (root.state.oo02probe !== 1) problems.push("game.state is a copy");
+    delete originalState.oo02probe;
+
+    const marker = { mode: "play", oo02: 7 };
+    SF.state = marker;
+    const seen = root.state;
+    const written = { mode: "title", oo02: 8 };
+    root.state = written;
+    const wrote = SF.state;
+    SF.state = originalState;
+    if (seen !== marker) problems.push("game.state did not follow an SF.state replacement");
+    if (wrote !== written) problems.push("game.state did not write through to SF.state");
+
+    const low = new SF.VisualObject({ image, x: 1, y: 2, anchor: { x: 0, y: 0 }, z: 0, name: "low" });
+    const high = new SF.VisualObject({ image, x: 3, y: 4, z: 2, name: "high" });
+    const tied = new SF.VisualObject({
+      image,
+      frame: { x: 2, y: 4, w: 8, h: 4 },
+      x: 9,
+      y: 11,
+      anchor: "topleft",
+      z: 2,
+      name: "tied"
+    });
+    const seenUpdate = [];
+    low.update = function (dt) { seenUpdate.push("low:" + dt); };
+    high.update = function (dt) { seenUpdate.push("high:" + dt); };
+    tied.update = function (dt) { seenUpdate.push("tied:" + dt); };
+    high.attach(root);
+    low.attach(root);
+    tied.attach(root);
+    high.attach(root);
+    if (root.objects().length !== 3) problems.push("register duplicated or dropped an object");
+    const insertion = root.objects().map((obj) => obj.name);
+    if (insertion.join(",") !== "high,low,tied") problems.push("registration order was " + insertion.join(","));
+    const popped = root.objects();
+    popped.pop();
+    if (root.objects().length !== 3) problems.push("objects() returned the live list");
+    root.update(0.5);
+    if (seenUpdate.join(",") !== "low:0.5,high:0.5,tied:0.5") {
+      problems.push("update order was " + seenUpdate.join(","));
+    }
+    const orderedCtx = trackCtx();
+    root.draw(orderedCtx);
+    const drawn = orderedCtx.calls.filter((call) => call[0] === "drawImage");
+    if (drawn.length !== 3) problems.push("Game.draw blits " + drawn.length);
+    if (orderedCtx.calls.length !== drawn.length) problems.push("Game.draw used a code-art call");
+    if (drawn[0][1] !== image || drawn[0][6] !== 1 || drawn[0][7] !== 2) {
+      problems.push("low z blit was " + JSON.stringify(drawn[0] && drawn[0].slice(6)));
+    }
+    if (drawn[2][2] !== 2 || drawn[2][3] !== 4 || drawn[2][4] !== 8 || drawn[2][5] !== 4 || drawn[2][6] !== 9 || drawn[2][7] !== 11) {
+      problems.push("atlas frame blit was " + JSON.stringify(drawn[2] && drawn[2].slice(2)));
+    }
+    tied.detach();
+    if (root.objects().some((obj) => obj === tied)) problems.push("detach left the object registered");
+    if (root.ordered().map((obj) => obj.name).join(",") !== "low,high") problems.push("ordered list kept a detached object");
+
+    const missingCtx = trackCtx();
+    const missing = new SF.VisualObject({ image: null, x: 4, y: 5, name: "gone" });
+    missing.attach(root);
+    const unloaded = new SF.VisualObject({
+      image: { complete: false, naturalWidth: 0, width: 16, height: 16 },
+      x: 0,
+      y: 0
+    });
+    unloaded.attach(root);
+    const broken = new SF.VisualObject({
+      image: { complete: true, naturalWidth: 0, naturalHeight: 0, width: 16, height: 16 },
+      x: 0,
+      y: 0
+    });
+    broken.attach(root);
+    if (missing.draw(missingCtx) !== false || unloaded.draw(missingCtx) !== false || broken.draw(missingCtx) !== false) {
+      problems.push("a missing image drew");
+    }
+    if (missingCtx.calls.length) problems.push("a missing image used the canvas: " + missingCtx.calls[0][0]);
+    if (artCalls) problems.push("a missing image used code art");
+    if (!errors.some((line) => line.indexOf("missing asset") >= 0)) problems.push("missing image did not log");
+    const beforePlaceholder = errors.length;
+    const placeholder = { width: 3, height: 3, complete: true, naturalWidth: 3, naturalHeight: 3, id: "placeholder" };
+    SF.VisualObject.missingAsset = placeholder;
+    const standCtx = trackCtx();
+    if (missing.draw(standCtx) !== true) problems.push("missing-asset hook did not draw its image");
+    if (standCtx.calls.length !== 1 || standCtx.calls[0][0] !== "drawImage" || standCtx.calls[0][1] !== placeholder) {
+      problems.push("missing-asset hook did not blit only the placeholder");
+    }
+    if (standCtx.calls[0] && (standCtx.calls[0][6] !== 2.5 || standCtx.calls[0][7] !== 3.5)) {
+      problems.push("placeholder anchor dest was " + JSON.stringify(standCtx.calls[0] && standCtx.calls[0].slice(6)));
+    }
+    if (errors.length <= beforePlaceholder) problems.push("placeholder path skipped the console error");
+    if (artCalls) problems.push("placeholder path used code art");
+    SF.VisualObject.missingAsset = null;
+    missing.detach();
+    unloaded.detach();
+    broken.detach();
+  } finally {
+    SF.state = originalState;
+    SF.VisualObject.missingAsset = null;
+    context.console = prevConsole;
+    context.Art = prevArt;
+    if (SF.game === root) delete SF.game;
+  }
+  if (problems.length) fail(problems[0]);
+  console.log("oo02 ok");
+}
+
 await runChoiceBoxChecks();
+
+runOo02Checks();
 
 console.log("smoke ok");

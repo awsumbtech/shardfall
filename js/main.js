@@ -3,6 +3,37 @@
 var SF = window.SF || {};
 window.SF = SF;
 
+// Counted publication of the core constructors and the Game root. These
+// assigns live here so js/core/* stays at zero SF.* sites (the per-file
+// ratchet treats a new file as 0). Methods and statics attach in the
+// objects' own files, which load after this one.
+SF.VisualObject = function VisualObject(spec) {
+  this.init(spec);
+};
+SF.Game = function Game() {
+  this.init();
+};
+
+// Counted write-through to the compatibility bag. Lives here so js/core/game.js
+// stays at zero SF.* sites. Removed when GameState (step 10) owns the state.
+Object.defineProperty(SF.Game.prototype, "sf", {
+  enumerable: true,
+  configurable: true,
+  get: function () {
+    return SF;
+  }
+});
+Object.defineProperty(SF.Game.prototype, "state", {
+  enumerable: true,
+  configurable: true,
+  get: function () {
+    return SF.state;
+  },
+  set: function (value) {
+    SF.state = value;
+  }
+});
+
 // Stamp the moment an overlay is first painted. A press that went down
 // before that stamp is not a press on the overlay. Returning to the field
 // does not move the stamp, so a Stay click is not thrown out for being
@@ -78,9 +109,16 @@ SF.boot = function () {
     return;
   }
   try { SF.prepareAssets(); } catch (err) { /* missing art must not stop boot */ }
-  SF.view = document.getElementById("view");
-  SF.map = document.getElementById("minimap");
-  SF.ctx = SF.view.getContext("2d", { alpha: false }) || SF.view.getContext("2d");
+  if (typeof SF.Game !== "function") throw new Error("Game root is missing");
+  if (!SF.game) {
+    SF.game = new SF.Game();
+    SF.game.attach(window);
+  }
+  var game = SF.game;
+  if (!game) throw new Error("Game root is missing");
+  game.view = document.getElementById("view");
+  game.map = document.getElementById("minimap");
+  game.ctx = game.view.getContext("2d", { alpha: false }) || game.view.getContext("2d");
   SF.buildWorld();
   SF.cacheSprites();
   if (window.Art && Art.preload) Art.preload();
@@ -95,41 +133,13 @@ SF.boot = function () {
   if (window.visualViewport) window.visualViewport.addEventListener("resize", SF.resize);
   window.addEventListener("orientationchange", SF.resize);
   SF.syncUI();
-  var last = performance.now();
-  function frame(now) {
-    var dt = Math.min(0.05, (now - last) / 1000);
-    last = now;
-    if (SF.portraitLock) {
-      SF.draw();
-      SF.syncUI();
-      if (SF.noteOverlayPaint) SF.noteOverlayPaint();
-      requestAnimationFrame(frame);
-      return;
-    }
-    SF.update(dt);
-    if (SF.feel) {
-      try { SF.feel(dt); } catch (err) { /* a sound cue must not stop the frame */ }
-    }
-    SF._resizeTick = (SF._resizeTick || 0) + 1;
-    if (SF._resizeTick % 30 === 0) SF.resize();
-    SF.draw();
-    SF.syncUI();
-    if (SF.noteOverlayPaint) SF.noteOverlayPaint();
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
+  game.startLoop();
 };
 
-SF.resizeWrites = 0;
-
-SF.BASE_W = 640;
-SF.BASE_H = 360;
-
-SF.ASPECT_MIN = 4 / 3;
-SF.ASPECT_MAX = 21 / 9;
-
 SF.resize = function () {
-  var canvas = SF.view;
+  var game = SF.game;
+  if (!game) throw new Error("Game root is missing");
+  var canvas = game.view;
   if (!canvas) return;
   var vv = window.visualViewport;
   var cssW = Math.max(1, Math.round(vv && vv.width ? vv.width : window.innerWidth));
@@ -137,7 +147,7 @@ SF.resize = function () {
   var dpr = Math.min(window.devicePixelRatio || 1, 3);
   var upright = cssH > cssW * 1.12 && cssW <= 900;
   document.body.dataset.portrait = upright ? "1" : "0";
-  SF.portraitLock = upright;
+  game.portraitLock = upright;
   var scale = 1;
   var logicalW = cssW;
   var logicalH = cssH;
@@ -147,21 +157,21 @@ SF.resize = function () {
     logicalH = cssH;
   } else if (SF.debugOverview) {
     scale = 1;
-    logicalW = Math.max(SF.BASE_W, cssW);
-    logicalH = Math.max(SF.BASE_H, cssH);
-  } else if (cssH < SF.BASE_H) {
-    scale = cssH / SF.BASE_H;
+    logicalW = Math.max(game.BASE_W, cssW);
+    logicalH = Math.max(game.BASE_H, cssH);
+  } else if (cssH < game.BASE_H) {
+    scale = cssH / game.BASE_H;
     if (!(scale > 0)) scale = 1;
     logicalW = Math.max(1, Math.floor(cssW / scale));
     logicalH = Math.max(1, Math.floor(cssH / scale));
   } else {
-    scale = Math.max(1, Math.floor(cssH / SF.BASE_H));
+    scale = Math.max(1, Math.floor(cssH / game.BASE_H));
     logicalW = Math.max(1, Math.floor(cssW / scale));
     logicalH = Math.max(1, Math.floor(cssH / scale));
   }
   if (!upright && !SF.debugOverview) {
-    if (logicalW / logicalH > SF.ASPECT_MAX) logicalW = Math.max(1, Math.floor(logicalH * SF.ASPECT_MAX));
-    else if (logicalW / logicalH < SF.ASPECT_MIN) logicalH = Math.max(1, Math.floor(logicalW / SF.ASPECT_MIN));
+    if (logicalW / logicalH > game.ASPECT_MAX) logicalW = Math.max(1, Math.floor(logicalH * game.ASPECT_MAX));
+    else if (logicalW / logicalH < game.ASPECT_MIN) logicalH = Math.max(1, Math.floor(logicalW / game.ASPECT_MIN));
   }
   var frameW = logicalW * scale;
   var frameH = logicalH * scale;
@@ -187,20 +197,20 @@ SF.resize = function () {
   if (canvas.width !== bw || canvas.height !== bh) {
     canvas.width = bw;
     canvas.height = bh;
-    SF.resizeWrites += 1;
+    game.resizeWrites += 1;
   }
   SF._bw = bw;
   SF._bh = bh;
   SF._cssW = cssW;
   SF._cssH = cssH;
   SF.dpr = back;
-  SF.pixelScale = scale;
+  game.pixelScale = scale;
   SF.viewW = logicalW;
   SF.viewH = logicalH;
   SF.zoom = 1;
   if (SF.touchPrimary) document.body.dataset.touch = SF.touchPrimary() ? "1" : "0";
 
-  var map = SF.map;
+  var map = game.map;
   if (!map) return;
   var mapRect = map.getBoundingClientRect();
   if (mapRect.width < 8 || mapRect.height < 8) return;
@@ -216,4 +226,3 @@ SF.resize = function () {
   }
 };
 
-SF.boot();
