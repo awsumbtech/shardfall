@@ -251,7 +251,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 | S2 | Cloud sheet | Drifting soft clouds (blob stamps) | js/draw/sky.js:51-185 | sky-lighting | `CloudLayer` in `js/world/cloud-layer.js` | Cloud layer PNG (tileable, parallax x2) | none |
 | S3 | Hush lip | Misty cloud-sea edge under islands (shadowBlur + destination-out) | js/draw/sky.js:187-268 | sky-lighting | `HushEdge` in `js/world/hush-edge.js` | Cloud-edge autotile strip or per-island edge PNG | none |
 | S4 | Vignette | Radial-gradient darkening | js/draw/effects.js:76-94 | sky-lighting | `Vignette` in `js/fx/vignette.js` | Vignette overlay PNG | none |
-| S5 | Scene wash / fade veil | Full-screen colour fill fade | js/draw/effects.js:96-105 | sky-lighting | `ScreenFade` in `js/fx/screen-fade.js` (needs ruling: plain fade vs. art) | Optional transition sheet | n/a |
+| S5 | Scene wash / fade veil | Full-screen colour fill fade | js/draw/effects.js:96-105 | sky-lighting | `ScreenFade` in `js/fx/screen-fade.js` (needs ruling: plain colour fill vs. art) | Optional transition sheet | n/a |
 | S6 | Battle backdrop `emberhold_meadow` | Layered pixel plate: sky bands, islets, hush, midground, floor | js/art/scenes.js:452-463 (shared helpers 13-445, plate 661-670, Art.battleBg 716-734, extendFloor 738-761) | sky-lighting (backdrop) | `BattleBackdrop("emberhold_meadow")` in `js/battle/battle-backdrop.js` | Layered backdrop PNGs (sky, far, mid, floor) ~480x270 | none |
 | S7 | Battle backdrop `emberhold_scar` | Layered pixel plate: sky bands, islets, hush, midground, floor | js/art/scenes.js:465-485 (shared helpers 13-445, plate 661-670, Art.battleBg 716-734, extendFloor 738-761) | sky-lighting (backdrop) | `BattleBackdrop("emberhold_scar")` in `js/battle/battle-backdrop.js` | Layered backdrop PNGs (sky, far, mid, floor) ~480x270 | none |
 | S8 | Battle backdrop `cinderveil_ash` | Layered pixel plate: sky bands, islets, hush, midground, floor | js/art/scenes.js:487-510 (shared helpers 13-445, plate 661-670, Art.battleBg 716-734, extendFloor 738-761) | sky-lighting (backdrop) | `BattleBackdrop("cinderveil_ash")` in `js/battle/battle-backdrop.js` | Layered backdrop PNGs (sky, far, mid, floor) ~480x270 | none |
@@ -269,7 +269,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 
 | # | Visual | What it looks like | file:line | Category | Owner object (file) | Real art needed | Existing coverage |
 |---|---|---|---|---|---|---|---|
-| U1 | DOM window chrome | Blue gradient panels with inset borders (dialogue, toast, cards, corner buttons, skip, banner, map frame, endcard) | css/style.css:147-164, 283-297, 350-362, 364-373, 1434-1443 | UI | `UiSkin` in `js/ui/ui-skin.js` (9-slice border-image, like ChoiceBox) | Window 9-slice 48x48 (insets 16) | `assets/ui/choicebox-panel.png` is in use as ChoiceBox test art; the asset ledger still says not approved to ship (a ledger update is a separate, frozen follow-up); Brian's decision, Nov 14, 2026 (relayed by Chief of Staff): this approved ChoiceBox panel art is the game-wide window skin |
+| U1 | DOM window chrome | Blue gradient panels with inset borders (dialogue, toast, cards, corner buttons, skip, banner, map frame, endcard) | css/style.css:147-164, 283-297, 350-362, 364-373, 1434-1443 | UI | `UiSkin` in `js/ui/ui-skin.js` (9-slice border-image, like ChoiceBox) | Window 9-slice 48x48 (insets 16) | `assets/ui/choicebox-panel.png` is in use as ChoiceBox test art; the asset ledger's "not approved to ship" text is stale (a frozen follow-up: the parked CHOICEBOX-ASSETS.md wording PR will update the ledger after OO); Brian's decision, Nov 14, 2026 (relayed by Chief of Staff): this approved ChoiceBox panel art is the game-wide window skin |
 | U2 | Canvas window skin | Code-painted 24x24 9-slice used by battle HUD | js/art/scenes.js:764-827; js/battle/gfx.js:36-60 | UI | `UiSkin.drawWindow()` (same PNG as U1) | Same as U1 | as U1 |
 | U3 | DOM buttons | Gradient buttons, pressed/selected states | css/style.css:443-458, 497-504, 633-669, 752-763, 843-858, 1125-1139, 1539-1552, 1562-1567 | UI | `UiButton` skin classes in `js/ui/ui-skin.js` | Button 9-slice: normal/pressed/selected/disabled | none |
 | U4 | Battle canvas buttons + lists | Command buttons, list panels, chevrons, scroll cues | js/battle/gfx.js:308-331; js/battle/hud.js:328-352, 361-392, 394-487 | UI | `BattleMenu` in `js/battle/battle-menu.js` using `UiSkin` | Button 9-slice (U3), chevron 16x16 | none |
@@ -427,11 +427,11 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 6 | `GlowSprite` (replaces `SF.blobs`) | E1 | 2a | art: 4 glows + 3 puffs |
 | 7 | `FootShadow` + `HeroMarker` | E2, E3 | 6 | art: shadows S/M/L, ring |
 | 8 | `HpBar` | U10, X7, bars in U5 | 4 | art: bar frame + fill |
-| 9 | `HurtVignette` + `Vignette` (+ ruling on `ScreenFade`) | L2, S4, S5 | 2a | art: vignette PNGs |
+| 9 | `HurtVignette` + `Vignette` (+ ruling on `ScreenFade`) | L2, S4, S5 | 2a | art: vignette PNGs; S5 still pending (plain colour fill vs. art) |
 | 10 | `GameState` + `GameLoop` systems list (removes the `SF.update` chain) | B1, B2 sim/main | 2a | (no art) |
 | 11 | `Hero`, `Dash`, `FieldCombat`, `FallRescue` out of `sim.js` | B2 sim | 10 | (no art) |
 | 12 | Hero FX: `PalmGlow`, `DashTrail`, `HandCrystal` sprite | E5, E6, E7 | 11 | art: palm glow, dash trail, crystal |
-| 13 | **PR49** (parked until after the OO migration): `SlashTrail` + `HitFlash` | E4, L1, part of X1 | 11 | **Parked** until after the OO migration; still needs replacement source sprites; no derived white frames, no generic burst. Do not close, rebase, or build on PRs #49, #50, or #51. |
+| 13 | **PR49** (parked until after the OO migration): `SlashTrail` + `HitFlash` | E4, L1, part of X1 | 11 | **Parked** until after the OO migration; still needs replacement source sprites; no derived white frames, no generic burst. Do not close, rebase, or build on PRs #49, #50, or #51. Any rebase of, or build on, #49, #50, or #51 before the OO migration is done is a BLOCK. |
 | 14 | Input split: `GamepadInput`, `KeyboardInput`, `PressGate`, `Stick`, `ActionButton` | B2 input, U7, U8 | 5 | art: stick, knob, 4 button faces, cooldown sheet |
 | 15 | `Pickup`, `LampCrystal`, `GuideMarker` | K1, K2, U20 | 6 | art: shard, cog, lamp crystal, marks |
 | 16 | Real `lamp_cold` frame (delete `recolorCold`); canopy see-through may fade real tree-top art (L4) | L3, L4 | none | art: cold lamp frame |
@@ -484,7 +484,7 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 ### Settled (Chief of Staff call applying Brian's standing rules (Nov 13 9:02 AM ET), not Brian's own words)
 
 1. **SceneRouter is step 2b.** SceneRouter is split out of step 2a as a later PR. Step 2a (PR #56) is the `VisualObject` contract and the `Game` root only.
-2. **Version numbers.** PR #56 keeps v0.4.35. v0.4.34 belongs to OO-01. PRs #49, #50, and #51 are parked until after the OO migration (Brian's decision, Nov 14, 2026, relayed by Chief of Staff); do not close, rebase, or build on them.
+2. **Version numbers.** PR #56 keeps v0.4.35. v0.4.34 belongs to OO-01. PRs #49, #50, and #51 are parked until after the OO migration (Brian's decision, Nov 14, 2026, relayed by Chief of Staff); do not close, rebase, or build on them. Any rebase of, or build on, #49, #50, or #51 before the OO migration is done is a BLOCK.
 3. **VisualObject missing-asset placeholder.** When an image is missing, `VisualObject.missingAsset` shows a real authored placeholder image and also logs an error. It never falls back to code art. The placeholder art does not exist yet: the hook stays, defaults to null and logs only, and it is tracked as an open item waiting on Game Art & Motion for the art (Part D item 10).
 
 ### Settled (Brian's own words)
@@ -493,14 +493,16 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 
 ### Settled (Brian's decision, Nov 14, 2026 (relayed by Chief of Staff))
 
-1. **Alpha used as a look (E.3, L4).** Opacity fades of real art are allowed, including death fades (X4), see-through tree tops (L4), invulnerability blink (E6), and the UI kit vignette opacities. White flashes and recolors are still banned.
+1. **Alpha used as a look (E.3, L4).** Opacity fades of real art are allowed, including death fades (X4), see-through tree tops (L4), and invulnerability blink (E6). White flashes and recolors are still banned. A code-drawn colour-fill fade stays blocked; only opacity fades of real image art are allowed. Only opacity on real vignette image art is allowed; the current L2 (red radial-gradient flash) and S4 (radial-gradient darkening) stay blocked until real art replaces them.
 2. **ChoiceBox panel as the window skin (step 4).** The approved ChoiceBox panel art (`assets/ui/choicebox-panel.png`) is the game-wide window skin.
 3. **PixelLab subscription.** Game Art & Motion may use the PixelLab subscription to regenerate the foe and effect sheets. Subscription generations only; no new purchase.
-4. **PRs #49, #50, and #51 are parked** until after the OO migration. Do not close, rebase, or build on them.
+4. **PRs #49, #50, and #51 are parked** until after the OO migration. Do not close, rebase, or build on them. Any rebase of, or build on, #49, #50, or #51 before the OO migration is done is a BLOCK.
 
 ### Pending
 
-None.
+Nothing may depend on these until Brian rules.
+
+1. **S5 ScreenFade (plain colour fill vs. art). PENDING.** Full-screen colour-fill fade (`ScreenFade`). Needs ruling: plain colour fill vs. art. A code-drawn colour-fill fade stays blocked; only opacity fades of real image art are allowed. This question is not settled.
 
 ### Other notes
 
