@@ -147,7 +147,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 
 | # | Visual | What it looks like | file:line | Category | Owner object (file) | Real art needed | Existing coverage |
 |---|---|---|---|---|---|---|---|
-| X1 | Field foe hurt flash | White/rose bloom on a hit foe | js/draw/actors.js:487-498 (calls 367, 384, 398, 432, 447, 484); js/grapple.js:353, 373, 397, 420, 482 | flash | Removed; foe plays its `hurt` clip via `FoeSprite`; impact uses `HitSpark` in `js/fx/hit-spark.js` | Per-foe hurt clip (in F-rows) + hit spark sheet | game-art `fx/hit_spark` (procedural); PR49 blocked |
+| X1 | Field foe hurt flash | White/rose bloom on a hit foe | js/draw/actors.js:487-498 (calls 367, 384, 398, 432, 447, 484); js/grapple.js:353, 373, 397, 420, 482 | flash | Removed; foe plays its `hurt` clip via `FoeSprite`; impact uses `HitSpark` in `js/fx/hit-spark.js` | Per-foe hurt clip (in F-rows) + hit spark sheet | game-art `fx/hit_spark` (procedural); PR49 parked until after the OO migration |
 | X2 | Battle foe hurt white-out | Every foe pixel set to `C.lite` on odd hurt frame | js/art/actors.js:1377-1384, 1425 | flash | Removed; `FoeSprite` hurt clip | Real hurt frames per foe | none |
 | X3 | KO dissolve | Checker holes punched in a KO'd foe | js/art/actors.js:1385-1395, 1424 | effect | Removed; foe `death` clip | Death clip 4f per foe | game-art foe sheets have death rows |
 | X4 | Field death fade | Dying foe fades via globalAlpha | js/draw/entities.js:142 | effect | `FoeSprite` death clip | Death clip | partial (game-art) |
@@ -162,7 +162,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 | E1 | Glow blobs (8 cached radial gradients) | Soft cyan/gold/rose/violet glows, cloud/mist/dusk/shadow puffs | js/draw/field.js:31-55; used at js/draw/effects.js:7, actors.js:189, 239, 373, 404, 453, props.js:171, pickups.js:30, 43, 91, 118, 121, entities.js:218-219, sky.js:30, terrain.js:958, grapple.js:574, js/assets/crystal.js:84-85 | effect | `GlowSprite` in `js/fx/glow-sprite.js` | Glow sprites 16/32/64 px x4 colours (+ optional 4f pulse); cloud/mist puffs 128-256 px | none |
 | E2 | Foot shadows | Dark ellipse under actors; banded rect shadow in battle | js/draw/actors.js:5-12; js/battle/stage.js:146-165; js/draw/terrain.js:958 | effect | `FootShadow` in `js/fx/foot-shadow.js` | Shadow sprites S/M/L (e.g. 16x6, 24x8, 48x14) | Kenmi `ground.fx` shadow tiles (in-house `art/fx-tiles.png`) cover tile shadows only |
 | E3 | Hero foot ring | Cyan ellipse ring under the hero | js/draw/entities.js:205-211 | effect | `HeroMarker` in `js/fx/hero-marker.js` | Ring sprite 24x12 (2f pulse) | none |
-| E4 | Hero swing arc | Cream arc stroke on attack | js/draw/entities.js:222-232 | effect | `SlashTrail` in `js/fx/slash-trail.js` (PR49) | Slash sheet 4-6f, 4 directions | game-art `fx/slash` (procedural); PR49 blocked on source sprites |
+| E4 | Hero swing arc | Cream arc stroke on attack | js/draw/entities.js:222-232 | effect | `SlashTrail` in `js/fx/slash-trail.js` (PR49) | Slash sheet 4-6f, 4 directions | game-art `fx/slash` (procedural); PR49 parked until after the OO migration (still needs replacement source sprites) |
 | E5 | Palm glow | Cyan+gold glow at the hero's hand | js/draw/entities.js:213-221 | effect | `PalmGlow` in `js/fx/palm-glow.js` | Glow 22px 4f | none |
 | E6 | Dash afterimages + i-frame alpha | Translucent hero copies; 0.84 alpha while invulnerable | js/draw/entities.js:195, 198-200 | effect | `DashTrail` in `js/fx/dash-trail.js` | Afterimage frames (or dust puff sheet) for the dash | none |
 | E7 | Hand crystal | Pixel shard + glow in the hero's hand | js/assets/crystal.js:81-118 | effect | `HandCrystal` (exists) draws a sprite instead of fillRect | Crystal 6x8 sprite 2f + glow | none |
@@ -179,10 +179,10 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 
 | # | Visual | What it looks like | file:line | Category | Owner object (file) | Real art needed | Existing coverage |
 |---|---|---|---|---|---|---|---|
-| L1 | Battle hit flash | White box or plus-shape over the struck actor | js/battle/stage.js:300-346; js/battle/feel.js:25-28 | flash | `HitFlash` in `js/fx/hit-flash.js` (PR49) | HitFlash source sprites (replacement source, not derived white frames) | PR49 BLOCKED: waiting on replacement source sprites |
+| L1 | Battle hit flash | White box or plus-shape over the struck actor | js/battle/stage.js:300-346; js/battle/feel.js:25-28 | flash | `HitFlash` in `js/fx/hit-flash.js` (PR49) | HitFlash source sprites (replacement source, not derived white frames) | PR49 parked until after the OO migration (still needs replacement source sprites) |
 | L2 | Player hurt vignette | Red radial-gradient full-screen flash | css/style.css:125-132 | flash | `HurtVignette` in `js/ui/hurt-vignette.js` | Full-screen vignette PNG (9-slice or 4 corner pieces) | none |
 | L3 | Cold lamp recolor | Kenmi lamp pixels desaturated to blue at runtime | js/props/renderer.js:17-45, 95-121, 135-138, 274; js/props/catalog.js:1063-1075 | flash/tint | Real `lamp_cold` frame drawn by `PropRenderer` | Unlit lamp frame matching Kenmi lamp | none (needs a real cold frame) |
-| L4 | Canopy see-through | Tree canopy alpha 0.4 when hero is under it | js/props/renderer.js:47-60, 145; js/art/props.js:948-984 | effect (alpha) | `PropRenderer` (needs ruling: occlusion fade vs. banned alpha look) | None if ruled allowed; else canopy-cutaway frames | n/a |
+| L4 | Canopy see-through | Tree canopy alpha 0.4 when hero is under it | js/props/renderer.js:47-60, 145; js/art/props.js:948-984 | effect (alpha) | `PropRenderer` (occlusion fade of real tree-top art is allowed; Brian's decision, Nov 14, 2026) | None (fade the real canopy sprite) | n/a |
 
 ### A7. Pickups and small world objects
 
@@ -269,7 +269,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 
 | # | Visual | What it looks like | file:line | Category | Owner object (file) | Real art needed | Existing coverage |
 |---|---|---|---|---|---|---|---|
-| U1 | DOM window chrome | Blue gradient panels with inset borders (dialogue, toast, cards, corner buttons, skip, banner, map frame, endcard) | css/style.css:147-164, 283-297, 350-362, 364-373, 1434-1443 | UI | `UiSkin` in `js/ui/ui-skin.js` (9-slice border-image, like ChoiceBox) | Window 9-slice 48x48 (insets 16) | `assets/ui/choicebox-panel.png` is in use as ChoiceBox test art; the asset ledger still says not approved to ship (a ledger update is a separate, frozen follow-up); reuse as the window skin is PENDING Brian |
+| U1 | DOM window chrome | Blue gradient panels with inset borders (dialogue, toast, cards, corner buttons, skip, banner, map frame, endcard) | css/style.css:147-164, 283-297, 350-362, 364-373, 1434-1443 | UI | `UiSkin` in `js/ui/ui-skin.js` (9-slice border-image, like ChoiceBox) | Window 9-slice 48x48 (insets 16) | `assets/ui/choicebox-panel.png` is in use as ChoiceBox test art; the asset ledger still says not approved to ship (a ledger update is a separate, frozen follow-up); Brian's decision, Nov 14, 2026 (relayed by Chief of Staff): this approved ChoiceBox panel art is the game-wide window skin |
 | U2 | Canvas window skin | Code-painted 24x24 9-slice used by battle HUD | js/art/scenes.js:764-827; js/battle/gfx.js:36-60 | UI | `UiSkin.drawWindow()` (same PNG as U1) | Same as U1 | as U1 |
 | U3 | DOM buttons | Gradient buttons, pressed/selected states | css/style.css:443-458, 497-504, 633-669, 752-763, 843-858, 1125-1139, 1539-1552, 1562-1567 | UI | `UiButton` skin classes in `js/ui/ui-skin.js` | Button 9-slice: normal/pressed/selected/disabled | none |
 | U4 | Battle canvas buttons + lists | Command buttons, list panels, chevrons, scroll cues | js/battle/gfx.js:308-331; js/battle/hud.js:328-352, 361-392, 394-487 | UI | `BattleMenu` in `js/battle/battle-menu.js` using `UiSkin` | Button 9-slice (U3), chevron 16x16 | none |
@@ -422,7 +422,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 2a | `VisualObject` contract + `Game` root (`js/core/`). PR #56, v0.4.35 | B1 | 1 | (no art) |
 | 2b | `SceneRouter` (`js/core/scene-router.js`). Split out of step 2a as a later PR | B1 | 2a | (no art) |
 | 3 | Wrap leaked top-level scripts (dialogue, music, choice-box, sfx, menu/field, title, feel, art/core, audio, ui) | B1 | 1 | (no art) |
-| 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2a | PENDING: reusing `choicebox-panel.png` as the window skin. Nothing may depend on that reuse |
+| 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2a | the approved ChoiceBox panel art (`choicebox-panel.png`) is the game-wide window skin (Brian's decision, Nov 14, 2026) |
 | 5 | `UiButton` + `Icon` + slider thumb + caret | U3, U9, U11, U13 | 4 | art: button 9-slice, 6 icons, thumb, caret |
 | 6 | `GlowSprite` (replaces `SF.blobs`) | E1 | 2a | art: 4 glows + 3 puffs |
 | 7 | `FootShadow` + `HeroMarker` | E2, E3 | 6 | art: shadows S/M/L, ring |
@@ -431,10 +431,10 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 | 10 | `GameState` + `GameLoop` systems list (removes the `SF.update` chain) | B1, B2 sim/main | 2a | (no art) |
 | 11 | `Hero`, `Dash`, `FieldCombat`, `FallRescue` out of `sim.js` | B2 sim | 10 | (no art) |
 | 12 | Hero FX: `PalmGlow`, `DashTrail`, `HandCrystal` sprite | E5, E6, E7 | 11 | art: palm glow, dash trail, crystal |
-| 13 | **PR49**: `SlashTrail` + `HitFlash` | E4, L1, part of X1 | 11 | **BLOCKED**: waiting on replacement source sprites; no derived white frames, no generic burst |
+| 13 | **PR49** (parked until after the OO migration): `SlashTrail` + `HitFlash` | E4, L1, part of X1 | 11 | **Parked** until after the OO migration; still needs replacement source sprites; no derived white frames, no generic burst. Do not close, rebase, or build on PRs #49, #50, or #51. |
 | 14 | Input split: `GamepadInput`, `KeyboardInput`, `PressGate`, `Stick`, `ActionButton` | B2 input, U7, U8 | 5 | art: stick, knob, 4 button faces, cooldown sheet |
 | 15 | `Pickup`, `LampCrystal`, `GuideMarker` | K1, K2, U20 | 6 | art: shard, cog, lamp crystal, marks |
-| 16 | Real `lamp_cold` frame (delete `recolorCold`) + canopy ruling | L3, L4 | none | art: cold lamp frame |
+| 16 | Real `lamp_cold` frame (delete `recolorCold`); canopy see-through may fade real tree-top art (L4) | L3, L4 | none | art: cold lamp frame |
 | 17 | `FieldFoe`, `FoeBrain`, `FoeSpawner`, `CinderMaw` extraction | B2 sim/grapple | 10 | (no art) |
 | 18 | `FoeSprite` for the 7 Act 1 field foes; hurt/death clips replace X1-X5 | F1, F3, F4, F5, F9, F12, F13, X1-X5 | 17 (+13 for the impact spark) | art: regenerate the 7 foe sheets. Procedural game-art sheets are not real art |
 | 19 | `FoeTell`, `Projectile`, `ParticleSystem`, `ShockRing` | X6, E8, E9, E10 | 17 | art: tells, projectile, particles, ring |
@@ -462,9 +462,9 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 
 ## Part D: art asks for Game Art & Motion (in PR order)
 
-1. **UI kit** (PR 4-9, 14): window 9-slice (reusing `choicebox-panel.png` is PENDING; nothing may depend on that reuse); button 9-slice (normal/pressed/selected/disabled); 6 icons 32x32 (speaker on/off, pause, back, talk, dash, grapple); slider thumb 26x26; caret 8x8 2f; stick base 128x128 + knob 56x56; 4 action-button faces (idle/pressed/ready); cooldown wipe 12f; HP/SP bar frame + fill; hurt vignette + plain vignette PNGs.
+1. **UI kit** (PR 4-9, 14): window 9-slice (the approved ChoiceBox panel art, `choicebox-panel.png`, is the game-wide window skin); button 9-slice (normal/pressed/selected/disabled); 6 icons 32x32 (speaker on/off, pause, back, talk, dash, grapple); slider thumb 26x26; caret 8x8 2f; stick base 128x128 + knob 56x56; 4 action-button faces (idle/pressed/ready); cooldown wipe 12f; HP/SP bar frame + fill; hurt vignette + plain vignette PNGs.
 2. **Glow and shadow** (PR 6-7): glow sprites 16/32/64 px in cyan, gold, rose and violet; cloud/mist/dusk puffs 128-256 px; foot shadows S/M/L; hero foot ring 2f.
-3. **Hero FX** (PR 12-13): palm glow 4f, dash trail/afterimage, hand crystal 2f; PR49 HitFlash + SlashTrail **replacement source sprites** (already requested).
+3. **Hero FX** (PR 12-13): palm glow 4f, dash trail/afterimage, hand crystal 2f; PR49 (parked until after the OO migration) HitFlash + SlashTrail **replacement source sprites** (already requested).
 4. **Pickups** (PR 15-16): shard 16x16 idle 4f, cog, lamp crystal cold/lit/flare 4f each, quest diamond 4f, edge arrow, bobber 4f, interact ring 2f, real unlit Kenmi-style path lamp frame.
 5. **Field foes** (PR 18-19, 26): 14 foes; field 4-dir idle/walk + battle idle/attack/cast/hurt/death, portrait 64x64. Regenerate every sheet. The procedural game-art foe and fx sheets are not real art (names differ where a procedural file exists: code `ashling` = file `ashmite`, code `cinderhound` = file `cinderbrute`). No sheet yet for saltwisp, choir_soldier, hush_raider, drowned, stormgull, sentinel, tidewyrm. Also telegraph ring 6f, aim arrow, slam mark, projectile 4f, spark/ember/ash/dust particles, shock ring 6f, 4 element bursts 6f.
 6. **Cast** (PR 21-24): Wayfarer battle sheet + portrait; Kestrel and Tamsin field 4-dir + battle + portrait; 18 NPC field sheets (4-dir idle 2f / walk 4f) + portraits; pip_lark duo portrait; 14 icon badges; 10 item icons 16x16; portrait frame.
@@ -484,20 +484,23 @@ Smallest, highest-visibility first: #4 (`UiSkin`) can ship with art that already
 ### Settled (Chief of Staff call applying Brian's standing rules (Nov 13 9:02 AM ET), not Brian's own words)
 
 1. **SceneRouter is step 2b.** SceneRouter is split out of step 2a as a later PR. Step 2a (PR #56) is the `VisualObject` contract and the `Game` root only.
-2. **Version numbers.** PR #56 keeps v0.4.35. v0.4.34 belongs to OO-01. PRs #50 and #51 get renumbered when they are rebased; they are not touched now.
+2. **Version numbers.** PR #56 keeps v0.4.35. v0.4.34 belongs to OO-01. PRs #49, #50, and #51 are parked until after the OO migration (Brian's decision, Nov 14, 2026, relayed by Chief of Staff); do not close, rebase, or build on them.
 3. **VisualObject missing-asset placeholder.** When an image is missing, `VisualObject.missingAsset` shows a real authored placeholder image and also logs an error. It never falls back to code art. The placeholder art does not exist yet: the hook stays, defaults to null and logs only, and it is tracked as an open item waiting on Game Art & Motion for the art (Part D item 10).
 
 ### Settled (Brian's own words)
 
 1. **Smoke in CI.** Brian, 9:23 AM ET Nov 13, relayed by Chief of Staff: "Yes, add the smoke test to Shardfall's CI". That covers editing `.github/workflows/ci.yml` to run `node tools/smoke.mjs` on every pull request, after the existing audit and tamper steps, and nothing else in `ci.yml`. The existing audit steps and their fail-closed behavior are unchanged.
 
+### Settled (Brian's decision, Nov 14, 2026 (relayed by Chief of Staff))
+
+1. **Alpha used as a look (E.3, L4).** Opacity fades of real art are allowed, including death fades (X4), see-through tree tops (L4), invulnerability blink (E6), and the UI kit vignette opacities. White flashes and recolors are still banned.
+2. **ChoiceBox panel as the window skin (step 4).** The approved ChoiceBox panel art (`assets/ui/choicebox-panel.png`) is the game-wide window skin.
+3. **PixelLab subscription.** Game Art & Motion may use the PixelLab subscription to regenerate the foe and effect sheets. Subscription generations only; no new purchase.
+4. **PRs #49, #50, and #51 are parked** until after the OO migration. Do not close, rebase, or build on them.
+
 ### Pending
 
-Nothing may depend on these until Brian rules.
-
-1. **Alpha used as a look (E.3, L4). PENDING.** Canopy see-through (L4), death fades (X4), i-frame alpha (E6), and scene fade (S5). Nothing may depend on whether these are allowed transparency or banned tricks.
-2. **ChoiceBox panel as the window skin (step 4). PENDING.** Reusing `assets/ui/choicebox-panel.png` for `UiSkin`. Nothing may depend on that reuse.
-
+None.
 
 ### Other notes
 
