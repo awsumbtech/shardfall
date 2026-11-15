@@ -29,9 +29,10 @@ const BATTLE_DRAW = [
   "js/battle/draw.js"
 ];
 
-// The Game root and its SceneRouter. The page boot builds them before any
-// mode change; a vm context with game code builds the same root.
-const CORE_ROOT = ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js"];
+// The Game root, its SceneRouter, and the BattleBackdrop instance. The
+// page boot builds them before any mode change; a vm context with game
+// code builds the same root.
+const CORE_ROOT = ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js", "js/battle/battle-backdrop.js"];
 
 function addGameRoot(box) {
   for (const file of CORE_ROOT) {
@@ -110,7 +111,8 @@ for (const file of [
   "js/main.js",
   "js/core/visual-object.js",
   "js/core/game.js",
-  "js/core/scene-router.js"
+  "js/core/scene-router.js",
+  "js/battle/battle-backdrop.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
@@ -2534,6 +2536,9 @@ if (menuFit.status !== 0) process.exit(menuFit.status || 1);
 
 const sceneRouterPage = spawnSync(process.execPath, ["tools/scene-router-check.mjs"], { stdio: "inherit", env: childEnv });
 if (sceneRouterPage.status !== 0) process.exit(sceneRouterPage.status || 1);
+
+const battleBackdropPage = spawnSync(process.execPath, ["tools/battle-backdrop-check.mjs"], { stdio: "inherit", env: childEnv });
+if (battleBackdropPage.status !== 0) process.exit(battleBackdropPage.status || 1);
 
 if (fs.existsSync("assets/atlas/manifest.json")) {
   const skyMask = spawnSync(process.execPath, ["tools/sky-mask.mjs"], { stdio: "inherit", env: childEnv });
@@ -6363,4 +6368,150 @@ runOo02Checks();
 
 runOo03Checks();
 
+runOo04Checks();
+
 console.log("smoke ok");
+
+// OO-04: BattleBackdrop owns one four-layer real-art backdrop per battle area.
+function runOo04Checks() {
+  const file = "js/battle/battle-backdrop.js";
+  if (!fs.existsSync(file)) fail("missing " + file);
+  const src = fs.readFileSync(file, "utf8");
+  if (/\bSF\.[A-Za-z_$][\w$]*\s*(=[^=]|\+=|-=)/.test(src)) fail("battle-backdrop.js assigns on SF");
+  if (/\bSF\./.test(src)) fail("battle-backdrop.js has an SF.* site");
+  if (/^\s*function\s+\w+\s*\(/m.test(src)) fail("battle-backdrop.js has a free helper function");
+  const banned = /fillRect|strokeRect|clearRect|beginPath|lineTo|bezierCurveTo|quadraticCurveTo|createLinearGradient|createRadialGradient|createConicGradient|shadowBlur|shadowColor|globalCompositeOperation|globalAlpha|\bopacity\b|putImageData|createImageData|createPattern|ellipse\s*\(|\barc\s*\(|\.fill\s*\(|\.stroke\s*\(|\.filter\b|fillStyle|strokeStyle|\.clip\s*\(/;
+  const hit = src.match(banned);
+  if (hit) fail(file + " draws with code (" + hit[0] + ")");
+  const mainJs = fs.readFileSync("js/main.js", "utf8");
+  if (!mainJs.includes("SF.BattleBackdrop = function BattleBackdrop")) fail("main.js does not assign SF.BattleBackdrop");
+  const gameJs = fs.readFileSync("js/core/game.js", "utf8");
+  if (!gameJs.includes("this.battleBackdrop = new Backdrop()")) fail("Game does not own the BattleBackdrop instance");
+  if (gameJs.includes("battleBackdrop.attach") || gameJs.includes("this.battleBackdrop.attach")) {
+    fail("Game attaches the BattleBackdrop; the battle screen must own the attach point");
+  }
+  const drawJs = fs.readFileSync("js/battle/draw.js", "utf8");
+  if (!drawJs.includes("backdrop.attach(game)") || !drawJs.includes("backdrop.draw(")) {
+    fail("battle screen is not the BattleBackdrop attach and draw point");
+  }
+  if (drawJs.includes("BattleGfx.paintBg")) fail("battle draw still paints the backdrop itself");
+  const attachSites = [];
+  for (const full of walkJs("js")) {
+    fs.readFileSync(full, "utf8").split("\n").forEach((line, i) => {
+      if (/\bbattleBackdrop\.attach\s*\(|\bbackdrop\.attach\s*\(/.test(line)) {
+        attachSites.push(full + ":" + (i + 1));
+      }
+    });
+  }
+  if (attachSites.length !== 1 || attachSites[0].indexOf("js/battle/draw.js:") !== 0) {
+    fail("BattleBackdrop attach sites were " + attachSites.join(", "));
+  }
+  const page = fs.readFileSync("index.html", "utf8");
+  const routerAt = page.indexOf('src="js/core/scene-router.js"');
+  const backdropAt = page.indexOf('src="js/battle/battle-backdrop.js"');
+  if (!(backdropAt > routerAt && routerAt >= 0)) fail("battle-backdrop.js loads before scene-router.js");
+  if (page.indexOf("SF.boot();") < backdropAt) fail("page boots before BattleBackdrop loads");
+  if (!fs.readFileSync("sw.js", "utf8").includes('"js/battle/battle-backdrop.js"')) {
+    fail("precache omits js/battle/battle-backdrop.js");
+  }
+
+  const problems = [];
+  const backdrop = SF.game && SF.game.battleBackdrop;
+  if (!(backdrop instanceof SF.BattleBackdrop)) problems.push("harness Game has no BattleBackdrop");
+  if (backdrop && backdrop._attached) problems.push("harness BattleBackdrop was attached at construction");
+  const loose = new SF.BattleBackdrop();
+  let threw = false;
+  try { loose.draw({ drawImage() {} }, "emberhold_meadow", 844, 390, 0); } catch (err) { threw = true; }
+  if (!threw) problems.push("an unattached BattleBackdrop did not throw");
+  loose.attach({ register() {} });
+  loose.attach({ register() { problems.push("second attach was not ignored"); } });
+  if (!loose._attached) problems.push("BattleBackdrop did not attach");
+
+  const ids = SF.BattleBackdrop.IDS;
+  const layers = SF.BattleBackdrop.LAYERS;
+  if (!ids || ids.length !== 8) problems.push("manifest does not list 8 areas");
+  if (!layers || layers.join(",") !== "sky,far,mid,floor") problems.push("layers were " + (layers && layers.join(",")));
+  if (SF.BattleBackdrop.SIZE.w !== 480 || SF.BattleBackdrop.SIZE.h !== 270) problems.push("plate size was not 480x270");
+  if (SF.BattleBackdrop.HORIZON !== 124) problems.push("plate horizon was not 124");
+  ids.forEach((id) => {
+    const row = SF.BattleBackdrop.entry(id);
+    if (!row || row.ready) problems.push(id + " should not be ready");
+    if (!row || row.kit !== "shardfall/battle/backdrops/" + id + "/v1/") problems.push(id + " kit path was wrong");
+    layers.forEach((layer) => {
+      const path = loose.pathFor(id, layer);
+      if (path !== "assets/battle/backdrops/" + id + "/v1/" + layer + ".png") problems.push(id + " " + layer + " path was " + path);
+    });
+  });
+  if (SF.BattleBackdrop.resolveId("missing") !== "emberhold_meadow") problems.push("unknown id did not fall back to emberhold_meadow");
+
+  function checkFit(w, h, label) {
+    const fit = SF.BattleBackdrop.fit(w, h);
+    const horizon = SF.BattleBackdrop.canvasHorizon(w, h);
+    if (fit.horizon !== horizon) problems.push(label + " horizon was " + fit.horizon);
+    if (fit.scale !== Math.floor(fit.scale) || fit.scale < 1) problems.push(label + " scale was not a positive integer");
+    if (fit.w / fit.scale !== 480 || fit.h / fit.scale !== 270) problems.push(label + " dest was stretched");
+    if (fit.y + 124 * fit.scale !== horizon) problems.push(label + " plate Y 124 missed the canvas horizon");
+    if (fit.x > 0 || fit.y > 0 || fit.x + fit.w < w || fit.y + fit.h < h) problems.push(label + " did not cover");
+    return fit;
+  }
+  const phone = checkFit(844, 390, "844x390");
+  if (phone.scale !== 2) problems.push("844x390 scale was " + phone.scale);
+  checkFit(640, 360, "640x360");
+  checkFit(390, 844, "390x844");
+  checkFit(375, 667, "375x667");
+
+  const calls = [];
+  loose.fallback = function (ctx, id, w, h, t) { calls.push([id, w, h, t]); };
+  if (loose.draw({ drawImage() { problems.push("unready drawImage"); } }, "emberhold_scar", 844, 390, 3) !== false) {
+    problems.push("unready draw reported real art");
+  }
+  if (calls.length !== 1 || calls[0][0] !== "emberhold_scar") problems.push("unready draw did not use today's path");
+
+  const manifest = SF.BattleBackdrop.MANIFEST;
+  manifest.test_missing = { ready: true };
+  threw = false;
+  let msg = "";
+  try { loose.imagesFor("test_missing"); } catch (err) { threw = true; msg = String(err && err.message || err); }
+  delete manifest.test_missing;
+  if (!threw || msg.indexOf("missing manifest entry") < 0) problems.push("missing manifest entry did not throw: " + msg);
+
+  const row = manifest.emberhold_meadow;
+  const wasReady = row.ready;
+  row.ready = true;
+  threw = false;
+  msg = "";
+  try { loose.imagesFor("emberhold_meadow"); } catch (err) { threw = true; msg = String(err && err.message || err); }
+  if (!threw || msg.indexOf("missing art") < 0) problems.push("ready area with no images did not throw: " + msg);
+
+  const images = {};
+  layers.forEach((layer) => {
+    images[layer] = { width: 480, height: 270, complete: true, naturalWidth: 480, naturalHeight: 270, id: layer };
+  });
+  loose.setLayers("emberhold_meadow", images);
+  const blits = [];
+  const ctx = {
+    drawImage() { blits.push(Array.prototype.slice.call(arguments)); },
+    set imageSmoothingEnabled(value) { this._smooth = value; }
+  };
+  loose.fallback = function () { problems.push("ready draw used today's path"); };
+  const drew = loose.draw(ctx, "emberhold_meadow", 844, 390, 0);
+  row.ready = wasReady;
+  delete loose.images.emberhold_meadow;
+  if (drew !== true) problems.push("ready draw did not blit the layers");
+  if (blits.length !== 4) problems.push("ready draw blit count was " + blits.length);
+  const fit = SF.BattleBackdrop.fit(844, 390);
+  layers.forEach((layer, i) => {
+    const blit = blits[i];
+    if (!blit || blit[0] !== images[layer] || blit[1] !== fit.x || blit[2] !== fit.y || blit[3] !== fit.w || blit[4] !== fit.h) {
+      problems.push("layer " + layer + " blit was " + JSON.stringify(blit));
+    }
+  });
+
+  const orphan = new SF.Game();
+  if (!(orphan.battleBackdrop instanceof SF.BattleBackdrop) || orphan.battleBackdrop._attached) {
+    problems.push("new Game did not build an unattached BattleBackdrop");
+  }
+
+  if (problems.length) fail(problems[0]);
+  console.log("oo04 ok");
+}

@@ -16,6 +16,9 @@ SF.Game = function Game() {
 SF.SceneRouter = function SceneRouter() {
   this.init();
 };
+SF.BattleBackdrop = function BattleBackdrop() {
+  this.init();
+};
 
 // Counted write-through to the compatibility bag. Lives here so js/core/game.js
 // stays at zero SF.* sites. Removed when GameState (step 10) owns the state.
@@ -40,6 +43,12 @@ Object.defineProperty(SF.Game.prototype, "state", {
 // Build the asset registry before the first frame. A missing manifest or
 // a failed atlas load leaves every key on the code-drawn art.
 SF.prepareAssets = function () {
+  // One assignment site for the repeated map-settled flag, and the prop
+  // preview now lives on the registry, so this file keeps headroom for
+  // counted constructor shells (per-file ratchet).
+  function markMapSettled() {
+    SF._mapSettled = true;
+  }
   if (!SF.AssetRegistry || !SF.SpriteRenderer) return null;
   if (SF.assets && SF.spriteRenderer) return SF.assets;
   var registry = new SF.AssetRegistry(SF.AssetManifest ? new SF.AssetManifest() : null);
@@ -59,17 +68,17 @@ SF.prepareAssets = function () {
         catch (err) { map = null; }
       }
       return json("js/content/maps/props-preview.json").then(function (preview) {
-        SF._propPreview = preview || null;
+        registry.propPreview = preview || null;
         if (SF.noteTileSources) SF.noteTileSources(map, false);
-        SF._mapSettled = true;
+        markMapSettled();
         if (SF.noteTileSources) SF.noteTileSources(null, false);
       });
     }).catch(function () {
-      SF._mapSettled = true;
+      markMapSettled();
       if (SF.noteTileSources) SF.noteTileSources(null, false);
     });
   } else {
-    SF._mapSettled = true;
+    markMapSettled();
   }
   SF.AssetManifest.load(SF.AssetManifest.URL).then(function (loaded) {
     registry.setManifest(loaded || new SF.AssetManifest());

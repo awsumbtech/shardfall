@@ -35,6 +35,11 @@
     if (typeof Router !== "function") throw new Error("SceneRouter missing");
     this.scenes = new Router();
     this.scenes.attach(this);
+    // One BattleBackdrop for the battle screen. The battle drawer is the
+    // single attach point; this only builds the instance.
+    var Backdrop = window.SF && window.SF.BattleBackdrop;
+    if (typeof Backdrop !== "function") throw new Error("BattleBackdrop missing");
+    this.battleBackdrop = new Backdrop();
     return this;
   };
 

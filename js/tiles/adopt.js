@@ -500,7 +500,7 @@
     if (map) SF._pendingMap = map;
     if (atlasDone) SF._atlasSettled = true;
     if (SF._mapSettled && SF._atlasSettled) {
-      SF.adoptTileWorld(SF._pendingMap, SF._propPreview || null);
+      SF.adoptTileWorld(SF._pendingMap, (SF.assets && SF.assets.propPreview) || null);
     }
   };
 
@@ -510,7 +510,7 @@
       mount(id);
       if (SF.worldSource === "tiles" && id === "emberhold" && SF.tileMap) {
         SF.applyTileMarkers(SF.tileMap);
-        SF.nudgeProps(SF.tileMap, SF._propPreview || null);
+        SF.nudgeProps(SF.tileMap, (SF.assets && SF.assets.propPreview) || null);
       }
     };
   }

@@ -5,9 +5,9 @@
     "visual": 4044,
     "leaked": 165,
     "sfMembers": 673,
-    "sfAssigns": 895,
+    "sfAssigns": 893,
     "redefined": 43,
-    "total": 5147
+    "total": 5145
   },
   "files": {
     "css/style.css": {
@@ -335,7 +335,7 @@
     "js/main.js": {
       "leaked": 1,
       "sfMembers": 24,
-      "sfAssigns": 28
+      "sfAssigns": 26
     },
     "js/menu/field.js": {
       "leaked": 12,

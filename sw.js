@@ -116,6 +116,7 @@ var SHELL = [
   "js/core/visual-object.js",
   "js/core/game.js",
   "js/core/scene-router.js",
+  "js/battle/battle-backdrop.js",
   "assets/ui/choicebox-panel.png",
   "assets/ui/choice-cursor.png"
 ];
