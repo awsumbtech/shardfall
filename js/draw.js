@@ -1,8 +1,9 @@
 "use strict";
 
 // FieldDraw runs the field layers in the order the picture has always used. The paint lives in js/draw/.
+// The SceneRouter (js/core/scene-router.js, SF.game.scenes) picks this screen; it is not called for title or battle.
 
-SF.draw = function () {
+SF.drawField = function () {
   var game = SF.game;
   var canvas = game && game.view;
   var ctx = game && game.ctx;
@@ -12,10 +13,6 @@ SF.draw = function () {
   var h = SF.viewH;
   var dpr = SF.dpr;
   if (!w || !h) return;
-  if (s.mode === "title" && SF.drawTitleScene) {
-    SF.drawTitleScene(ctx, w, h, dpr);
-    return;
-  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
@@ -67,5 +64,7 @@ SF.draw = function () {
 };
 
 SF.flushSheets = function () {
-  if (SF.draw) SF.draw();
+  var game = SF.game;
+  if (!game) throw new Error("Game root is missing");
+  game.scenes.draw();
 };

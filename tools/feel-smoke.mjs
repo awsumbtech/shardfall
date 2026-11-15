@@ -21,10 +21,18 @@ for (const file of [
   "js/music.js",
   "js/sfx.js",
   "js/haptics.js",
-  "js/feel.js"
+  "js/feel.js",
+  "js/main.js",
+  "js/core/visual-object.js",
+  "js/core/game.js",
+  "js/core/scene-router.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
+// The page boot builds the Game root and its SceneRouter before any mode
+// change; build the same root here.
+context.SF.game = new context.SF.Game();
+context.SF.game.attach(context);
 
 const { Music, Sfx, Haptics, SF } = context;
 if (!Music || !Sfx || !Haptics) {

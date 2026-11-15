@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.35";
+SF.VERSION = "0.4.36";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -59,7 +59,8 @@ SF.WHATS_NEW = [
   "Cleaned up a stray grass patch floating in the sky near the start.",
   "ChoiceBox panel/cursor art now published to the live site.",
   "Behind the scenes: a guard so code-drawn pictures do not grow. Nothing looks different.",
-  "Behind the scenes: a VisualObject base and a Game root. Nothing looks different."
+  "Behind the scenes: a VisualObject base and a Game root. Nothing looks different.",
+  "Behind the scenes: a SceneRouter now picks the title, field and battle screens. Nothing looks different."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

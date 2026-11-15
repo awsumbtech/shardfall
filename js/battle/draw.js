@@ -1,6 +1,7 @@
 "use strict";
 
-// BattleDraw runs the battle layers in the order the screen has always used, and routes SF.draw here while a fight is up.
+// BattleDraw runs the battle layers in the order the screen has always used. The SceneRouter
+// (js/core/scene-router.js, SF.game.scenes) picks this screen while a fight is up.
 
 SF.drawBattle = function (ctx, w, h, dpr) {
   var s = SF.state;
@@ -27,23 +28,6 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   if (b.phase === "skills" && lay.dock) SF.BattleHud.drawSkillList(ctx, b, lay.dock);
   if (b.phase === "items" && lay.dock) SF.BattleHud.drawItemList(ctx, b, lay.dock);
   if (b.phase === "readout") SF.BattleGfx.addHit("skip", 0, 0, w, h);
-};
-
-var baseDraw = SF.draw;
-// BattleUI is the screen. SF.draw goes through it whenever a battle is up.
-SF.BattleUI = {
-  draw: function (ctx, w, h, dpr) { SF.drawBattle(ctx, w, h, dpr); }
-};
-SF.Battle.UI = SF.BattleUI;
-
-SF.draw = function () {
-  var s = SF.state;
-  var game = SF.game;
-  if (s && s.battle && (s.mode === "battle" || s.mode === "results") && game && game.view && game.ctx) {
-    SF.BattleUI.draw(game.ctx, SF.viewW || 1, SF.viewH || 1, SF.dpr || 1);
-    return;
-  }
-  if (baseDraw) baseDraw();
 };
 
 SF.BattleInput.bindBattlePointer();

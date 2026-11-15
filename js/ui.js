@@ -58,7 +58,7 @@ SF.pauseGame = function () {
   if (!s || s.mode === "title" || s.mode === "pause") return;
   SF.releaseHolds();
   s.pausedFrom = s.mode;
-  s.mode = "pause";
+  SF.game.scenes.go("pause", s);
   SF.pauseNote = "";
   SF.saveGame({ silent: true });
   if (SF.ChoiceBox && typeof SF.ChoiceBox.sync === "function") SF.ChoiceBox.sync();
@@ -68,8 +68,8 @@ SF.resumeGame = function () {
   var s = SF.state;
   if (!s || s.mode !== "pause") return;
   if (SF.uiModal) return;
-  s.mode = s.pausedFrom || "play";
-  if (s.mode === "pause" || s.mode === "title") s.mode = "play";
+  SF.game.scenes.go(s.pausedFrom || "play", s);
+  if (s.mode === "pause" || s.mode === "title") SF.game.scenes.go("play", s);
   SF.pauseNote = "";
   if (SF.ChoiceBox && typeof SF.ChoiceBox.sync === "function") SF.ChoiceBox.sync();
 };
@@ -104,7 +104,7 @@ SF.beginNew = function () {
   SF._yes = null;
   SF.state = SF.fresh();
   var s = SF.state;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   s.camX = s.player.x;
   s.camY = s.player.y;
   SF.saveGame({ silent: true });
@@ -119,7 +119,7 @@ SF.beginContinue = function () {
   SF.uiModal = null;
   var s = SF.fresh();
   if (!SF.applySave(s, data)) return;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   s.camX = s.player.x;
   s.camY = s.player.y;
   SF.state = s;
@@ -201,7 +201,7 @@ SF.bindUI = function () {
       SF.wipeSave();
       SF.uiModal = null;
       SF.state = SF.fresh();
-      SF.state.mode = "title";
+      SF.game.scenes.go("title");
       SF.syncUI();
     });
   });
@@ -223,7 +223,7 @@ SF.bindUI = function () {
     }
     var s = SF.fresh();
     if (!SF.applySave(s, data)) return;
-    s.mode = "play";
+    SF.game.scenes.go("play", s);
     s.camX = s.player.x;
     s.camY = s.player.y;
     SF.state = s;
@@ -235,13 +235,13 @@ SF.bindUI = function () {
       SF.wipeSave();
       SF.uiModal = null;
       SF.state = SF.fresh();
-      SF.state.mode = "title";
+      SF.game.scenes.go("title");
       SF.syncUI();
     });
   });
   document.getElementById("pause-title").addEventListener("click", function () {
     SF.saveGame({ silent: true });
-    SF.state.mode = "title";
+    SF.game.scenes.go("title");
     SF.state.camX = 190;
     SF.state.camY = -170;
     SF.syncUI();
@@ -259,7 +259,7 @@ SF.bindUI = function () {
   var sailClose = document.getElementById("sail-close");
   if (sailClose && !SF.bindWorldUI) {
     sailClose.addEventListener("click", function () {
-      if (SF.state && SF.state.mode === "sailmenu") SF.state.mode = "play";
+      if (SF.state && SF.state.mode === "sailmenu") SF.game.scenes.go("play");
       SF.syncUI();
     });
   }
@@ -269,7 +269,7 @@ SF.bindUI = function () {
   });
   document.getElementById("pause-hand").addEventListener("click", function () {
     SF.emit("ui");
-    if (SF.state) SF.state.mode = "play";
+    if (SF.state) SF.game.scenes.go("play");
     SF.openHand();
     SF.syncUI();
   });

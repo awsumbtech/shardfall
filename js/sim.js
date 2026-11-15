@@ -998,7 +998,7 @@ SF.tryInteract = function () {
 SF.beginCutscene = function () {
   var s = SF.state;
   SF.releaseHolds();
-  s.mode = "cutscene";
+  SF.game.scenes.go("cutscene", s);
   s.cut = { t: 0, applied: false, lock: 0.4 };
   s.player.dashT = 0;
   s.player.swinging = false;
@@ -1040,7 +1040,7 @@ SF.skipCutscene = function () {
   if (!s.cut || s.cut.lock > 0) return;
   SF.applyCutscene();
   s.cut.t = 3.4;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   s.cut = null;
 };
 
@@ -1547,7 +1547,7 @@ SF.update = function (dt) {
     if (s.cut.t > 1.15) SF.applyCutscene();
     if ((SF.consumeInteract || function () { return false; })()) SF.skipCutscene();
     if (s.mode === "cutscene" && s.cut && s.cut.t > 3.25) {
-      s.mode = "play";
+      SF.game.scenes.go("play", s);
       s.cut = null;
     }
     SF.updateWorld(dt, false);

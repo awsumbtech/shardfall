@@ -76,6 +76,14 @@ function loadSF() {
     if (!fs.existsSync(file)) return;
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
   });
+  // The page boot builds the Game root and its SceneRouter before any mode
+  // change (js/core/scene-router.js); build the same root here.
+  ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js"].forEach((file) => {
+    vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  });
+  const root = new context.SF.Game();
+  root.attach(context);
+  context.SF.game = root;
   if (!context.SF || !context.SF.Battle || !context.SF.Battle.start) fail("battle runtime did not load");
   return context.SF;
 }

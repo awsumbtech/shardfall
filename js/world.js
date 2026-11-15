@@ -119,7 +119,7 @@ SF.restAtInn = function (spot) {
   s.lastRest = { island: SF.islandId, x: stood.x, y: stood.y };
   if (SF.rememberCheckpoint) SF.rememberCheckpoint(stood.x, stood.y, { kind: "inn", quiet: true, raw: true });
   else s.checkpoint = { x: stood.x, y: stood.y, island: SF.islandId, kind: "inn" };
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   SF.pushToast("Rested. HP is full. The journey is saved.", 2.2);
   if (SF.saveGame) SF.saveGame();
 };
@@ -181,7 +181,7 @@ SF.openChest = function (chest) {
   } else {
     s.chestLoot = { id: chest.id, rows: rows };
     SF.releaseHolds();
-    s.mode = "chest";
+    SF.game.scenes.go("chest", s);
     // The tap that opened the chest is still finishing (its click lands ~100ms
     // later on the new overlay). Ignore input briefly and require a fresh press.
     s.chestOpenAt = Date.now();
@@ -195,7 +195,7 @@ SF.openChest = function (chest) {
 SF.closeChest = function () {
   var s = SF.state;
   if (!s || s.mode !== "chest") return;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   s.chestLoot = null;
   s.chestArmed = false;
   if (SF.inputState) SF.inputState.interactEdge = false;
@@ -224,7 +224,7 @@ SF.openShop = function (shop) {
   if (!s || !shop) return;
   SF.releaseHolds();
   s.shop = shop;
-  s.mode = "shop";
+  SF.game.scenes.go("shop", s);
 };
 
 SF.shopStockId = function (row) {
@@ -265,7 +265,7 @@ SF.openInn = function (inn) {
   if (!s || !inn) return;
   SF.releaseHolds();
   s.inn = inn;
-  s.mode = "inn";
+  SF.game.scenes.go("inn", s);
 };
 
 SF.raiseWorldEvent = function (name) {
@@ -292,7 +292,7 @@ SF.showNotice = function (title, text) {
   if (!s) return;
   SF.releaseHolds();
   s.notice = { title: title || "Notice", text: text || "" };
-  s.mode = "notice";
+  SF.game.scenes.go("notice", s);
 };
 
 SF.closeWorldPanel = function () {
@@ -302,7 +302,7 @@ SF.closeWorldPanel = function () {
     SF.closeChest();
     return;
   }
-  if (s.mode === "shop" || s.mode === "inn" || s.mode === "notice" || s.mode === "sailmenu") s.mode = "play";
+  if (s.mode === "shop" || s.mode === "inn" || s.mode === "notice" || s.mode === "sailmenu") SF.game.scenes.go("play", s);
 };
 
 SF.maybeSeaFight = function (s) {
@@ -311,7 +311,7 @@ SF.maybeSeaFight = function (s) {
   var fight = chance != null ? chance >= 1 : ((s.voyageCount || 0) % 3 === 0);
   if (!fight) return false;
   s.voyage.paused = true;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   var ok = SF.Battle.start("sea_hush_raiders", {
     boss: false,
     canFlee: true,
@@ -321,7 +321,7 @@ SF.maybeSeaFight = function (s) {
     onWin: function () {
       if (!s.voyage) return;
       s.voyage.paused = false;
-      s.mode = "voyage";
+      SF.game.scenes.go("voyage", s);
       if (SF.DrawDeps.music()) SF.DrawDeps.music().play("sail");
     },
     onLose: function () {
@@ -331,7 +331,7 @@ SF.maybeSeaFight = function (s) {
   });
   if (!ok && s.voyage) {
     s.voyage.paused = false;
-    s.mode = "voyage";
+    SF.game.scenes.go("voyage", s);
   }
   return !!ok;
 };
@@ -931,7 +931,7 @@ if (SF.dialogueRouters) SF.dialogueRouters.push(SF.worldNode);
     var s = SF.state;
     if (s && s.voyage && s.voyage.paused && s.mode === "play" && !s.battle) {
       s.voyage.paused = false;
-      s.mode = "voyage";
+      SF.game.scenes.go("voyage", s);
       if (SF.DrawDeps.music()) SF.DrawDeps.music().play("sail");
     }
     if (baseUpdate) baseUpdate(dt);

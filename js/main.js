@@ -13,6 +13,9 @@ SF.VisualObject = function VisualObject(spec) {
 SF.Game = function Game() {
   this.init();
 };
+SF.SceneRouter = function SceneRouter() {
+  this.init();
+};
 
 // Counted write-through to the compatibility bag. Lives here so js/core/game.js
 // stays at zero SF.* sites. Removed when GameState (step 10) owns the state.
@@ -33,25 +36,6 @@ Object.defineProperty(SF.Game.prototype, "state", {
     SF.state = value;
   }
 });
-
-// Stamp the moment an overlay is first painted. A press that went down
-// before that stamp is not a press on the overlay. Returning to the field
-// does not move the stamp, so a Stay click is not thrown out for being
-// older than the play frame.
-SF.noteOverlayPaint = function () {
-  var key = SF._overlayKey;
-  if (key == null) return;
-  if (key === SF._paintedOverlay) return;
-  var prev = SF._paintedOverlay;
-  SF._paintedOverlay = key;
-  if (prev == null) return;
-  var mode = String(key).split("|")[0];
-  var extra = String(key).indexOf("|") >= 0;
-  if (!extra && mode !== "sailmenu" && mode !== "dialogue" && mode !== "shop" &&
-      mode !== "inn" && mode !== "notice" && mode !== "hand" && mode !== "fieldmenu" &&
-      mode !== "chest" && mode !== "pause") return;
-  SF._overlayPaintAt = performance.now();
-};
 
 // Build the asset registry before the first frame. A missing manifest or
 // a failed atlas load leaves every key on the code-drawn art.
@@ -125,7 +109,7 @@ SF.boot = function () {
   SF.sfx.loadMute();
   if (SF.loadCalm) SF.loadCalm();
   SF.state = SF.fresh();
-  SF.state.mode = "title";
+  game.scenes.go("title");
   SF.bindInput();
   SF.bindUI();
   SF.resize();

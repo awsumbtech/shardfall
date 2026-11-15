@@ -29,6 +29,20 @@ const BATTLE_DRAW = [
   "js/battle/draw.js"
 ];
 
+// The Game root and its SceneRouter. The page boot builds them before any
+// mode change; a vm context with game code builds the same root.
+const CORE_ROOT = ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js"];
+
+function addGameRoot(box) {
+  for (const file of CORE_ROOT) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), box, { filename: file });
+  }
+  const root = new box.SF.Game();
+  root.attach(box);
+  box.SF.game = root;
+  return root;
+}
+
 function readSources(files) {
   return files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 }
@@ -95,12 +109,18 @@ for (const file of [
   "js/world.js",
   "js/main.js",
   "js/core/visual-object.js",
-  "js/core/game.js"
+  "js/core/game.js",
+  "js/core/scene-router.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
 
 const SF = context.SF;
+// The page boot builds the Game root (and its SceneRouter) before any mode
+// change. This context has no DOM boot, so build the same root here.
+const harnessGame = new SF.Game();
+harnessGame.attach(context);
+SF.game = harnessGame;
 const issues = SF.audit();
 if (issues.length) {
   console.error(issues.join("\n"));
@@ -2185,7 +2205,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.35"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.36"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2374,6 +2394,7 @@ SF.mountIsland("emberhold");
   ].concat(BATTLE_DRAW)) {
     vm.runInContext(fs.readFileSync(file, "utf8"), layout, { filename: file });
   }
+  addGameRoot(layout);
   const L = layout.SF;
   const fake = {
     setTransform() {}, save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {},
@@ -2511,6 +2532,9 @@ if (tapLeak.status !== 0) process.exit(tapLeak.status || 1);
 const menuFit = spawnSync(process.execPath, ["tools/menu-fit.mjs"], { stdio: "inherit", env: childEnv });
 if (menuFit.status !== 0) process.exit(menuFit.status || 1);
 
+const sceneRouterPage = spawnSync(process.execPath, ["tools/scene-router-check.mjs"], { stdio: "inherit", env: childEnv });
+if (sceneRouterPage.status !== 0) process.exit(sceneRouterPage.status || 1);
+
 if (fs.existsSync("assets/atlas/manifest.json")) {
   const skyMask = spawnSync(process.execPath, ["tools/sky-mask.mjs"], { stdio: "inherit", env: childEnv });
   if (skyMask.status !== 0) process.exit(skyMask.status || 1);
@@ -2520,7 +2544,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.35"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.36"')) fail("version was not bumped");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
@@ -2533,6 +2557,9 @@ async function runAssetChecks() {
   if (!dataJs.includes("Behind the scenes: a VisualObject base and a Game root. Nothing looks different.")) {
     fail("whats new oo02 line");
   }
+  if (!dataJs.includes("Behind the scenes: a SceneRouter now picks the title, field and battle screens. Nothing looks different.")) {
+    fail("whats new oo03 line");
+  }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2544,7 +2571,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.35")) fail("html version");
+  if (!html.includes("v0.4.36")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -5452,6 +5479,7 @@ async function runChoiceBoxChecks() {
   ].forEach((file) => {
     vm.runInContext(fs.readFileSync(file, "utf8"), choiceCtx, { filename: file });
   });
+  addGameRoot(choiceCtx);
 
   const Box = choiceCtx.SF.ChoiceBox;
   [[390, 844], [844, 390]].forEach(([w, h]) => {
@@ -5937,7 +5965,7 @@ function trackCtx() {
 }
 
 function runOo02Checks() {
-  const coreFiles = ["js/core/visual-object.js", "js/core/game.js"];
+  const coreFiles = ["js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js"];
   const banned = /fillRect|strokeRect|clearRect|beginPath|lineTo|bezierCurveTo|quadraticCurveTo|createLinearGradient|createRadialGradient|createConicGradient|shadowBlur|shadowColor|globalCompositeOperation|globalAlpha|\bopacity\b|putImageData|createImageData|createPattern|ellipse\s*\(|\barc\s*\(|\.fill\s*\(|\.stroke\s*\(|\.filter\b|fillStyle|strokeStyle/;
   for (const file of coreFiles) {
     if (!fs.existsSync(file)) fail("missing " + file);
@@ -5955,7 +5983,7 @@ function runOo02Checks() {
   for (const file of coreFiles) {
     if (!worker.includes('"' + file + '"')) fail("precache omits " + file);
   }
-  if (!worker.includes('CACHE = "shardfall-v0.4.35"')) fail("cache version moved");
+  if (!worker.includes('CACHE = "shardfall-v0.4.36"')) fail("cache version moved");
   const mainJs = fs.readFileSync("js/main.js", "utf8");
   if (!mainJs.includes("SF.VisualObject = function VisualObject")) fail("main.js does not assign SF.VisualObject");
   if (!mainJs.includes("SF.Game = function Game")) fail("main.js does not assign SF.Game");
@@ -6176,14 +6204,163 @@ function runOo02Checks() {
     SF.VisualObject.missingAsset = null;
     context.console = prevConsole;
     context.Art = prevArt;
-    if (SF.game === root) delete SF.game;
+    if (SF.game === root) SF.game = harnessGame;
   }
   if (problems.length) fail(problems[0]);
   console.log("oo02 ok");
 }
 
+// OO-03: SceneRouter owns which scene is active and which screen paints.
+function runOo03Checks() {
+  const routerFile = "js/core/scene-router.js";
+  if (!fs.existsSync(routerFile)) fail("missing " + routerFile);
+  const routerJs = fs.readFileSync(routerFile, "utf8");
+  if (/\bSF\.[A-Za-z_$][\w$]*\s*(=[^=]|\+=|-=)/.test(routerJs)) fail("scene-router.js assigns on SF");
+  if (!routerJs.includes("SceneRouter.prototype.go =") || !routerJs.includes("SceneRouter.prototype.draw =")) {
+    fail("SceneRouter has no go or draw");
+  }
+  if (!routerJs.includes("SceneRouter.prototype.notePaint =")) fail("SceneRouter does not own the overlay paint stamp");
+  if (/^\s*function\s+\w+\s*\(/m.test(routerJs)) {
+    fail("scene-router.js has a free helper function");
+  }
+  const mainJs = fs.readFileSync("js/main.js", "utf8");
+  if (!mainJs.includes("SF.SceneRouter = function SceneRouter")) fail("main.js does not assign SF.SceneRouter");
+  if (mainJs.includes("noteOverlayPaint") || mainJs.includes("_paintedOverlay") || mainJs.includes("_overlayPaintAt")) {
+    fail("overlay paint stamp is still on SF");
+  }
+  const gameJs = fs.readFileSync("js/core/game.js", "utf8");
+  if (!gameJs.includes("this.scenes = new Router()")) fail("Game does not own the SceneRouter");
+  if (gameJs.includes("SF.draw(")) fail("Game frame still calls SF.draw");
+  if (!gameJs.includes("this.scenes.draw()") || !gameJs.includes("this.scenes.notePaint()")) {
+    fail("Game frame does not draw through the SceneRouter");
+  }
+  const fieldJs = fs.readFileSync("js/draw.js", "utf8");
+  const battleJs = fs.readFileSync("js/battle/draw.js", "utf8");
+  if (/\bSF\.draw\s*=/.test(fieldJs) || /\bSF\.draw\s*=/.test(battleJs)) fail("SF.draw patch chain is back");
+  if (battleJs.includes("baseDraw") || battleJs.includes("BattleUI")) fail("battle draw still wraps the field draw");
+  if (fieldJs.includes("drawTitleScene")) fail("field draw still picks the title screen");
+  const page = fs.readFileSync("index.html", "utf8");
+  const gameAt = page.indexOf('src="js/core/game.js"');
+  const routerAt = page.indexOf('src="js/core/scene-router.js"');
+  if (!(routerAt > gameAt && gameAt >= 0)) fail("scene-router.js loads before game.js");
+  if (page.indexOf("SF.boot();") < routerAt) fail("page boots before the SceneRouter loads");
+  if (!fs.readFileSync("sw.js", "utf8").includes('"js/core/scene-router.js"')) fail("precache omits js/core/scene-router.js");
+
+  // Every mode change in js/ goes through SceneRouter.go.
+  const writes = [];
+  for (const full of walkJs("js")) {
+    if (full === routerFile) continue;
+    const lines = fs.readFileSync(full, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      if (/\.mode\s*=[^=]/.test(line) && !/dataset\.mode\s*=/.test(line)) writes.push(full + ":" + (i + 1));
+    });
+  }
+  if (writes.length) fail("mode written outside SceneRouter: " + writes.join(", "));
+
+  const problems = [];
+  const router = SF.game && SF.game.scenes;
+  if (!(router instanceof SF.SceneRouter)) problems.push("harness Game has no SceneRouter");
+  if (router && router.game !== SF.game) problems.push("SceneRouter is not attached to its Game");
+  const loose = new SF.SceneRouter();
+  let threw = false;
+  try { loose.current(); } catch (err) { threw = true; }
+  if (!threw) problems.push("an unattached SceneRouter did not throw");
+  loose.attach({ state: { mode: "title" } });
+  loose.attach({ state: { mode: "other" } });
+  if (loose.current() !== "title") problems.push("SceneRouter attach was not single");
+  threw = false;
+  try { loose.go(""); } catch (err) { threw = true; }
+  if (!threw) problems.push("go with no scene name did not throw");
+  threw = false;
+  try { new SF.SceneRouter().attach({ state: null }).go("play"); } catch (err) { threw = true; }
+  if (!threw) problems.push("go with no state did not throw");
+  const orphan = new SF.Game();
+  if (!(orphan.scenes instanceof SF.SceneRouter) || orphan.scenes.game !== orphan) problems.push("new Game did not build its router");
+
+  const original = SF.state;
+  const prevField = SF.drawField;
+  const prevBattle = SF.drawBattle;
+  const prevTitle = SF.drawTitleScene;
+  const prevBlobs = SF.blobs;
+  const prevView = SF.game.view;
+  const prevCtx = SF.game.ctx;
+  const prevW = SF.viewW;
+  const prevH = SF.viewH;
+  const prevDpr = SF.dpr;
+  const painted = [];
+  try {
+    SF.drawField = () => painted.push("field");
+    SF.drawBattle = () => painted.push("battle");
+    SF.drawTitleScene = () => painted.push("title");
+    SF.blobs = SF.blobs || {};
+    SF.game.view = {};
+    SF.game.ctx = {};
+    SF.viewW = 640;
+    SF.viewH = 360;
+    SF.dpr = 1;
+    const s = SF.fresh();
+    SF.state = s;
+    router.history.length = 0;
+    const start = 0;
+    router.go("title");
+    router.draw();
+    router.go("play");
+    router.draw();
+    s.voyage = null;
+    router.go("voyage");
+    router.draw();
+    router.go("play");
+    s.battle = { actors: [], phase: "menu" };
+    router.go("battle");
+    router.draw();
+    router.go("results");
+    router.draw();
+    s.battle = null;
+    router.go("play");
+    router.draw();
+    if (painted.join(",") !== "title,field,field,battle,battle,field") problems.push("router screens were " + painted.join(","));
+    const steps = router.history.slice(start).map((h) => h.to).join(",");
+    if (steps !== "title,play,voyage,play,battle,results,play") problems.push("router history was " + steps);
+    if (s.mode !== "play") problems.push("router did not write the live state");
+    const next = SF.fresh();
+    router.go("play", next);
+    if (next.mode !== "play" || SF.state !== s) problems.push("go(name, state) did not write the given state");
+    for (let i = 0; i < SF.SceneRouter.HISTORY + 4; i++) router.go("play");
+    if (router.history.length !== SF.SceneRouter.HISTORY) problems.push("router history is not bounded");
+    SF.drawField = undefined;
+    threw = false;
+    try { router.draw(); } catch (err) { threw = true; }
+    if (!threw) problems.push("a missing field drawer did not throw");
+  } finally {
+    SF.state = original;
+    SF.drawField = prevField;
+    SF.drawBattle = prevBattle;
+    SF.drawTitleScene = prevTitle;
+    SF.blobs = prevBlobs;
+    SF.game.view = prevView;
+    SF.game.ctx = prevCtx;
+    SF.viewW = prevW;
+    SF.viewH = prevH;
+    SF.dpr = prevDpr;
+  }
+  if (problems.length) fail(problems[0]);
+  console.log("oo03 ok");
+}
+
+function walkJs(dir) {
+  const out = [];
+  for (const name of fs.readdirSync(dir)) {
+    const full = dir + "/" + name;
+    if (fs.statSync(full).isDirectory()) out.push(...walkJs(full));
+    else if (name.endsWith(".js")) out.push(full);
+  }
+  return out;
+}
+
 await runChoiceBoxChecks();
 
 runOo02Checks();
+
+runOo03Checks();
 
 console.log("smoke ok");

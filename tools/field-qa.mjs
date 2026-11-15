@@ -1107,7 +1107,7 @@ await place(page, kestrelMark.place.close.x, kestrelMark.place.close.y - 7, 0, 1
 await page.waitForTimeout(400);
 await shot(page, "46-kestrel-n42.png");
 const namePixels = await page.evaluate(() => {
-  SF.draw();
+  SF.game.scenes.draw();
   const n = SF.NPCS.find((npc) => npc.id === "kestrel");
   const feet = SF.actorFeet(n);
   const hero = SF.state.player;
@@ -1264,7 +1264,7 @@ const ground = await page.evaluate(() => {
     s.camY = cy;
     s.player.x = cx + 64;
     s.player.y = cy + 64;
-    SF.draw();
+    SF.game.scenes.draw();
     const dpr = SF.dpr || 1;
     const pxScale = Math.max(1, Math.round(dpr * (SF.zoom || 1)));
     const ox = Math.round(dpr * (SF.viewW / 2) - Math.round(s.camX) * pxScale);
@@ -1307,7 +1307,7 @@ const ground = await page.evaluate(() => {
     if (island === "cinderveil") SF.state.flags.mawDead = true;
     SF._terrain = null;
     SF._terrainKey = "";
-    SF.draw();
+    SF.game.scenes.draw();
     return scan(island, cx, cy);
   }
   const kes = SF.NPCS.find((npc) => npc.id === "kestrel");

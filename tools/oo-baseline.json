@@ -1,13 +1,13 @@
 {
-  "version": "0.4.35",
+  "version": "0.4.36",
   "formula": "visual + leaked + sfAssigns + redefined",
   "totals": {
     "visual": 4044,
-    "leaked": 166,
-    "sfMembers": 676,
-    "sfAssigns": 900,
-    "redefined": 44,
-    "total": 5154
+    "leaked": 165,
+    "sfMembers": 673,
+    "sfAssigns": 895,
+    "redefined": 43,
+    "total": 5147
   },
   "files": {
     "css/style.css": {
@@ -92,9 +92,8 @@
       "sfAssigns": 23
     },
     "js/battle/draw.js": {
-      "leaked": 1,
-      "sfMembers": 3,
-      "sfAssigns": 3
+      "sfMembers": 1,
+      "sfAssigns": 1
     },
     "js/battle/events.js": {
       "leaked": 1,
@@ -330,13 +329,13 @@
     },
     "js/input.js": {
       "leaked": 1,
-      "sfMembers": 30,
-      "sfAssigns": 40
+      "sfMembers": 29,
+      "sfAssigns": 39
     },
     "js/main.js": {
       "leaked": 1,
-      "sfMembers": 26,
-      "sfAssigns": 30
+      "sfMembers": 24,
+      "sfAssigns": 28
     },
     "js/menu/field.js": {
       "leaked": 12,
@@ -513,10 +512,6 @@
     "dashSing": [
       "js/battle/battle.js",
       "js/sim.js"
-    ],
-    "draw": [
-      "js/battle/draw.js",
-      "js/draw.js"
     ],
     "drawActor": [
       "js/draw/actors.js",

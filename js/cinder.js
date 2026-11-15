@@ -193,7 +193,7 @@ SF.travelTo = function (island) {
   var s = SF.state;
   if (!s || !SF.ISLANDS[island]) return;
   if (SF.islandId === island) {
-    if (s.mode !== "dialogue" && s.mode !== "pause") s.mode = "play";
+    if (s.mode !== "dialogue" && s.mode !== "pause") SF.game.scenes.go("play", s);
     return;
   }
   var sailed = !!s.voyage;
@@ -213,7 +213,7 @@ SF.travelTo = function (island) {
   s.player.grappleT = 0;
   s.camX = dock.x;
   s.camY = dock.y;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   s.voyage = null;
   s.voyageTalk = false;
   s.pendingTalk = null;
@@ -239,14 +239,14 @@ SF.openSailMenu = function () {
     return;
   }
   SF.releaseHolds();
-  s.mode = "sailmenu";
+  SF.game.scenes.go("sailmenu", s);
 };
 
 SF.startVoyage = function (island) {
   var s = SF.state;
   if (!s || !SF.ISLANDS[island]) return;
   if (SF.islandId === island) {
-    s.mode = "play";
+    SF.game.scenes.go("play", s);
     SF.pushToast("You are already on this island.", 1.6);
     return;
   }
@@ -261,7 +261,7 @@ SF.startVoyage = function (island) {
   }
   s.voyageTalk = false;
   s.voyage = { t: 0, to: island, from: SF.islandId };
-  s.mode = "voyage";
+  SF.game.scenes.go("voyage", s);
 };
 
 SF.cuePlaceMusic = function (s) {
@@ -312,13 +312,13 @@ SF.openHand = function () {
   }
   SF.releaseHolds();
   s.pausedFrom = "play";
-  s.mode = "hand";
+  SF.game.scenes.go("hand", s);
 };
 
 SF.closeHand = function () {
   var s = SF.state;
   if (!s || s.mode !== "hand") return;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
 };
 
 SF.buyUpgrade = function (id) {
@@ -643,7 +643,7 @@ SF.CINDER_SHARDS = 3;
     SF.saveGame({ silent: true });
     if (s.mode === "dialogue") {
       s.dialogue = null;
-      s.mode = "play";
+      SF.game.scenes.go("play", s);
     }
     if (SF.Battle) SF.Battle.start("boss_cinder_maw", {
       boss: true,
