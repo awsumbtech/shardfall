@@ -425,7 +425,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 |---|---|---|---|---|
 | 1 | `oo-audit` ratchet: `tools/oo-audit.mjs` + smoke hook + baseline from this doc. Fails if any file's draw-API, CSS-art, `SF.*` or leaked-global count goes up. PR Verifier then has a machine check for "no code-drawn visuals remain" (baseline reaches 0). | A, B | none | (no art) |
 | 2a | `VisualObject` contract + `Game` root (`js/core/`). PR #56, v0.4.35 | B1 | 1 | (no art) |
-| 2b | `SceneRouter` (`js/core/scene-router.js`). Split out of step 2a as a later PR. PR #PRNUM, v0.4.36 | B1 | 2a | (no art) |
+| 2b | `SceneRouter` (`js/core/scene-router.js`). Split out of step 2a as a later PR. PR #59, v0.4.36 | B1 | 2a | (no art) |
 | 3 | Wrap leaked top-level scripts (dialogue, music, choice-box, sfx, menu/field, title, feel, art/core, audio, ui) | B1 | 1 | (no art) |
 | 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2a | the approved ChoiceBox panel art (`choicebox-panel.png`) is the game-wide window skin (Brian's decision, Nov 14, 2026) |
 | 5 | `UiButton` + `Icon` + slider thumb + caret | U3, U9, U11, U13 | 4 | art: button 9-slice, 6 icons, thumb, caret |
