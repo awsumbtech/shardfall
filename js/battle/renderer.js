@@ -2,7 +2,7 @@
 
 // BattleRenderer turns combat events into the presentation record on the
 // battle (pops, hurt ids, WEAK/RESIST tags, the flash list, hit pause).
-// It never reads HP. BattleUI draws that record. Rules emit "action"
+// It never reads HP. SF.drawBattle draws that record. Rules emit "action"
 // before they apply a command; this module opens the record.
 var SF = window.SF || {};
 window.SF = SF;

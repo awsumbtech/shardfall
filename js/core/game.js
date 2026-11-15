@@ -30,6 +30,11 @@
     this.BASE_H = 360;
     this.ASPECT_MIN = 4 / 3;
     this.ASPECT_MAX = 21 / 9;
+    // Scene routing: which scene is active, and which screen paints.
+    var Router = window.SF && window.SF.SceneRouter;
+    if (typeof Router !== "function") throw new Error("SceneRouter missing");
+    this.scenes = new Router();
+    this.scenes.attach(this);
     return this;
   };
 
@@ -84,8 +89,9 @@
     return out;
   };
 
-  // The page frame loop. It still calls the existing SF.update / SF.draw
-  // path. Child VisualObjects are not walked from here yet.
+  // The page frame loop. It still calls the existing SF.update path and
+  // draws through the SceneRouter (game.scenes). Child VisualObjects are not
+  // walked from here yet.
   Game.prototype.startLoop = function () {
     var game = this;
     this._lastFrame = performance.now();
@@ -102,9 +108,9 @@
     this._lastFrame = now;
     var SF = window.SF;
     if (this.portraitLock) {
-      SF.draw();
+      this.scenes.draw();
       SF.syncUI();
-      if (SF.noteOverlayPaint) SF.noteOverlayPaint();
+      this.scenes.notePaint();
       return this;
     }
     SF.update(dt);
@@ -113,9 +119,9 @@
     }
     this._resizeTick = (this._resizeTick || 0) + 1;
     if (this._resizeTick % 30 === 0 && SF.resize) SF.resize();
-    SF.draw();
+    this.scenes.draw();
     SF.syncUI();
-    if (SF.noteOverlayPaint) SF.noteOverlayPaint();
+    this.scenes.notePaint();
     return this;
   };
 

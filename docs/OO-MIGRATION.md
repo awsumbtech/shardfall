@@ -16,15 +16,17 @@ node tools/oo-audit.mjs --write-baseline
 
 A bracket whose text is a drawing method is counted (`ctx["fillRect"]` and `` ctx[`fillRect`] ``). `ctx[name]` is a known gap when `name` is a variable. `style.clipPath` and `setProperty("clip-path")` are counted when the property name is a string literal that installs a path, shadow, or gradient. `setProperty(name, ...)` is a known gap when `name` is not a string literal.
 
-The committed baseline is `tools/oo-baseline.json` (v0.4.35):
+The committed baseline is `tools/oo-baseline.json` (v0.4.36, step 2b):
 
 | Signal | Count |
 |---|---|
 | Visual call sites | 4044 |
-| Leaked window names | 166 |
-| SF members assigned | 676 distinct (900 sites) |
-| SF functions defined in more than one file | 44 |
-| **OO-AUDIT remaining** | **5154** |
+| Leaked window names | 165 |
+| SF members assigned | 673 distinct (895 sites) |
+| SF functions defined in more than one file | 43 |
+| **OO-AUDIT remaining** | **5147** |
+
+Step 2b (v0.4.36) took the total from 5154 to 5147: `SF.draw` is no longer patched in two files (redefined 44 to 43), `js/battle/draw.js` lost `var baseDraw` (leaked 166 to 165) and its `SF.draw` / `SF.BattleUI` assigns, `js/main.js` lost `SF.noteOverlayPaint`, `SF._paintedOverlay`, and `SF._overlayPaintAt` (and gained `SF.SceneRouter`), and `js/input.js` lost its `SF._overlayPaintAt` reset.
 
 `OO-AUDIT` total = visual + leaked names + SF assignment sites + multi-file SF functions. The goal is `OO-AUDIT: 0 remaining`.
 
@@ -55,7 +57,7 @@ Status: draft for `docs/OO-MIGRATION.md`. The inventory below is a read-only aud
 2. **Real art today covers only:** the field hero paper-doll (`kenmi.hero.*`), Emberhold ground tiles (`kenmi.tile.*`), 75 Emberhold prop keys (`kenmi.prop.*`, smoke included), and the ChoiceBox panel and cursor (`assets/ui/`). Kenmi is wired for Emberhold only (`js/props/decorlayer.js:10-11`, `js/draw/terrain.js:973-975`). Every other island, all battles, all portraits and all NPCs are code art.
 3. **There are two fallback layers under the code art.** Primitive canvas drawings (`SF.drawMaren`, `SF.drawProp`, `SF.drawWorldFoe`, and others) run when `Art` is missing. Both layers have to go.
 4. **Flashes and tints still on main:** battle white hit box (`js/battle/stage.js:300-346`), field foe hurt bloom (`js/draw/actors.js:487-498`), baked hurt white-out (`js/art/actors.js:1377-1384`), CSS red hurt vignette (`css/style.css:125-132`), runtime cold-lamp recolor of a Kenmi sprite (`js/props/renderer.js:17-45`).
-5. **Structure:** `tools/oo-audit.mjs` on this tree (v0.4.35, step 2a) counts 676 distinct `SF.*` members, 900 assignment sites, 44 `SF` functions defined in more than one file, and 166 leaked window names. origin/main (v0.4.34) is 684 distinct members and 908 sites (OO-AUDIT 5162). The hand pass had said 39 multi-file functions and ten files. The ten files are the ones that leak the most names (`js/dialogue.js`, `js/music.js`, `js/ui/choice-box.js`, `js/sfx.js`, `js/menu/field.js`, `js/title.js`, `js/feel.js`, `js/art/core.js`, `js/audio.js`, `js/ui.js`). The 166 is every top-level `var` and `function`, plus a top-level `window.Name =`, in every classic script, including `var SF` once per file. The 44 includes those 39 and the `SF[name] = wrapped` list in `js/input.js`.
+5. **Structure:** `tools/oo-audit.mjs` on this tree (v0.4.36, step 2b) counts 673 distinct `SF.*` members, 895 assignment sites, 43 `SF` functions defined in more than one file, and 165 leaked window names (OO-AUDIT 5147). Before step 2b (v0.4.35, step 2a) it was 676 / 900 / 44 / 166 (OO-AUDIT 5154); before step 2a (v0.4.34) it was 684 distinct members and 908 sites (OO-AUDIT 5162). The hand pass had said 39 multi-file functions and ten files. The ten files are the ones that leak the most names (`js/dialogue.js`, `js/music.js`, `js/ui/choice-box.js`, `js/sfx.js`, `js/menu/field.js`, `js/title.js`, `js/feel.js`, `js/art/core.js`, `js/audio.js`, `js/ui.js`). The leaked count (165 now) is every top-level `var` and `function`, plus a top-level `window.Name =`, in every classic script, including `var SF` once per file. The multi-file count was 44 (the hand pass's 39 plus the `SF[name] = wrapped` list in `js/input.js`); step 2b removed `draw`, so it is 43.
 
 ## Counts
 
@@ -321,7 +323,7 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 
 | Problem | file:line | Proposed owner (file) | One job | Lifecycle |
 |---|---|---|---|---|
-| 676 `SF.*` members on one global bag (900 sites; origin/main was 684 / 908) | every file; worst: `js/cinder.js` (85), `js/world.js` (79), `js/sim.js` (60), `js/menu/field.js` (58), `js/ui.js` (49), `js/draw/terrain.js` (48), `js/data.js` (41) | `Game` composition root in `js/core/game.js`; `window.SF` stays a read-only facade for QA tools (`js/draw/deps.js:5-6` says the tools need it) | Build and hold the object graph | created once in `boot`, never destroyed |
+| 673 `SF.*` members on one global bag (895 sites; v0.4.35 was 676 / 900, v0.4.34 was 684 / 908) | every file; worst: `js/cinder.js` (85), `js/world.js` (79), `js/sim.js` (60), `js/menu/field.js` (58), `js/ui.js` (49), `js/draw/terrain.js` (48), `js/data.js` (41) | `Game` composition root in `js/core/game.js`; `window.SF` stays a read-only facade for QA tools (`js/draw/deps.js:5-6` says the tools need it) | Build and hold the object graph | created once in `boot`, never destroyed |
 | `SF.state` is a plain bag built in one 115-line function, then patched by battle | `js/sim.js:52-166`; `js/battle/battle.js:537-546` | `GameState` in `js/core/game-state.js` | Hold save-able state; no behaviour | `GameState.fresh()` / `fromSave()` / `toSave()` |
 | `SF.update` patched 3 times | `js/sim.js:1512-1586`, `js/world.js:929-938`, `js/battle/battle.js:587-606` | `GameLoop` in `js/core/game-loop.js` with an ordered `systems[]` list | Tick systems in order | `start()`, `stop()` |
 | `SF.syncUI` patched 3 times | `js/ui.js:377-599`, `js/world.js:1490-1499`, `js/menu/field.js:434-442` | each widget owns `sync(state)`; `UiRoot` in `js/ui/ui-root.js` calls them | Fan out one sync | per frame |
@@ -330,7 +332,10 @@ Rows = one visual each. Sprite ids folded into a row are listed in that row.
 | Island chain: `mountIsland` (3x), `lampIsLit`, `loadEnemies`, `snapshotEnemies`, `startVoyage`, `updateVoyage`, `npcHidden` | `js/cinder.js:113-129, 145-190, 245-286`; `js/props/decorlayer.js:128`; `js/tiles/adopt.js:509`; `js/world.js:869-977`; `js/content/maps/towns.js:272-280` | `IslandRegistry` in `js/world/island-registry.js` + `Island` objects; `Voyage` in `js/world/voyage.js` | Mount/unmount one island's objects | `mount(id)` / `unmount()` |
 | Walk test defined 6x, zone test 4x | `SF.walkable`: `js/data.js:212`, `js/content/maps/v2layout.js:92, 825`, `js/content/maps/towns.js:293`, `js/tiles/adopt.js:87`, `js/vaultgate.js:50`; `SF.zoneAt`: `js/data.js:227`, `js/content/maps/v2layout.js:103`, `js/tiles/adopt.js:96`, `js/vaultgate.js:55` | `Walkability` in `js/world/walkability.js` composed of layers (`TileLayer`, `TownWalls`, `VaultGate`, `ShapeLayer`) | Answer "can a foot stand here" | rebuilt on island mount |
 | Battle patches field functions | `js/battle/battle.js:535-651` (`fresh`, `makeEnemies`, `updateEnemy`, `damageEnemy`, `killEnemy`, `startSwing`, `applySwing`, `dashSing`, `update`, `updatePlayer`, `consumeAttack`, `buyUpgrade`) | `BattleBridge` in `js/battle/battle-bridge.js` subscribing to field events | Start a battle from field contact | installed once |
-| `SF.drawActor` 2x, `SF.drawPropArt` 2x, `SF.drawChest` 2x, `SF.draw` 2x | `js/draw/actors.js:100`, `js/world.js:377-407`; `js/draw/props.js:5`, `js/props/decorlayer.js:112-116`; `js/world.js:527`, `js/props/decorlayer.js:119-123`; `js/draw.js:5`, `js/battle/draw.js:32-46` | visual objects (Part A owners); `SceneRouter` in `js/core/scene-router.js` picks field vs battle | | |
+| `SF.drawActor` 2x, `SF.drawPropArt` 2x, `SF.drawChest` 2x | `js/draw/actors.js:100`, `js/world.js:377-407`; `js/draw/props.js:5`, `js/props/decorlayer.js:112-116`; `js/world.js:527`, `js/props/decorlayer.js:119-123` | visual objects (Part A owners) | | |
+| **Done in step 2b (v0.4.36):** `SF.draw` 2x (field draw in `js/draw.js`, battle wrapper with `var baseDraw` in `js/battle/draw.js`), plus the title branch inside the field draw | was `js/draw.js:5-18`, `js/battle/draw.js:32-46` | `SceneRouter` in `js/core/scene-router.js` (`game.scenes`). `SceneRouter.prototype.draw` (`js/core/scene-router.js:86`) picks battle, title, or field and calls that screen's own drawer: `SF.drawBattle` (`js/battle/draw.js:6`), `SF.drawTitleScene` (`js/title.js:110`), or `SF.drawField` (`js/draw.js:6`, the old field draw, renamed). `SF.draw` and `SF.BattleUI` / `SF.Battle.UI` are gone. The frame loop calls `game.scenes.draw()` (`js/core/game.js:111`, `:122`) | Pick the screen that paints | created in `Game.init`, lives as long as the Game root |
+| **Done in step 2b (v0.4.36):** scene/mode switching: `state.mode` written directly at 45 sites in 9 files (`js/ui.js` 11, `js/world.js` 11, `js/cinder.js` 8, `js/menu/field.js` 5, `js/dialogue.js` 3, `js/sim.js` 3, `js/battle/battle.js` 2, `js/input.js` 1, `js/main.js` boot 1) | every caller now calls `SF.game.scenes.go(name[, state])` | `SceneRouter.prototype.go` (`js/core/scene-router.js:64`) is the one write of `state.mode`; it keeps a bounded transition history (16) for QA. `tools/smoke.mjs` (`runOo03Checks`) fails on any `.mode =` write in `js/` outside the router | Own which scene is active | as above |
+| **Done in step 2b (v0.4.36):** overlay first-paint stamp `SF.noteOverlayPaint` with `SF._paintedOverlay` / `SF._overlayPaintAt` | was `js/main.js:41-54`, `js/input.js:371` | `SceneRouter.prototype.notePaint` (`js/core/scene-router.js:112`), fields `game.scenes.paintedKey` / `game.scenes.paintAt`; the press gate in `js/input.js:463`, `:475` reads them. `SF._overlayKey` stays with the press gate (step 14) | Stamp the first paint of an overlay scene | per frame, after draw |
 | Leaked top-level names (classic scripts, no IIFE) | `js/dialogue.js` (30), `js/music.js` (20), `js/ui/choice-box.js` (18), `js/sfx.js` (12), `js/menu/field.js` (12), `js/title.js` (8), `js/feel.js` (8), `js/art/core.js` (6), `js/audio.js` (5), `js/ui.js` (4) | wrap each file; export one object | | |
 
 ### B2. God-files and their split
@@ -420,7 +425,7 @@ Rules: one open PR at a time; PR Verifier PASS, merge and deploy before the next
 |---|---|---|---|---|
 | 1 | `oo-audit` ratchet: `tools/oo-audit.mjs` + smoke hook + baseline from this doc. Fails if any file's draw-API, CSS-art, `SF.*` or leaked-global count goes up. PR Verifier then has a machine check for "no code-drawn visuals remain" (baseline reaches 0). | A, B | none | (no art) |
 | 2a | `VisualObject` contract + `Game` root (`js/core/`). PR #56, v0.4.35 | B1 | 1 | (no art) |
-| 2b | `SceneRouter` (`js/core/scene-router.js`). Split out of step 2a as a later PR | B1 | 2a | (no art) |
+| 2b | `SceneRouter` (`js/core/scene-router.js`). Split out of step 2a as a later PR. PR #PRNUM, v0.4.36 | B1 | 2a | (no art) |
 | 3 | Wrap leaked top-level scripts (dialogue, music, choice-box, sfx, menu/field, title, feel, art/core, audio, ui) | B1 | 1 | (no art) |
 | 4 | `UiSkin` windows: DOM 9-slice + canvas `drawWindow` | U1, U2 | 2a | the approved ChoiceBox panel art (`choicebox-panel.png`) is the game-wide window skin (Brian's decision, Nov 14, 2026) |
 | 5 | `UiButton` + `Icon` + slider thumb + caret | U3, U9, U11, U13 | 4 | art: button 9-slice, 6 icons, thumb, caret |
@@ -506,7 +511,7 @@ Nothing may depend on these until Brian rules.
 
 ### Other notes
 
-1. **Counted publication in `js/main.js` (step 2a).** The per-file ratchet treats a new file as 0, so a literal `SF.Game =` or `SF.VisualObject =` in `js/core/` would fail `--against-ref origin/main` even when the totals fall. The counted assigns `SF.VisualObject`, `SF.Game`, and `SF.game` therefore live in `js/main.js`, an existing file with assignment headroom. Methods and statics attach in the objects' own files, which have zero `SF.*` sites. This is not a computed key, alias, or scanner-gap trick.
+1. **Counted publication in `js/main.js` (steps 2a and 2b).** The per-file ratchet treats a new file as 0, so a literal `SF.Game =`, `SF.VisualObject =`, or `SF.SceneRouter =` in `js/core/` would fail `--against-ref origin/main` even when the totals fall. The counted assigns `SF.VisualObject`, `SF.Game`, `SF.SceneRouter` (step 2b, `js/main.js:16`), and `SF.game` therefore live in `js/main.js`, an existing file with assignment headroom (step 2b moved three overlay-stamp assigns out of it). Methods and statics attach in the objects' own files, which have zero `SF.*` sites. `Game.init` builds the one router as `game.scenes`; there is no `SF.scenes`. This is not a computed key, alias, or scanner-gap trick.
 2. **Remaining compatibility shims**, each with a removal step. `SF.defineGame`, `SF.defineVisualObject`, `function bag()`, `host.game = this`, and the silent `if (!game) return` exits were removed in this PR.
 
 | Shim | Where | Removal step |
@@ -515,7 +520,12 @@ Nothing may depend on these until Brian rules.
 | `game.state` / `game.sf` write-through (`SF.state =` in `js/main.js`) | `js/main.js` (counted), accessors on `Game.prototype` | step 10 `GameState` |
 | `SF.boot` and `SF.resize` still functions on the bag | `js/main.js` | step 10 `GameLoop` and step 39 `Viewport` |
 | `SF.viewW`, `SF.viewH`, `SF.dpr`, `SF.zoom` still on the bag | `js/main.js` resize and draw-layer readers | step 39 `Viewport` |
-| `Game.prototype.update` / `Game.prototype.draw` child walkers, unused: the frame loop still calls `SF.update` / `SF.draw` | `js/core/game.js:122-139` | step 10 `GameLoop` (loop switches to the Game walkers, then the bag `SF.update` / `SF.draw` go) |
+| `Game.prototype.update` / `Game.prototype.draw` child walkers, unused: the frame loop still calls `SF.update` and draws through `game.scenes` | `js/core/game.js:129-145` | step 10 `GameLoop` (loop switches to the Game walkers, then the bag `SF.update` goes) |
+| Screen drawers still on the bag, called by `SceneRouter.draw`: `SF.drawField`, `SF.drawBattle`, `SF.drawTitleScene` (step 2b) | `js/draw.js:6`, `js/battle/draw.js:6`, `js/title.js:110` | `SF.drawTitleScene`: step 37 `TitleBackdrop`; `SF.drawBattle`: step 27 `BattleHud` widgets; `SF.drawField`: when the field layers are object containers (B2 `js/draw/*.js` row, steps 31-38), last in step 41 |
+| Voyage still a branch inside the field drawer, not its own screen (step 2b) | `js/draw.js` (`s.mode === "voyage" \|\| s.voyageTalk`) | step 37 `VoyageScene` (router picks it then) |
+| `SF._overlayKey` still on the bag; `SceneRouter.notePaint` reads it (step 2b) | `js/input.js` `SF.watchOverlays`; `js/core/scene-router.js:112` | step 14 `PressGate` (the gate hands the key to the router) |
+| `SF.flushSheets` QA hook kept; now calls `game.scenes.draw()` (step 2b) | `js/draw.js:66` | when the A13 QA tools retarget to `game.scenes` (step 41) |
+| Pause/resume patch chains (`SF.pauseGame` 2x, `SF.resumeGame` 2x) still hold the `pausedFrom` rule and UI side effects; their mode writes go through `game.scenes.go` (step 2b) | `js/ui.js:56-75`, `js/menu/field.js:420-432`, `js/input.js` (`SF[name] = wrapped` list) | step 28 `PauseMenu` |
 
 3. **Fail-closed boot and resize.** `SF.boot` and `SF.resize` throw `Error("Game root is missing")` when the Game constructor or the `SF.game` instance is missing. They no longer return silently.
 4. `js/art/buildings.js` is not in `index.html`. `js/art/world.js:308-312` injects it with `document.write`.

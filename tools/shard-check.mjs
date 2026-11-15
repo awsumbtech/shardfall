@@ -52,12 +52,20 @@ for (const file of [
   "js/battle/audio.js",
   "js/menu/field.js",
   "js/draw/deps.js",
-  "js/world.js"
+  "js/world.js",
+  "js/main.js",
+  "js/core/visual-object.js",
+  "js/core/game.js",
+  "js/core/scene-router.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
 
 const SF = context.SF;
+// The page boot builds the Game root and its SceneRouter before any mode
+// change; build the same root here.
+SF.game = new SF.Game();
+SF.game.attach(context);
 SF.readMove = () => ({ x: 0, y: 0 });
 SF.consumeDash = () => false;
 SF.consumeAttack = () => false;

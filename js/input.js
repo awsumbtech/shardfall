@@ -266,7 +266,7 @@ SF.bindInput = function () {
     }
     if (s.mode === "sailmenu" || s.mode === "shop" || s.mode === "inn" || s.mode === "notice") {
       if (e.code === "Escape" && SF.closeWorldPanel) SF.closeWorldPanel();
-      else if (e.code === "Escape") s.mode = "play";
+      else if (e.code === "Escape") SF.game.scenes.go("play", s);
       return;
     }
     if (s.mode === "hand") {
@@ -368,7 +368,6 @@ SF.bindInput = function () {
   SF._armClick = false;
   SF._downs = Object.create(null);
   SF._lastDown = null;
-  SF._overlayPaintAt = 0;
   var ACT_LOCK_MS = 350;
   function overlayOpen(mode, extra) {
     if (extra) return true;
@@ -461,7 +460,7 @@ SF.bindInput = function () {
   // click that arrives before any paint frame.
   function overlayWaiting() {
     var key = SF._overlayKey;
-    if (!key || key === SF._paintedOverlay) return false;
+    if (!key || key === SF.game.scenes.paintedKey) return false;
     var mode = String(key).split("|")[0];
     var extra = String(key).indexOf("|") >= 0;
     if (extra) return true;
@@ -473,7 +472,7 @@ SF.bindInput = function () {
     if (isPriorFinger(e) || isAction(e)) return false;
     var down = downRecord(e);
     if (!down) return false;
-    var paint = SF._overlayPaintAt || 0;
+    var paint = SF.game.scenes.paintAt || 0;
     if (!(paint && down.t < paint) && !(overlayWaiting() && down.t <= performance.now())) return false;
     e.preventDefault();
     e.stopPropagation();

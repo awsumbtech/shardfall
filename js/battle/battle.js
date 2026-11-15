@@ -128,7 +128,7 @@ SF.Battle.flow.finish = function (win) {
   s.touchCd = 0.7;
   s.encounterGrace = 10;
   s.stepAcc = 0;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   if (SF.inputState) {
     SF.inputState.interactEdge = false;
     SF.inputState.padAEdge = false;
@@ -416,7 +416,7 @@ SF.Battle.start = function (encounterId, opts) {
   SF.BattleState.stampNames(b.actors.filter(function (a) { return a.side === "foe"; }));
   SF.BattleTimeline.prime(b.actors);
   s.battle = b;
-  s.mode = "battle";
+  SF.game.scenes.go("battle", s);
   if (SF.releaseHolds) SF.releaseHolds();
   SF.BattleState.log(b, b.boss ? b.name + " attacks." : b.name + ".");
   if (SF.BattleEvents) SF.BattleEvents.emit("battle-start", { boss: !!b.boss, id: b.id });

@@ -54,7 +54,7 @@ SF.openFieldMenu = function () {
   SF.releaseHolds && SF.releaseHolds();
   s.pausedFrom = s.mode === "fieldmenu" ? "play" : s.mode;
   if (s.pausedFrom === "pause") s.pausedFrom = "play";
-  s.mode = "fieldmenu";
+  SF.game.scenes.go("fieldmenu", s);
   SF.fieldScreen = "root";
   SF.fieldNote = "";
   SF._fieldSig = "";
@@ -65,7 +65,7 @@ SF.openFieldMenu = function () {
 SF.closeFieldMenu = function () {
   var s = SF.state;
   if (!s || s.mode !== "fieldmenu") return;
-  s.mode = "play";
+  SF.game.scenes.go("play", s);
   SF.fieldNote = "";
   if (SF.syncUI) SF.syncUI();
 };
@@ -358,7 +358,7 @@ function onRoot(id) {
     }
     var next = SF.fresh();
     if (!SF.applySave(next, data)) return;
-    next.mode = "play";
+    SF.game.scenes.go("play", next);
     next.camX = next.player.x;
     next.camY = next.player.y;
     SF.state = next;
@@ -366,7 +366,7 @@ function onRoot(id) {
     return;
   }
   if (id === "hand") {
-    s.mode = "play";
+    SF.game.scenes.go("play", s);
     if (SF.openHand) SF.openHand();
     return;
   }
@@ -378,7 +378,7 @@ function onRoot(id) {
   }
   if (id === "title") {
     SF.saveGame({ silent: true });
-    s.mode = "title";
+    SF.game.scenes.go("title", s);
     s.camX = 190;
     s.camY = -170;
     return;

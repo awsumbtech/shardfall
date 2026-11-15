@@ -228,7 +228,7 @@ function openChoicesAgain(node) {
     lock: 0,
     holdForApproach: false
   };
-  s.mode = "dialogue";
+  SF.game.scenes.go("dialogue", s);
   SF._portraitKey = null;
   if (SF.releaseHolds) SF.releaseHolds();
   if (SF.emit) SF.emit("talk");
@@ -273,7 +273,7 @@ function showNode(id) {
     lock: lock,
     holdForApproach: walkingUp
   };
-  s.mode = "dialogue";
+  SF.game.scenes.go("dialogue", s);
   applyLineVoice(s.dialogue);
   if (SF.releaseHolds) SF.releaseHolds();
   if (SF.emit) SF.emit("talk");
@@ -300,7 +300,7 @@ function finishNode(choice) {
     return;
   }
   s.dialogue = null;
-  if (s.mode === "dialogue") s.mode = "play";
+  if (s.mode === "dialogue") SF.game.scenes.go("play", s);
   SF._portraitKey = null;
   if (SF.saveGame) SF.saveGame({ silent: true });
   if (SF.syncUI) SF.syncUI();
