@@ -45,4 +45,21 @@ Four 480×270 plates per area (sky opaque RGB; far, mid, and floor RGBA with alp
 | `assets/battle/backdrops/ember_vault/v1/mid.png` | 480×270, alpha | Ember Vault mid |
 | `assets/battle/backdrops/ember_vault/v1/floor.png` | 480×270, alpha | Ember Vault floor |
 
-Provenance, sha256, and kit paths: `docs/evidence/oo-05/ART-PROVENANCE.md`. GAM batch 2, 16 November 2026, America/New_York. The remaining four catalog areas (saltmere_shore, saltmere_wreck, highspire_road, hush_deck) have no plates in this folder yet.
+Provenance, sha256, and kit paths: `docs/evidence/oo-05/ART-PROVENANCE.md`. GAM batch 2, 16 November 2026, America/New_York. Batch 2 of 8 catalog areas. See also the Saltmere shore and wreck plates below.
+
+## Battle backdrops — Saltmere shore and wreck (v1, batch 3)
+
+Four 480×270 plates per area (sky opaque RGB; far, mid, and floor RGBA with alpha). Horizon at plate Y 124. Wired as `saltmere_shore` and `saltmere_wreck` in `js/data/battle-backdrops.js`.
+
+| File | Size | Role |
+| --- | --- | --- |
+| `assets/battle/backdrops/saltmere_shore/v1/sky.png` | 480×270, opaque | Saltmere shore sky |
+| `assets/battle/backdrops/saltmere_shore/v1/far.png` | 480×270, alpha | Saltmere shore far |
+| `assets/battle/backdrops/saltmere_shore/v1/mid.png` | 480×270, alpha | Saltmere shore mid |
+| `assets/battle/backdrops/saltmere_shore/v1/floor.png` | 480×270, alpha | Saltmere shore floor |
+| `assets/battle/backdrops/saltmere_wreck/v1/sky.png` | 480×270, opaque | Saltmere wreck sky |
+| `assets/battle/backdrops/saltmere_wreck/v1/far.png` | 480×270, alpha | Saltmere wreck far |
+| `assets/battle/backdrops/saltmere_wreck/v1/mid.png` | 480×270, alpha | Saltmere wreck mid |
+| `assets/battle/backdrops/saltmere_wreck/v1/floor.png` | 480×270, alpha | Saltmere wreck floor |
+
+Provenance, sha256, and kit paths: `docs/evidence/oo-06/ART-PROVENANCE.md`. GAM batch 3, 16 November 2026, America/New_York. The remaining two catalog areas (highspire_road, hush_deck) have no plates in this folder yet.

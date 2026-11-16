@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.38";
+SF.VERSION = "0.4.39";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -62,7 +62,8 @@ SF.WHATS_NEW = [
   "Behind the scenes: a VisualObject base and a Game root. Nothing looks different.",
   "Behind the scenes: a SceneRouter now picks the title, field and battle screens. Nothing looks different.",
   "New painted battle backdrops for the Emberhold meadow and scar.",
-  "Painted battle backdrops for the Cinderveil ash fields and the Ember Vault."
+  "Painted battle backdrops for the Cinderveil ash fields and the Ember Vault.",
+  "Painted battle backdrops for the Saltmere shore and the shipwreck."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

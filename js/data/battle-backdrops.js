@@ -47,7 +47,7 @@
     "highspire_road",
     "hush_deck"
   ];
-  var ready = { emberhold_meadow: true, emberhold_scar: true, cinderveil_ash: true, ember_vault: true };
+  var ready = { emberhold_meadow: true, emberhold_scar: true, cinderveil_ash: true, ember_vault: true, saltmere_shore: true, saltmere_wreck: true };
   var areas = {};
   var precache = [];
   var i, id, row, j, name;
