@@ -1,0 +1,265 @@
+{
+ "foe": "choirling",
+ "version": "1.0.0",
+ "tool": "PixelLab via the user-pixellab MCP connector (subscription generations; Brian approved Shardfall foe generations Nov 14)",
+ "design_source": "game-art shardfall/foes/choirling v1.0.0 (approved; tag shardfall-foes-v1.3.0)",
+ "third_party_inputs": "none (no Kenmi or other third-party art as input or reference)",
+ "base_frame": {
+  "generation": "choirling_r1",
+  "candidate_index": 4,
+  "art_px": [
+   42,
+   46
+  ],
+  "placed_in_canvas_at": [
+   11,
+   14
+  ],
+  "canvas": [
+   64,
+   64
+  ]
+ },
+ "clips": {
+  "idle": {
+   "job_id": "cd005ba5-abbf-4dc0-a3cb-3140d24b049a",
+   "source_frames_used": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "attack": {
+   "job_id": "a181efc3-477c-41f8-b559-6b626a9adcde",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "hurt": {
+   "job_id": "83ffa2cd-ad85-4f8a-9137-e59da368edf1",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 2
+  },
+  "death": {
+   "job_id": "f5b599d4-abd7-4308-8473-d34dd28dffaf",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "cast": {
+   "job_id": "ffc3186d-b96d-40f8-ab1f-9d221cea70da",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  }
+ },
+ "cleanup": [
+  "alpha threshold at 128 to binary 0/255",
+  "nearest-colour (CIELAB) palette lock to the design palette listed in manifest.json",
+  "isolated 1px orphans removed on idle/hurt only",
+  "whole-frame integer vertical shift of <=3px on pinned clips to hold the pivot row",
+  "frame selection (dropped frames listed in notes)"
+ ],
+ "notes": [
+  "death source frame 8 dropped: palette-locked to a flat tan mound that did not read as the robe; clip ends on the collapsed robe"
+ ],
+ "generations": [
+  {
+   "foe": "choirling",
+   "step": "base",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "75d5143d-14cb-456f-ad2d-94683fd0f921",
+   "size": [
+    48,
+    48
+   ],
+   "candidates": 25,
+   "cost_gens": 10,
+   "reference": "_src/refs/choirling_design_idle_x4.png (game-art v1.0.0)",
+   "palette": "_src/palettes.json[choirling] (extracted from existing design)",
+   "prompt_file": "_src/prompts.json",
+   "ts": "2026-11-16T14:53:29-05:00",
+   "prompt": "Choirling, a small hooded chorister spirit monster for a JRPG side-view battle, standing, facing right. Tall pointed violet hood and long flowing purple robe, round pale bone-white mask face with small dark eyes and a small open singing mouth, tiny pale hand in front, a little gold sparkle note floating in front of it. Idle stance. Clean readable pixel art sprite with dark outline, single character centred, robe hem at the bottom, transparent background."
+  },
+  {
+   "foe": "choirling",
+   "step": "base_reroll1",
+   "reroll": 1,
+   "reroll_reason": "first base art height under spec (normal foe target ~44 art px; boss ~92 like the stand-in); redraw larger with the first pick as identity reference",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "1e280907-03d9-4ca1-a14b-e33890816e7d",
+   "size": [
+    56,
+    56
+   ],
+   "candidates": 16,
+   "cost_gens": 10,
+   "reference": [
+    "_work/choirling_pick_x4.png",
+    "_src/refs/choirling_design_idle_x4.png"
+   ],
+   "palette": "_src/palettes.json[choirling]",
+   "prompt_file": "_src/prompts.json#choirling/base_reroll1",
+   "ts": "2026-11-16T14:57:24-05:00",
+   "prompt": "Choirling, a small hooded chorister spirit monster for a JRPG side-view battle, standing, facing right. Tall pointed violet hood and long flowing purple robe, round pale bone-white mask face with small dark eyes and a small open singing mouth, tiny pale hand in front, a little gold sparkle note floating in front of it. Idle stance. Large sprite that fills the canvas height. Clean readable pixel art sprite with dark outline, single character centred, robe hem at the bottom, transparent background."
+  },
+  {
+   "foe": "choirling",
+   "step": "anim:idle",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "cd005ba5-abbf-4dc0-a3cb-3140d24b049a",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/choirling_base_canvas.png (upload:3d1e5c26-e300-43b1-b2f9-1c4505e36b03)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "idle loop: robe sways gently, the floating gold sparkle in front of it twinkles and bobs, feet stay in place",
+   "ts": "2026-11-16T15:03:20-05:00"
+  },
+  {
+   "foe": "choirling",
+   "step": "anim:attack",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "a181efc3-477c-41f8-b559-6b626a9adcde",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/choirling_base_canvas.png (upload:3d1e5c26-e300-43b1-b2f9-1c4505e36b03)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "note burst attack: leans back and takes a breath, then sings forward to the right, a burst of gold music notes shoots out from its mouth, then it straightens up",
+   "ts": "2026-11-16T15:03:20-05:00"
+  },
+  {
+   "foe": "choirling",
+   "step": "anim:cast",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "ffc3186d-b96d-40f8-ab1f-9d221cea70da",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/choirling_base_canvas.png (upload:3d1e5c26-e300-43b1-b2f9-1c4505e36b03)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "casting a hymn: raises both hands upward and sings, glowing violet rings and gold notes swirl around it, then it lowers its hands",
+   "ts": "2026-11-16T15:03:20-05:00"
+  },
+  {
+   "foe": "choirling",
+   "step": "anim:hurt",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "83ffa2cd-ad85-4f8a-9137-e59da368edf1",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/choirling_base_canvas.png (upload:3d1e5c26-e300-43b1-b2f9-1c4505e36b03)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "taking a hit: recoils backwards to the left, the mask face winces with eyes shut, hood tilts back, then recovers",
+   "ts": "2026-11-16T15:06:30-05:00"
+  },
+  {
+   "foe": "choirling",
+   "step": "anim:death",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "f5b599d4-abd7-4308-8473-d34dd28dffaf",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/choirling_base_canvas.png (upload:3d1e5c26-e300-43b1-b2f9-1c4505e36b03)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "death: wobbles, the robe crumples and collapses downward into a flat empty heap, the mask falls onto the pile, then it fades",
+   "ts": "2026-11-16T15:06:30-05:00"
+  }
+ ],
+ "generation_cost_total": 25,
+ "rerolls": 1
+}

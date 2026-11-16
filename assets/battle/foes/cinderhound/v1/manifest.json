@@ -1,0 +1,85 @@
+{
+ "id": "cinderhound",
+ "key": "sf.battle.foe.cinderhound",
+ "version": "1.0.0",
+ "object": "shardfall/battle/foes",
+ "image": "cinderhound.png",
+ "sheet": [
+  640,
+  320
+ ],
+ "frameW": 80,
+ "frameH": 64,
+ "layout": "one row per animation, frames left to right, unused cells transparent",
+ "facing": "right",
+ "pivot": {
+  "x": 40,
+  "y": 60,
+  "rule": "feet centre; feet bottom edge sits on y (last opaque row = y-1)"
+ },
+ "hover_px": 0,
+ "boss": false,
+ "art_box_idle": {
+  "x": 10,
+  "y": 18,
+  "w": 59,
+  "h": 42
+ },
+ "suggested_scale": 2,
+ "animations": {
+  "idle": {
+   "row": 0,
+   "count": 4,
+   "fps": 6,
+   "loop": true
+  },
+  "attack": {
+   "row": 1,
+   "count": 8,
+   "fps": 12,
+   "loop": false,
+   "label": "bite"
+  },
+  "hurt": {
+   "row": 2,
+   "count": 4,
+   "fps": 10,
+   "loop": false
+  },
+  "death": {
+   "row": 3,
+   "count": 8,
+   "fps": 9,
+   "loop": false,
+   "label": "crumble_to_ash"
+  },
+  "cast": {
+   "row": 4,
+   "count": 8,
+   "fps": 10,
+   "loop": false,
+   "label": "spike_flare"
+  }
+ },
+ "design_source": "Shardfall live stand-in js/art/actors.js buildHound (no game-art sheet exists)",
+ "palette": [
+  "#0e0a16",
+  "#1a1224",
+  "#1c1424",
+  "#241810",
+  "#3a2458",
+  "#5a4038",
+  "#6e6460",
+  "#a04418",
+  "#b0a49c",
+  "#ddd4cc",
+  "#e06828",
+  "#e8d8c8",
+  "#f4e0a0",
+  "#ffb15a",
+  "#ffe08a",
+  "#fff4ec"
+ ],
+ "alpha": "binary (0 or 255)",
+ "provenance": "PixelLab (subscription generations, Brian approved Nov 14) via the user-pixellab connector; see ../../../../../PROVENANCE.json. No Kenmi or third-party art as input or reference."
+}

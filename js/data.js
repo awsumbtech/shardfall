@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.40";
+SF.VERSION = "0.4.41";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -64,7 +64,8 @@ SF.WHATS_NEW = [
   "New painted battle backdrops for the Emberhold meadow and scar.",
   "Painted battle backdrops for the Cinderveil ash fields and the Ember Vault.",
   "Painted battle backdrops for the Saltmere shore and the shipwreck.",
-  "Painted battle backdrops for the Highspire road and the Hush ship deck — all 8 battle areas now have real art — plus a clearer Saltmere shipwreck."
+  "Painted battle backdrops for the Highspire road and the Hush ship deck — all 8 battle areas now have real art — plus a clearer Saltmere shipwreck.",
+  "New animated art for six Act 1 foes."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

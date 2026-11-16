@@ -1,0 +1,268 @@
+{
+ "foe": "cinder_maw",
+ "version": "1.0.0",
+ "tool": "PixelLab via the user-pixellab MCP connector (subscription generations; Brian approved Shardfall foe generations Nov 14)",
+ "design_source": "game-art shardfall/foes/cinder_maw v1.1.0 (approved chibi 3/4; tag shardfall-foes-v1.3.0)",
+ "third_party_inputs": "none (no Kenmi or other third-party art as input or reference)",
+ "base_frame": {
+  "generation": "cinder_maw_r1",
+  "candidate_index": 0,
+  "art_px": [
+   104,
+   100
+  ],
+  "placed_in_canvas_at": [
+   28,
+   24
+  ],
+  "canvas": [
+   160,
+   128
+  ]
+ },
+ "clips": {
+  "idle": {
+   "job_id": "21b64bf0-66b0-47b2-bceb-aa2c5e36d8ae",
+   "source_frames_used": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "attack": {
+   "job_id": "c29416a7-3909-4c7a-b6f3-6b63b707ca24",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "hurt": {
+   "job_id": "971297f0-0623-4402-a5f1-4bc6b1e3886a",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "death": {
+   "job_id": "6e2ad567-49e9-49f3-b57b-c16b823a1614",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -1
+   ],
+   "orphan_px_removed": 0
+  },
+  "cast": {
+   "job_id": "d5f1c0a6-12b9-408c-a8ac-604a1eacbb93",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  }
+ },
+ "cleanup": [
+  "alpha threshold at 128 to binary 0/255",
+  "nearest-colour (CIELAB) palette lock to the design palette listed in manifest.json",
+  "isolated 1px orphans removed on idle/hurt only",
+  "whole-frame integer vertical shift of <=3px on pinned clips to hold the pivot row",
+  "frame selection (dropped frames listed in notes)"
+ ],
+ "notes": [
+  "death last frame shifted up 1px so the rubble sits on the pivot row",
+  "base canvas 160x128 gives the bite lunge room; art box 104x100 (stand-in was 61x92)"
+ ],
+ "generations": [
+  {
+   "foe": "cinder_maw",
+   "step": "base",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "a86288bd-9973-4553-9640-c9c321157b0a",
+   "size": [
+    96,
+    96
+   ],
+   "candidates": 4,
+   "cost_gens": 10,
+   "reference": "_src/refs/cinder_maw_design_idle_x4.png (game-art v1.1.0)",
+   "palette": "_src/palettes.json[cinder_maw] (extracted from existing design)",
+   "prompt_file": "_src/prompts.json",
+   "ts": "2026-11-16T14:53:29-05:00",
+   "prompt": "Cinder Maw, a chunky top-heavy chibi volcanic wolf boss for a JRPG side-view battle, standing in a 3/4 pose facing right. Big horned wolf head (about 40% of its height) with two curved dark purple horns, large glowing yellow ember eyes, open jaw with white fangs. Broad chest with a round dark armoured core plate in the centre crossed by glowing orange cracks, grey-brown rocky hide with glowing ember cracks radiating from the core, short thick legs, dark spikes on its back, small ember-tipped tail on the left. Idle stance. Clean readable pixel art boss sprite with dark outline, single creature centred, feet at the bottom, transparent background."
+  },
+  {
+   "foe": "cinder_maw",
+   "step": "base_reroll1",
+   "reroll": 1,
+   "reroll_reason": "first base art height under spec (normal foe target ~44 art px; boss ~92 like the stand-in); redraw larger with the first pick as identity reference",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "43c0eb8c-de59-494b-805c-75dbbc15c8e6",
+   "size": [
+    128,
+    128
+   ],
+   "candidates": 4,
+   "cost_gens": 10,
+   "reference": [
+    "_work/cinder_maw_pick_x4.png",
+    "_src/refs/cinder_maw_design_idle_x4.png"
+   ],
+   "palette": "_src/palettes.json[cinder_maw]",
+   "prompt_file": "_src/prompts.json#cinder_maw/base_reroll1",
+   "ts": "2026-11-16T14:57:24-05:00",
+   "prompt": "Cinder Maw, a chunky top-heavy chibi volcanic wolf boss for a JRPG side-view battle, standing in a 3/4 pose facing right. Big horned wolf head (about 40% of its height) with two curved dark purple horns, large glowing yellow ember eyes, open jaw with white fangs. Broad chest with a round dark armoured core plate in the centre crossed by glowing orange cracks, grey-brown rocky hide with glowing ember cracks radiating from the core, short thick legs, dark spikes on its back, small ember-tipped tail on the left. Idle stance. Large boss sprite that fills the canvas height. Clean readable pixel art boss sprite with dark outline, single creature centred, feet at the bottom, transparent background."
+  },
+  {
+   "foe": "cinder_maw",
+   "step": "anim:idle",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "21b64bf0-66b0-47b2-bceb-aa2c5e36d8ae",
+   "frames_requested": 4,
+   "size": [
+    160,
+    128
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinder_maw_base_canvas.png (upload:ea241e55-3554-4246-8db4-18d785512f87)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "idle breathing loop: huge body rises and falls slowly, ember cracks pulse, head bobs slightly, feet stay planted in place",
+   "ts": "2026-11-16T15:07:18-05:00"
+  },
+  {
+   "foe": "cinder_maw",
+   "step": "anim:attack",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "c29416a7-3909-4c7a-b6f3-6b63b707ca24",
+   "frames_requested": 8,
+   "size": [
+    160,
+    128
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinder_maw_base_canvas.png (upload:ea241e55-3554-4246-8db4-18d785512f87)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "bite attack: rears its head back to wind up, then lunges forward to the right with jaws wide open and snaps them shut, then returns to its stance",
+   "ts": "2026-11-16T15:08:16-05:00"
+  },
+  {
+   "foe": "cinder_maw",
+   "step": "anim:cast",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "d5f1c0a6-12b9-408c-a8ac-604a1eacbb93",
+   "frames_requested": 8,
+   "size": [
+    160,
+    128
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinder_maw_base_canvas.png (upload:ea241e55-3554-4246-8db4-18d785512f87)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "inhale spell: plants its feet, lowers its head and inhales, the chest core and ember cracks glow brighter and brighter, then it exhales a short burst of embers",
+   "ts": "2026-11-16T15:08:16-05:00"
+  },
+  {
+   "foe": "cinder_maw",
+   "step": "anim:hurt",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "971297f0-0623-4402-a5f1-4bc6b1e3886a",
+   "frames_requested": 4,
+   "size": [
+    160,
+    128
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinder_maw_base_canvas.png (upload:ea241e55-3554-4246-8db4-18d785512f87)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "taking a hit: flinches backwards to the left, head jerks back, eyes squeeze shut, body recoils, then recovers to standing",
+   "ts": "2026-11-16T15:08:16-05:00"
+  },
+  {
+   "foe": "cinder_maw",
+   "step": "anim:death",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "6e2ad567-49e9-49f3-b57b-c16b823a1614",
+   "frames_requested": 8,
+   "size": [
+    160,
+    128
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinder_maw_base_canvas.png (upload:ea241e55-3554-4246-8db4-18d785512f87)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "death: roars weakly, legs buckle and it slumps down onto the ground, the ember cracks go dark, and its rocky body crumbles into a heap of ash and cooling rubble",
+   "ts": "2026-11-16T15:09:12-05:00"
+  }
+ ],
+ "generation_cost_total": 25,
+ "rerolls": 1
+}

@@ -1,0 +1,245 @@
+{
+ "foe": "cinderhound",
+ "version": "1.0.0",
+ "tool": "PixelLab via the user-pixellab MCP connector (subscription generations; Brian approved Shardfall foe generations Nov 14)",
+ "design_source": "Shardfall live stand-in js/art/actors.js buildHound (no game-art sheet exists)",
+ "third_party_inputs": "none (no Kenmi or other third-party art as input or reference)",
+ "base_frame": {
+  "generation": "cinderhound_base",
+  "candidate_index": 0,
+  "art_px": [
+   59,
+   42
+  ],
+  "placed_in_canvas_at": [
+   10,
+   18
+  ],
+  "canvas": [
+   80,
+   64
+  ]
+ },
+ "clips": {
+  "idle": {
+   "job_id": "581bd9b6-11a3-4e20-b674-f05b8fb6da64",
+   "source_frames_used": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "attack": {
+   "job_id": "67a41c91-4c3f-4817-bf1c-43c521a05a9b",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "hurt": {
+   "job_id": "5553e2fd-9c10-4169-988b-7c39ebfaffb7",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "death": {
+   "job_id": "2e0abb37-1198-430e-879f-6badeded0150",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "cast": {
+   "job_id": "483b580d-0760-46cb-8cee-3c35ea56d931",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  }
+ },
+ "cleanup": [
+  "alpha threshold at 128 to binary 0/255",
+  "nearest-colour (CIELAB) palette lock to the design palette listed in manifest.json",
+  "isolated 1px orphans removed on idle/hurt only",
+  "whole-frame integer vertical shift of <=3px on pinned clips to hold the pivot row",
+  "frame selection (dropped frames listed in notes)"
+ ],
+ "notes": [
+  "base kept from the first generation (art 59x42 already met the size target); no reroll"
+ ],
+ "generations": [
+  {
+   "foe": "cinderhound",
+   "step": "base",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "0168b36e-67f4-4dea-a273-dba4bde589ef",
+   "size": [
+    64,
+    64
+   ],
+   "candidates": 16,
+   "cost_gens": 10,
+   "reference": "_src/refs/cinderhound_design_idle_x4.png (in-game-standin js/art/actors.js buildHound)",
+   "palette": "_src/palettes.json[cinderhound] (extracted from existing design)",
+   "prompt_file": "_src/prompts.json",
+   "ts": "2026-11-16T14:53:29-05:00",
+   "prompt": "Cinderhound, a stocky volcanic hound monster for a JRPG side-view battle, standing on four legs in side view, facing right. Ash-grey stone-like hide with darker brown-grey belly and legs, a row of jagged glowing orange-ember crystal spikes along its back, ember-tipped tail at the left, blunt snout with a small ember eye at the right, short sturdy legs. Idle stance. Clean readable pixel art sprite with dark outline, single creature centred, feet at the bottom, transparent background."
+  },
+  {
+   "foe": "cinderhound",
+   "step": "anim:idle",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "581bd9b6-11a3-4e20-b674-f05b8fb6da64",
+   "frames_requested": 4,
+   "size": [
+    80,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinderhound_base_canvas.png (upload:c19141b7)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "idle breathing loop: body rises and falls slightly, ember back spikes flicker, tail sways a little, feet stay planted in place",
+   "ts": "2026-11-16T14:57:50-05:00"
+  },
+  {
+   "foe": "cinderhound",
+   "step": "anim:attack",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "67a41c91-4c3f-4817-bf1c-43c521a05a9b",
+   "frames_requested": 8,
+   "size": [
+    80,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinderhound_base_canvas.png (upload:c19141b7)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "bite attack: crouches back on its haunches to wind up, then lunges forward to the right with jaws snapping open, then returns to its standing pose",
+   "ts": "2026-11-16T14:57:50-05:00"
+  },
+  {
+   "foe": "cinderhound",
+   "step": "anim:cast",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "483b580d-0760-46cb-8cee-3c35ea56d931",
+   "frames_requested": 8,
+   "size": [
+    80,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinderhound_base_canvas.png (upload:c19141b7)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "casting a fire spell: plants its feet, raises its head and howls, the ember spikes on its back flare bright and a small burst of ember sparks rises from them, then settles back",
+   "ts": "2026-11-16T14:59:55-05:00"
+  },
+  {
+   "foe": "cinderhound",
+   "step": "anim:hurt",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "5553e2fd-9c10-4169-988b-7c39ebfaffb7",
+   "frames_requested": 4,
+   "size": [
+    80,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinderhound_base_canvas.png (upload:c19141b7)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "taking a hit: flinches backwards to the left, head jerks back, eyes squeeze shut, body recoils and lowers, then recovers to standing",
+   "ts": "2026-11-16T14:59:55-05:00"
+  },
+  {
+   "foe": "cinderhound",
+   "step": "anim:death",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "2e0abb37-1198-430e-879f-6badeded0150",
+   "frames_requested": 8,
+   "size": [
+    80,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/cinderhound_base_canvas.png (upload:c19141b7)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "death: staggers, legs buckle and it collapses onto its side on the ground, the ember spikes dim and go dark, it crumbles into a low pile of grey ash and cooling embers",
+   "ts": "2026-11-16T14:59:55-05:00"
+  }
+ ],
+ "generation_cost_total": 15,
+ "rerolls": 0
+}

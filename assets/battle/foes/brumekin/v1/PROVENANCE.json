@@ -1,0 +1,267 @@
+{
+ "foe": "brumekin",
+ "version": "1.0.0",
+ "tool": "PixelLab via the user-pixellab MCP connector (subscription generations; Brian approved Shardfall foe generations Nov 14)",
+ "design_source": "game-art shardfall/foes/brumekin v1.0.0 (approved; tag shardfall-foes-v1.3.0)",
+ "third_party_inputs": "none (no Kenmi or other third-party art as input or reference)",
+ "base_frame": {
+  "generation": "brumekin_r1",
+  "candidate_index": 2,
+  "art_px": [
+   39,
+   48
+  ],
+  "placed_in_canvas_at": [
+   12,
+   12
+  ],
+  "canvas": [
+   64,
+   64
+  ]
+ },
+ "clips": {
+  "idle": {
+   "job_id": "ff398ca9-1efa-4f92-adb7-f3f099e73fdb",
+   "source_frames_used": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "attack": {
+   "job_id": "621ea377-c63c-4852-9f56-6f134ad5d820",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "hurt": {
+   "job_id": "d813faf3-9566-4bc2-be26-6afac060f8fe",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 3
+  },
+  "death": {
+   "job_id": "91b86ba0-834c-4989-9a42-1e317aa3d725",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "cast": {
+   "job_id": "0e8e6731-a117-4f50-bfa0-21205fc6feea",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  }
+ },
+ "cleanup": [
+  "alpha threshold at 128 to binary 0/255",
+  "nearest-colour (CIELAB) palette lock to the design palette listed in manifest.json",
+  "isolated 1px orphans removed on idle/hurt only",
+  "whole-frame integer vertical shift of <=3px on pinned clips to hold the pivot row",
+  "frame selection (dropped frames listed in notes)"
+ ],
+ "notes": [
+  "hurt: 3 orphan pixels removed"
+ ],
+ "generations": [
+  {
+   "foe": "brumekin",
+   "step": "base",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "3cf2264c-9fe5-4f79-976e-0953a5d5be27",
+   "size": [
+    48,
+    48
+   ],
+   "candidates": 25,
+   "cost_gens": 10,
+   "reference": "_src/refs/brumekin_design_idle_x4.png (game-art v1.0.0)",
+   "palette": "_src/palettes.json[brumekin] (extracted from existing design)",
+   "prompt_file": "_src/prompts.json",
+   "ts": "2026-11-16T14:53:29-05:00",
+   "prompt": "Brumekin, a chunky round chibi brute monster for a JRPG side-view battle, standing, facing right. Big round dark indigo-purple body, two curved golden-yellow horns on top, small angry white eyes looking right, a glowing orange ember belly patch, small stubby dark fist in front, short gold-brown feet. Idle stance. Clean readable pixel art sprite with dark plum outline, single character centred, feet at the bottom, transparent background."
+  },
+  {
+   "foe": "brumekin",
+   "step": "base_reroll1",
+   "reroll": 1,
+   "reroll_reason": "first base art height under spec (normal foe target ~44 art px; boss ~92 like the stand-in); redraw larger with the first pick as identity reference",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "74ecf3fb-935b-4a40-9eff-0fccc9ecb354",
+   "size": [
+    56,
+    56
+   ],
+   "candidates": 16,
+   "cost_gens": 10,
+   "reference": [
+    "_work/brumekin_pick_x4.png",
+    "_src/refs/brumekin_design_idle_x4.png"
+   ],
+   "palette": "_src/palettes.json[brumekin]",
+   "prompt_file": "_src/prompts.json#brumekin/base_reroll1",
+   "ts": "2026-11-16T14:57:24-05:00",
+   "prompt": "Brumekin, a chunky round chibi brute monster for a JRPG side-view battle, standing, facing right. Big round dark indigo-purple body, two curved golden-yellow horns on top, small angry white eyes looking right, a glowing orange ember belly patch, small stubby dark fist in front, short gold-brown feet. Idle stance. Large sprite that fills the canvas height. Clean readable pixel art sprite with dark plum outline, single character centred, feet at the bottom, transparent background."
+  },
+  {
+   "foe": "brumekin",
+   "step": "anim:idle",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "ff398ca9-1efa-4f92-adb7-f3f099e73fdb",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/brumekin_base_canvas.png (upload:de403970-ab54-4300-8de7-6c143f0f0640)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "idle breathing loop: round body rises and falls slightly, ember belly pulses, feet stay planted in place",
+   "ts": "2026-11-16T15:01:58-05:00"
+  },
+  {
+   "foe": "brumekin",
+   "step": "anim:attack",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "621ea377-c63c-4852-9f56-6f134ad5d820",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/brumekin_base_canvas.png (upload:de403970-ab54-4300-8de7-6c143f0f0640)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "body slam attack: crouches down to wind up, then hops forward to the right and slams its whole round body forward, then steps back to its stance",
+   "ts": "2026-11-16T15:01:58-05:00"
+  },
+  {
+   "foe": "brumekin",
+   "step": "anim:cast",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "0e8e6731-a117-4f50-bfa0-21205fc6feea",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/brumekin_base_canvas.png (upload:de403970-ab54-4300-8de7-6c143f0f0640)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "casting a fire skill: plants its feet and puffs up, the ember belly glows brighter and flames flicker up around it, then it settles",
+   "ts": "2026-11-16T15:01:58-05:00"
+  },
+  {
+   "foe": "brumekin",
+   "step": "anim:hurt",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "d813faf3-9566-4bc2-be26-6afac060f8fe",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/brumekin_base_canvas.png (upload:de403970-ab54-4300-8de7-6c143f0f0640)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "taking a hit: flinches backwards to the left, squeezes eyes shut with a pained face, body squashes, then recovers",
+   "ts": "2026-11-16T15:03:20-05:00"
+  },
+  {
+   "foe": "brumekin",
+   "step": "anim:death",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "91b86ba0-834c-4989-9a42-1e317aa3d725",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/brumekin_base_canvas.png (upload:de403970-ab54-4300-8de7-6c143f0f0640)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "death: staggers, eyes go dizzy, tips over backwards and flops onto the ground, the ember belly dims and goes dark, lying still",
+   "ts": "2026-11-16T15:03:20-05:00"
+  }
+ ],
+ "generation_cost_total": 25,
+ "rerolls": 1
+}

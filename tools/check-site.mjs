@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Checks a GitHub Pages _site tree:
 //   1. Every assets/ui file the game loads is present and non-empty.
-//   2. Every ready battle-backdrop precache path from the catalog is present.
+//   2. Every ready battle-backdrop and battle-foe precache path from the
+//      catalogs is present.
 //   3. Nothing under assets/ other than assets/ui/, assets/battle/, and
 //      assets/atlas/ was published.
 // Kenmi source art stays private. Atlas files come from the packer, not this tree.
@@ -84,6 +85,26 @@ function collectBackdropPrecache() {
   return list;
 }
 
+function collectFoePrecache() {
+  const file = path.join(ROOT, "js/data/battle-foes.js");
+  if (!fs.existsSync(file)) {
+    fail("missing js/data/battle-foes.js");
+    return [];
+  }
+  const box = {};
+  box.window = box;
+  box.self = box;
+  vm.createContext(box);
+  vm.runInContext(fs.readFileSync(file, "utf8"), box, { filename: file });
+  const data = box.SF && box.SF.BattleFoeData;
+  const list = (data && data.precache) || [];
+  if (!Array.isArray(list)) {
+    fail("battle foe catalog precache is missing");
+    return [];
+  }
+  return list;
+}
+
 function collectGameUiAssets() {
   const found = new Set(REQUIRED);
   const roots = [
@@ -145,7 +166,7 @@ function checkSite(dest) {
     return;
   }
 
-  const needed = collectGameUiAssets().concat(collectBackdropPrecache());
+  const needed = collectGameUiAssets().concat(collectBackdropPrecache()).concat(collectFoePrecache());
   const seen = new Set();
   const unique = needed.filter((rel) => (seen.has(rel) ? false : seen.add(rel)));
   console.log("check-site: published game assets: " + unique.join(", "));

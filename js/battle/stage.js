@@ -90,11 +90,16 @@ function placeActors(actors, zone, side, groundY, foeCap) {
     sh = specs[i].sh;
     ax = src.ax * scale;
     ay = src.ay * scale;
+    var hover = 0;
+    if (side === "foe") {
+      var foeObj = SF.game && SF.game.battleFoeSprite;
+      if (foeObj && typeof foeObj.hoverPx === "function") hover = (foeObj.hoverPx(actor.sprite) || 0) * scale;
+    }
     cx = cell.x + cell.w / 2;
     if (cx - ax < cell.x + 2) cx = cell.x + 2 + ax;
     if (cx - ax + sw > cell.x + cell.w - 2) cx = cell.x + cell.w - 2 - (sw - ax);
     feet = feetLine;
-    top = feet - ay;
+    top = feet - ay - hover;
     if (labelH && top - labelH < zone.y + 2) {
       var shift = zone.y + 2 - (top - labelH);
       feet += shift;
@@ -418,9 +423,10 @@ function drawStage(ctx, b, foes, party, stage, canvasW, canvasH, dock) {
     ctx.save();
     if (!f.alive) ctx.globalAlpha = 0.35;
     else if (aiming && !canTap) ctx.globalAlpha = 0.4;
-    SF.BattleGfx.drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right");
+    SF.BattleGfx.drawSprite(ctx, f.sprite, spot.x + nudge.x, spot.feet + nudge.y, spot.scale, pose, "right", f);
     ctx.restore();
-    drawHitFlash(ctx, b, f, spot, nudge);
+    var readyFoe = SF.game && SF.game.battleFoeSprite && SF.game.battleFoeSprite.hasArt(f.sprite);
+    if (!readyFoe) drawHitFlash(ctx, b, f, spot, nudge);
     drawFoeLabel(ctx, spot, b);
     if (canTap) {
       var foePick = 0;

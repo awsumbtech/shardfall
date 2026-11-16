@@ -1,0 +1,86 @@
+{
+ "id": "choirling",
+ "key": "sf.battle.foe.choirling",
+ "version": "1.0.0",
+ "object": "shardfall/battle/foes",
+ "image": "choirling.png",
+ "sheet": [
+  512,
+  320
+ ],
+ "frameW": 64,
+ "frameH": 64,
+ "layout": "one row per animation, frames left to right, unused cells transparent",
+ "facing": "right",
+ "pivot": {
+  "x": 32,
+  "y": 60,
+  "rule": "feet centre; feet bottom edge sits on y (last opaque row = y-1)"
+ },
+ "hover_px": 0,
+ "boss": false,
+ "art_box_idle": {
+  "x": 11,
+  "y": 14,
+  "w": 42,
+  "h": 46
+ },
+ "suggested_scale": 2,
+ "animations": {
+  "idle": {
+   "row": 0,
+   "count": 4,
+   "fps": 6,
+   "loop": true
+  },
+  "attack": {
+   "row": 1,
+   "count": 8,
+   "fps": 12,
+   "loop": false,
+   "label": "note_burst"
+  },
+  "hurt": {
+   "row": 2,
+   "count": 4,
+   "fps": 10,
+   "loop": false
+  },
+  "death": {
+   "row": 3,
+   "count": 7,
+   "fps": 9,
+   "loop": false,
+   "label": "robe_collapses"
+  },
+  "cast": {
+   "row": 4,
+   "count": 8,
+   "fps": 10,
+   "loop": false,
+   "label": "hymn"
+  }
+ },
+ "design_source": "game-art shardfall/foes/choirling v1.0.0 (approved; tag shardfall-foes-v1.3.0)",
+ "palette": [
+  "#1f1528",
+  "#2b1d2e",
+  "#3a2458",
+  "#55347e",
+  "#7a58aa",
+  "#9c7ccc",
+  "#a88438",
+  "#a8998c",
+  "#c6b0ff",
+  "#d4cdc2",
+  "#e8dcff",
+  "#f0d078",
+  "#f0d0c4",
+  "#f4efe6",
+  "#ffe08a",
+  "#fff4ec",
+  "#fffaf2"
+ ],
+ "alpha": "binary (0 or 255)",
+ "provenance": "PixelLab (subscription generations, Brian approved Nov 14) via the user-pixellab connector; see ../../../../../PROVENANCE.json. No Kenmi or third-party art as input or reference."
+}

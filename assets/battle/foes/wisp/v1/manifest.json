@@ -1,0 +1,80 @@
+{
+ "id": "wisp",
+ "key": "sf.battle.foe.wisp",
+ "version": "1.0.0",
+ "object": "shardfall/battle/foes",
+ "image": "wisp.png",
+ "sheet": [
+  512,
+  320
+ ],
+ "frameW": 64,
+ "frameH": 64,
+ "layout": "one row per animation, frames left to right, unused cells transparent",
+ "facing": "right",
+ "pivot": {
+  "x": 32,
+  "y": 60,
+  "rule": "shadow point; flier hovers 8px above it (body bottom row = y-9)"
+ },
+ "hover_px": 8,
+ "boss": false,
+ "art_box_idle": {
+  "x": 8,
+  "y": 14,
+  "w": 48,
+  "h": 38
+ },
+ "suggested_scale": 2,
+ "animations": {
+  "idle": {
+   "row": 0,
+   "count": 4,
+   "fps": 6,
+   "loop": true
+  },
+  "attack": {
+   "row": 1,
+   "count": 7,
+   "fps": 12,
+   "loop": false,
+   "label": "dart"
+  },
+  "hurt": {
+   "row": 2,
+   "count": 4,
+   "fps": 10,
+   "loop": false
+  },
+  "death": {
+   "row": 3,
+   "count": 8,
+   "fps": 9,
+   "loop": false,
+   "last_frame_empty": true,
+   "label": "pop_to_motes"
+  },
+  "cast": {
+   "row": 4,
+   "count": 6,
+   "fps": 8,
+   "loop": false,
+   "label": "sparkle_burst"
+  }
+ },
+ "design_source": "game-art shardfall/foes/wisp v1.0.0 (approved chibi star; tag shardfall-foes-v1.3.0)",
+ "palette": [
+  "#2b1d2e",
+  "#3a2458",
+  "#7a58aa",
+  "#a689dd",
+  "#c6b0ff",
+  "#e8dcff",
+  "#f4eeff",
+  "#ffe08a",
+  "#fff4ec",
+  "#ffffff"
+ ],
+ "alpha": "binary (0 or 255)",
+ "provenance": "PixelLab (subscription generations, Brian approved Nov 14) via the user-pixellab connector; see ../../../../../PROVENANCE.json. No Kenmi or third-party art as input or reference."
+}
