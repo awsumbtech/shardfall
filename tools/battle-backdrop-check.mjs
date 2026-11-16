@@ -7,11 +7,88 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import vm from "node:vm";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const toolRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = path.resolve(process.env.SF_SITE_ROOT || toolRoot);
+const skipPairProof = process.env.SF_SKIP_PAIR_PROOF === "1";
+
+function loadCatalog(siteRoot) {
+  const dataFile = path.join(siteRoot, "js/data/battle-backdrops.js");
+  if (!fs.existsSync(dataFile)) {
+    console.error("FAIL missing " + dataFile);
+    process.exit(1);
+  }
+  const box = { window: null, self: null };
+  box.window = box;
+  box.self = box;
+  vm.runInContext(fs.readFileSync(dataFile, "utf8"), vm.createContext(box), { filename: dataFile });
+  const catalog = box.SF && box.SF.BattleBackdropData;
+  if (!catalog || !Array.isArray(catalog.ids) || !catalog.ids.length) {
+    console.error("FAIL catalog lists no areas");
+    process.exit(1);
+  }
+  const readyIds = [];
+  const unreadyIds = [];
+  for (let i = 0; i < catalog.ids.length; i++) {
+    const id = catalog.ids[i];
+    const row = catalog.areas && catalog.areas[id];
+    if (row && row.ready) readyIds.push(id);
+    else unreadyIds.push(id);
+  }
+  return { catalog, readyIds, unreadyIds, defaultId: catalog.defaultId };
+}
+
+function markReadyInCatalogSrc(src, id) {
+  const readyRe = /var ready = \{([^}]*)\};/;
+  const match = src.match(readyRe);
+  if (!match) return null;
+  if (new RegExp("(^|[,\\s])" + id + "\\s*:").test(match[1])) return src;
+  const body = match[1].replace(/\s+$/, "").replace(/,\s*$/, "");
+  return src.replace(readyRe, "var ready = {" + body + ", " + id + ": true };");
+}
+
+function addIdToCatalogSrc(src, id) {
+  const idsRe = /var ids = \[([\s\S]*?)\];/;
+  const match = src.match(idsRe);
+  if (!match) return null;
+  if (match[1].indexOf('"' + id + '"') >= 0) return src;
+  const body = match[1].replace(/\s+$/, "").replace(/,\s*$/, "");
+  return src.replace(idsRe, "var ids = [" + body + ',\n    "' + id + '"\n  ];');
+}
+
+function copyTree(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  fs.cpSync(src, dest, { recursive: true });
+}
+
+function copySite(dest) {
+  fs.copyFileSync(path.join(root, "index.html"), path.join(dest, "index.html"));
+  fs.copyFileSync(path.join(root, "sw.js"), path.join(dest, "sw.js"));
+  if (fs.existsSync(path.join(root, "manifest.webmanifest"))) {
+    fs.copyFileSync(path.join(root, "manifest.webmanifest"), path.join(dest, "manifest.webmanifest"));
+  }
+  for (const dir of ["css", "js", "icons"]) {
+    copyTree(path.join(root, dir), path.join(dest, dir));
+  }
+  copyTree(path.join(root, "assets", "ui"), path.join(dest, "assets", "ui"));
+  copyTree(path.join(root, "assets", "battle"), path.join(dest, "assets", "battle"));
+}
+
+function copyLayerArt(destRoot, fromId, toId, layers) {
+  const destDir = path.join(destRoot, "assets/battle/backdrops", toId, "v1");
+  const srcDir = path.join(destRoot, "assets/battle/backdrops", fromId, "v1");
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const layer of layers) {
+    fs.copyFileSync(path.join(srcDir, layer + ".png"), path.join(destDir, layer + ".png"));
+  }
+}
+
+const catalogInfo = loadCatalog(root);
 
 function loadPlaywright() {
   const candidates = [
@@ -97,24 +174,37 @@ const booted = await boot(phone);
 const page = booted.page;
 await page.waitForFunction(() => SF.game && SF.game.scenes && SF.game.scenes.current() === "title");
 await page.waitForFunction(() => {
+  const data = SF.BattleBackdropData;
   const b = SF.game && SF.game.battleBackdrop;
-  return b && typeof b.layersReady === "function" && b.layersReady("emberhold_meadow") && b.layersReady("emberhold_scar");
+  if (!data || !data.ids || !b || typeof b.layersReady !== "function") return false;
+  for (let i = 0; i < data.ids.length; i++) {
+    const id = data.ids[i];
+    const row = data.areas && data.areas[id];
+    if (row && row.ready && !b.layersReady(id)) return false;
+  }
+  return true;
 }, null, { timeout: 8000 });
 
 const report = await page.evaluate(() => {
   const problems = [];
-  const ids = [
-    "emberhold_meadow",
-    "emberhold_scar",
-    "cinderveil_ash",
-    "ember_vault",
-    "saltmere_shore",
-    "saltmere_wreck",
-    "highspire_road",
-    "hush_deck"
-  ];
-  const layers = ["sky", "far", "mid", "floor"];
-  const parallax = { sky: 0, far: 0.15, mid: 0.4, floor: 1 };
+  const data = SF.BattleBackdropData;
+  if (!data || !Array.isArray(data.ids) || !data.ids.length) problems.push("catalog lists no areas");
+  const ids = (data && data.ids) || [];
+  const layerSpecs = (data && data.layers) || [];
+  const layers = [];
+  const parallax = {};
+  for (let i = 0; i < layerSpecs.length; i++) {
+    layers.push(layerSpecs[i].id);
+    parallax[layerSpecs[i].id] = layerSpecs[i].parallax;
+  }
+  if (layers.length !== 4) problems.push("catalog layer count was " + layers.length);
+  const readyIds = [];
+  const unreadyIds = [];
+  for (let i = 0; i < ids.length; i++) {
+    const row = data && data.areas && data.areas[ids[i]];
+    if (row && row.ready) readyIds.push(ids[i]);
+    else unreadyIds.push(ids[i]);
+  }
   const encounters = {
     em_wisps: "emberhold_meadow",
     em_brumekin: "emberhold_scar",
@@ -152,10 +242,11 @@ const report = await page.evaluate(() => {
         problems.push(id + " " + layer + " parallax was wrong");
       }
     });
-    const shouldReady = id === "emberhold_meadow" || id === "emberhold_scar";
+    const shouldReady = readyIds.indexOf(id) >= 0;
     if (!!SF.BattleBackdrop.hasArt(id) !== shouldReady) problems.push(id + " ready was " + SF.BattleBackdrop.hasArt(id));
   });
-  if (SF.BattleBackdrop.DEFAULT_ID !== "emberhold_meadow") {
+  if (!data || !data.defaultId) problems.push("catalog has no defaultId");
+  if (data && SF.BattleBackdrop.DEFAULT_ID !== data.defaultId) {
     problems.push("catalog defaultId was " + SF.BattleBackdrop.DEFAULT_ID);
   }
   if (SF.BattleBackdrop.resolveId("not-a-real-area") !== SF.BattleBackdrop.DEFAULT_ID) {
@@ -185,15 +276,18 @@ const report = await page.evaluate(() => {
   backdrop.fallback = function (ctx, id, w, h, t) {
     fallbacks.push({ id: id, w: w, h: h, t: t });
   };
+  const probe = unreadyIds[0];
   const ctx = { drawImage() { problems.push("unready area used drawImage"); } };
-  const usedArt = backdrop.draw(ctx, "cinderveil_ash", 844, 390, 1.5);
-  if (usedArt !== false) problems.push("unready area was reported as real art");
-  if (fallbacks.length !== 1 || fallbacks[0].id !== "cinderveil_ash" || fallbacks[0].w !== 844 || fallbacks[0].h !== 390) {
-    problems.push("unready area did not keep today's backdrop path");
+  if (probe) {
+    const usedArt = backdrop.draw(ctx, probe, 844, 390, 1.5);
+    if (usedArt !== false) problems.push("unready area was reported as real art");
+    if (fallbacks.length !== 1 || fallbacks[0].id !== probe || fallbacks[0].w !== 844 || fallbacks[0].h !== 390) {
+      problems.push("unready area did not keep today's backdrop path");
+    }
   }
   backdrop.fallback = previous;
 
-  const unready = ["cinderveil_ash", "ember_vault", "saltmere_shore", "saltmere_wreck", "highspire_road", "hush_deck"];
+  const unready = unreadyIds;
   unready.forEach((id) => {
     if (backdrop.layersReady(id)) problems.push(id + " was treated as loaded art");
     const fb = [];
@@ -225,7 +319,7 @@ const report = await page.evaluate(() => {
   }
 
   const expectedFit = SF.BattleBackdrop.fit(844, 390);
-  ["emberhold_meadow", "emberhold_scar"].forEach((id) => {
+  readyIds.forEach((id) => {
     if (!backdrop.layersReady(id)) problems.push(id + " real images did not load");
     let loaded = null;
     try { loaded = backdrop.imagesFor(id); } catch (err) {
@@ -266,46 +360,28 @@ const report = await page.evaluate(() => {
 for (const p of report.problems) fail(p);
 for (const e of booted.errors.filter((line) => line.indexOf("controller") < 0)) fail("page error: " + e);
 
+
+if (!skipPairProof) {
 // A ninth area is a data entry only: a temp copy of the site, a patched
 // catalog row, and art files under the new id. No adopt/setLayers, and
 // no edits to the object or sw.js. A live fight with that bg must blit
 // the ninth plates.
 const ninthId = "oo04_fixture";
 const ninthRoot = fs.mkdtempSync(path.join(os.tmpdir(), "oo04-ninth-"));
-
-function copyTree(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
-  fs.cpSync(src, dest, { recursive: true });
-}
-fs.copyFileSync(path.join(root, "index.html"), path.join(ninthRoot, "index.html"));
-fs.copyFileSync(path.join(root, "sw.js"), path.join(ninthRoot, "sw.js"));
-if (fs.existsSync(path.join(root, "manifest.webmanifest"))) {
-  fs.copyFileSync(path.join(root, "manifest.webmanifest"), path.join(ninthRoot, "manifest.webmanifest"));
-}
-for (const dir of ["css", "js", "icons"]) {
-  copyTree(path.join(root, dir), path.join(ninthRoot, dir));
-}
-copyTree(path.join(root, "assets", "ui"), path.join(ninthRoot, "assets", "ui"));
-copyTree(path.join(root, "assets", "battle"), path.join(ninthRoot, "assets", "battle"));
+copySite(ninthRoot);
 
 const dataFile = path.join(ninthRoot, "js/data/battle-backdrops.js");
 let catalogSrc = fs.readFileSync(dataFile, "utf8");
-if (!catalogSrc.includes('"hush_deck"')) fail("temp catalog is missing hush_deck");
-catalogSrc = catalogSrc.replace('"hush_deck"', '"hush_deck",\n    "' + ninthId + '"');
-catalogSrc = catalogSrc.replace(
-  "var ready = { emberhold_meadow: true, emberhold_scar: true };",
-  "var ready = { emberhold_meadow: true, emberhold_scar: true, " + ninthId + ": true };"
-);
-if (!catalogSrc.includes('"' + ninthId + '"') || !catalogSrc.includes(ninthId + ": true")) {
+catalogSrc = addIdToCatalogSrc(catalogSrc, ninthId);
+catalogSrc = catalogSrc && markReadyInCatalogSrc(catalogSrc, ninthId);
+if (!catalogSrc || catalogSrc.indexOf('"' + ninthId + '"') < 0 || catalogSrc.indexOf(ninthId + ": true") < 0) {
   fail("temp catalog was not patched with " + ninthId);
+} else {
+  fs.writeFileSync(dataFile, catalogSrc);
 }
-fs.writeFileSync(dataFile, catalogSrc);
-const ninthDir = path.join(ninthRoot, "assets/battle/backdrops", ninthId, "v1");
-fs.mkdirSync(ninthDir, { recursive: true });
-const meadowDir = path.join(ninthRoot, "assets/battle/backdrops/emberhold_meadow/v1");
-for (const layer of ["sky", "far", "mid", "floor"]) {
-  fs.copyFileSync(path.join(meadowDir, layer + ".png"), path.join(ninthDir, layer + ".png"));
-}
+const donorId = catalogInfo.readyIds[0] || catalogInfo.defaultId;
+const layerIds = ((catalogInfo.catalog && catalogInfo.catalog.layers) || []).map((spec) => spec.id);
+copyLayerArt(ninthRoot, donorId, ninthId, layerIds.length ? layerIds : ["sky", "far", "mid", "floor"]);
 
 const ninthServer = http.createServer((req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
@@ -343,19 +419,18 @@ ninthPage.on("pageerror", (err) => ninthErrors.push(String(err)));
 await ninthPage.goto(ninthOrigin + "/index.html?debug=1", { waitUntil: "domcontentloaded" });
 await ninthPage.waitForFunction(() => window.SF && SF.state && SF.bindInput);
 await ninthPage.waitForFunction(() => SF.game && SF.game.scenes && SF.game.scenes.current() === "title");
-await ninthPage.waitForFunction(() => {
+await ninthPage.waitForFunction((id) => {
   const b = SF.game && SF.game.battleBackdrop;
-  return b && typeof b.layersReady === "function" && b.layersReady("oo04_fixture");
-}, null, { timeout: 8000 });
+  return b && typeof b.layersReady === "function" && b.layersReady(id);
+}, ninthId, { timeout: 8000 });
 
-const ninthReport = await ninthPage.evaluate(async () => {
+const ninthReport = await ninthPage.evaluate(async (ninthId) => {
   const problems = [];
   const frames = (n) => new Promise((resolve) => {
     let left = n;
     function step() { left -= 1; if (left <= 0) resolve(); else requestAnimationFrame(step); }
     requestAnimationFrame(step);
   });
-  const ninthId = "oo04_fixture";
   const backdrop = SF.game && SF.game.battleBackdrop;
   if (!backdrop) problems.push("ninth boot has no BattleBackdrop");
   if (!SF.BattleBackdrop.hasArt(ninthId)) problems.push("ninth id was not ready from the data file");
@@ -398,14 +473,15 @@ const ninthReport = await ninthPage.evaluate(async () => {
   if (fallbacks.length) problems.push("ninth fight used the old backdrop path");
   if (blits.length !== 4) problems.push("ninth fight blit count was " + blits.length);
   const suffix = "/assets/battle/backdrops/" + ninthId + "/v1/";
-  ["sky", "far", "mid", "floor"].forEach((layer, i) => {
+  const layerIds = ((SF.BattleBackdropData && SF.BattleBackdropData.layers) || []).map((spec) => spec.id);
+  (layerIds.length ? layerIds : ["sky", "far", "mid", "floor"]).forEach((layer, i) => {
     const src = String((blits[i] && blits[i].src) || "");
     if (src.indexOf(suffix + layer + ".png") < 0) {
       problems.push("ninth fight " + layer + " came from " + src);
     }
   });
   return { problems, bg: SF.state.battle && SF.state.battle.bg, blitCount: blits.length };
-});
+}, ninthId);
 
 for (const p of ninthReport.problems) fail(p);
 for (const e of ninthErrors.filter((line) => line.indexOf("controller") < 0)) fail("ninth page error: " + e);
@@ -414,9 +490,41 @@ await ninthContext.close();
 ninthServer.close();
 try { fs.rmSync(ninthRoot, { recursive: true, force: true }); } catch (err) {}
 
+// Future pair: flip one catalog-unready id to ready and copy plates. The
+// same check, with no edits under tools/, must treat it as a ready area.
+if (catalogInfo.unreadyIds.length) {
+  const pairRoot = fs.mkdtempSync(path.join(os.tmpdir(), "oo05-pair-"));
+  copySite(pairRoot);
+  const flipId = catalogInfo.unreadyIds[0];
+  const pairData = path.join(pairRoot, "js/data/battle-backdrops.js");
+  let pairSrc = markReadyInCatalogSrc(fs.readFileSync(pairData, "utf8"), flipId);
+  if (!pairSrc || pairSrc.indexOf(flipId + ": true") < 0) {
+    fail("future-pair catalog was not marked ready for " + flipId);
+  } else {
+    fs.writeFileSync(pairData, pairSrc);
+  }
+  copyLayerArt(pairRoot, donorId, flipId, layerIds.length ? layerIds : ["sky", "far", "mid", "floor"]);
+  const childEnv = Object.assign({}, process.env, {
+    SF_SITE_ROOT: pairRoot,
+    SF_SKIP_PAIR_PROOF: "1"
+  });
+  const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
+    env: childEnv,
+    stdio: "inherit"
+  });
+  if (child.status !== 0) fail("future-pair check failed for " + flipId + " (status " + child.status + ")");
+  try { fs.rmSync(pairRoot, { recursive: true, force: true }); } catch (err) {}
+} else {
+  console.log("future-pair proof skipped (no unready area left)");
+}
+} // !skipPairProof
+
 await browser.close();
 server.close();
 if (!process.exitCode) {
   const fit = report.fit || {};
-  console.log("battle backdrop ok, meadow+scar loaded, 6 unready, ninth data entry ok, 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
+  const readyIds = catalogInfo.readyIds;
+  const unreadyN = catalogInfo.unreadyIds.length;
+  const proof = skipPairProof ? "pair-child ok" : "ninth data entry ok, future-pair ok";
+  console.log("battle backdrop ok, " + readyIds.length + " ready (" + readyIds.join(", ") + "), " + unreadyN + " unready, " + proof + ", 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
 }

@@ -48,6 +48,111 @@ function readSources(files) {
   return files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 }
 
+function readGameVersion(siteRoot) {
+  const root = siteRoot || ".";
+  const dataJs = fs.readFileSync(path.join(root, "js/data.js"), "utf8");
+  const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+  const ver = dataJs.match(/^\s*SF\.VERSION\s*=\s*"([^"]+)"/m);
+  const cache = sw.match(/^\s*var CACHE\s*=\s*"([^"]+)"/m);
+  if (!ver) fail("data.js has no SF.VERSION");
+  if (!cache) fail("sw.js has no CACHE");
+  if (cache[1] !== "shardfall-v" + ver[1]) {
+    fail("data.js version " + ver[1] + " does not match sw.js cache name " + cache[1]);
+  }
+  return ver[1];
+}
+
+function readBackdropCatalog(siteRoot) {
+  const dataFile = path.join(siteRoot || ".", "js/data/battle-backdrops.js");
+  if (!fs.existsSync(dataFile)) fail("missing " + dataFile);
+  const box = { window: null, self: null };
+  box.window = box;
+  box.self = box;
+  vm.runInContext(fs.readFileSync(dataFile, "utf8"), vm.createContext(box), { filename: dataFile });
+  const catalog = box.SF && box.SF.BattleBackdropData;
+  if (!catalog || !Array.isArray(catalog.ids) || !catalog.ids.length) fail("catalog lists no areas");
+  if (!catalog.areas || !catalog.defaultId) fail("catalog is missing areas or defaultId");
+  if (catalog.ids.indexOf(catalog.defaultId) < 0) fail("catalog defaultId is not in ids");
+  const readyIds = [];
+  const unreadyIds = [];
+  for (let i = 0; i < catalog.ids.length; i++) {
+    const id = catalog.ids[i];
+    const row = catalog.areas[id];
+    if (row && row.ready) readyIds.push(id);
+    else unreadyIds.push(id);
+  }
+  return { catalog, readyIds, unreadyIds, defaultId: catalog.defaultId, precache: catalog.precache || [] };
+}
+
+function markReadyInCatalogSrc(src, id) {
+  const readyRe = /var ready = \{([^}]*)\};/;
+  const match = src.match(readyRe);
+  if (!match) return null;
+  if (new RegExp("(^|[,\\s])" + id + "\\s*:").test(match[1])) return src;
+  const body = match[1].replace(/\s+$/, "").replace(/,\s*$/, "");
+  return src.replace(readyRe, "var ready = {" + body + ", " + id + ": true };");
+}
+
+function copyTree(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  fs.cpSync(src, dest, { recursive: true });
+}
+
+function makeFlippedPairSite(dest) {
+  const info = readBackdropCatalog(".");
+  if (!info.unreadyIds.length) return null;
+  const flipId = info.unreadyIds[0];
+  const donor = info.readyIds[0] || info.defaultId;
+  const layers = ((info.catalog.layers) || []).map((spec) => spec.id);
+  fs.copyFileSync("index.html", path.join(dest, "index.html"));
+  fs.copyFileSync("sw.js", path.join(dest, "sw.js"));
+  if (fs.existsSync("manifest.webmanifest")) {
+    fs.copyFileSync("manifest.webmanifest", path.join(dest, "manifest.webmanifest"));
+  }
+  for (const dir of ["css", "js", "icons", "tools"]) {
+    if (fs.existsSync(dir)) copyTree(dir, path.join(dest, dir));
+  }
+  copyTree(path.join("assets", "ui"), path.join(dest, "assets", "ui"));
+  copyTree(path.join("assets", "battle"), path.join(dest, "assets", "battle"));
+  const dataFile = path.join(dest, "js/data/battle-backdrops.js");
+  const patched = markReadyInCatalogSrc(fs.readFileSync(dataFile, "utf8"), flipId);
+  if (!patched || patched.indexOf(flipId + ": true") < 0) fail("future-pair catalog was not marked ready for " + flipId);
+  fs.writeFileSync(dataFile, patched);
+  const destDir = path.join(dest, "assets/battle/backdrops", flipId, "v1");
+  const srcDir = path.join(dest, "assets/battle/backdrops", donor, "v1");
+  fs.mkdirSync(destDir, { recursive: true });
+  (layers.length ? layers : ["sky", "far", "mid", "floor"]).forEach((layer) => {
+    fs.copyFileSync(path.join(srcDir, layer + ".png"), path.join(destDir, layer + ".png"));
+  });
+  return { dest, flipId, donor, info };
+}
+
+function assertBackdropCatalogOnSite(siteRoot) {
+  const version = readGameVersion(siteRoot);
+  const html = fs.readFileSync(path.join(siteRoot, "index.html"), "utf8");
+  if (!html.includes("v" + version)) fail("html version on " + siteRoot);
+  const info = readBackdropCatalog(siteRoot);
+  const worker = fs.readFileSync(path.join(siteRoot, "sw.js"), "utf8");
+  const layers = ((info.catalog.layers) || []).map((spec) => spec.id);
+  if (!layers.length) fail("catalog lists no layers");
+  if (!info.readyIds.length) fail("catalog has no ready areas");
+  info.readyIds.forEach((id) => {
+    layers.forEach((layer) => {
+      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      if (!fs.existsSync(path.join(siteRoot, rel))) fail("missing " + rel);
+      if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
+      if (info.precache.indexOf(rel) < 0) fail("catalog precache omits " + rel);
+    });
+  });
+  info.unreadyIds.forEach((id) => {
+    layers.forEach((layer) => {
+      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      if (info.precache.indexOf(rel) >= 0) fail("catalog precaches unready " + rel);
+    });
+  });
+  return info;
+}
+
 const shotDir = process.env.SF_SHOTS || fs.mkdtempSync(path.join(os.tmpdir(), "shardfall-smoke-"));
 fs.mkdirSync(shotDir, { recursive: true });
 const childEnv = Object.assign({}, process.env, { SF_SHOTS: shotDir });
@@ -2208,7 +2313,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.37"')) fail("cache version");
+const gameVersion = readGameVersion(".");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2425,7 +2530,7 @@ SF.mountIsland("emberhold");
   L.Battle.instant = true;
   if (!L.Battle.start("em_wisps")) fail("layout battle did not start");
   const views = [[915, 412], [412, 915], [640, 360]];
-  const bgs = ["emberhold_meadow", "cinderveil_ash", "ember_vault", "saltmere_shore", "highspire_road", "hush_deck"];
+  const bgs = readBackdropCatalog(".").catalog.ids.slice();
   views.forEach(([w, h]) => {
     bgs.forEach((bg) => {
       play.battle.bg = bg;
@@ -2550,7 +2655,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.37"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "' + gameVersion + '"')) fail("data.js version moved");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
@@ -2569,6 +2674,9 @@ async function runAssetChecks() {
   if (!dataJs.includes("New painted battle backdrops for the Emberhold meadow and scar.")) {
     fail("whats new oo04 backdrop line");
   }
+  if (!dataJs.includes("Painted battle backdrops for the Cinderveil ash fields and the Ember Vault.")) {
+    fail("whats new oo05 backdrop line");
+  }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2580,7 +2688,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.37")) fail("html version");
+  if (!html.includes("v" + gameVersion)) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -5992,7 +6100,10 @@ function runOo02Checks() {
   for (const file of coreFiles) {
     if (!worker.includes('"' + file + '"')) fail("precache omits " + file);
   }
-  if (!worker.includes('CACHE = "shardfall-v0.4.37"')) fail("cache version moved");
+  {
+    const cache = worker.match(/^\s*var CACHE\s*=\s*"([^"]+)"/m);
+    if (!cache || cache[1] !== "shardfall-v" + gameVersion) fail("cache version moved");
+  }
   const mainJs = fs.readFileSync("js/main.js", "utf8");
   if (!mainJs.includes("SF.VisualObject = function VisualObject")) fail("main.js does not assign SF.VisualObject");
   if (!mainJs.includes("SF.Game = function Game")) fail("main.js does not assign SF.Game");
@@ -6374,6 +6485,24 @@ runOo03Checks();
 
 runOo04Checks();
 
+if (process.env.SF_SKIP_PAIR_PROOF !== "1") {
+  const pairDir = fs.mkdtempSync(path.join(os.tmpdir(), "oo05-smoke-pair-"));
+  const pair = makeFlippedPairSite(pairDir);
+  if (!pair) {
+    console.log("future-pair proof skipped (no unready area left)");
+  } else {
+    assertBackdropCatalogOnSite(pair.dest);
+    const flipped = readBackdropCatalog(pair.dest);
+    if (flipped.readyIds.indexOf(pair.flipId) < 0) fail("future-pair catalog did not adopt " + pair.flipId);
+    if (flipped.unreadyIds.indexOf(pair.flipId) >= 0) fail("future-pair still lists " + pair.flipId + " as unready");
+    if (flipped.readyIds.length !== pair.info.readyIds.length + 1) {
+      fail("future-pair ready count was " + flipped.readyIds.length);
+    }
+    console.log("future-pair catalog ok, " + pair.flipId + " ready from data + art only");
+    try { fs.rmSync(pairDir, { recursive: true, force: true }); } catch (err) {}
+  }
+}
+
 console.log("smoke ok");
 
 // OO-04: BattleBackdrop owns one four-layer real-art backdrop per battle area.
@@ -6413,9 +6542,12 @@ function runOo04Checks() {
   }
   const dataFile = "js/data/battle-backdrops.js";
   if (!fs.existsSync(dataFile)) fail("missing " + dataFile);
-  if (/emberhold_meadow|emberhold_scar|cinderveil_ash/.test(src)) {
-    fail("battle-backdrop.js still hard-codes area ids");
-  }
+  const catalogInfo = readBackdropCatalog(".");
+  const readyIds = catalogInfo.readyIds;
+  const unreadyIds = catalogInfo.unreadyIds;
+  catalogInfo.catalog.ids.forEach((id) => {
+    if (src.indexOf(id) >= 0) fail("battle-backdrop.js still hard-codes area ids");
+  });
   const page = fs.readFileSync("index.html", "utf8");
   const routerAt = page.indexOf('src="js/core/scene-router.js"');
   const backdropAt = page.indexOf('src="js/battle/battle-backdrop.js"');
@@ -6433,9 +6565,8 @@ function runOo04Checks() {
   if (!worker.includes('importScripts("js/data/battle-backdrops.js")')) {
     fail("sw.js does not read backdrop art from the catalog");
   }
-  const readyIds = ["emberhold_meadow", "emberhold_scar"];
-  const unreadyIds = ["cinderveil_ash", "ember_vault", "saltmere_shore", "saltmere_wreck", "highspire_road", "hush_deck"];
-  const layersList = ["sky", "far", "mid", "floor"];
+  const layersList = ((catalogInfo.catalog.layers) || []).map((spec) => spec.id);
+  if (layersList.join(",") !== "sky,far,mid,floor") fail("catalog layers were " + layersList.join(","));
   readyIds.forEach((id) => {
     layersList.forEach((layer) => {
       const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
@@ -6443,13 +6574,9 @@ function runOo04Checks() {
       if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
     });
   });
-  const catalogBox = { window: null, self: null };
-  catalogBox.window = catalogBox;
-  catalogBox.self = catalogBox;
-  vm.runInContext(fs.readFileSync(dataFile, "utf8"), vm.createContext(catalogBox), { filename: dataFile });
-  const catalog = catalogBox.SF && catalogBox.SF.BattleBackdropData;
-  if (!catalog || catalog.defaultId !== "emberhold_meadow") fail("catalog defaultId was " + (catalog && catalog.defaultId));
-  const precache = (catalog && catalog.precache) || [];
+  const catalog = catalogInfo.catalog;
+  if (!catalog || catalog.defaultId !== catalogInfo.defaultId) fail("catalog defaultId was " + (catalog && catalog.defaultId));
+  const precache = catalogInfo.precache;
   readyIds.forEach((id) => {
     layersList.forEach((layer) => {
       const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
@@ -6469,7 +6596,7 @@ function runOo04Checks() {
   if (backdrop && backdrop._attached) problems.push("harness BattleBackdrop was attached at construction");
   const loose = new SF.BattleBackdrop();
   let threw = false;
-  try { loose.draw({ drawImage() {} }, "emberhold_meadow", 844, 390, 0); } catch (err) { threw = true; }
+  try { loose.draw({ drawImage() {} }, catalogInfo.defaultId, 844, 390, 0); } catch (err) { threw = true; }
   if (!threw) problems.push("an unattached BattleBackdrop did not throw");
   loose.attach({ register() {} });
   loose.attach({ register() { problems.push("second attach was not ignored"); } });
@@ -6494,7 +6621,7 @@ function runOo04Checks() {
       if (path !== "assets/battle/backdrops/" + id + "/v1/" + layer + ".png") problems.push(id + " " + layer + " path was " + path);
     });
   });
-  if (SF.BattleBackdrop.DEFAULT_ID !== "emberhold_meadow") problems.push("DEFAULT_ID was " + SF.BattleBackdrop.DEFAULT_ID);
+  if (SF.BattleBackdrop.DEFAULT_ID !== catalogInfo.defaultId) problems.push("DEFAULT_ID was " + SF.BattleBackdrop.DEFAULT_ID);
   if (SF.BattleBackdrop.resolveId("missing") !== SF.BattleBackdrop.DEFAULT_ID) problems.push("unknown id did not fall back to the catalog default");
 
   function checkFit(w, h, label) {
@@ -6515,10 +6642,13 @@ function runOo04Checks() {
 
   const calls = [];
   loose.fallback = function (ctx, id, w, h, t) { calls.push([id, w, h, t]); };
-  if (loose.draw({ drawImage() { problems.push("unready drawImage"); } }, "cinderveil_ash", 844, 390, 3) !== false) {
-    problems.push("unready draw reported real art");
+  const unreadyProbe = unreadyIds[0];
+  if (unreadyProbe) {
+    if (loose.draw({ drawImage() { problems.push("unready drawImage"); } }, unreadyProbe, 844, 390, 3) !== false) {
+      problems.push("unready draw reported real art");
+    }
+    if (calls.length !== 1 || calls[0][0] !== unreadyProbe) problems.push("unready draw did not use today's path");
   }
-  if (calls.length !== 1 || calls[0][0] !== "cinderveil_ash") problems.push("unready draw did not use today's path");
 
   const manifest = SF.BattleBackdrop.MANIFEST;
   manifest.test_missing = { ready: true };
@@ -6528,28 +6658,29 @@ function runOo04Checks() {
   delete manifest.test_missing;
   if (!threw || msg.indexOf("missing manifest entry") < 0) problems.push("missing manifest entry did not throw: " + msg);
 
-  const row = manifest.emberhold_meadow;
+  const probeReady = catalogInfo.defaultId;
+  const row = manifest[probeReady];
   const wasReady = row.ready;
   row.ready = true;
   threw = false;
   msg = "";
-  try { loose.imagesFor("emberhold_meadow"); } catch (err) { threw = true; msg = String(err && err.message || err); }
+  try { loose.imagesFor(probeReady); } catch (err) { threw = true; msg = String(err && err.message || err); }
   if (!threw || msg.indexOf("missing art") < 0) problems.push("ready area with no images did not throw: " + msg);
 
   const images = {};
   layers.forEach((layer) => {
     images[layer] = { width: 480, height: 270, complete: true, naturalWidth: 480, naturalHeight: 270, id: layer };
   });
-  loose.setLayers("emberhold_meadow", images);
+  loose.setLayers(probeReady, images);
   const blits = [];
   const ctx = {
     drawImage() { blits.push(Array.prototype.slice.call(arguments)); },
     set imageSmoothingEnabled(value) { this._smooth = value; }
   };
   loose.fallback = function () { problems.push("ready draw used today's path"); };
-  const drew = loose.draw(ctx, "emberhold_meadow", 844, 390, 0);
+  const drew = loose.draw(ctx, probeReady, 844, 390, 0);
   row.ready = wasReady;
-  delete loose.images.emberhold_meadow;
+  delete loose.images[probeReady];
   if (drew !== true) problems.push("ready draw did not blit the layers");
   if (blits.length !== 4) problems.push("ready draw blit count was " + blits.length);
   const fit = SF.BattleBackdrop.fit(844, 390);
