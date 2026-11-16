@@ -12,3 +12,20 @@ This folder holds image files loaded by the game. Atlas tilesets stay in `assets
 Provenance: Game Art & Motion, awsumbtech/game-art PR #7 @ `04e5165` (`art/shardfall-choicebox-ui-v0.1.0`, path `shardfall/ui/choicebox/v0.1.0/`). Version 0.1.0. No PixelLab spend. Test art for draft PR awsumbtech/shardfall#53. Not approved to ship.
 
 SHA-256 and CSS notes are in `assets/ui/CHOICEBOX-ASSETS.md`.
+
+## Battle backdrops — Emberhold meadow and scar (v1, batch 1)
+
+Four 480×270 plates per area (sky opaque RGB; far, mid, and floor RGBA with alpha). Horizon at plate Y 124. Wired as `emberhold_meadow` and `emberhold_scar` in `js/data/battle-backdrops.js`.
+
+| File | Size | Role |
+| --- | --- | --- |
+| `assets/battle/backdrops/emberhold_meadow/v1/sky.png` | 480×270, opaque | Meadow sky |
+| `assets/battle/backdrops/emberhold_meadow/v1/far.png` | 480×270, alpha | Meadow far |
+| `assets/battle/backdrops/emberhold_meadow/v1/mid.png` | 480×270, alpha | Meadow mid |
+| `assets/battle/backdrops/emberhold_meadow/v1/floor.png` | 480×270, alpha | Meadow floor |
+| `assets/battle/backdrops/emberhold_scar/v1/sky.png` | 480×270, opaque | Scar sky |
+| `assets/battle/backdrops/emberhold_scar/v1/far.png` | 480×270, alpha | Scar far |
+| `assets/battle/backdrops/emberhold_scar/v1/mid.png` | 480×270, alpha | Scar mid |
+| `assets/battle/backdrops/emberhold_scar/v1/floor.png` | 480×270, alpha | Scar floor |
+
+Provenance, sha256, and kit paths: `docs/evidence/oo-04/ART-PROVENANCE.md`. GAM batch 1, 16 November 2026, America/New_York. The other six catalog areas have no plates in this folder yet.

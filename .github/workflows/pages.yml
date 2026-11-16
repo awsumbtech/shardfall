@@ -46,6 +46,8 @@ jobs:
           cp -r css js icons _site/
           mkdir -p _site/assets/ui
           cp -r assets/ui/. _site/assets/ui/
+          mkdir -p _site/assets/battle
+          cp -r assets/battle/. _site/assets/battle/
 
       - name: Check published UI assets
         run: node tools/check-site.mjs --site _site --workflow

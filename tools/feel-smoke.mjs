@@ -25,7 +25,9 @@ for (const file of [
   "js/main.js",
   "js/core/visual-object.js",
   "js/core/game.js",
-  "js/core/scene-router.js"
+  "js/core/scene-router.js",
+  "js/data/battle-backdrops.js",
+  "js/battle/battle-backdrop.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }

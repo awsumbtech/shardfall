@@ -11,7 +11,11 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = false;
   SF.Battle.hits = [];
-  SF.BattleGfx.paintBg(ctx, b.bg, w, h, b.t || 0);
+  var game = SF.game;
+  var backdrop = game && game.battleBackdrop;
+  if (!backdrop) throw new Error("BattleBackdrop missing");
+  backdrop.attach(game);
+  backdrop.draw(ctx, b.bg, w, h, b.t || 0);
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
   var lay = SF.BattleHud.layoutBattle(w, h, b.phase, party.length);

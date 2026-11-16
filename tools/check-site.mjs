@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Checks a GitHub Pages _site tree:
 //   1. Every assets/ui file the game loads is present and non-empty.
-//   2. Nothing under assets/ other than assets/ui/ and assets/atlas/ was published.
+//   2. Every ready battle-backdrop precache path from the catalog is present.
+//   3. Nothing under assets/ other than assets/ui/, assets/battle/, and
+//      assets/atlas/ was published.
 // Kenmi source art stays private. Atlas files come from the packer, not this tree.
 //
 //   node tools/check-site.mjs --assemble --workflow
@@ -9,10 +11,11 @@
 //   node tools/check-site.mjs --site _site
 //     Inspect an existing _site directory (used in CI after assembly).
 //   node tools/check-site.mjs --site _site --workflow
-//     Also assert pages.yml still copies assets/ui/ and runs this check.
+//     Also assert pages.yml still copies assets/ui/ and assets/battle/ and runs this check.
 
 import fs from "fs";
 import path from "path";
+import vm from "node:vm";
 import { fileURLToPath } from "url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -20,7 +23,7 @@ const REQUIRED = [
   "assets/ui/choicebox-panel.png",
   "assets/ui/choice-cursor.png"
 ];
-const ALLOWED_ASSET_DIRS = ["assets/ui", "assets/atlas"];
+const ALLOWED_ASSET_DIRS = ["assets/ui", "assets/battle", "assets/atlas"];
 const ASSET_REF = /(?:["'`])(assets\/ui\/[^"'`\s?]+)/g;
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
@@ -59,6 +62,26 @@ function walkFiles(dir, acc = []) {
     else if (entry.isFile()) acc.push(full);
   }
   return acc;
+}
+
+function collectBackdropPrecache() {
+  const file = path.join(ROOT, "js/data/battle-backdrops.js");
+  if (!fs.existsSync(file)) {
+    fail("missing js/data/battle-backdrops.js");
+    return [];
+  }
+  const box = {};
+  box.window = box;
+  box.self = box;
+  vm.createContext(box);
+  vm.runInContext(fs.readFileSync(file, "utf8"), box, { filename: file });
+  const data = box.SF && box.SF.BattleBackdropData;
+  const list = (data && data.precache) || [];
+  if (!Array.isArray(list)) {
+    fail("battle backdrop catalog precache is missing");
+    return [];
+  }
+  return list;
 }
 
 function collectGameUiAssets() {
@@ -104,6 +127,14 @@ function assembleSite(dest) {
   }
   fs.mkdirSync(uiDest, { recursive: true });
   fs.cpSync(uiSrc, uiDest, { recursive: true });
+  const battleSrc = path.join(ROOT, "assets", "battle");
+  const battleDest = path.join(dest, "assets", "battle");
+  if (!fs.existsSync(battleSrc)) {
+    fail("source assets/battle/ is missing; cannot assemble the site");
+    return;
+  }
+  fs.mkdirSync(battleDest, { recursive: true });
+  fs.cpSync(battleSrc, battleDest, { recursive: true });
   console.log("check-site: assembled " + dest);
 }
 
@@ -114,9 +145,11 @@ function checkSite(dest) {
     return;
   }
 
-  const needed = collectGameUiAssets();
-  console.log("check-site: game UI assets: " + needed.join(", "));
-  for (const rel of needed) {
+  const needed = collectGameUiAssets().concat(collectBackdropPrecache());
+  const seen = new Set();
+  const unique = needed.filter((rel) => (seen.has(rel) ? false : seen.add(rel)));
+  console.log("check-site: published game assets: " + unique.join(", "));
+  for (const rel of unique) {
     const file = path.join(site, rel);
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
       fail("missing published file " + rel);
@@ -143,14 +176,14 @@ function checkSite(dest) {
     for (const file of published) {
       const rel = path.relative(site, file).split(path.sep).join("/");
       const allowed = ALLOWED_ASSET_DIRS.some((dir) => rel === dir || rel.startsWith(dir + "/"));
-      if (!allowed) fail("published asset outside assets/ui/ and assets/atlas/: " + rel);
+      if (!allowed) fail("published asset outside assets/ui/, assets/battle/, and assets/atlas/: " + rel);
     }
     for (const entry of fs.readdirSync(assetsRoot, { withFileTypes: true })) {
       const rel = "assets/" + entry.name;
       if (entry.isDirectory() && !ALLOWED_ASSET_DIRS.includes(rel)) {
-        fail("published asset folder outside assets/ui/ and assets/atlas/: " + rel);
+        fail("published asset folder outside assets/ui/, assets/battle/, and assets/atlas/: " + rel);
       }
-      if (entry.isFile()) fail("published asset outside assets/ui/ and assets/atlas/: " + rel);
+      if (entry.isFile()) fail("published asset outside assets/ui/, assets/battle/, and assets/atlas/: " + rel);
     }
   }
 }
@@ -167,13 +200,19 @@ function checkWorkflow() {
   } else {
     console.log("check-site: pages.yml copies assets/ui/");
   }
+  if (!/mkdir -p _site\/assets\/battle/.test(yaml) || !/cp -r assets\/battle\/\. _site\/assets\/battle\//.test(yaml)) {
+    fail("pages.yml Assemble site does not copy assets/battle/ into _site/assets/battle/");
+  } else {
+    console.log("check-site: pages.yml copies assets/battle/");
+  }
   // The copy must not be a broader assets/ copy that would publish Kenmi art.
   const copyLines = yaml.split("\n").filter((line) => /cp\s/.test(line) && /assets/.test(line));
   for (const line of copyLines) {
     if (/assets\/ui/.test(line)) continue;
+    if (/assets\/battle/.test(line)) continue;
     if (/assets\/atlas/.test(line)) continue;
     if (/--assets/.test(line)) continue; // packer input, not a site copy
-    fail("pages.yml copies more of assets/ than assets/ui/: " + line.trim());
+    fail("pages.yml copies more of assets/ than assets/ui/ and assets/battle/: " + line.trim());
   }
   if (!/node tools\/check-site\.mjs/.test(yaml)) {
     fail("pages.yml does not run tools/check-site.mjs after assembly");

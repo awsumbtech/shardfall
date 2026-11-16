@@ -3,7 +3,7 @@
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
 // CACHE is the precache version. A new name drops every older shell.
-var CACHE = "shardfall-v0.4.36";
+var CACHE = "shardfall-v0.4.37";
 
 var SHELL = [
   "index.html",
@@ -20,6 +20,7 @@ var SHELL = [
   "js/data/party.js",
   "js/data/enemies.js",
   "js/data/encounters.js",
+  "js/data/battle-backdrops.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/act1-scenes.js",
@@ -116,6 +117,7 @@ var SHELL = [
   "js/core/visual-object.js",
   "js/core/game.js",
   "js/core/scene-router.js",
+  "js/battle/battle-backdrop.js",
   "assets/ui/choicebox-panel.png",
   "assets/ui/choice-cursor.png"
 ];
@@ -139,7 +141,22 @@ function freshRequest(url) {
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return Promise.all(SHELL.map(function (url) {
+      // Backdrop art urls come from SF.BattleBackdropData, filled by
+      // js/data/battle-backdrops.js. A new ready area is a data entry
+      // plus files; this list is not edited.
+      var urls = SHELL.slice();
+      try {
+        self.SF = self.SF || {};
+        if (!self.SF.BattleBackdropData) self.SF.BattleBackdropData = {};
+        importScripts("js/data/battle-backdrops.js");
+        var data = self.SF.BattleBackdropData;
+        if (!data || !data.precache) throw new Error("battle backdrop catalog missing precache");
+        if (data.precache.length) urls = urls.concat(data.precache);
+      } catch (err) {
+        console.error("sw.js: battle backdrop catalog failed", err);
+        throw err;
+      }
+      return Promise.all(urls.map(function (url) {
         return fetch(freshRequest(url)).then(function (response) {
           if (!response.ok) throw new Error(url + " " + response.status);
           return cache.put(url, response);

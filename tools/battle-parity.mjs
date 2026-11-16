@@ -15,6 +15,7 @@ const CORE = [
   "js/data/party.js",
   "js/data/enemies.js",
   "js/data/encounters.js",
+  "js/data/battle-backdrops.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/world.js",
@@ -78,7 +79,7 @@ function loadSF() {
   });
   // The page boot builds the Game root and its SceneRouter before any mode
   // change (js/core/scene-router.js); build the same root here.
-  ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js"].forEach((file) => {
+  ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js", "js/data/battle-backdrops.js", "js/battle/battle-backdrop.js"].forEach((file) => {
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
   });
   const root = new context.SF.Game();
