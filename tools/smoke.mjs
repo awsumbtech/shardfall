@@ -62,6 +62,71 @@ function readGameVersion(siteRoot) {
   return ver[1];
 }
 
+
+function attachCatalogPaths(info) {
+  info.precache = info.precache || (info.catalog && info.catalog.precache) || [];
+  info.areaVersion = function (id) {
+    const catalog = info.catalog;
+    const row = catalog && catalog.areas && catalog.areas[id];
+    return (row && row.version) || (catalog && catalog.version) || "v1";
+  };
+  info.areaAssetDir = function (id) {
+    const catalog = info.catalog;
+    const row = catalog && catalog.areas && catalog.areas[id];
+    if (row && row.dir) return row.dir;
+    return "assets/battle/backdrops/" + id + "/" + info.areaVersion(id) + "/";
+  };
+  info.areaKitDir = function (id) {
+    const catalog = info.catalog;
+    const row = catalog && catalog.areas && catalog.areas[id];
+    if (row && row.kit) return row.kit;
+    return "shardfall/battle/backdrops/" + id + "/" + info.areaVersion(id) + "/";
+  };
+  info.areaLayerPath = function (id, layer) {
+    const catalog = info.catalog;
+    const row = catalog && catalog.areas && catalog.areas[id];
+    if (row && row.layers && row.layers[layer] && row.layers[layer].path) return row.layers[layer].path;
+    return info.areaAssetDir(id) + layer + ".png";
+  };
+  info.expectedPrecache = function () {
+    const layers = ((info.catalog.layers) || []).map((spec) => spec.id);
+    const expected = [];
+    info.readyIds.forEach((id) => {
+      layers.forEach((layer) => expected.push(info.areaLayerPath(id, layer)));
+    });
+    return expected;
+  };
+  info.precacheMismatches = function () {
+    const expected = info.expectedPrecache();
+    const precache = info.precache || [];
+    return {
+      expected,
+      extra: precache.filter((p) => expected.indexOf(p) < 0),
+      missing: expected.filter((p) => precache.indexOf(p) < 0)
+    };
+  };
+  return info;
+}
+
+function provePrecacheRejectsExtraV1(readCatalog, failFn, siteRoot) {
+  const extra = "assets/battle/backdrops/saltmere_wreck/v1/mid.png";
+  const dest = fs.mkdtempSync(path.join(os.tmpdir(), "oo08-precache-"));
+  const destData = path.join(dest, "js/data");
+  fs.mkdirSync(destData, { recursive: true });
+  const src = fs.readFileSync(path.join(siteRoot, "js/data/battle-backdrops.js"), "utf8");
+  fs.writeFileSync(path.join(destData, "battle-backdrops.js"), src + "\n" +
+    "(function (root) {\n" +
+    "  var data = (root.SF || {}).BattleBackdropData;\n" +
+    "  if (data && data.precache) data.precache.push(\"" + extra + "\");\n" +
+    "})(typeof window !== \"undefined\" ? window : self);\n");
+  const tainted = readCatalog(dest);
+  const mismatch = tainted.precacheMismatches();
+  try { fs.rmSync(dest, { recursive: true, force: true }); } catch (err) {}
+  if (mismatch.extra.indexOf(extra) < 0) {
+    failFn("precache exact check did not catch a re-added wreck v1 path");
+  }
+}
+
 function readBackdropCatalog(siteRoot) {
   const dataFile = path.join(siteRoot || ".", "js/data/battle-backdrops.js");
   if (!fs.existsSync(dataFile)) fail("missing " + dataFile);
@@ -81,7 +146,7 @@ function readBackdropCatalog(siteRoot) {
     if (row && row.ready) readyIds.push(id);
     else unreadyIds.push(id);
   }
-  return { catalog, readyIds, unreadyIds, defaultId: catalog.defaultId, precache: catalog.precache || [] };
+  return attachCatalogPaths({ catalog, readyIds, unreadyIds, defaultId: catalog.defaultId, precache: catalog.precache || [] });
 }
 
 function markReadyInCatalogSrc(src, id) {
@@ -96,29 +161,6 @@ function markReadyInCatalogSrc(src, id) {
 function copyTree(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   fs.cpSync(src, dest, { recursive: true });
-}
-
-function areaVersion(catalog, id) {
-  const row = catalog && catalog.areas && catalog.areas[id];
-  return (row && row.version) || (catalog && catalog.version) || "v1";
-}
-
-function areaAssetDir(catalog, id) {
-  const row = catalog && catalog.areas && catalog.areas[id];
-  if (row && row.dir) return row.dir;
-  return "assets/battle/backdrops/" + id + "/" + areaVersion(catalog, id) + "/";
-}
-
-function areaLayerPath(catalog, id, layer) {
-  const row = catalog && catalog.areas && catalog.areas[id];
-  if (row && row.layers && row.layers[layer] && row.layers[layer].path) return row.layers[layer].path;
-  return areaAssetDir(catalog, id) + layer + ".png";
-}
-
-function areaKitDir(catalog, id) {
-  const row = catalog && catalog.areas && catalog.areas[id];
-  if (row && row.kit) return row.kit;
-  return "shardfall/battle/backdrops/" + id + "/" + areaVersion(catalog, id) + "/";
 }
 
 function makeFlippedPairSite(dest) {
@@ -141,8 +183,8 @@ function makeFlippedPairSite(dest) {
   const patched = markReadyInCatalogSrc(fs.readFileSync(dataFile, "utf8"), flipId);
   if (!patched || patched.indexOf(flipId + ": true") < 0) fail("future-pair catalog was not marked ready for " + flipId);
   fs.writeFileSync(dataFile, patched);
-  const destDir = path.join(dest, areaAssetDir(info.catalog, flipId));
-  const srcDir = path.join(dest, areaAssetDir(info.catalog, donor));
+  const destDir = path.join(dest, info.areaAssetDir(flipId));
+  const srcDir = path.join(dest, info.areaAssetDir(donor));
   fs.mkdirSync(destDir, { recursive: true });
   (layers.length ? layers : ["sky", "far", "mid", "floor"]).forEach((layer) => {
     fs.copyFileSync(path.join(srcDir, layer + ".png"), path.join(destDir, layer + ".png"));
@@ -161,7 +203,7 @@ function assertBackdropCatalogOnSite(siteRoot) {
   if (!info.readyIds.length) fail("catalog has no ready areas");
   info.readyIds.forEach((id) => {
     layers.forEach((layer) => {
-      const rel = areaLayerPath(info.catalog, id, layer);
+      const rel = info.areaLayerPath(id, layer);
       if (!fs.existsSync(path.join(siteRoot, rel))) fail("missing " + rel);
       if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
       if (info.precache.indexOf(rel) < 0) fail("catalog precache omits " + rel);
@@ -169,10 +211,15 @@ function assertBackdropCatalogOnSite(siteRoot) {
   });
   info.unreadyIds.forEach((id) => {
     layers.forEach((layer) => {
-      const rel = areaLayerPath(info.catalog, id, layer);
+      const rel = info.areaLayerPath(id, layer);
       if (info.precache.indexOf(rel) >= 0) fail("catalog precaches unready " + rel);
     });
   });
+  const mismatch = info.precacheMismatches();
+  if (mismatch.extra.length || mismatch.missing.length || (info.precache || []).length !== mismatch.expected.length) {
+    fail("catalog precache was not exactly the ready rows' active paths (extra " +
+      mismatch.extra.join(", ") + "; missing " + mismatch.missing.join(", ") + ")");
+  }
   return info;
 }
 
@@ -6509,6 +6556,8 @@ runOo03Checks();
 runOo04Checks();
 
 if (process.env.SF_SKIP_PAIR_PROOF !== "1") {
+  provePrecacheRejectsExtraV1(readBackdropCatalog, fail, ".");
+  console.log("precache exact-match ok, caught re-added wreck v1 path");
   const pairDir = fs.mkdtempSync(path.join(os.tmpdir(), "oo05-smoke-pair-"));
   const pair = makeFlippedPairSite(pairDir);
   // When no catalog id is unready, there is nothing to flip. The ninth-entry
@@ -6593,7 +6642,7 @@ function runOo04Checks() {
   if (layersList.join(",") !== "sky,far,mid,floor") fail("catalog layers were " + layersList.join(","));
   readyIds.forEach((id) => {
     layersList.forEach((layer) => {
-      const rel = areaLayerPath(catalogInfo.catalog, id, layer);
+      const rel = catalogInfo.areaLayerPath(id, layer);
       if (!fs.existsSync(rel)) fail("missing " + rel);
       if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
     });
@@ -6601,18 +6650,11 @@ function runOo04Checks() {
   const catalog = catalogInfo.catalog;
   if (!catalog || catalog.defaultId !== catalogInfo.defaultId) fail("catalog defaultId was " + (catalog && catalog.defaultId));
   const precache = catalogInfo.precache;
-  readyIds.forEach((id) => {
-    layersList.forEach((layer) => {
-      const rel = areaLayerPath(catalog, id, layer);
-      if (precache.indexOf(rel) < 0) fail("catalog precache omits " + rel);
-    });
-  });
-  unreadyIds.forEach((id) => {
-    layersList.forEach((layer) => {
-      const rel = areaLayerPath(catalog, id, layer);
-      if (precache.indexOf(rel) >= 0) fail("catalog precaches unready " + rel);
-    });
-  });
+  const mismatch = catalogInfo.precacheMismatches();
+  if (mismatch.extra.length || mismatch.missing.length || (precache || []).length !== mismatch.expected.length) {
+    fail("catalog precache was not exactly the ready rows' active paths (extra " +
+      mismatch.extra.join(", ") + "; missing " + mismatch.missing.join(", ") + ")");
+  }
 
   const problems = [];
   const backdrop = SF.game && SF.game.battleBackdrop;
