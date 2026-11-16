@@ -98,6 +98,29 @@ function copyTree(src, dest) {
   fs.cpSync(src, dest, { recursive: true });
 }
 
+function areaVersion(catalog, id) {
+  const row = catalog && catalog.areas && catalog.areas[id];
+  return (row && row.version) || (catalog && catalog.version) || "v1";
+}
+
+function areaAssetDir(catalog, id) {
+  const row = catalog && catalog.areas && catalog.areas[id];
+  if (row && row.dir) return row.dir;
+  return "assets/battle/backdrops/" + id + "/" + areaVersion(catalog, id) + "/";
+}
+
+function areaLayerPath(catalog, id, layer) {
+  const row = catalog && catalog.areas && catalog.areas[id];
+  if (row && row.layers && row.layers[layer] && row.layers[layer].path) return row.layers[layer].path;
+  return areaAssetDir(catalog, id) + layer + ".png";
+}
+
+function areaKitDir(catalog, id) {
+  const row = catalog && catalog.areas && catalog.areas[id];
+  if (row && row.kit) return row.kit;
+  return "shardfall/battle/backdrops/" + id + "/" + areaVersion(catalog, id) + "/";
+}
+
 function makeFlippedPairSite(dest) {
   const info = readBackdropCatalog(".");
   if (!info.unreadyIds.length) return null;
@@ -118,8 +141,8 @@ function makeFlippedPairSite(dest) {
   const patched = markReadyInCatalogSrc(fs.readFileSync(dataFile, "utf8"), flipId);
   if (!patched || patched.indexOf(flipId + ": true") < 0) fail("future-pair catalog was not marked ready for " + flipId);
   fs.writeFileSync(dataFile, patched);
-  const destDir = path.join(dest, "assets/battle/backdrops", flipId, "v1");
-  const srcDir = path.join(dest, "assets/battle/backdrops", donor, "v1");
+  const destDir = path.join(dest, areaAssetDir(info.catalog, flipId));
+  const srcDir = path.join(dest, areaAssetDir(info.catalog, donor));
   fs.mkdirSync(destDir, { recursive: true });
   (layers.length ? layers : ["sky", "far", "mid", "floor"]).forEach((layer) => {
     fs.copyFileSync(path.join(srcDir, layer + ".png"), path.join(destDir, layer + ".png"));
@@ -138,7 +161,7 @@ function assertBackdropCatalogOnSite(siteRoot) {
   if (!info.readyIds.length) fail("catalog has no ready areas");
   info.readyIds.forEach((id) => {
     layers.forEach((layer) => {
-      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      const rel = areaLayerPath(info.catalog, id, layer);
       if (!fs.existsSync(path.join(siteRoot, rel))) fail("missing " + rel);
       if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
       if (info.precache.indexOf(rel) < 0) fail("catalog precache omits " + rel);
@@ -146,7 +169,7 @@ function assertBackdropCatalogOnSite(siteRoot) {
   });
   info.unreadyIds.forEach((id) => {
     layers.forEach((layer) => {
-      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      const rel = areaLayerPath(info.catalog, id, layer);
       if (info.precache.indexOf(rel) >= 0) fail("catalog precaches unready " + rel);
     });
   });
@@ -6488,9 +6511,10 @@ runOo04Checks();
 if (process.env.SF_SKIP_PAIR_PROOF !== "1") {
   const pairDir = fs.mkdtempSync(path.join(os.tmpdir(), "oo05-smoke-pair-"));
   const pair = makeFlippedPairSite(pairDir);
-  if (!pair) {
-    console.log("future-pair proof skipped (no unready area left)");
-  } else {
+  // When no catalog id is unready, there is nothing to flip. The ninth-entry
+  // fresh-boot in tools/battle-backdrop-check.mjs (spawned earlier) is the
+  // proof that a new area is still data plus art only.
+  if (pair) {
     assertBackdropCatalogOnSite(pair.dest);
     const flipped = readBackdropCatalog(pair.dest);
     if (flipped.readyIds.indexOf(pair.flipId) < 0) fail("future-pair catalog did not adopt " + pair.flipId);
@@ -6569,7 +6593,7 @@ function runOo04Checks() {
   if (layersList.join(",") !== "sky,far,mid,floor") fail("catalog layers were " + layersList.join(","));
   readyIds.forEach((id) => {
     layersList.forEach((layer) => {
-      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      const rel = areaLayerPath(catalogInfo.catalog, id, layer);
       if (!fs.existsSync(rel)) fail("missing " + rel);
       if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
     });
@@ -6579,13 +6603,13 @@ function runOo04Checks() {
   const precache = catalogInfo.precache;
   readyIds.forEach((id) => {
     layersList.forEach((layer) => {
-      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      const rel = areaLayerPath(catalog, id, layer);
       if (precache.indexOf(rel) < 0) fail("catalog precache omits " + rel);
     });
   });
   unreadyIds.forEach((id) => {
     layersList.forEach((layer) => {
-      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      const rel = areaLayerPath(catalog, id, layer);
       if (precache.indexOf(rel) >= 0) fail("catalog precaches unready " + rel);
     });
   });
@@ -6615,10 +6639,11 @@ function runOo04Checks() {
     const row = SF.BattleBackdrop.entry(id);
     const shouldReady = readyIds.indexOf(id) >= 0;
     if (!row || !!row.ready !== shouldReady) problems.push(id + " ready was " + !!(row && row.ready));
-    if (!row || row.kit !== "shardfall/battle/backdrops/" + id + "/v1/") problems.push(id + " kit path was wrong");
+    const ver = (row && row.version) || (catalog && catalog.version) || "v1";
+    if (!row || row.kit !== "shardfall/battle/backdrops/" + id + "/" + ver + "/") problems.push(id + " kit path was wrong");
     layers.forEach((layer) => {
       const path = loose.pathFor(id, layer);
-      if (path !== "assets/battle/backdrops/" + id + "/v1/" + layer + ".png") problems.push(id + " " + layer + " path was " + path);
+      if (path !== "assets/battle/backdrops/" + id + "/" + ver + "/" + layer + ".png") problems.push(id + " " + layer + " path was " + path);
     });
   });
   if (SF.BattleBackdrop.DEFAULT_ID !== catalogInfo.defaultId) problems.push("DEFAULT_ID was " + SF.BattleBackdrop.DEFAULT_ID);

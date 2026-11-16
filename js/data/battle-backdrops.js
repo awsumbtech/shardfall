@@ -13,12 +13,14 @@
   var KIT = "shardfall/battle/backdrops/";
   var DIR = "assets/battle/backdrops/";
   var VERSION = "v1";
+  var versions = { saltmere_wreck: "v2" };
   var SIZE = { w: 480, h: 270 };
   var HORIZON = 124;
 
   function area(id, ready) {
-    var dir = DIR + id + "/" + VERSION + "/";
-    var kit = KIT + id + "/" + VERSION + "/";
+    var ver = versions[id] || VERSION;
+    var dir = DIR + id + "/" + ver + "/";
+    var kit = KIT + id + "/" + ver + "/";
     var layers = {};
     var i, spec, name;
     for (i = 0; i < LAYERS.length; i++) {
@@ -29,6 +31,7 @@
     return {
       id: id,
       ready: !!ready,
+      version: ver,
       kit: kit,
       dir: dir,
       size: { w: SIZE.w, h: SIZE.h },
@@ -47,7 +50,7 @@
     "highspire_road",
     "hush_deck"
   ];
-  var ready = { emberhold_meadow: true, emberhold_scar: true, cinderveil_ash: true, ember_vault: true, saltmere_shore: true, saltmere_wreck: true };
+  var ready = { emberhold_meadow: true, emberhold_scar: true, cinderveil_ash: true, ember_vault: true, saltmere_shore: true, saltmere_wreck: true, highspire_road: true, hush_deck: true };
   var areas = {};
   var precache = [];
   var i, id, row, j, name;
