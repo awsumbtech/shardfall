@@ -93,3 +93,20 @@ The catalog points `saltmere_wreck` at v2 (`versions.saltmere_wreck = "v2"` in `
 | `assets/battle/backdrops/saltmere_wreck/v2/floor.png` | 480×270, alpha | Wreck floor (copy of v1) |
 
 Provenance and sha256: `docs/evidence/oo-07/ART-PROVENANCE.md`. GAM wreck-v2, 16 November 2026, America/New_York.
+
+## Battle foe sheets — six ready Act 1 foes, plus sootwing waiting (v1)
+
+Sprite sheets at a whole 2×, one row per animation (idle, attack, hurt, death, cast). Normal foes are 64×64 (pivot 32,60); cinderhound is 80×64 (pivot 40,60); cinder_maw is 160×128 (pivot 80,124). Fliers (wisp, sootwing) use the shadow point as the pivot and `hover_px` 8. Wired as ready in `js/data/battle-foes.js` unless noted.
+
+| File | Size | Role |
+| --- | --- | --- |
+| `assets/battle/foes/wisp/v1/wisp.png` | 512×320, 64×64 cells | Ready. Encounter `em_wisps` / `em_wisp1`. |
+| `assets/battle/foes/brumekin/v1/brumekin.png` | 512×320, 64×64 cells | Ready. Encounter `em_brumekin`. |
+| `assets/battle/foes/choirling/v1/choirling.png` | 512×320, 64×64 cells | Ready. Encounter `em_choirling`. |
+| `assets/battle/foes/ashling/v1/ashling.png` | 512×320, 64×64 cells | Ready. Encounter `cv_ash1` / `cv_ashlings`. |
+| `assets/battle/foes/cinderhound/v1/cinderhound.png` | 640×320, 80×64 cells | Ready. Encounter `cv_cinderhound`. |
+| `assets/battle/foes/cinder_maw/v1/cinder_maw.png` | 1280×640, 160×128 cells | Ready. Boss start `boss_cinder_maw`. |
+| `assets/battle/foes/sootwing/v1/sootwing.png` | 512×320, 64×64 cells | Delivered, not ready, not precached. Waiting on a sootwing `SF.FOES` row and encounter (needs Brian's decision; features are frozen). `soot-east` currently starts `cv_mixed`. |
+
+Each directory also keeps `manifest.json`, `PROVENANCE.json`, and `SHA256SUMS`. Provenance and sha256: `docs/evidence/oo-08/ART-PROVENANCE.md`. GAM foe pack, 16 November 2026, America/New_York.
+

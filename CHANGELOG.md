@@ -4,7 +4,7 @@ Notes for someone playing, not a patch log of every file.
 
 ## v0.4.41
 
-New animated art for all seven Act 1 foes.
+New animated art for six Act 1 foes.
 
 ## v0.4.40
 

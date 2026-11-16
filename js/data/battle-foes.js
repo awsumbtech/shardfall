@@ -114,10 +114,15 @@
     "ashling",
     "cinder_maw"
   ];
+  // sootwing's sheet is in assets/battle/foes/sootwing/v1/ (delivered) but is
+  // not marked ready: there is no SF.FOES.sootwing row and no encounter that
+  // lists a sootwing (soot-east / KIND_ENCOUNTER.sootwing start cv_mixed).
+  // Wiring it needs a FOES row and an encounter, which needs Brian's decision
+  // because features are frozen.
   var ready = {
     wisp: true,
     brumekin: true,
-    sootwing: true,
+    sootwing: false,
     cinderhound: true,
     choirling: true,
     ashling: true,

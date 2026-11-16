@@ -249,7 +249,12 @@ function drawSprite(ctx, id, x, y, scale, pose, facing, actor) {
   if (foe && typeof foe.hasArt === "function" && foe.hasArt(id) && typeof foe.draw === "function") {
     try {
       if (foe.draw(ctx, id, x, y, pose, actor)) return;
-    } catch (err) { /* fall through to today's path */ }
+    } catch (err) {
+      // Ready ids fail closed: do not fall back to Art.sprite or COL.
+      console.error("BattleFoeSprite.draw failed for " + id, err);
+      return;
+    }
+    // draw returned false (sheet not loaded this frame): keep today's path.
   }
   if (SF.DrawDeps.art() && typeof SF.DrawDeps.art().sprite === "function") {
     try {

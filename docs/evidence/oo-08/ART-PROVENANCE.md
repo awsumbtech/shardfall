@@ -12,7 +12,7 @@ Wired 16 November 2026, America/New_York.
 
 ## In-game copies
 
-Copied to `assets/battle/foes/<id>/v1/` and verified against each `SHA256SUMS`. Every ready catalog path matched.
+Copied to `assets/battle/foes/<id>/v1/` and verified against each `SHA256SUMS`. Six ids are marked ready and precached. The sootwing sheet stays in `assets/battle/foes/sootwing/v1/` with its manifest, provenance, and `SHA256SUMS`, but it is not marked ready and is not in `data.precache`. It is waiting on a sootwing `SF.FOES` row and encounter, which needs Brian's decision because features are frozen.
 
 | File | sha256 |
 |---|---|

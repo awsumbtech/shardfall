@@ -142,6 +142,22 @@ const catalogInfo = loadCatalog(root);
       mismatch.extra.join(", ") + "; missing " + mismatch.missing.join(", ") + ")");
     process.exit(1);
   }
+  if (catalogInfo.readyIds.length !== 6) {
+    console.error("FAIL ready foe count was " + catalogInfo.readyIds.length + ", expected 6");
+    process.exit(1);
+  }
+  if (catalogInfo.readyIds.indexOf("sootwing") >= 0) {
+    console.error("FAIL sootwing was marked ready");
+    process.exit(1);
+  }
+  if (catalogInfo.unreadyIds.indexOf("sootwing") < 0) {
+    console.error("FAIL sootwing was not catalogued as unready");
+    process.exit(1);
+  }
+  if ((catalogInfo.precache || []).indexOf(catalogInfo.foePath("sootwing")) >= 0) {
+    console.error("FAIL sootwing sheet was in the precache");
+    process.exit(1);
+  }
 }
 if (!skipPairProof) {
   provePrecacheRejectsExtra(loadCatalog, function (msg) {
@@ -311,6 +327,10 @@ const report = await page.evaluate(({ poses, unreadyId }) => {
     else if (!SF.BattleFoeSprite.hasArt(kind)) problems.push(kind + " did not resolve to a ready catalog row");
   });
 
+  if (readyIds.length !== 6) problems.push("ready foe count was " + readyIds.length + ", expected 6");
+  if (readyIds.indexOf("sootwing") >= 0) problems.push("sootwing was treated as ready");
+  if (unreadyIds.indexOf("sootwing") < 0) problems.push("sootwing was not on the unready list");
+
   if (SF.BattleFoeSprite.hasArt(unreadyId)) problems.push(unreadyId + " was treated as ready");
   if (sprite.draw({ drawImage() { problems.push(unreadyId + " used drawImage"); } }, unreadyId, 40, 60, "idle") !== false) {
     problems.push(unreadyId + " did not keep today's sprite path");
@@ -322,22 +342,62 @@ const report = await page.evaluate(({ poses, unreadyId }) => {
     }
   });
 
-  // Confirm the old BattleGfx path still runs for an unready id.
-  let oldPath = false;
-  const art = SF.DrawDeps && SF.DrawDeps.art && SF.DrawDeps.art();
-  const prevSprite = art && art.sprite;
-  if (art) {
-    art.sprite = function () { oldPath = true; if (typeof prevSprite === "function") return prevSprite.apply(this, arguments); };
+  // Confirm the old BattleGfx path still runs for an unready id, including sootwing.
+  function proveOldPath(id) {
+    let oldPath = false;
+    const art = SF.DrawDeps && SF.DrawDeps.art && SF.DrawDeps.art();
+    const prevSprite = art && art.sprite;
+    if (art) {
+      art.sprite = function () { oldPath = true; if (typeof prevSprite === "function") return prevSprite.apply(this, arguments); };
+    }
+    const probe = document.createElement("canvas");
+    probe.width = 64;
+    probe.height = 64;
+    const probeCtx = probe.getContext("2d");
+    if (SF.BattleGfx && typeof SF.BattleGfx.drawSprite === "function") {
+      SF.BattleGfx.drawSprite(probeCtx, id, 32, 60, 2, "idle", "right");
+    }
+    if (art) art.sprite = prevSprite;
+    if (!oldPath) problems.push(id + " did not use today's Art.sprite path");
   }
-  const probe = document.createElement("canvas");
-  probe.width = 64;
-  probe.height = 64;
-  const probeCtx = probe.getContext("2d");
-  if (SF.BattleGfx && typeof SF.BattleGfx.drawSprite === "function") {
-    SF.BattleGfx.drawSprite(probeCtx, unreadyId, 32, 60, 2, "idle", "right");
-  }
-  if (art) art.sprite = prevSprite;
-  if (!oldPath) problems.push(unreadyId + " did not use today's Art.sprite path");
+  proveOldPath(unreadyId);
+  proveOldPath("sootwing");
+
+  readyIds.forEach((id) => {
+    if (!SF.FOES || !SF.FOES[id]) problems.push(id + " has no SF.FOES row");
+    const encs = SF.ENCOUNTERS || {};
+    const encIds = Object.keys(encs);
+    let encId = null;
+    for (let i = 0; i < encIds.length; i++) {
+      const foes = encs[encIds[i]].foes || [];
+      if (foes.indexOf(id) >= 0) { encId = encIds[i]; break; }
+    }
+    if (!encId) problems.push(id + " has no real encounter that starts a fight with it through Battle.start");
+  });
+
+  // A throwing ready draw must fail closed: log, draw nothing, never Art.sprite.
+  (function () {
+    const readyId = readyIds[0];
+    if (!readyId || !SF.BattleGfx || typeof SF.BattleGfx.drawSprite !== "function") return;
+    const prevDraw = sprite.draw;
+    const art = SF.DrawDeps && SF.DrawDeps.art && SF.DrawDeps.art();
+    const prevSprite = art && art.sprite;
+    let artCalled = false;
+    sprite.draw = function () { throw new Error("forced ready draw throw"); };
+    if (art) art.sprite = function () { artCalled = true; };
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext("2d");
+    try {
+      SF.BattleGfx.drawSprite(ctx, readyId, 16, 28, 2, "idle", "right");
+    } catch (err) {
+      problems.push("throwing ready draw escaped: " + err);
+    }
+    if (artCalled) problems.push("throwing ready draw called Art.sprite");
+    sprite.draw = prevDraw;
+    if (art) art.sprite = prevSprite;
+  })();
 
   const frames = {};
   readyIds.forEach((id) => {
@@ -384,6 +444,65 @@ const report = await page.evaluate(({ poses, unreadyId }) => {
 
 for (const p of report.problems) fail(p);
 for (const e of booted.errors.filter((line) => line.indexOf("controller") < 0)) fail("page error: " + e);
+
+await page.evaluate(async () => {
+  const frames = (n) => new Promise((resolve) => {
+    let left = n;
+    function step() { left -= 1; if (left <= 0) resolve(); else requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  });
+  SF.beginNew();
+  let guard = 0;
+  while (SF.state.mode === "dialogue" && guard < 400) {
+    SF.advanceDialogue();
+    const pick = document.querySelector("#dlg-choices button");
+    if (pick && SF.state.mode === "dialogue") pick.click();
+    guard += 1;
+    await frames(2);
+  }
+});
+await page.waitForFunction(() => SF.state && SF.state.mode === "play", null, { timeout: 10000 });
+
+const startReport = await page.evaluate((readyIds) => {
+  const problems = [];
+  function encounterFor(id) {
+    const encs = SF.ENCOUNTERS || {};
+    const encIds = Object.keys(encs);
+    for (let i = 0; i < encIds.length; i++) {
+      const foes = encs[encIds[i]].foes || [];
+      if (foes.indexOf(id) >= 0) return encIds[i];
+    }
+    return null;
+  }
+  readyIds.forEach((id) => {
+    const s = SF.state;
+    if (s.battle) {
+      s.battle = null;
+      s.mode = "play";
+      if (SF.game && SF.game.scenes) SF.game.scenes.go("play", s);
+    }
+    if (!SF.FOES || !SF.FOES[id]) problems.push(id + " has no SF.FOES row");
+    const encId = encounterFor(id);
+    if (!encId) {
+      problems.push(id + " has no real encounter that starts a fight with it through Battle.start");
+      return;
+    }
+    const ok = !!(SF.Battle && SF.Battle.start(encId));
+    if (!ok) {
+      problems.push(id + " Battle.start(" + encId + ") failed");
+      return;
+    }
+    const actors = (SF.state.battle && SF.state.battle.actors) || [];
+    let found = false;
+    for (let i = 0; i < actors.length; i++) {
+      if (actors[i].side === "foe" && (actors[i].sprite === id || actors[i].key === id)) found = true;
+    }
+    if (!found) problems.push(id + " was not in the fight started by " + encId);
+  });
+  return { problems };
+}, report.readyIds);
+
+for (const p of startReport.problems) fail(p);
 
 if (!skipPairProof) {
   const eighthId = "oo08_fixture";
