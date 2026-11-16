@@ -2,6 +2,10 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4.38
+
+Painted battle backdrops for the Cinderveil ash fields and the Ember Vault.
+
 ## v0.4.37
 
 New painted battle backdrops for the Emberhold meadow and scar.

@@ -98,7 +98,7 @@ const page = booted.page;
 await page.waitForFunction(() => SF.game && SF.game.scenes && SF.game.scenes.current() === "title");
 await page.waitForFunction(() => {
   const b = SF.game && SF.game.battleBackdrop;
-  return b && typeof b.layersReady === "function" && b.layersReady("emberhold_meadow") && b.layersReady("emberhold_scar");
+  return b && typeof b.layersReady === "function" && b.layersReady("emberhold_meadow") && b.layersReady("emberhold_scar") && b.layersReady("cinderveil_ash") && b.layersReady("ember_vault");
 }, null, { timeout: 8000 });
 
 const report = await page.evaluate(() => {
@@ -152,7 +152,7 @@ const report = await page.evaluate(() => {
         problems.push(id + " " + layer + " parallax was wrong");
       }
     });
-    const shouldReady = id === "emberhold_meadow" || id === "emberhold_scar";
+    const shouldReady = id === "emberhold_meadow" || id === "emberhold_scar" || id === "cinderveil_ash" || id === "ember_vault";
     if (!!SF.BattleBackdrop.hasArt(id) !== shouldReady) problems.push(id + " ready was " + SF.BattleBackdrop.hasArt(id));
   });
   if (SF.BattleBackdrop.DEFAULT_ID !== "emberhold_meadow") {
@@ -186,14 +186,14 @@ const report = await page.evaluate(() => {
     fallbacks.push({ id: id, w: w, h: h, t: t });
   };
   const ctx = { drawImage() { problems.push("unready area used drawImage"); } };
-  const usedArt = backdrop.draw(ctx, "cinderveil_ash", 844, 390, 1.5);
+  const usedArt = backdrop.draw(ctx, "saltmere_shore", 844, 390, 1.5);
   if (usedArt !== false) problems.push("unready area was reported as real art");
-  if (fallbacks.length !== 1 || fallbacks[0].id !== "cinderveil_ash" || fallbacks[0].w !== 844 || fallbacks[0].h !== 390) {
+  if (fallbacks.length !== 1 || fallbacks[0].id !== "saltmere_shore" || fallbacks[0].w !== 844 || fallbacks[0].h !== 390) {
     problems.push("unready area did not keep today's backdrop path");
   }
   backdrop.fallback = previous;
 
-  const unready = ["cinderveil_ash", "ember_vault", "saltmere_shore", "saltmere_wreck", "highspire_road", "hush_deck"];
+  const unready = ["saltmere_shore", "saltmere_wreck", "highspire_road", "hush_deck"];
   unready.forEach((id) => {
     if (backdrop.layersReady(id)) problems.push(id + " was treated as loaded art");
     const fb = [];
@@ -225,7 +225,7 @@ const report = await page.evaluate(() => {
   }
 
   const expectedFit = SF.BattleBackdrop.fit(844, 390);
-  ["emberhold_meadow", "emberhold_scar"].forEach((id) => {
+  ["emberhold_meadow", "emberhold_scar", "cinderveil_ash", "ember_vault"].forEach((id) => {
     if (!backdrop.layersReady(id)) problems.push(id + " real images did not load");
     let loaded = null;
     try { loaded = backdrop.imagesFor(id); } catch (err) {
@@ -293,8 +293,8 @@ let catalogSrc = fs.readFileSync(dataFile, "utf8");
 if (!catalogSrc.includes('"hush_deck"')) fail("temp catalog is missing hush_deck");
 catalogSrc = catalogSrc.replace('"hush_deck"', '"hush_deck",\n    "' + ninthId + '"');
 catalogSrc = catalogSrc.replace(
-  "var ready = { emberhold_meadow: true, emberhold_scar: true };",
-  "var ready = { emberhold_meadow: true, emberhold_scar: true, " + ninthId + ": true };"
+  "var ready = { emberhold_meadow: true, emberhold_scar: true, cinderveil_ash: true, ember_vault: true };",
+  "var ready = { emberhold_meadow: true, emberhold_scar: true, cinderveil_ash: true, ember_vault: true, " + ninthId + ": true };"
 );
 if (!catalogSrc.includes('"' + ninthId + '"') || !catalogSrc.includes(ninthId + ": true")) {
   fail("temp catalog was not patched with " + ninthId);
@@ -418,5 +418,5 @@ await browser.close();
 server.close();
 if (!process.exitCode) {
   const fit = report.fit || {};
-  console.log("battle backdrop ok, meadow+scar loaded, 6 unready, ninth data entry ok, 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
+  console.log("battle backdrop ok, meadow+scar+ash+vault loaded, 4 unready, ninth data entry ok, 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
 }

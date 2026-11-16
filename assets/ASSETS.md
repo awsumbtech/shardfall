@@ -28,4 +28,21 @@ Four 480×270 plates per area (sky opaque RGB; far, mid, and floor RGBA with alp
 | `assets/battle/backdrops/emberhold_scar/v1/mid.png` | 480×270, alpha | Scar mid |
 | `assets/battle/backdrops/emberhold_scar/v1/floor.png` | 480×270, alpha | Scar floor |
 
-Provenance, sha256, and kit paths: `docs/evidence/oo-04/ART-PROVENANCE.md`. GAM batch 1, 16 November 2026, America/New_York. The other six catalog areas have no plates in this folder yet.
+Provenance, sha256, and kit paths: `docs/evidence/oo-04/ART-PROVENANCE.md`. GAM batch 1, 16 November 2026, America/New_York. Batch 1 of 8 catalog areas. See also the Cinderveil ash and Ember Vault plates below.
+
+## Battle backdrops — Cinderveil ash and Ember Vault (v1, batch 2)
+
+Four 480×270 plates per area (sky opaque RGB; far, mid, and floor RGBA with alpha). Horizon at plate Y 124. Wired as `cinderveil_ash` and `ember_vault` in `js/data/battle-backdrops.js`.
+
+| File | Size | Role |
+| --- | --- | --- |
+| `assets/battle/backdrops/cinderveil_ash/v1/sky.png` | 480×270, opaque | Ash fields sky |
+| `assets/battle/backdrops/cinderveil_ash/v1/far.png` | 480×270, alpha | Ash fields far |
+| `assets/battle/backdrops/cinderveil_ash/v1/mid.png` | 480×270, alpha | Ash fields mid |
+| `assets/battle/backdrops/cinderveil_ash/v1/floor.png` | 480×270, alpha | Ash fields floor |
+| `assets/battle/backdrops/ember_vault/v1/sky.png` | 480×270, opaque | Ember Vault sky |
+| `assets/battle/backdrops/ember_vault/v1/far.png` | 480×270, alpha | Ember Vault far |
+| `assets/battle/backdrops/ember_vault/v1/mid.png` | 480×270, alpha | Ember Vault mid |
+| `assets/battle/backdrops/ember_vault/v1/floor.png` | 480×270, alpha | Ember Vault floor |
+
+Provenance, sha256, and kit paths: `docs/evidence/oo-05/ART-PROVENANCE.md`. GAM batch 2, 16 November 2026, America/New_York. The remaining four catalog areas (saltmere_shore, saltmere_wreck, highspire_road, hush_deck) have no plates in this folder yet.
