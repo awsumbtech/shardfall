@@ -2,6 +2,10 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4.39
+
+Painted battle backdrops for the Saltmere shore and the shipwreck.
+
 ## v0.4.38
 
 Painted battle backdrops for the Cinderveil ash fields and the Ember Vault.
