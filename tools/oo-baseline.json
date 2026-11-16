@@ -1,13 +1,13 @@
 {
-  "version": "0.4.36",
+  "version": "0.4.37",
   "formula": "visual + leaked + sfAssigns + redefined",
   "totals": {
     "visual": 4044,
     "leaked": 165,
-    "sfMembers": 673,
-    "sfAssigns": 893,
+    "sfMembers": 670,
+    "sfAssigns": 890,
     "redefined": 43,
-    "total": 5145
+    "total": 5142
   },
   "files": {
     "css/style.css": {
@@ -334,8 +334,8 @@
     },
     "js/main.js": {
       "leaked": 1,
-      "sfMembers": 24,
-      "sfAssigns": 26
+      "sfMembers": 21,
+      "sfAssigns": 23
     },
     "js/menu/field.js": {
       "leaked": 12,

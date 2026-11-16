@@ -76,7 +76,7 @@ leaked window names: 165
   js/main.js  1
   js/save.js  1
   js/vaultgate.js  1
-SF members assigned: 673 distinct, 893 sites
+SF members assigned: 670 distinct, 890 sites
   js/cinder.js  85 sites
   js/world.js  79 sites
   js/sim.js  60 sites
@@ -88,9 +88,9 @@ SF members assigned: 673 distinct, 893 sites
   js/input.js  39 sites
   js/draw/actors.js  29 sites
   js/grapple.js  26 sites
-  js/main.js  26 sites
   js/dialogue.js  25 sites
   js/battle/battle.js  23 sites
+  js/main.js  23 sites
   js/draw/guides.js  20 sites
   js/draw/field.js  17 sites
   js/draw/sky.js  17 sites
@@ -214,5 +214,12 @@ allowlist: 16 entries, excluded 46 visual hits
   not scanned: tools/props-handoff/kenmi-dense.js (A13 Props hand-off prototypes — tools/props-handoff/kenmi-dense.js)
   not scanned: tools/props-handoff/registry-prototype.js (A13 Props hand-off prototypes — tools/props-handoff/registry-prototype.js)
   not scanned: art/meta-tiles.png (A13 Meta tiles — art/meta-tiles.png)
+oo-audit: count fell
+  js/main.js sfMembers 24 -> 21
+  js/main.js sfAssigns 26 -> 23
+  total sfMembers 673 -> 670
+  total sfAssigns 893 -> 890
+  total total 5145 -> 5142
+hint: counts fell; re-run node tools/oo-audit.mjs --write-baseline
 oo-audit: counts are within origin/main
-OO-AUDIT: 5145 remaining
+OO-AUDIT: 5142 remaining

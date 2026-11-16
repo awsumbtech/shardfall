@@ -1,7 +1,8 @@
 "use strict";
 
 // Battle backdrop catalog. Adding an area is a new row here plus art
-// files; the BattleBackdrop object and sw.js both read this file.
+// files. This file fills SF.BattleBackdropData (counted assign in js/main.js).
+// The BattleBackdrop object and sw.js both read that same name.
 (function (root) {
   var LAYERS = [
     { id: "sky", parallax: 0, z: 0 },
@@ -75,7 +76,20 @@
     precache: precache
   };
 
-  var Backdrop = root.SF && root.SF.BattleBackdrop;
-  if (Backdrop && typeof Backdrop.adopt === "function") Backdrop.adopt(data);
-  root.__SHARDFALL_BATTLE_BACKDROPS = data;
+  var sf = root.SF || (root.SF = {});
+  var dest = sf.BattleBackdropData;
+  if (!dest) dest = sf.BattleBackdropData = {};
+  dest.defaultId = data.defaultId;
+  dest.kit = data.kit;
+  dest.dir = data.dir;
+  dest.version = data.version;
+  dest.size = data.size;
+  dest.horizon = data.horizon;
+  dest.layers = data.layers;
+  dest.ids = data.ids;
+  dest.areas = data.areas;
+  dest.precache = data.precache;
+  if (sf.BattleBackdrop && typeof sf.BattleBackdrop.adopt === "function") {
+    sf.BattleBackdrop.adopt(data);
+  }
 })(typeof window !== "undefined" ? window : self);

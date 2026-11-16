@@ -5,6 +5,7 @@
 // as having art is missing a manifest entry or a layer image.
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -265,67 +266,153 @@ const report = await page.evaluate(() => {
 for (const p of report.problems) fail(p);
 for (const e of booted.errors.filter((line) => line.indexOf("controller") < 0)) fail("page error: " + e);
 
-// A ninth area is a data entry only. The fixture is not shipped; it is
-// adopted here, loads existing meadow plates, then the catalog is restored.
-const ninth = JSON.parse(fs.readFileSync(new URL("./fixtures/battle-backdrop-ninth.json", import.meta.url), "utf8"));
-const ninthReport = await page.evaluate(async (entry) => {
-  const problems = [];
-  const Backdrop = SF.BattleBackdrop;
-  const shipped = window.__SHARDFALL_BATTLE_BACKDROPS;
-  if (!shipped || typeof Backdrop.adopt !== "function") {
-    return { problems: ["catalog or adopt() missing"], defaultId: null, precache: [] };
-  }
-  const live = SF.game.battleBackdrop;
-  const original = JSON.parse(JSON.stringify(shipped));
-  const expanded = JSON.parse(JSON.stringify(shipped));
-  expanded.ids = (expanded.ids || []).concat([entry.id]);
-  expanded.areas[entry.id] = entry;
-  expanded.precache = (expanded.precache || []).concat([
-    entry.layers.sky.path, entry.layers.far.path, entry.layers.mid.path, entry.layers.floor.path
-  ]);
-  Backdrop.adopt(expanded);
-  if (Backdrop.IDS.indexOf(entry.id) < 0) problems.push("ninth id was not adopted");
-  if (!Backdrop.hasArt(entry.id)) problems.push("ninth id was not ready");
-  if (Backdrop.entry(entry.id).layers.sky.path !== entry.layers.sky.path) problems.push("ninth path was not taken from the data entry");
-  const previousDefault = Backdrop.DEFAULT_ID;
-  expanded.defaultId = entry.id;
-  Backdrop.adopt(expanded);
-  if (Backdrop.resolveId("not-a-real-area") !== entry.id) {
-    problems.push("defaultId from data was ignored: " + Backdrop.resolveId("not-a-real-area"));
-  }
-  expanded.defaultId = previousDefault;
-  Backdrop.adopt(expanded);
+// A ninth area is a data entry only: a temp copy of the site, a patched
+// catalog row, and art files under the new id. No adopt/setLayers, and
+// no edits to the object or sw.js. A live fight with that bg must blit
+// the ninth plates.
+const ninthId = "oo04_fixture";
+const ninthRoot = fs.mkdtempSync(path.join(os.tmpdir(), "oo04-ninth-"));
 
-  const source = live.imagesFor("emberhold_meadow");
-  live.setLayers(entry.id, source);
-  if (!live.layersReady(entry.id)) problems.push("ninth area did not load images");
-  const blits = [];
-  const prev = live.fallback;
-  live.fallback = function () { problems.push("ninth area used the old backdrop path"); };
-  let drew = false;
-  try { drew = live.draw({ drawImage() { blits.push(Array.prototype.slice.call(arguments)); }, set imageSmoothingEnabled(value) { this._smooth = value; } }, entry.id, 844, 390, 0); } catch (err) {
-    problems.push("ninth draw threw: " + err);
+function copyTree(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  fs.cpSync(src, dest, { recursive: true });
+}
+fs.copyFileSync(path.join(root, "index.html"), path.join(ninthRoot, "index.html"));
+fs.copyFileSync(path.join(root, "sw.js"), path.join(ninthRoot, "sw.js"));
+if (fs.existsSync(path.join(root, "manifest.webmanifest"))) {
+  fs.copyFileSync(path.join(root, "manifest.webmanifest"), path.join(ninthRoot, "manifest.webmanifest"));
+}
+for (const dir of ["css", "js", "icons"]) {
+  copyTree(path.join(root, dir), path.join(ninthRoot, dir));
+}
+copyTree(path.join(root, "assets", "ui"), path.join(ninthRoot, "assets", "ui"));
+copyTree(path.join(root, "assets", "battle"), path.join(ninthRoot, "assets", "battle"));
+
+const dataFile = path.join(ninthRoot, "js/data/battle-backdrops.js");
+let catalogSrc = fs.readFileSync(dataFile, "utf8");
+if (!catalogSrc.includes('"hush_deck"')) fail("temp catalog is missing hush_deck");
+catalogSrc = catalogSrc.replace('"hush_deck"', '"hush_deck",\n    "' + ninthId + '"');
+catalogSrc = catalogSrc.replace(
+  "var ready = { emberhold_meadow: true, emberhold_scar: true };",
+  "var ready = { emberhold_meadow: true, emberhold_scar: true, " + ninthId + ": true };"
+);
+if (!catalogSrc.includes('"' + ninthId + '"') || !catalogSrc.includes(ninthId + ": true")) {
+  fail("temp catalog was not patched with " + ninthId);
+}
+fs.writeFileSync(dataFile, catalogSrc);
+const ninthDir = path.join(ninthRoot, "assets/battle/backdrops", ninthId, "v1");
+fs.mkdirSync(ninthDir, { recursive: true });
+const meadowDir = path.join(ninthRoot, "assets/battle/backdrops/emberhold_meadow/v1");
+for (const layer of ["sky", "far", "mid", "floor"]) {
+  fs.copyFileSync(path.join(meadowDir, layer + ".png"), path.join(ninthDir, layer + ".png"));
+}
+
+const ninthServer = http.createServer((req, res) => {
+  const url = new URL(req.url, "http://127.0.0.1");
+  let rel = decodeURIComponent(url.pathname);
+  if (rel === "/") rel = "/index.html";
+  const file = path.normalize(path.join(ninthRoot, rel));
+  if (!file.startsWith(ninthRoot) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+    res.writeHead(404);
+    res.end("missing");
+    return;
   }
-  live.fallback = prev;
-  if (drew !== true) problems.push("ninth area did not blit real layers");
-  if (blits.length !== 4) problems.push("ninth blit count was " + blits.length);
-  const fit = Backdrop.fit(844, 390, entry.id);
+  res.writeHead(200, {
+    "Content-Type": TYPES[path.extname(file)] || "application/octet-stream",
+    "Cache-Control": "no-store"
+  });
+  fs.createReadStream(file).pipe(res);
+});
+await new Promise((resolve) => ninthServer.listen(0, "127.0.0.1", resolve));
+const ninthOrigin = "http://127.0.0.1:" + ninthServer.address().port;
+
+const ninthContext = await browser.newContext({
+  viewport: { width: 844, height: 390 },
+  deviceScaleFactor: 3,
+  hasTouch: true,
+  isMobile: true
+});
+await ninthContext.addInitScript(() => {
+  try {
+    Object.defineProperty(navigator, "serviceWorker", { configurable: true, get() { return undefined; } });
+  } catch (err) {}
+});
+const ninthPage = await ninthContext.newPage();
+const ninthErrors = [];
+ninthPage.on("pageerror", (err) => ninthErrors.push(String(err)));
+await ninthPage.goto(ninthOrigin + "/index.html?debug=1", { waitUntil: "domcontentloaded" });
+await ninthPage.waitForFunction(() => window.SF && SF.state && SF.bindInput);
+await ninthPage.waitForFunction(() => SF.game && SF.game.scenes && SF.game.scenes.current() === "title");
+await ninthPage.waitForFunction(() => {
+  const b = SF.game && SF.game.battleBackdrop;
+  return b && typeof b.layersReady === "function" && b.layersReady("oo04_fixture");
+}, null, { timeout: 8000 });
+
+const ninthReport = await ninthPage.evaluate(async () => {
+  const problems = [];
+  const frames = (n) => new Promise((resolve) => {
+    let left = n;
+    function step() { left -= 1; if (left <= 0) resolve(); else requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  });
+  const ninthId = "oo04_fixture";
+  const backdrop = SF.game && SF.game.battleBackdrop;
+  if (!backdrop) problems.push("ninth boot has no BattleBackdrop");
+  if (!SF.BattleBackdrop.hasArt(ninthId)) problems.push("ninth id was not ready from the data file");
+  const expected = "assets/battle/backdrops/" + ninthId + "/v1/sky.png";
+  if (!backdrop || backdrop.pathFor(ninthId, "sky") !== expected) {
+    problems.push("ninth sky path was " + (backdrop && backdrop.pathFor(ninthId, "sky")));
+  }
+  if (SF.BattleBackdrop.IDS.indexOf(ninthId) < 0) problems.push("ninth id was not in the catalog");
+
+  SF.beginNew();
+  let guard = 0;
+  while (SF.state.mode === "dialogue" && guard < 400) {
+    SF.advanceDialogue();
+    const pick = document.querySelector("#dlg-choices button");
+    if (pick && SF.state.mode === "dialogue") pick.click();
+    guard += 1;
+    await frames(2);
+  }
+  if (SF.state.mode !== "play") problems.push("ninth boot ended in " + SF.state.mode + " before the fight");
+  if (!SF.Battle.start("em_wisps", { bg: ninthId })) problems.push("ninth fight did not start");
+  if (!SF.state.battle || SF.state.battle.bg !== ninthId) {
+    problems.push("ninth fight bg was " + (SF.state.battle && SF.state.battle.bg));
+  }
+  await frames(8);
+  const blits = [];
+  const fallbacks = [];
+  const prev = backdrop.fallback;
+  backdrop.fallback = function (ctx, id) { fallbacks.push(id); if (typeof prev === "function") prev.apply(this, arguments); };
+  const rawDraw = backdrop.draw.bind(backdrop);
+  const probe = {
+    drawImage() { blits.push({ src: arguments[0] && (arguments[0].src || arguments[0].currentSrc || ""), img: arguments[0] }); },
+    set imageSmoothingEnabled(value) { this._smooth = value; }
+  };
+  let drew = false;
+  try { drew = rawDraw(probe, ninthId, 844, 390, 0); } catch (err) {
+    problems.push("ninth fight draw threw: " + err);
+  }
+  backdrop.fallback = prev;
+  if (drew !== true) problems.push("ninth fight did not blit real plates");
+  if (fallbacks.length) problems.push("ninth fight used the old backdrop path");
+  if (blits.length !== 4) problems.push("ninth fight blit count was " + blits.length);
+  const suffix = "/assets/battle/backdrops/" + ninthId + "/v1/";
   ["sky", "far", "mid", "floor"].forEach((layer, i) => {
-    const blit = blits[i];
-    if (!blit || blit[0] !== source[layer] || blit[1] !== fit.x || blit[2] !== fit.y || blit[3] !== fit.w || blit[4] !== fit.h) {
-      problems.push("ninth " + layer + " blit was wrong");
+    const src = String((blits[i] && blits[i].src) || "");
+    if (src.indexOf(suffix + layer + ".png") < 0) {
+      problems.push("ninth fight " + layer + " came from " + src);
     }
   });
-
-  Backdrop.adopt(original);
-  window.__SHARDFALL_BATTLE_BACKDROPS = original;
-  if (Backdrop.IDS.indexOf(entry.id) >= 0) problems.push("ninth id leaked after restore");
-  if (Backdrop.resolveId("not-a-real-area") !== "emberhold_meadow") problems.push("default was not restored");
-  return { problems, defaultId: Backdrop.DEFAULT_ID, precache: expanded.precache };
-}, ninth);
+  return { problems, bg: SF.state.battle && SF.state.battle.bg, blitCount: blits.length };
+});
 
 for (const p of ninthReport.problems) fail(p);
-if ((ninthReport.precache || []).indexOf(ninth.layers.sky.path) < 0) fail("fixture precache omitted the ninth area");
+for (const e of ninthErrors.filter((line) => line.indexOf("controller") < 0)) fail("ninth page error: " + e);
+
+await ninthContext.close();
+ninthServer.close();
+try { fs.rmSync(ninthRoot, { recursive: true, force: true }); } catch (err) {}
 
 await browser.close();
 server.close();

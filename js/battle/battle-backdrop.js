@@ -1,7 +1,7 @@
 "use strict";
 
 // One job: draw one real four-layer battle backdrop per area from the
-// catalog in js/data/battle-backdrops.js (id -> sky, far, mid, floor
+// catalog filled by js/data/battle-backdrops.js (id -> sky, far, mid, floor
 // image paths). Until an area is marked ready, it keeps today's existing
 // backdrop path (Art.battleBg via BattleGfx.paintBg). This file never
 // paints with tints, recolors, gradients, or code-drawn art. An unknown
@@ -290,7 +290,7 @@
     return this;
   };
 
-  if (typeof window !== "undefined" && window.__SHARDFALL_BATTLE_BACKDROPS) {
-    BattleBackdrop.adopt(window.__SHARDFALL_BATTLE_BACKDROPS);
+  if (sf && sf.BattleBackdropData && sf.BattleBackdropData.ids) {
+    BattleBackdrop.adopt(sf.BattleBackdropData);
   }
 })();

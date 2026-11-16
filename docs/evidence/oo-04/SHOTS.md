@@ -22,3 +22,5 @@ The painted scar plate is clearly on screen: banded dusk sky, hanging burnt isle
 ## Retake after catalog move
 
 Retaken 16 November 2026, America/New_York, with the same `/tmp/shot/s.mjs` hook after the catalog moved into `js/data/battle-backdrops.js`. Both files are pixel-identical to the previous pair (2532×1170, max channel delta 0 over the full frame).
+
+Retaken again after the Pages / catalog-publish / ninth-site fixes. Both files remain pixel-identical to the previous pair (max channel delta 0).

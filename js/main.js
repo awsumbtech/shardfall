@@ -19,6 +19,10 @@ SF.SceneRouter = function SceneRouter() {
 SF.BattleBackdrop = function BattleBackdrop() {
   this.init();
 };
+// Counted publication of the battle backdrop catalog. js/data/battle-backdrops.js
+// fills this object; the assign lives here so the data file stays at zero SF.*
+// sites (per-file ratchet). Keep a pre-filled object if the data script ran first.
+SF.BattleBackdropData = SF.BattleBackdropData || {};
 
 // Counted write-through to the compatibility bag. Lives here so js/core/game.js
 // stays at zero SF.* sites. Removed when GameState (step 10) owns the state.
@@ -192,10 +196,6 @@ SF.resize = function () {
     canvas.height = bh;
     game.resizeWrites += 1;
   }
-  SF._bw = bw;
-  SF._bh = bh;
-  SF._cssW = cssW;
-  SF._cssH = cssH;
   SF.dpr = back;
   game.pixelScale = scale;
   SF.viewW = logicalW;

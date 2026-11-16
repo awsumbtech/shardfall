@@ -6389,6 +6389,7 @@ function runOo04Checks() {
   if (hit) fail(file + " draws with code (" + hit[0] + ")");
   const mainJs = fs.readFileSync("js/main.js", "utf8");
   if (!mainJs.includes("SF.BattleBackdrop = function BattleBackdrop")) fail("main.js does not assign SF.BattleBackdrop");
+  if (!mainJs.includes("SF.BattleBackdropData =")) fail("main.js does not assign SF.BattleBackdropData");
   const gameJs = fs.readFileSync("js/core/game.js", "utf8");
   if (!gameJs.includes("this.battleBackdrop = new Backdrop()")) fail("Game does not own the BattleBackdrop instance");
   if (gameJs.includes("battleBackdrop.attach") || gameJs.includes("this.battleBackdrop.attach")) {
@@ -6446,7 +6447,7 @@ function runOo04Checks() {
   catalogBox.window = catalogBox;
   catalogBox.self = catalogBox;
   vm.runInContext(fs.readFileSync(dataFile, "utf8"), vm.createContext(catalogBox), { filename: dataFile });
-  const catalog = catalogBox.__SHARDFALL_BATTLE_BACKDROPS;
+  const catalog = catalogBox.SF && catalogBox.SF.BattleBackdropData;
   if (!catalog || catalog.defaultId !== "emberhold_meadow") fail("catalog defaultId was " + (catalog && catalog.defaultId));
   const precache = (catalog && catalog.precache) || [];
   readyIds.forEach((id) => {
@@ -6476,7 +6477,10 @@ function runOo04Checks() {
 
   const ids = SF.BattleBackdrop.IDS;
   const layers = SF.BattleBackdrop.LAYERS;
-  if (!ids || ids.length !== 8) problems.push("manifest does not list 8 areas");
+  if (!ids || !ids.length) problems.push("manifest lists no areas");
+  readyIds.concat(unreadyIds).forEach((id) => {
+    if (ids.indexOf(id) < 0) problems.push("catalog missing " + id);
+  });
   if (!layers || layers.join(",") !== "sky,far,mid,floor") problems.push("layers were " + (layers && layers.join(",")));
   if (SF.BattleBackdrop.SIZE.w !== 480 || SF.BattleBackdrop.SIZE.h !== 270) problems.push("plate size was not 480x270");
   if (SF.BattleBackdrop.HORIZON !== 124) problems.push("plate horizon was not 124");

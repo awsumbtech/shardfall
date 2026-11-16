@@ -141,16 +141,21 @@ function freshRequest(url) {
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      // Backdrop art urls come from js/data/battle-backdrops.js. A new
-      // ready area is a data entry plus files; this list is not edited.
+      // Backdrop art urls come from SF.BattleBackdropData, filled by
+      // js/data/battle-backdrops.js. A new ready area is a data entry
+      // plus files; this list is not edited.
       var urls = SHELL.slice();
       try {
+        self.SF = self.SF || {};
+        if (!self.SF.BattleBackdropData) self.SF.BattleBackdropData = {};
         importScripts("js/data/battle-backdrops.js");
-        var data = self.__SHARDFALL_BATTLE_BACKDROPS;
-        if (data && data.precache && data.precache.length) {
-          urls = urls.concat(data.precache);
-        }
-      } catch (err) {}
+        var data = self.SF.BattleBackdropData;
+        if (!data || !data.precache) throw new Error("battle backdrop catalog missing precache");
+        if (data.precache.length) urls = urls.concat(data.precache);
+      } catch (err) {
+        console.error("sw.js: battle backdrop catalog failed", err);
+        throw err;
+      }
       return Promise.all(urls.map(function (url) {
         return fetch(freshRequest(url)).then(function (response) {
           if (!response.ok) throw new Error(url + " " + response.status);
