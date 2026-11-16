@@ -2,6 +2,10 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4.40
+
+Painted battle backdrops for the Highspire road and the Hush ship deck — all 8 battle areas now have real art — plus a clearer Saltmere shipwreck.
+
 ## v0.4.39
 
 Painted battle backdrops for the Saltmere shore and the shipwreck.

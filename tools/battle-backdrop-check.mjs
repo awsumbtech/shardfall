@@ -79,9 +79,27 @@ function copySite(dest) {
   copyTree(path.join(root, "assets", "battle"), path.join(dest, "assets", "battle"));
 }
 
+
+function areaVersion(catalog, id) {
+  const row = catalog && catalog.areas && catalog.areas[id];
+  return (row && row.version) || (catalog && catalog.version) || "v1";
+}
+
+function areaAssetDir(catalog, id) {
+  const row = catalog && catalog.areas && catalog.areas[id];
+  if (row && row.dir) return row.dir;
+  return "assets/battle/backdrops/" + id + "/" + areaVersion(catalog, id) + "/";
+}
+
+function areaKitDir(catalog, id) {
+  const row = catalog && catalog.areas && catalog.areas[id];
+  if (row && row.kit) return row.kit;
+  return "shardfall/battle/backdrops/" + id + "/" + areaVersion(catalog, id) + "/";
+}
+
 function copyLayerArt(destRoot, fromId, toId, layers) {
-  const destDir = path.join(destRoot, "assets/battle/backdrops", toId, "v1");
-  const srcDir = path.join(destRoot, "assets/battle/backdrops", fromId, "v1");
+  const destDir = path.join(destRoot, areaAssetDir(catalogInfo && catalogInfo.catalog, toId));
+  const srcDir = path.join(destRoot, areaAssetDir(catalogInfo && catalogInfo.catalog, fromId));
   fs.mkdirSync(destDir, { recursive: true });
   for (const layer of layers) {
     fs.copyFileSync(path.join(srcDir, layer + ".png"), path.join(destDir, layer + ".png"));
@@ -231,12 +249,13 @@ const report = await page.evaluate(() => {
     const row = SF.BattleBackdrop.entry(id);
     const idPaths = backdrop.pathsFor(id);
     paths[id] = idPaths;
-    if (!row || row.kit !== "shardfall/battle/backdrops/" + id + "/v1/") {
+    const ver = (row && row.version) || (data && data.version) || "v1";
+    if (!row || row.kit !== "shardfall/battle/backdrops/" + id + "/" + ver + "/") {
       problems.push(id + " kit path was " + (row && row.kit));
     }
     if (row && row.horizon !== 124) problems.push(id + " horizon was " + (row && row.horizon));
     layers.forEach((layer) => {
-      const expected = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      const expected = "assets/battle/backdrops/" + id + "/" + ver + "/" + layer + ".png";
       if (idPaths[layer] !== expected) problems.push(id + " " + layer + " path was " + idPaths[layer]);
       if (!row || !row.layers || !row.layers[layer] || row.layers[layer].parallax !== parallax[layer]) {
         problems.push(id + " " + layer + " parallax was wrong");
@@ -304,7 +323,9 @@ const report = await page.evaluate(() => {
     picked[encId] = bg;
     if (bg !== encounters[encId]) problems.push(encId + " bg was " + bg);
     const dir = backdrop.pathFor(bg);
-    if (dir !== "assets/battle/backdrops/" + encounters[encId] + "/v1/") {
+    const bgRow = SF.BattleBackdrop.entry(bg);
+    const bgVer = (bgRow && bgRow.version) || (SF.BattleBackdropData && SF.BattleBackdropData.version) || "v1";
+    if (dir !== "assets/battle/backdrops/" + encounters[encId] + "/" + bgVer + "/") {
       problems.push(encId + " did not pick " + encounters[encId]);
     }
   });
@@ -434,7 +455,8 @@ const ninthReport = await ninthPage.evaluate(async (ninthId) => {
   const backdrop = SF.game && SF.game.battleBackdrop;
   if (!backdrop) problems.push("ninth boot has no BattleBackdrop");
   if (!SF.BattleBackdrop.hasArt(ninthId)) problems.push("ninth id was not ready from the data file");
-  const expected = "assets/battle/backdrops/" + ninthId + "/v1/sky.png";
+  const ninthVer = (SF.BattleBackdropData && SF.BattleBackdropData.version) || "v1";
+  const expected = "assets/battle/backdrops/" + ninthId + "/" + ninthVer + "/sky.png";
   if (!backdrop || backdrop.pathFor(ninthId, "sky") !== expected) {
     problems.push("ninth sky path was " + (backdrop && backdrop.pathFor(ninthId, "sky")));
   }
@@ -472,7 +494,7 @@ const ninthReport = await ninthPage.evaluate(async (ninthId) => {
   if (drew !== true) problems.push("ninth fight did not blit real plates");
   if (fallbacks.length) problems.push("ninth fight used the old backdrop path");
   if (blits.length !== 4) problems.push("ninth fight blit count was " + blits.length);
-  const suffix = "/assets/battle/backdrops/" + ninthId + "/v1/";
+  const suffix = "/assets/battle/backdrops/" + ninthId + "/" + ninthVer + "/";
   const layerIds = ((SF.BattleBackdropData && SF.BattleBackdropData.layers) || []).map((spec) => spec.id);
   (layerIds.length ? layerIds : ["sky", "far", "mid", "floor"]).forEach((layer, i) => {
     const src = String((blits[i] && blits[i].src) || "");
@@ -492,6 +514,9 @@ try { fs.rmSync(ninthRoot, { recursive: true, force: true }); } catch (err) {}
 
 // Future pair: flip one catalog-unready id to ready and copy plates. The
 // same check, with no edits under tools/, must treat it as a ready area.
+// When every catalog id is already ready, the ninth-entry fresh-boot above
+// is the same proof: a new area is a data row plus art, so there is no
+// separate skip path.
 if (catalogInfo.unreadyIds.length) {
   const pairRoot = fs.mkdtempSync(path.join(os.tmpdir(), "oo05-pair-"));
   copySite(pairRoot);
@@ -514,8 +539,6 @@ if (catalogInfo.unreadyIds.length) {
   });
   if (child.status !== 0) fail("future-pair check failed for " + flipId + " (status " + child.status + ")");
   try { fs.rmSync(pairRoot, { recursive: true, force: true }); } catch (err) {}
-} else {
-  console.log("future-pair proof skipped (no unready area left)");
 }
 } // !skipPairProof
 
@@ -525,6 +548,9 @@ if (!process.exitCode) {
   const fit = report.fit || {};
   const readyIds = catalogInfo.readyIds;
   const unreadyN = catalogInfo.unreadyIds.length;
-  const proof = skipPairProof ? "pair-child ok" : "ninth data entry ok, future-pair ok";
+  let proof;
+  if (skipPairProof) proof = "pair-child ok";
+  else if (unreadyN) proof = "ninth data entry ok, future-pair ok";
+  else proof = "ninth data entry ok";
   console.log("battle backdrop ok, " + readyIds.length + " ready (" + readyIds.join(", ") + "), " + unreadyN + " unready, " + proof + ", 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
 }

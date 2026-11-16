@@ -62,4 +62,34 @@ Four 480×270 plates per area (sky opaque RGB; far, mid, and floor RGBA with alp
 | `assets/battle/backdrops/saltmere_wreck/v1/mid.png` | 480×270, alpha | Saltmere wreck mid |
 | `assets/battle/backdrops/saltmere_wreck/v1/floor.png` | 480×270, alpha | Saltmere wreck floor |
 
-Provenance, sha256, and kit paths: `docs/evidence/oo-06/ART-PROVENANCE.md`. GAM batch 3, 16 November 2026, America/New_York. The remaining two catalog areas (highspire_road, hush_deck) have no plates in this folder yet.
+Provenance, sha256, and kit paths: `docs/evidence/oo-06/ART-PROVENANCE.md`. GAM batch 3, 16 November 2026, America/New_York. See also the Highspire road, Hush deck, and Saltmere wreck v2 plates below.
+
+## Battle backdrops — Highspire road and Hush deck (v1, batch 4)
+
+Four 480×270 plates per area (sky opaque RGB; far, mid, and floor RGBA with alpha). Horizon at plate Y 124. Wired as `highspire_road` and `hush_deck` in `js/data/battle-backdrops.js`. All 8 catalog areas now have painted plates.
+
+| File | Size | Role |
+| --- | --- | --- |
+| `assets/battle/backdrops/highspire_road/v1/sky.png` | 480×270, opaque | Highspire road sky |
+| `assets/battle/backdrops/highspire_road/v1/far.png` | 480×270, alpha | Highspire road far |
+| `assets/battle/backdrops/highspire_road/v1/mid.png` | 480×270, alpha | Highspire road mid |
+| `assets/battle/backdrops/highspire_road/v1/floor.png` | 480×270, alpha | Highspire road floor |
+| `assets/battle/backdrops/hush_deck/v1/sky.png` | 480×270, opaque | Hush deck sky |
+| `assets/battle/backdrops/hush_deck/v1/far.png` | 480×270, alpha | Hush deck far |
+| `assets/battle/backdrops/hush_deck/v1/mid.png` | 480×270, alpha | Hush deck mid |
+| `assets/battle/backdrops/hush_deck/v1/floor.png` | 480×270, alpha | Hush deck floor |
+
+Provenance, sha256, and kit paths: `docs/evidence/oo-07/ART-PROVENANCE.md`. GAM batch 4, 16 November 2026, America/New_York.
+
+## Battle backdrops — Saltmere wreck v2 (mid only)
+
+The catalog points `saltmere_wreck` at v2 (`versions.saltmere_wreck = "v2"` in `js/data/battle-backdrops.js`). Only `mid.png` is new. Sky, far, and floor are byte-identical copies of v1. The v1 directory is kept in the repo (referenced in earlier provenance); `data.precache` lists only the active v2 paths.
+
+| File | Size | Role |
+| --- | --- | --- |
+| `assets/battle/backdrops/saltmere_wreck/v2/sky.png` | 480×270, opaque | Wreck sky (copy of v1) |
+| `assets/battle/backdrops/saltmere_wreck/v2/far.png` | 480×270, alpha | Wreck far (copy of v1) |
+| `assets/battle/backdrops/saltmere_wreck/v2/mid.png` | 480×270, alpha | Wreck mid (new; clearer hull) |
+| `assets/battle/backdrops/saltmere_wreck/v2/floor.png` | 480×270, alpha | Wreck floor (copy of v1) |
+
+Provenance and sha256: `docs/evidence/oo-07/ART-PROVENANCE.md`. GAM wreck-v2, 16 November 2026, America/New_York.
