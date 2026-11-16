@@ -76,6 +76,9 @@
   BattleBackdrop.IDS.forEach(function (id) {
     BattleBackdrop.MANIFEST[id] = BattleBackdrop.rowFor(id);
   });
+  // Batch 1 (Nov 16, 2026): real plates on disk. The other six stay unready.
+  BattleBackdrop.MANIFEST.emberhold_meadow.ready = true;
+  BattleBackdrop.MANIFEST.emberhold_scar.ready = true;
 
   BattleBackdrop.entry = function (id) {
     var manifest = BattleBackdrop.MANIFEST;
@@ -187,6 +190,45 @@
     return this;
   };
 
+  BattleBackdrop.prototype.layersReady = function (id) {
+    var resolved = BattleBackdrop.resolveId(id);
+    if (!BattleBackdrop.hasArt(resolved)) return false;
+    var stored = this.images[resolved] || {};
+    var i, layer;
+    for (i = 0; i < BattleBackdrop.LAYERS.length; i++) {
+      layer = BattleBackdrop.LAYERS[i];
+      if (!BattleBackdrop.imageOk(stored[layer])) return false;
+    }
+    return true;
+  };
+
+  // Load every ready area's four layer images through AssetLoader.
+  // A missing loader or a failed fetch leaves the area unready to blit;
+  // draw then keeps today's backdrop path for that frame.
+  BattleBackdrop.prototype.loadReady = function () {
+    var self = this;
+    var loader = sf && sf.AssetLoader;
+    var ids = [];
+    for (var i = 0; i < BattleBackdrop.IDS.length; i++) {
+      var readyId = BattleBackdrop.IDS[i];
+      if (BattleBackdrop.hasArt(readyId)) ids.push(readyId);
+    }
+    if (!ids.length || !loader || typeof loader.image !== "function") {
+      return typeof Promise === "function" ? Promise.resolve(self) : self;
+    }
+    var jobs = [];
+    ids.forEach(function (id) {
+      BattleBackdrop.LAYERS.forEach(function (layer) {
+        var path = self.pathFor(id, layer);
+        jobs.push(loader.image(path).then(function (image) {
+          if (image) self.setLayer(id, layer, image);
+          return image;
+        }));
+      });
+    });
+    return Promise.all(jobs).then(function () { return self; });
+  };
+
   BattleBackdrop.prototype.setLayers = function (id, images) {
     var self = this;
     if (!id || !images) return this;
@@ -231,6 +273,10 @@
     if (!ctx || typeof ctx.drawImage !== "function" || !(w > 0) || !(h > 0)) return false;
     var id = BattleBackdrop.resolveId(areaId);
     if (BattleBackdrop.hasArt(id)) {
+      if (!this.layersReady(id)) {
+        if (typeof this.fallback === "function") this.fallback(ctx, id, w, h, t || 0);
+        return false;
+      }
       var layers = this.imagesFor(id);
       var fit = BattleBackdrop.fit(w, h);
       ctx.imageSmoothingEnabled = false;

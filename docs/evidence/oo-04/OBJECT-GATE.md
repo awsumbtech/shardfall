@@ -56,3 +56,7 @@ Encounter `bg` in `js/data/encounters.js`, zone `bg` in `js/content/maps/v2layou
 ## Not in this branch
 
 Art files, a version bump, a PR, and `BackdropDrift`. The PR opens once GAM's first passed backdrop batch is wired in.
+
+## Batch 1 wired (v0.4.37)
+
+On 16 November 2026, America/New_York, GAM delivered emberhold_meadow and emberhold_scar. Those two manifest rows are now `ready: true` (data only). The other six areas stay on today's `Art.battleBg` path. Version is v0.4.37. Shots and provenance are in this folder.

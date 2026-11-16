@@ -95,6 +95,10 @@ const phone = await browser.newContext({
 const booted = await boot(phone);
 const page = booted.page;
 await page.waitForFunction(() => SF.game && SF.game.scenes && SF.game.scenes.current() === "title");
+await page.waitForFunction(() => {
+  const b = SF.game && SF.game.battleBackdrop;
+  return b && typeof b.layersReady === "function" && b.layersReady("emberhold_meadow") && b.layersReady("emberhold_scar");
+}, null, { timeout: 8000 });
 
 const report = await page.evaluate(() => {
   const problems = [];
@@ -147,7 +151,8 @@ const report = await page.evaluate(() => {
         problems.push(id + " " + layer + " parallax was wrong");
       }
     });
-    if (SF.BattleBackdrop.hasArt(id)) problems.push(id + " was marked ready before art landed");
+    const shouldReady = id === "emberhold_meadow" || id === "emberhold_scar";
+    if (!!SF.BattleBackdrop.hasArt(id) !== shouldReady) problems.push(id + " ready was " + SF.BattleBackdrop.hasArt(id));
   });
   if (SF.BattleBackdrop.resolveId("not-a-real-area") !== "emberhold_meadow") {
     problems.push("unknown area did not resolve to emberhold_meadow");
@@ -177,11 +182,21 @@ const report = await page.evaluate(() => {
     fallbacks.push({ id: id, w: w, h: h, t: t });
   };
   const ctx = { drawImage() { problems.push("unready area used drawImage"); } };
-  const usedArt = backdrop.draw(ctx, "emberhold_scar", 844, 390, 1.5);
+  const usedArt = backdrop.draw(ctx, "cinderveil_ash", 844, 390, 1.5);
   if (usedArt !== false) problems.push("unready area was reported as real art");
-  if (fallbacks.length !== 1 || fallbacks[0].id !== "emberhold_scar" || fallbacks[0].w !== 844 || fallbacks[0].h !== 390) {
+  if (fallbacks.length !== 1 || fallbacks[0].id !== "cinderveil_ash" || fallbacks[0].w !== 844 || fallbacks[0].h !== 390) {
     problems.push("unready area did not keep today's backdrop path");
   }
+  backdrop.fallback = previous;
+
+  const unready = ["cinderveil_ash", "ember_vault", "saltmere_shore", "saltmere_wreck", "highspire_road", "hush_deck"];
+  unready.forEach((id) => {
+    if (backdrop.layersReady(id)) problems.push(id + " was treated as loaded art");
+    const fb = [];
+    backdrop.fallback = function (c, area) { fb.push(area); };
+    const drew = backdrop.draw({ drawImage() { problems.push(id + " used drawImage"); } }, id, 844, 390, 0);
+    if (drew !== false || fb[0] !== id) problems.push(id + " did not keep today's backdrop path");
+  });
   backdrop.fallback = previous;
 
   const picked = {};
@@ -205,40 +220,40 @@ const report = await page.evaluate(() => {
     problems.push("missing manifest entry did not throw: " + threw);
   }
 
-  const row = manifest.emberhold_meadow;
-  const wasReady = row.ready;
-  row.ready = true;
-  threw = "";
-  try { backdrop.imagesFor("emberhold_meadow"); } catch (err) { threw = String(err && err.message || err); }
-  if (threw.indexOf("missing art") < 0) problems.push("ready area with no images did not throw: " + threw);
-
-  const images = {};
-  layers.forEach((layer) => {
-    images[layer] = { width: 480, height: 270, complete: true, naturalWidth: 480, naturalHeight: 270, id: layer };
-  });
-  backdrop.setLayers("emberhold_meadow", images);
-  const blits = [];
-  const artCtx = {
-    drawImage() { blits.push(Array.prototype.slice.call(arguments)); },
-    set imageSmoothingEnabled(value) { this._smooth = value; }
-  };
-  let drewArt = false;
-  const prevFallback = backdrop.fallback;
-  backdrop.fallback = function () { problems.push("ready area used the old backdrop path"); };
-  try { drewArt = backdrop.draw(artCtx, "emberhold_meadow", 844, 390, 0); } catch (err) {
-    problems.push("ready area draw threw: " + err);
-  }
-  backdrop.fallback = prevFallback;
-  row.ready = wasReady;
-  delete backdrop.images.emberhold_meadow;
-  if (drewArt !== true) problems.push("ready area did not blit the real layers");
-  if (blits.length !== 4) problems.push("ready area blit count was " + blits.length);
   const expectedFit = SF.BattleBackdrop.fit(844, 390);
-  layers.forEach((layer, i) => {
-    const blit = blits[i];
-    if (!blit || blit[0] !== images[layer] || blit[1] !== expectedFit.x || blit[2] !== expectedFit.y || blit[3] !== expectedFit.w || blit[4] !== expectedFit.h) {
-      problems.push("layer " + layer + " blit was " + JSON.stringify(blit));
+  ["emberhold_meadow", "emberhold_scar"].forEach((id) => {
+    if (!backdrop.layersReady(id)) problems.push(id + " real images did not load");
+    let loaded = null;
+    try { loaded = backdrop.imagesFor(id); } catch (err) {
+      problems.push(id + " imagesFor threw: " + err);
+      return;
     }
+    layers.forEach((layer) => {
+      const img = loaded && loaded[layer];
+      const w = img && (img.naturalWidth || img.width);
+      const h = img && (img.naturalHeight || img.height);
+      if (!(w === 480 && h === 270)) problems.push(id + " " + layer + " size was " + w + "x" + h);
+    });
+    const blits = [];
+    const artCtx = {
+      drawImage() { blits.push(Array.prototype.slice.call(arguments)); },
+      set imageSmoothingEnabled(value) { this._smooth = value; }
+    };
+    let drewArt = false;
+    const prevFallback = backdrop.fallback;
+    backdrop.fallback = function () { problems.push(id + " used the old backdrop path"); };
+    try { drewArt = backdrop.draw(artCtx, id, 844, 390, 0); } catch (err) {
+      problems.push(id + " draw threw: " + err);
+    }
+    backdrop.fallback = prevFallback;
+    if (drewArt !== true) problems.push(id + " did not blit the real layers");
+    if (blits.length !== 4) problems.push(id + " blit count was " + blits.length);
+    layers.forEach((layer, i) => {
+      const blit = blits[i];
+      if (!blit || blit[0] !== loaded[layer] || blit[1] !== expectedFit.x || blit[2] !== expectedFit.y || blit[3] !== expectedFit.w || blit[4] !== expectedFit.h) {
+        problems.push(id + " " + layer + " blit was wrong");
+      }
+    });
   });
 
   return { problems, paths, picked, fit };
@@ -250,5 +265,5 @@ await browser.close();
 server.close();
 if (!process.exitCode) {
   const fit = report.fit || {};
-  console.log("battle backdrop ok, 8 areas, 4 layers, 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
+  console.log("battle backdrop ok, meadow+scar loaded, 6 unready, 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
 }

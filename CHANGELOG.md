@@ -2,6 +2,10 @@
 
 Notes for someone playing, not a patch log of every file.
 
+## v0.4.37
+
+New painted battle backdrops for the Emberhold meadow and scar.
+
 ## v0.4.36
 
 Behind the scenes: a SceneRouter now picks the title, field and battle screens. Nothing looks different.

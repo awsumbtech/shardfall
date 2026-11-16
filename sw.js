@@ -3,7 +3,7 @@
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
 // CACHE is the precache version. A new name drops every older shell.
-var CACHE = "shardfall-v0.4.36";
+var CACHE = "shardfall-v0.4.37";
 
 var SHELL = [
   "index.html",
@@ -118,7 +118,15 @@ var SHELL = [
   "js/core/scene-router.js",
   "js/battle/battle-backdrop.js",
   "assets/ui/choicebox-panel.png",
-  "assets/ui/choice-cursor.png"
+  "assets/ui/choice-cursor.png",
+  "assets/battle/backdrops/emberhold_meadow/v1/sky.png",
+  "assets/battle/backdrops/emberhold_meadow/v1/far.png",
+  "assets/battle/backdrops/emberhold_meadow/v1/mid.png",
+  "assets/battle/backdrops/emberhold_meadow/v1/floor.png",
+  "assets/battle/backdrops/emberhold_scar/v1/sky.png",
+  "assets/battle/backdrops/emberhold_scar/v1/far.png",
+  "assets/battle/backdrops/emberhold_scar/v1/mid.png",
+  "assets/battle/backdrops/emberhold_scar/v1/floor.png"
 ];
 
 // assets/atlas/* stays off this list. A missing manifest must not fail install.

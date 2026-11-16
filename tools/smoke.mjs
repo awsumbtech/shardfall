@@ -2207,7 +2207,7 @@ if (!html.includes('id="chest"') || !html.includes('id="chest-list"') || !html.i
 const chestCss = fs.readFileSync("css/style.css", "utf8");
 if (!chestCss.includes("#chest") || !chestCss.includes(".loot-line")) fail("chest popup has no style");
 const sw = fs.readFileSync("sw.js", "utf8");
-if (!sw.includes('CACHE = "shardfall-v0.4.36"')) fail("cache version");
+if (!sw.includes('CACHE = "shardfall-v0.4.37"')) fail("cache version");
 // Renderer modules share art and audio through DrawDeps. The page global is
 // only for the browser events a listener has to sit on, and for window.SF,
 // which data.js still publishes for the QA tools.
@@ -2549,7 +2549,7 @@ if (fs.existsSync("assets/atlas/manifest.json")) {
 
 async function runAssetChecks() {
   const dataJs = fs.readFileSync("js/data.js", "utf8");
-  if (!dataJs.includes('SF.VERSION = "0.4.36"')) fail("version was not bumped");
+  if (!dataJs.includes('SF.VERSION = "0.4.37"')) fail("version was not bumped");
   if (!dataJs.includes("Cleaned up a stray grass patch floating in the sky near the start.")) {
     fail("whats new sky grass line");
   }
@@ -2565,6 +2565,9 @@ async function runAssetChecks() {
   if (!dataJs.includes("Behind the scenes: a SceneRouter now picks the title, field and battle screens. Nothing looks different.")) {
     fail("whats new oo03 line");
   }
+  if (!dataJs.includes("New painted battle backdrops for the Emberhold meadow and scar.")) {
+    fail("whats new oo04 backdrop line");
+  }
   if (!dataJs.includes("Battles hit harder: bigger numbers, hit flashes, WEAK tags and faster enemy turns.")) {
     fail("whats new battle line");
   }
@@ -2576,7 +2579,7 @@ async function runAssetChecks() {
   if (!dataJs.includes("Emberhold is rebuilt tile by tile in the new art style, with stone stairs and rocky cliffs.")) {
     fail("whats new ground line");
   }
-  if (!html.includes("v0.4.36")) fail("html version");
+  if (!html.includes("v0.4.37")) fail("html version");
   if (!dataJs.includes("Emberhold is fuller, with Kenmi trees, flowers, rocks and a new cottage you can't walk through.")) {
     fail("whats new props line");
   }
@@ -5988,7 +5991,7 @@ function runOo02Checks() {
   for (const file of coreFiles) {
     if (!worker.includes('"' + file + '"')) fail("precache omits " + file);
   }
-  if (!worker.includes('CACHE = "shardfall-v0.4.36"')) fail("cache version moved");
+  if (!worker.includes('CACHE = "shardfall-v0.4.37"')) fail("cache version moved");
   const mainJs = fs.readFileSync("js/main.js", "utf8");
   if (!mainJs.includes("SF.VisualObject = function VisualObject")) fail("main.js does not assign SF.VisualObject");
   if (!mainJs.includes("SF.Game = function Game")) fail("main.js does not assign SF.Game");
@@ -6411,9 +6414,20 @@ function runOo04Checks() {
   const backdropAt = page.indexOf('src="js/battle/battle-backdrop.js"');
   if (!(backdropAt > routerAt && routerAt >= 0)) fail("battle-backdrop.js loads before scene-router.js");
   if (page.indexOf("SF.boot();") < backdropAt) fail("page boots before BattleBackdrop loads");
-  if (!fs.readFileSync("sw.js", "utf8").includes('"js/battle/battle-backdrop.js"')) {
+  const worker = fs.readFileSync("sw.js", "utf8");
+  if (!worker.includes('"js/battle/battle-backdrop.js"')) {
     fail("precache omits js/battle/battle-backdrop.js");
   }
+  const readyIds = ["emberhold_meadow", "emberhold_scar"];
+  const unreadyIds = ["cinderveil_ash", "ember_vault", "saltmere_shore", "saltmere_wreck", "highspire_road", "hush_deck"];
+  const layersList = ["sky", "far", "mid", "floor"];
+  readyIds.forEach((id) => {
+    layersList.forEach((layer) => {
+      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      if (!fs.existsSync(rel)) fail("missing " + rel);
+      if (!worker.includes('"' + rel + '"')) fail("precache omits " + rel);
+    });
+  });
 
   const problems = [];
   const backdrop = SF.game && SF.game.battleBackdrop;
@@ -6435,7 +6449,8 @@ function runOo04Checks() {
   if (SF.BattleBackdrop.HORIZON !== 124) problems.push("plate horizon was not 124");
   ids.forEach((id) => {
     const row = SF.BattleBackdrop.entry(id);
-    if (!row || row.ready) problems.push(id + " should not be ready");
+    const shouldReady = readyIds.indexOf(id) >= 0;
+    if (!row || !!row.ready !== shouldReady) problems.push(id + " ready was " + !!(row && row.ready));
     if (!row || row.kit !== "shardfall/battle/backdrops/" + id + "/v1/") problems.push(id + " kit path was wrong");
     layers.forEach((layer) => {
       const path = loose.pathFor(id, layer);
@@ -6462,10 +6477,10 @@ function runOo04Checks() {
 
   const calls = [];
   loose.fallback = function (ctx, id, w, h, t) { calls.push([id, w, h, t]); };
-  if (loose.draw({ drawImage() { problems.push("unready drawImage"); } }, "emberhold_scar", 844, 390, 3) !== false) {
+  if (loose.draw({ drawImage() { problems.push("unready drawImage"); } }, "cinderveil_ash", 844, 390, 3) !== false) {
     problems.push("unready draw reported real art");
   }
-  if (calls.length !== 1 || calls[0][0] !== "emberhold_scar") problems.push("unready draw did not use today's path");
+  if (calls.length !== 1 || calls[0][0] !== "cinderveil_ash") problems.push("unready draw did not use today's path");
 
   const manifest = SF.BattleBackdrop.MANIFEST;
   manifest.test_missing = { ready: true };

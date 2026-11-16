@@ -40,6 +40,7 @@
     var Backdrop = window.SF && window.SF.BattleBackdrop;
     if (typeof Backdrop !== "function") throw new Error("BattleBackdrop missing");
     this.battleBackdrop = new Backdrop();
+    if (typeof this.battleBackdrop.loadReady === "function") this.battleBackdrop.loadReady();
     return this;
   };
 

@@ -294,7 +294,7 @@ stick two-finger ok
 tap leak ok
 menu fit ok
 scene router ok, title>field title>play play>dialogue dialogue>play, fight play>battle battle>play, changes 6
-battle backdrop ok, 8 areas, 4 layers, 844x390 scale 2 at -58,-69
+battle backdrop ok, meadow+scar loaded, 6 unready, 844x390 scale 2 at -58,-69
 sky mask check skipped (no atlas on disk)
 choicebox ok
 oo02 ok

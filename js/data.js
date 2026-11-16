@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.36";
+SF.VERSION = "0.4.37";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -60,7 +60,8 @@ SF.WHATS_NEW = [
   "ChoiceBox panel/cursor art now published to the live site.",
   "Behind the scenes: a guard so code-drawn pictures do not grow. Nothing looks different.",
   "Behind the scenes: a VisualObject base and a Game root. Nothing looks different.",
-  "Behind the scenes: a SceneRouter now picks the title, field and battle screens. Nothing looks different."
+  "Behind the scenes: a SceneRouter now picks the title, field and battle screens. Nothing looks different.",
+  "New painted battle backdrops for the Emberhold meadow and scar."
 ];
 
 SF.WAKE = { x: -50, y: 45 };
