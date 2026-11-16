@@ -32,7 +32,7 @@ const BATTLE_DRAW = [
 // The Game root, its SceneRouter, and the BattleBackdrop instance. The
 // page boot builds them before any mode change; a vm context with game
 // code builds the same root.
-const CORE_ROOT = ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js", "js/data/battle-backdrops.js", "js/battle/battle-backdrop.js"];
+const CORE_ROOT = ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js", "js/data/battle-backdrops.js", "js/battle/battle-backdrop.js", "js/data/battle-foes.js", "js/battle/battle-foe-sprite.js"];
 
 function addGameRoot(box) {
   for (const file of CORE_ROOT) {
@@ -288,7 +288,9 @@ for (const file of [
   "js/core/visual-object.js",
   "js/core/game.js",
   "js/core/scene-router.js",
-  "js/battle/battle-backdrop.js"
+  "js/battle/battle-backdrop.js",
+  "js/data/battle-foes.js",
+  "js/battle/battle-foe-sprite.js"
 ]) {
   vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 }
@@ -2715,6 +2717,9 @@ if (sceneRouterPage.status !== 0) process.exit(sceneRouterPage.status || 1);
 
 const battleBackdropPage = spawnSync(process.execPath, ["tools/battle-backdrop-check.mjs"], { stdio: "inherit", env: childEnv });
 if (battleBackdropPage.status !== 0) process.exit(battleBackdropPage.status || 1);
+
+const battleFoePage = spawnSync(process.execPath, ["tools/battle-foe-check.mjs"], { stdio: "inherit", env: childEnv });
+if (battleFoePage.status !== 0) process.exit(battleFoePage.status || 1);
 
 if (fs.existsSync("assets/atlas/manifest.json")) {
   const skyMask = spawnSync(process.execPath, ["tools/sky-mask.mjs"], { stdio: "inherit", env: childEnv });
@@ -6554,6 +6559,7 @@ runOo02Checks();
 runOo03Checks();
 
 runOo04Checks();
+runOo08Checks();
 
 if (process.env.SF_SKIP_PAIR_PROOF !== "1") {
   provePrecacheRejectsExtraV1(readBackdropCatalog, fail, ".");
@@ -6765,4 +6771,94 @@ function runOo04Checks() {
 
   if (problems.length) fail(problems[0]);
   console.log("oo04 ok");
+}
+
+// OO-08: BattleFoeSprite owns one catalog-driven sheet per ready Act 1 foe.
+function runOo08Checks() {
+  const file = "js/battle/battle-foe-sprite.js";
+  if (!fs.existsSync(file)) fail("missing " + file);
+  const src = fs.readFileSync(file, "utf8");
+  if (/\bSF\.[A-Za-z_$][\w$]*\s*(=[^=]|\+=|-=)/.test(src)) fail("battle-foe-sprite.js assigns on SF");
+  if (/\bSF\./.test(src)) fail("battle-foe-sprite.js has an SF.* site");
+  if (/^\s*function\s+\w+\s*\(/m.test(src)) fail("battle-foe-sprite.js has a free helper function");
+  const banned = /fillRect|strokeRect|clearRect|beginPath|lineTo|bezierCurveTo|quadraticCurveTo|createLinearGradient|createRadialGradient|createConicGradient|shadowBlur|shadowColor|globalCompositeOperation|globalAlpha|\bopacity\b|putImageData|createImageData|createPattern|ellipse\s*\(|\barc\s*\(|\.fill\s*\(|\.stroke\s*\(|\.filter\b|fillStyle|strokeStyle|\.clip\s*\(/;
+  const hit = src.match(banned);
+  if (hit) fail(file + " draws with code (" + hit[0] + ")");
+  const mainJs = fs.readFileSync("js/main.js", "utf8");
+  if (!mainJs.includes("SF.BattleFoeSprite = function BattleFoeSprite")) fail("main.js does not assign SF.BattleFoeSprite");
+  if (!mainJs.includes("SF.BattleFoeData =")) fail("main.js does not assign SF.BattleFoeData");
+  const gameJs = fs.readFileSync("js/core/game.js", "utf8");
+  if (!gameJs.includes("this.battleFoeSprite = new FoeSprite()")) fail("Game does not own the BattleFoeSprite instance");
+  if (gameJs.includes("battleFoeSprite.attach") || gameJs.includes("this.battleFoeSprite.attach")) {
+    fail("Game attaches the BattleFoeSprite; the battle screen must own the attach point");
+  }
+  const drawJs = fs.readFileSync("js/battle/draw.js", "utf8");
+  if (!drawJs.includes("foeSprite.attach(game)")) fail("battle screen is not the BattleFoeSprite attach point");
+  const attachSites = [];
+  for (const full of walkJs("js")) {
+    fs.readFileSync(full, "utf8").split("\n").forEach((line, i) => {
+      if (/\bbattleFoeSprite\.attach\s*\(|\bfoeSprite\.attach\s*\(/.test(line)) {
+        attachSites.push(full + ":" + (i + 1));
+      }
+    });
+  }
+  if (attachSites.length !== 1 || attachSites[0].indexOf("js/battle/draw.js:") !== 0) {
+    fail("BattleFoeSprite attach sites were " + attachSites.join(", "));
+  }
+  const dataFile = "js/data/battle-foes.js";
+  if (!fs.existsSync(dataFile)) fail("missing " + dataFile);
+  const dataSrc = fs.readFileSync(dataFile, "utf8");
+  const page = fs.readFileSync("index.html", "utf8");
+  const routerAt = page.indexOf('src="js/core/scene-router.js"');
+  const foeAt = page.indexOf('src="js/battle/battle-foe-sprite.js"');
+  const catalogAt = page.indexOf('src="js/data/battle-foes.js"');
+  if (!(foeAt > routerAt && routerAt >= 0)) fail("battle-foe-sprite.js loads before scene-router.js");
+  if (catalogAt < 0) fail("page omits js/data/battle-foes.js");
+  if (page.indexOf("SF.boot();") < foeAt || page.indexOf("SF.boot();") < catalogAt) {
+    fail("page boots before BattleFoeSprite or its catalog loads");
+  }
+  const worker = fs.readFileSync("sw.js", "utf8");
+  if (!worker.includes('"js/battle/battle-foe-sprite.js"')) fail("precache omits js/battle/battle-foe-sprite.js");
+  if (!worker.includes('"js/data/battle-foes.js"')) fail("precache omits js/data/battle-foes.js");
+  if (!worker.includes('importScripts("js/data/battle-foes.js")')) {
+    fail("sw.js does not read foe art from the catalog");
+  }
+  const box = { window: null, self: null };
+  box.window = box;
+  box.self = box;
+  vm.runInContext(dataSrc, vm.createContext(box), { filename: dataFile });
+  const catalog = box.SF && box.SF.BattleFoeData;
+  if (!catalog || !Array.isArray(catalog.ids) || !catalog.ids.length) fail("foe catalog lists no foes");
+  const readyIds = [];
+  catalog.ids.forEach((id) => {
+    if (src.indexOf(id) >= 0) fail("battle-foe-sprite.js still hard-codes foe ids");
+    const row = catalog.foes && catalog.foes[id];
+    if (row && row.ready) readyIds.push(id);
+  });
+  readyIds.forEach((id) => {
+    const rel = catalog.foes[id].path;
+    if (!fs.existsSync(rel)) fail("missing " + rel);
+    if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
+  });
+  const expected = readyIds.map((id) => catalog.foes[id].path);
+  const precache = catalog.precache || [];
+  const extra = precache.filter((p) => expected.indexOf(p) < 0);
+  const missing = expected.filter((p) => precache.indexOf(p) < 0);
+  if (extra.length || missing.length || precache.length !== expected.length) {
+    fail("foe catalog precache was not exactly the ready rows' paths (extra " +
+      extra.join(", ") + "; missing " + missing.join(", ") + ")");
+  }
+  if (!catalog.kinds || catalog.kinds.ashmite !== "ashling" || catalog.kinds.maw !== "cinder_maw") {
+    fail("foe catalog is missing the kind-to-id map");
+  }
+  const sprite = SF.game && SF.game.battleFoeSprite;
+  const problems = [];
+  if (!(sprite instanceof SF.BattleFoeSprite)) problems.push("harness Game has no BattleFoeSprite");
+  if (sprite && sprite._attached) problems.push("harness BattleFoeSprite was attached at construction");
+  const orphan = new SF.Game();
+  if (!(orphan.battleFoeSprite instanceof SF.BattleFoeSprite) || orphan.battleFoeSprite._attached) {
+    problems.push("new Game did not build an unattached BattleFoeSprite");
+  }
+  if (problems.length) fail(problems[0]);
+  console.log("oo08 ok");
 }

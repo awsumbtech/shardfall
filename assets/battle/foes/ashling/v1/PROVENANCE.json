@@ -1,0 +1,268 @@
+{
+ "foe": "ashling",
+ "version": "1.0.0",
+ "tool": "PixelLab via the user-pixellab MCP connector (subscription generations; Brian approved Shardfall foe generations Nov 14)",
+ "design_source": "Shardfall live stand-in js/art/actors.js buildAsh (no game-art sheet exists; same look used as the game-art 'Ashling colour ref')",
+ "third_party_inputs": "none (no Kenmi or other third-party art as input or reference)",
+ "base_frame": {
+  "generation": "ashling_r1",
+  "candidate_index": 10,
+  "art_px": [
+   27,
+   47
+  ],
+  "placed_in_canvas_at": [
+   18,
+   13
+  ],
+  "canvas": [
+   64,
+   64
+  ]
+ },
+ "clips": {
+  "idle": {
+   "job_id": "05f1b2f2-06db-4d12-b4c1-e308a40ed930",
+   "source_frames_used": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "attack": {
+   "job_id": "5ef31917-55c5-4a54-949a-e8745c777374",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "hurt": {
+   "job_id": "a0ccb15c-cc61-45cc-a74d-ed4168f93355",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 7
+  },
+  "death": {
+   "job_id": "357fc696-39f8-4646-bac0-bb61d49e478d",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    -1,
+    -1,
+    -1
+   ],
+   "orphan_px_removed": 0
+  },
+  "cast": {
+   "job_id": "d01d578d-be2e-4f8f-9d3b-d9e07feddee3",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  }
+ },
+ "cleanup": [
+  "alpha threshold at 128 to binary 0/255",
+  "nearest-colour (CIELAB) palette lock to the design palette listed in manifest.json",
+  "isolated 1px orphans removed on idle/hurt only",
+  "whole-frame integer vertical shift of <=3px on pinned clips to hold the pivot row",
+  "frame selection (dropped frames listed in notes)"
+ ],
+ "notes": [
+  "death frames 5-7 shifted up 1px so the ash pile sits on the pivot row (was 1px below)",
+  "attack keeps a few 1px ember sparks from the claw swipe on purpose"
+ ],
+ "generations": [
+  {
+   "foe": "ashling",
+   "step": "base",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "fb5e9345-ca25-4042-bdc8-693e42b0c851",
+   "size": [
+    48,
+    48
+   ],
+   "candidates": 25,
+   "cost_gens": 10,
+   "reference": "_src/refs/ashling_design_idle_x4.png (in-game-standin js/art/actors.js buildAsh)",
+   "palette": "_src/palettes.json[ashling] (extracted from existing design)",
+   "prompt_file": "_src/prompts.json",
+   "ts": "2026-11-16T14:53:29-05:00",
+   "prompt": "Ashling, a small thin ash imp monster for a JRPG side-view battle, standing upright, facing right. Slim ash-grey and charred-brown body like burnt wood, small branching antler-like horns on its head, glowing orange ember eyes, a glowing ember crack running down its chest, thin arms and legs, dark charcoal feet. Idle stance. Clean readable pixel art sprite with dark outline, single character centred, feet at the bottom, transparent background."
+  },
+  {
+   "foe": "ashling",
+   "step": "base_reroll1",
+   "reroll": 1,
+   "reroll_reason": "first base art height under spec (normal foe target ~44 art px; boss ~92 like the stand-in); redraw larger with the first pick as identity reference",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "2365be68-4d37-41f3-acd5-677c383c1001",
+   "size": [
+    56,
+    56
+   ],
+   "candidates": 16,
+   "cost_gens": 10,
+   "reference": [
+    "_work/ashling_pick_x4.png",
+    "_src/refs/ashling_design_idle_x4.png"
+   ],
+   "palette": "_src/palettes.json[ashling]",
+   "prompt_file": "_src/prompts.json#ashling/base_reroll1",
+   "ts": "2026-11-16T14:57:24-05:00",
+   "prompt": "Ashling, a small thin ash imp monster for a JRPG side-view battle, standing upright, facing right. Slim ash-grey and charred-brown body like burnt wood, small branching antler-like horns on its head, glowing orange ember eyes, a glowing ember crack running down its chest, thin arms and legs, dark charcoal feet. Idle stance. Large sprite that fills the canvas height. Clean readable pixel art sprite with dark outline, single character centred, feet at the bottom, transparent background."
+  },
+  {
+   "foe": "ashling",
+   "step": "anim:idle",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "05f1b2f2-06db-4d12-b4c1-e308a40ed930",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/ashling_base_canvas.png (upload:1b0b01b8-f758-435d-a1b6-3864614892e4)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "idle breathing loop: thin body sways slightly, ember crack on its chest pulses, feet stay planted in place",
+   "ts": "2026-11-16T15:06:30-05:00"
+  },
+  {
+   "foe": "ashling",
+   "step": "anim:attack",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "5ef31917-55c5-4a54-949a-e8745c777374",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/ashling_base_canvas.png (upload:1b0b01b8-f758-435d-a1b6-3864614892e4)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "claw attack: pulls its arm back to wind up, then lunges forward to the right and slashes with its claws, then steps back to its stance",
+   "ts": "2026-11-16T15:07:17-05:00"
+  },
+  {
+   "foe": "ashling",
+   "step": "anim:cast",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "d01d578d-be2e-4f8f-9d3b-d9e07feddee3",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/ashling_base_canvas.png (upload:1b0b01b8-f758-435d-a1b6-3864614892e4)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "ash spit spell: leans back and inhales, the ember crack glows brighter, then it spits a glob of glowing ash forward to the right, then straightens",
+   "ts": "2026-11-16T15:07:18-05:00"
+  },
+  {
+   "foe": "ashling",
+   "step": "anim:hurt",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "a0ccb15c-cc61-45cc-a74d-ed4168f93355",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/ashling_base_canvas.png (upload:1b0b01b8-f758-435d-a1b6-3864614892e4)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "taking a hit: recoils backwards to the left, hunches over, eyes squeeze shut, antlers tilt back, then recovers",
+   "ts": "2026-11-16T15:07:18-05:00"
+  },
+  {
+   "foe": "ashling",
+   "step": "anim:death",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "357fc696-39f8-4646-bac0-bb61d49e478d",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/ashling_base_canvas.png (upload:1b0b01b8-f758-435d-a1b6-3864614892e4)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "death: staggers, knees buckle, it collapses forward onto the ground and crumbles into a small pile of grey ash with fading embers",
+   "ts": "2026-11-16T15:07:18-05:00"
+  }
+ ],
+ "generation_cost_total": 25,
+ "rerolls": 1
+}

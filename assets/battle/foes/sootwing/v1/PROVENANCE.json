@@ -1,0 +1,267 @@
+{
+ "foe": "sootwing",
+ "version": "1.0.0",
+ "tool": "PixelLab via the user-pixellab MCP connector (subscription generations; Brian approved Shardfall foe generations Nov 14)",
+ "design_source": "game-art shardfall/foes/sootwing v1.1.0 (approved; tag shardfall-foes-v1.3.0)",
+ "third_party_inputs": "none (no Kenmi or other third-party art as input or reference)",
+ "base_frame": {
+  "generation": "sootwing_r1",
+  "candidate_index": 11,
+  "art_px": [
+   43,
+   38
+  ],
+  "placed_in_canvas_at": [
+   10,
+   14
+  ],
+  "canvas": [
+   64,
+   64
+  ]
+ },
+ "clips": {
+  "idle": {
+   "job_id": "294d9a54-2ec3-4fa4-9e07-6c17e6c9f1db",
+   "source_frames_used": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "pivot_pin_dy": [
+    0,
+    1,
+    1,
+    2
+   ],
+   "orphan_px_removed": 0
+  },
+  "attack": {
+   "job_id": "7df5c9ea-f5f5-4fbb-8cb3-f2d53f8304c2",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "hurt": {
+   "job_id": "777787da-383d-4c8e-a2c3-e42fdf4219ce",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "orphan_px_removed": 5
+  },
+  "death": {
+   "job_id": "6f2d133e-f957-48b4-9c99-6dd79cc787ad",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "cast": {
+   "job_id": "7bce6379-dfc2-437f-ad8e-409402429ea1",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  }
+ },
+ "cleanup": [
+  "alpha threshold at 128 to binary 0/255",
+  "nearest-colour (CIELAB) palette lock to the design palette listed in manifest.json",
+  "isolated 1px orphans removed on idle/hurt only",
+  "whole-frame integer vertical shift of <=3px on pinned clips to hold the pivot row",
+  "frame selection (dropped frames listed in notes)"
+ ],
+ "notes": [
+  "cast/death keep 1px ash and ember specks on purpose (particles, not strays)"
+ ],
+ "generations": [
+  {
+   "foe": "sootwing",
+   "step": "base",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "d8179c96-42ba-4fea-91fb-de4297d8e0e7",
+   "size": [
+    48,
+    48
+   ],
+   "candidates": 25,
+   "cost_gens": 10,
+   "reference": "_src/refs/sootwing_design_idle_x4.png (game-art v1.1.0)",
+   "palette": "_src/palettes.json[sootwing] (extracted from existing design)",
+   "prompt_file": "_src/prompts.json",
+   "ts": "2026-11-16T14:53:29-05:00",
+   "prompt": "Sootwing, a small soot bat monster for a JRPG side-view battle, flying, facing right. Round chibi charcoal-brown head-body, one big white eye with dark pupil, small glowing ember-orange beak pointing right, two wide dark soot bat-membrane wings spread with ember-orange tips and ember trailing edges, ash-grey rim light. Hovering mid-flap. Clean readable pixel art sprite with dark outline, single creature centred, transparent background."
+  },
+  {
+   "foe": "sootwing",
+   "step": "base_reroll1",
+   "reroll": 1,
+   "reroll_reason": "first base art height under spec (normal foe target ~44 art px; boss ~92 like the stand-in); redraw larger with the first pick as identity reference",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "9888fb5b-da38-45be-9ad1-6f9c38b50c14",
+   "size": [
+    56,
+    56
+   ],
+   "candidates": 16,
+   "cost_gens": 10,
+   "reference": [
+    "_work/sootwing_pick_x4.png",
+    "_src/refs/sootwing_design_idle_x4.png"
+   ],
+   "palette": "_src/palettes.json[sootwing]",
+   "prompt_file": "_src/prompts.json#sootwing/base_reroll1",
+   "ts": "2026-11-16T14:57:24-05:00",
+   "prompt": "Sootwing, a small soot bat monster for a JRPG side-view battle, flying, facing right. Round chibi charcoal-brown head-body, one big white eye with dark pupil, small glowing ember-orange beak pointing right, two wide dark soot bat-membrane wings spread with ember-orange tips and ember trailing edges, ash-grey rim light. Hovering mid-flap. Large sprite that fills most of the canvas. Clean readable pixel art sprite with dark outline, single creature centred, transparent background."
+  },
+  {
+   "foe": "sootwing",
+   "step": "anim:idle",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "294d9a54-2ec3-4fa4-9e07-6c17e6c9f1db",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/sootwing_base_canvas.png (upload:f5081c4f-c19c-4f98-809f-1ca14b1c4e12)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "idle flying loop: flaps its bat wings up and down while hovering in place",
+   "ts": "2026-11-16T15:06:03-05:00"
+  },
+  {
+   "foe": "sootwing",
+   "step": "anim:attack",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "7df5c9ea-f5f5-4fbb-8cb3-f2d53f8304c2",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/sootwing_base_canvas.png (upload:f5081c4f-c19c-4f98-809f-1ca14b1c4e12)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "dive attack: pulls its wings back and rises, then dives forward and down to the right beak first, then flaps back up to its place",
+   "ts": "2026-11-16T15:06:03-05:00"
+  },
+  {
+   "foe": "sootwing",
+   "step": "anim:cast",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "7bce6379-dfc2-437f-ad8e-409402429ea1",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/sootwing_base_canvas.png (upload:f5081c4f-c19c-4f98-809f-1ca14b1c4e12)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "casting an ash puff: hovers and beats its wings hard, a cloud of grey ash and small embers puffs out in front of it, then it keeps hovering",
+   "ts": "2026-11-16T15:06:03-05:00"
+  },
+  {
+   "foe": "sootwing",
+   "step": "anim:hurt",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "777787da-383d-4c8e-a2c3-e42fdf4219ce",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/sootwing_base_canvas.png (upload:f5081c4f-c19c-4f98-809f-1ca14b1c4e12)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "taking a hit: knocked backwards to the left, wings crumple, eye squeezes shut, then it flaps to steady itself",
+   "ts": "2026-11-16T15:06:03-05:00"
+  },
+  {
+   "foe": "sootwing",
+   "step": "anim:death",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "6f2d133e-f957-48b4-9c99-6dd79cc787ad",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/sootwing_base_canvas.png (upload:f5081c4f-c19c-4f98-809f-1ca14b1c4e12)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "death: stops flapping, wings fold, it falls tumbling downward and crumbles into grey ash flakes and fading embers until nothing is left",
+   "ts": "2026-11-16T15:06:03-05:00"
+  }
+ ],
+ "generation_cost_total": 25,
+ "rerolls": 1
+}

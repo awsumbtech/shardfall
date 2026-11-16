@@ -16,6 +16,9 @@ SF.drawBattle = function (ctx, w, h, dpr) {
   if (!backdrop) throw new Error("BattleBackdrop missing");
   backdrop.attach(game);
   backdrop.draw(ctx, b.bg, w, h, b.t || 0);
+  var foeSprite = game && game.battleFoeSprite;
+  if (!foeSprite) throw new Error("BattleFoeSprite missing");
+  foeSprite.attach(game);
   var foes = b.actors.filter(function (a) { return a.side === "foe"; });
   var party = b.actors.filter(function (a) { return a.side === "party"; });
   var lay = SF.BattleHud.layoutBattle(w, h, b.phase, party.length);

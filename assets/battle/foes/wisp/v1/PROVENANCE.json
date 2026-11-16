@@ -1,0 +1,261 @@
+{
+ "foe": "wisp",
+ "version": "1.0.0",
+ "tool": "PixelLab via the user-pixellab MCP connector (subscription generations; Brian approved Shardfall foe generations Nov 14)",
+ "design_source": "game-art shardfall/foes/wisp v1.0.0 (approved chibi star; tag shardfall-foes-v1.3.0)",
+ "third_party_inputs": "none (no Kenmi or other third-party art as input or reference)",
+ "base_frame": {
+  "generation": "wisp_r1",
+  "candidate_index": 1,
+  "art_px": [
+   48,
+   38
+  ],
+  "placed_in_canvas_at": [
+   8,
+   14
+  ],
+  "canvas": [
+   64,
+   64
+  ]
+ },
+ "clips": {
+  "idle": {
+   "job_id": "bc5f0da8-bea7-490c-8cda-1f6bfa3384e8",
+   "source_frames_used": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "attack": {
+   "job_id": "3b0b7d5d-38fa-4cb9-b8aa-f78394878833",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "hurt": {
+   "job_id": "7b1c6151-5eed-44f2-8573-acf1313de7ea",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "pivot_pin_dy": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "death": {
+   "job_id": "faf98c44-51e7-443d-a76f-cfac7c56d997",
+   "source_frames_used": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  },
+  "cast": {
+   "job_id": "301cb220-d4a6-4c05-adc8-f848cd30501d",
+   "source_frames_used": [
+    1,
+    2,
+    5,
+    6,
+    7,
+    8
+   ],
+   "pivot_pin_dy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "orphan_px_removed": 0
+  }
+ },
+ "cleanup": [
+  "alpha threshold at 128 to binary 0/255",
+  "nearest-colour (CIELAB) palette lock to the design palette listed in manifest.json",
+  "isolated 1px orphans removed on idle/hurt only",
+  "whole-frame integer vertical shift of <=3px on pinned clips to hold the pivot row",
+  "frame selection (dropped frames listed in notes)"
+ ],
+ "notes": [
+  "cast source frames 3-4 dropped: near-white glow (white-flash rule)",
+  "attack source frame 5 dropped: pale smear frame over the near-white limit"
+ ],
+ "generations": [
+  {
+   "foe": "wisp",
+   "step": "base",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "b0bbd359-90dd-464c-9c0d-0a286f00385f",
+   "size": [
+    48,
+    48
+   ],
+   "candidates": 25,
+   "cost_gens": 10,
+   "reference": "_src/refs/wisp_design_idle_x4.png (game-art shardfall/foes/wisp v1.0.0 idle f0, 4x nearest)",
+   "palette": "10-colour hand-picked violet ramp (mistake: not the extracted design palette); output remapped to the design palette in cleanup",
+   "prompt": "Wisp, a small floating chibi star spirit monster for a JRPG side-view battle, facing right. Five-pointed plump lavender-violet star body with soft rounded tips, pale lilac highlight on the upper-left, deeper violet shading lower-right, one small cute dark eye and tiny mouth on the right side of the face, dark plum outline. Hovering, idle pose. Clean readable pixel art sprite, single character centred, transparent background.",
+   "ts": "2026-11-16T14:52:48-05:00"
+  },
+  {
+   "foe": "wisp",
+   "step": "base_reroll1",
+   "reroll": 1,
+   "reroll_reason": "first base art height under spec (normal foe target ~44 art px; boss ~92 like the stand-in); redraw larger with the first pick as identity reference",
+   "tool": "pixellab.create_image_pro",
+   "job_id": "332d6cd9-5206-458b-9690-b6a90ec84f33",
+   "size": [
+    64,
+    64
+   ],
+   "candidates": 16,
+   "cost_gens": 10,
+   "reference": [
+    "_work/wisp_pick_x4.png",
+    "_src/refs/wisp_design_idle_x4.png"
+   ],
+   "palette": "_src/palettes.json[wisp]",
+   "prompt_file": "_src/prompts.json#wisp/base_reroll1",
+   "ts": "2026-11-16T14:57:24-05:00",
+   "prompt": "Wisp, a small floating chibi star spirit monster for a JRPG side-view battle, facing right. Five-pointed plump lavender-violet star body with soft rounded tips, pale lilac highlight on the upper-left, deeper violet shading lower-right, two small cute dark eyes on the right side of the face, dark plum outline. Hovering, idle pose. Large sprite that fills most of the canvas. Clean readable pixel art sprite, single character centred, transparent background."
+  },
+  {
+   "foe": "wisp",
+   "step": "anim:idle",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "bc5f0da8-bea7-490c-8cda-1f6bfa3384e8",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/wisp_base_canvas.png (upload:ecdb062e-9879-4850-bc47-445469bc989f)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "idle hover loop: bobs gently up and down in the air, star points sway slightly, stays in place",
+   "ts": "2026-11-16T15:01:32-05:00"
+  },
+  {
+   "foe": "wisp",
+   "step": "anim:attack",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "3b0b7d5d-38fa-4cb9-b8aa-f78394878833",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/wisp_base_canvas.png (upload:ecdb062e-9879-4850-bc47-445469bc989f)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "dart attack: leans back to wind up, then spins and darts forward to the right in a quick jab with its front star point, then floats back to its place",
+   "ts": "2026-11-16T15:01:32-05:00"
+  },
+  {
+   "foe": "wisp",
+   "step": "anim:cast",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "301cb220-d4a6-4c05-adc8-f848cd30501d",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/wisp_base_canvas.png (upload:ecdb062e-9879-4850-bc47-445469bc989f)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "casting a spell: stops and spins slowly, glows brighter, small violet sparkles gather around it and burst outward, then it settles",
+   "ts": "2026-11-16T15:01:32-05:00"
+  },
+  {
+   "foe": "wisp",
+   "step": "anim:hurt",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "7b1c6151-5eed-44f2-8573-acf1313de7ea",
+   "frames_requested": 4,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/wisp_base_canvas.png (upload:ecdb062e-9879-4850-bc47-445469bc989f)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "taking a hit: knocked backwards to the left, squeezes its eyes shut in pain and tilts over, then rights itself",
+   "ts": "2026-11-16T15:01:32-05:00"
+  },
+  {
+   "foe": "wisp",
+   "step": "anim:death",
+   "tool": "pixellab.animate_image_pixminimax",
+   "job_id": "faf98c44-51e7-443d-a76f-cfac7c56d997",
+   "frames_requested": 8,
+   "size": [
+    64,
+    64
+   ],
+   "cost_gens": 1,
+   "first_frame": "_work/wisp_base_canvas.png (upload:ecdb062e-9879-4850-bc47-445469bc989f)",
+   "direction": "east",
+   "view": "side",
+   "prompt": "death: wobbles, its eyes close, it sinks downward and shrinks, breaking apart into small fading violet sparkle motes until nothing is left",
+   "ts": "2026-11-16T15:01:32-05:00"
+  }
+ ],
+ "generation_cost_total": 25,
+ "rerolls": 1
+}

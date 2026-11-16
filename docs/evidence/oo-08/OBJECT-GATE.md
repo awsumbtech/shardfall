@@ -1,0 +1,8 @@
+# OO-08 Object gate
+
+- Owner: `BattleFoeSprite` in `js/battle/battle-foe-sprite.js`. The constructor is a counted assign in `js/main.js`. `Game.init` creates the one instance as `game.battleFoeSprite` and calls `loadReady()`. The battle screen drawer (`js/battle/draw.js`) is the single attach point.
+- Job: draw a battle foe from catalog data (`SF.BattleFoeData` published by `js/data/battle-foes.js`) plus a sprite sheet. Lifecycle: constructed on `Game.init`, `adopt()` from the catalog, stage draw is the attach/blit point. Plays idle in a loop, attack on attack, cast on skills, hurt on taking damage, and death on KO (`ko` maps to the death row). Draws at a whole 2x with smoothing off, pivot on today's foe feet, `hover_px` lifting fliers. An unused / unready id keeps today's `Art.sprite` / `BattleGfx.drawSprite` path.
+- Lives in its own file, with zero `SF.*` sites. The catalog is `js/data/battle-foes.js`. Sheet precache is `data.precache`; `sw.js` `importScripts` the catalog and concatenates it (no per-foe path edit). Existing battle unit kinds map to catalog ids through `data.kinds`, not an if-chain.
+- Does not change: the unready-foe `Art.sprite` path, party sprites, `BattleBackdrop`, battle balance, or Cinder Maw core-overlay art (none exists in the sheet; do not invent it). The existing code-drawn ground shadow in `stage.js` is not its own object, so this PR does not extract it or add a new one.
+
+This PR also carries the two OO-08 P3 harness fixes from `f4aeda7` (helpers moved onto the catalog-info object; exact backdrop precache match plus a proof that a re-added wreck v1 path is caught).

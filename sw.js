@@ -3,7 +3,7 @@
 // App-shell cache for https://awsumbtech.github.io/shardfall/ and a local server.
 // Paths are relative to this file so the same worker works at /shardfall/.
 // CACHE is the precache version. A new name drops every older shell.
-var CACHE = "shardfall-v0.4.40";
+var CACHE = "shardfall-v0.4.41";
 
 var SHELL = [
   "index.html",
@@ -21,6 +21,7 @@ var SHELL = [
   "js/data/enemies.js",
   "js/data/encounters.js",
   "js/data/battle-backdrops.js",
+  "js/data/battle-foes.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/act1-scenes.js",
@@ -118,6 +119,7 @@ var SHELL = [
   "js/core/game.js",
   "js/core/scene-router.js",
   "js/battle/battle-backdrop.js",
+  "js/battle/battle-foe-sprite.js",
   "assets/ui/choicebox-panel.png",
   "assets/ui/choice-cursor.png"
 ];
@@ -154,6 +156,17 @@ self.addEventListener("install", function (event) {
         if (data.precache.length) urls = urls.concat(data.precache);
       } catch (err) {
         console.error("sw.js: battle backdrop catalog failed", err);
+        throw err;
+      }
+      try {
+        self.SF = self.SF || {};
+        if (!self.SF.BattleFoeData) self.SF.BattleFoeData = {};
+        importScripts("js/data/battle-foes.js");
+        var foeData = self.SF.BattleFoeData;
+        if (!foeData || !foeData.precache) throw new Error("battle foe catalog missing precache");
+        if (foeData.precache.length) urls = urls.concat(foeData.precache);
+      } catch (err) {
+        console.error("sw.js: battle foe catalog failed", err);
         throw err;
       }
       return Promise.all(urls.map(function (url) {

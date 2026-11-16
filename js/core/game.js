@@ -41,6 +41,12 @@
     if (typeof Backdrop !== "function") throw new Error("BattleBackdrop missing");
     this.battleBackdrop = new Backdrop();
     if (typeof this.battleBackdrop.loadReady === "function") this.battleBackdrop.loadReady();
+    // One BattleFoeSprite for the battle screen. The battle drawer is the
+    // single attach point; this only builds the instance.
+    var FoeSprite = window.SF && window.SF.BattleFoeSprite;
+    if (typeof FoeSprite !== "function") throw new Error("BattleFoeSprite missing");
+    this.battleFoeSprite = new FoeSprite();
+    if (typeof this.battleFoeSprite.loadReady === "function") this.battleFoeSprite.loadReady();
     return this;
   };
 

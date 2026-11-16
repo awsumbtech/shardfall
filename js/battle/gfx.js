@@ -108,6 +108,11 @@ function battleFrame(pose) {
 }
 
 function sourceSize(id, facing) {
+  var foe = SF.game && SF.game.battleFoeSprite;
+  if (foe && typeof foe.sourceSize === "function") {
+    var readySz = foe.sourceSize(id);
+    if (readySz && readySz.w && readySz.h) return readySz;
+  }
   if (SF.DrawDeps.art() && SF.DrawDeps.art().spriteSize) {
     var sz = SF.DrawDeps.art().spriteSize(id, "idle", facing || "right");
     if (sz && sz.w && sz.h) {
@@ -142,6 +147,10 @@ function targetPixelHeight(actor, count, stageH) {
 }
 
 function battleScale(actor, count, stageH, slotW, slotH, labelH) {
+  var foe = SF.game && SF.game.battleFoeSprite;
+  if (actor && actor.side !== "party" && foe && typeof foe.hasArt === "function" && foe.hasArt(actor.sprite)) {
+    return foe.scaleFor ? foe.scaleFor(actor.sprite) : 2;
+  }
   var facing = actor.side === "party" ? "left" : "right";
   var src = sourceSize(actor.sprite, facing);
   var target = targetPixelHeight(actor, count, stageH);
@@ -232,10 +241,16 @@ function actorNudge(b, actor) {
   return { x: Math.round(dx), y: Math.round(dy) };
 }
 
-function drawSprite(ctx, id, x, y, scale, pose, facing) {
+function drawSprite(ctx, id, x, y, scale, pose, facing, actor) {
   pose = pose || "idle";
   facing = facing || "right";
   ctx.imageSmoothingEnabled = false;
+  var foe = SF.game && SF.game.battleFoeSprite;
+  if (foe && typeof foe.hasArt === "function" && foe.hasArt(id) && typeof foe.draw === "function") {
+    try {
+      if (foe.draw(ctx, id, x, y, pose, actor)) return;
+    } catch (err) { /* fall through to today's path */ }
+  }
   if (SF.DrawDeps.art() && typeof SF.DrawDeps.art().sprite === "function") {
     try {
       SF.DrawDeps.art().sprite(ctx, id, x, y, {

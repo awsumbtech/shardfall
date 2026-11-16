@@ -19,10 +19,16 @@ SF.SceneRouter = function SceneRouter() {
 SF.BattleBackdrop = function BattleBackdrop() {
   this.init();
 };
+SF.BattleFoeSprite = function BattleFoeSprite() {
+  this.init();
+};
 // Counted publication of the battle backdrop catalog. js/data/battle-backdrops.js
 // fills this object; the assign lives here so the data file stays at zero SF.*
 // sites (per-file ratchet). Keep a pre-filled object if the data script ran first.
 SF.BattleBackdropData = SF.BattleBackdropData || {};
+// Counted publication of the battle foe catalog. js/data/battle-foes.js fills
+// this object; the assign lives here so the data file stays at zero SF.* sites.
+SF.BattleFoeData = SF.BattleFoeData || {};
 
 // Counted write-through to the compatibility bag. Lives here so js/core/game.js
 // stays at zero SF.* sites. Removed when GameState (step 10) owns the state.
@@ -209,13 +215,13 @@ SF.resize = function () {
   if (mapRect.width < 8 || mapRect.height < 8) return;
   var mbw = Math.max(1, Math.round(mapRect.width * dpr));
   var mbh = Math.max(1, Math.round(mapRect.height * dpr));
-  var mapFirst = !SF._mbw;
-  var mapMoved = mapFirst || Math.abs(mbw - SF._mbw) >= 4 || Math.abs(mbh - SF._mbh) >= 4;
+  var mapFirst = !game._mbw;
+  var mapMoved = mapFirst || Math.abs(mbw - game._mbw) >= 4 || Math.abs(mbh - game._mbh) >= 4;
   if (mapMoved && (map.width !== mbw || map.height !== mbh)) {
     map.width = mbw;
     map.height = mbh;
-    SF._mbw = mbw;
-    SF._mbh = mbh;
+    game._mbw = mbw;
+    game._mbh = mbh;
   }
 };
 
