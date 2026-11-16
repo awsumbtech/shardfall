@@ -154,8 +154,11 @@ const report = await page.evaluate(() => {
     const shouldReady = id === "emberhold_meadow" || id === "emberhold_scar";
     if (!!SF.BattleBackdrop.hasArt(id) !== shouldReady) problems.push(id + " ready was " + SF.BattleBackdrop.hasArt(id));
   });
-  if (SF.BattleBackdrop.resolveId("not-a-real-area") !== "emberhold_meadow") {
-    problems.push("unknown area did not resolve to emberhold_meadow");
+  if (SF.BattleBackdrop.DEFAULT_ID !== "emberhold_meadow") {
+    problems.push("catalog defaultId was " + SF.BattleBackdrop.DEFAULT_ID);
+  }
+  if (SF.BattleBackdrop.resolveId("not-a-real-area") !== SF.BattleBackdrop.DEFAULT_ID) {
+    problems.push("unknown area did not fall back to the catalog default");
   }
 
   function checkFit(w, h, label) {
@@ -261,9 +264,72 @@ const report = await page.evaluate(() => {
 
 for (const p of report.problems) fail(p);
 for (const e of booted.errors.filter((line) => line.indexOf("controller") < 0)) fail("page error: " + e);
+
+// A ninth area is a data entry only. The fixture is not shipped; it is
+// adopted here, loads existing meadow plates, then the catalog is restored.
+const ninth = JSON.parse(fs.readFileSync(new URL("./fixtures/battle-backdrop-ninth.json", import.meta.url), "utf8"));
+const ninthReport = await page.evaluate(async (entry) => {
+  const problems = [];
+  const Backdrop = SF.BattleBackdrop;
+  const shipped = window.__SHARDFALL_BATTLE_BACKDROPS;
+  if (!shipped || typeof Backdrop.adopt !== "function") {
+    return { problems: ["catalog or adopt() missing"], defaultId: null, precache: [] };
+  }
+  const live = SF.game.battleBackdrop;
+  const original = JSON.parse(JSON.stringify(shipped));
+  const expanded = JSON.parse(JSON.stringify(shipped));
+  expanded.ids = (expanded.ids || []).concat([entry.id]);
+  expanded.areas[entry.id] = entry;
+  expanded.precache = (expanded.precache || []).concat([
+    entry.layers.sky.path, entry.layers.far.path, entry.layers.mid.path, entry.layers.floor.path
+  ]);
+  Backdrop.adopt(expanded);
+  if (Backdrop.IDS.indexOf(entry.id) < 0) problems.push("ninth id was not adopted");
+  if (!Backdrop.hasArt(entry.id)) problems.push("ninth id was not ready");
+  if (Backdrop.entry(entry.id).layers.sky.path !== entry.layers.sky.path) problems.push("ninth path was not taken from the data entry");
+  const previousDefault = Backdrop.DEFAULT_ID;
+  expanded.defaultId = entry.id;
+  Backdrop.adopt(expanded);
+  if (Backdrop.resolveId("not-a-real-area") !== entry.id) {
+    problems.push("defaultId from data was ignored: " + Backdrop.resolveId("not-a-real-area"));
+  }
+  expanded.defaultId = previousDefault;
+  Backdrop.adopt(expanded);
+
+  const source = live.imagesFor("emberhold_meadow");
+  live.setLayers(entry.id, source);
+  if (!live.layersReady(entry.id)) problems.push("ninth area did not load images");
+  const blits = [];
+  const prev = live.fallback;
+  live.fallback = function () { problems.push("ninth area used the old backdrop path"); };
+  let drew = false;
+  try { drew = live.draw({ drawImage() { blits.push(Array.prototype.slice.call(arguments)); }, set imageSmoothingEnabled(value) { this._smooth = value; } }, entry.id, 844, 390, 0); } catch (err) {
+    problems.push("ninth draw threw: " + err);
+  }
+  live.fallback = prev;
+  if (drew !== true) problems.push("ninth area did not blit real layers");
+  if (blits.length !== 4) problems.push("ninth blit count was " + blits.length);
+  const fit = Backdrop.fit(844, 390, entry.id);
+  ["sky", "far", "mid", "floor"].forEach((layer, i) => {
+    const blit = blits[i];
+    if (!blit || blit[0] !== source[layer] || blit[1] !== fit.x || blit[2] !== fit.y || blit[3] !== fit.w || blit[4] !== fit.h) {
+      problems.push("ninth " + layer + " blit was wrong");
+    }
+  });
+
+  Backdrop.adopt(original);
+  window.__SHARDFALL_BATTLE_BACKDROPS = original;
+  if (Backdrop.IDS.indexOf(entry.id) >= 0) problems.push("ninth id leaked after restore");
+  if (Backdrop.resolveId("not-a-real-area") !== "emberhold_meadow") problems.push("default was not restored");
+  return { problems, defaultId: Backdrop.DEFAULT_ID, precache: expanded.precache };
+}, ninth);
+
+for (const p of ninthReport.problems) fail(p);
+if ((ninthReport.precache || []).indexOf(ninth.layers.sky.path) < 0) fail("fixture precache omitted the ninth area");
+
 await browser.close();
 server.close();
 if (!process.exitCode) {
   const fit = report.fit || {};
-  console.log("battle backdrop ok, meadow+scar loaded, 6 unready, 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
+  console.log("battle backdrop ok, meadow+scar loaded, 6 unready, ninth data entry ok, 844x390 scale " + fit.scale + " at " + fit.x + "," + fit.y);
 }

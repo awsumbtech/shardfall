@@ -32,7 +32,7 @@ const BATTLE_DRAW = [
 // The Game root, its SceneRouter, and the BattleBackdrop instance. The
 // page boot builds them before any mode change; a vm context with game
 // code builds the same root.
-const CORE_ROOT = ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js", "js/battle/battle-backdrop.js"];
+const CORE_ROOT = ["js/main.js", "js/core/visual-object.js", "js/core/game.js", "js/core/scene-router.js", "js/data/battle-backdrops.js", "js/battle/battle-backdrop.js"];
 
 function addGameRoot(box) {
   for (const file of CORE_ROOT) {
@@ -69,6 +69,7 @@ for (const file of [
   "js/data/party.js",
   "js/data/enemies.js",
   "js/data/encounters.js",
+  "js/data/battle-backdrops.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/world.js",
@@ -6409,14 +6410,27 @@ function runOo04Checks() {
   if (attachSites.length !== 1 || attachSites[0].indexOf("js/battle/draw.js:") !== 0) {
     fail("BattleBackdrop attach sites were " + attachSites.join(", "));
   }
+  const dataFile = "js/data/battle-backdrops.js";
+  if (!fs.existsSync(dataFile)) fail("missing " + dataFile);
+  if (/emberhold_meadow|emberhold_scar|cinderveil_ash/.test(src)) {
+    fail("battle-backdrop.js still hard-codes area ids");
+  }
   const page = fs.readFileSync("index.html", "utf8");
   const routerAt = page.indexOf('src="js/core/scene-router.js"');
   const backdropAt = page.indexOf('src="js/battle/battle-backdrop.js"');
+  const catalogAt = page.indexOf('src="js/data/battle-backdrops.js"');
   if (!(backdropAt > routerAt && routerAt >= 0)) fail("battle-backdrop.js loads before scene-router.js");
-  if (page.indexOf("SF.boot();") < backdropAt) fail("page boots before BattleBackdrop loads");
+  if (catalogAt < 0) fail("page omits js/data/battle-backdrops.js");
+  if (page.indexOf("SF.boot();") < backdropAt || page.indexOf("SF.boot();") < catalogAt) {
+    fail("page boots before BattleBackdrop or its catalog loads");
+  }
   const worker = fs.readFileSync("sw.js", "utf8");
   if (!worker.includes('"js/battle/battle-backdrop.js"')) {
     fail("precache omits js/battle/battle-backdrop.js");
+  }
+  if (!worker.includes('"js/data/battle-backdrops.js"')) fail("precache omits js/data/battle-backdrops.js");
+  if (!worker.includes('importScripts("js/data/battle-backdrops.js")')) {
+    fail("sw.js does not read backdrop art from the catalog");
   }
   const readyIds = ["emberhold_meadow", "emberhold_scar"];
   const unreadyIds = ["cinderveil_ash", "ember_vault", "saltmere_shore", "saltmere_wreck", "highspire_road", "hush_deck"];
@@ -6425,7 +6439,26 @@ function runOo04Checks() {
     layersList.forEach((layer) => {
       const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
       if (!fs.existsSync(rel)) fail("missing " + rel);
-      if (!worker.includes('"' + rel + '"')) fail("precache omits " + rel);
+      if (worker.includes('"' + rel + '"')) fail("sw.js hard-codes " + rel);
+    });
+  });
+  const catalogBox = { window: null, self: null };
+  catalogBox.window = catalogBox;
+  catalogBox.self = catalogBox;
+  vm.runInContext(fs.readFileSync(dataFile, "utf8"), vm.createContext(catalogBox), { filename: dataFile });
+  const catalog = catalogBox.__SHARDFALL_BATTLE_BACKDROPS;
+  if (!catalog || catalog.defaultId !== "emberhold_meadow") fail("catalog defaultId was " + (catalog && catalog.defaultId));
+  const precache = (catalog && catalog.precache) || [];
+  readyIds.forEach((id) => {
+    layersList.forEach((layer) => {
+      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      if (precache.indexOf(rel) < 0) fail("catalog precache omits " + rel);
+    });
+  });
+  unreadyIds.forEach((id) => {
+    layersList.forEach((layer) => {
+      const rel = "assets/battle/backdrops/" + id + "/v1/" + layer + ".png";
+      if (precache.indexOf(rel) >= 0) fail("catalog precaches unready " + rel);
     });
   });
 
@@ -6457,7 +6490,8 @@ function runOo04Checks() {
       if (path !== "assets/battle/backdrops/" + id + "/v1/" + layer + ".png") problems.push(id + " " + layer + " path was " + path);
     });
   });
-  if (SF.BattleBackdrop.resolveId("missing") !== "emberhold_meadow") problems.push("unknown id did not fall back to emberhold_meadow");
+  if (SF.BattleBackdrop.DEFAULT_ID !== "emberhold_meadow") problems.push("DEFAULT_ID was " + SF.BattleBackdrop.DEFAULT_ID);
+  if (SF.BattleBackdrop.resolveId("missing") !== SF.BattleBackdrop.DEFAULT_ID) problems.push("unknown id did not fall back to the catalog default");
 
   function checkFit(w, h, label) {
     const fit = SF.BattleBackdrop.fit(w, h);

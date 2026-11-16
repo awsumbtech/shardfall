@@ -60,3 +60,11 @@ Art files, a version bump, a PR, and `BackdropDrift`. The PR opens once GAM's fi
 ## Batch 1 wired (v0.4.37)
 
 On 16 November 2026, America/New_York, GAM delivered emberhold_meadow and emberhold_scar. Those two manifest rows are now `ready: true` (data only). The other six areas stay on today's `Art.battleBg` path. Version is v0.4.37. Shots and provenance are in this folder.
+
+## Catalog is data, not object source (Brian's bar)
+
+The per-area catalog moved out of `js/battle/battle-backdrop.js` into `js/data/battle-backdrops.js`, the same classic-script pattern as `js/data/encounters.js` and the other `js/data/*` files. Runtime JSON loading would be awkward for the vm harnesses and for `IDS` / `entry` / `resolveId`, which are synchronous.
+
+`BattleBackdrop.adopt()` is the only reader. The object file has no area id list, ready flags, layer paths, parallax, z, or horizon literals. An unknown id falls back to `defaultId` from that data file (`emberhold_meadow` today).
+
+`sw.js` precaches ready layer art by `importScripts("js/data/battle-backdrops.js")` and appending `data.precache`. A new backdrop is art files plus a data-file entry. It does not need a `sw.js` edit. The data file itself is listed once in `SHELL` and `index.html`, like the other `js/data` scripts.

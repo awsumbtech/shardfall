@@ -20,6 +20,7 @@ var SHELL = [
   "js/data/party.js",
   "js/data/enemies.js",
   "js/data/encounters.js",
+  "js/data/battle-backdrops.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/act1-scenes.js",
@@ -118,15 +119,7 @@ var SHELL = [
   "js/core/scene-router.js",
   "js/battle/battle-backdrop.js",
   "assets/ui/choicebox-panel.png",
-  "assets/ui/choice-cursor.png",
-  "assets/battle/backdrops/emberhold_meadow/v1/sky.png",
-  "assets/battle/backdrops/emberhold_meadow/v1/far.png",
-  "assets/battle/backdrops/emberhold_meadow/v1/mid.png",
-  "assets/battle/backdrops/emberhold_meadow/v1/floor.png",
-  "assets/battle/backdrops/emberhold_scar/v1/sky.png",
-  "assets/battle/backdrops/emberhold_scar/v1/far.png",
-  "assets/battle/backdrops/emberhold_scar/v1/mid.png",
-  "assets/battle/backdrops/emberhold_scar/v1/floor.png"
+  "assets/ui/choice-cursor.png"
 ];
 
 // assets/atlas/* stays off this list. A missing manifest must not fail install.
@@ -148,7 +141,17 @@ function freshRequest(url) {
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return Promise.all(SHELL.map(function (url) {
+      // Backdrop art urls come from js/data/battle-backdrops.js. A new
+      // ready area is a data entry plus files; this list is not edited.
+      var urls = SHELL.slice();
+      try {
+        importScripts("js/data/battle-backdrops.js");
+        var data = self.__SHARDFALL_BATTLE_BACKDROPS;
+        if (data && data.precache && data.precache.length) {
+          urls = urls.concat(data.precache);
+        }
+      } catch (err) {}
+      return Promise.all(urls.map(function (url) {
         return fetch(freshRequest(url)).then(function (response) {
           if (!response.ok) throw new Error(url + " " + response.status);
           return cache.put(url, response);

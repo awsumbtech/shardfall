@@ -18,3 +18,7 @@ The mid/floor seam sits on the canvas horizon (css y 179, image y 537), matching
 ## Scar (`em_brumekin` / emberhold_scar)
 
 The painted scar plate is clearly on screen: banded dusk sky, hanging burnt islets, the left peak, the stone arch, purple mid clouds, and the dark near floor. One Brumekin and the Wayfarer are visible, with the full HUD (HP 54/54, log "Brumekin."). Same horizon / near-floor relationship as the meadow, and the same sharp integer-scale blit. The crescent moon and some stars from GAM's clean preview sit in the top of the sky plate and are hidden by the combination of the cover-fit top crop (69 css px) and the turn strip. The mid, arch, peak, and floor read clearly and line up with GAM's preview.
+
+## Retake after catalog move
+
+Retaken 16 November 2026, America/New_York, with the same `/tmp/shot/s.mjs` hook after the catalog moved into `js/data/battle-backdrops.js`. Both files are pixel-identical to the previous pair (2532×1170, max channel delta 0 over the full frame).

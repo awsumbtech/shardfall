@@ -1,10 +1,11 @@
 "use strict";
 
-// One job: draw one real four-layer battle backdrop per area from a
-// manifest (id -> sky, far, mid, floor image paths). Until an area is
-// marked ready, it keeps today's existing backdrop path (Art.battleBg
-// via BattleGfx.paintBg). This file never paints with tints, recolors,
-// gradients, or code-drawn art.
+// One job: draw one real four-layer battle backdrop per area from the
+// catalog in js/data/battle-backdrops.js (id -> sky, far, mid, floor
+// image paths). Until an area is marked ready, it keeps today's existing
+// backdrop path (Art.battleBg via BattleGfx.paintBg). This file never
+// paints with tints, recolors, gradients, or code-drawn art. An unknown
+// id falls back to the catalog's defaultId.
 // The constructor is published as a counted BattleBackdrop constructor assign in
 // js/main.js. Game.init creates the one instance as game.battleBackdrop.
 // The battle screen drawer is the single attach point.
@@ -15,70 +16,60 @@
     throw new Error("BattleBackdrop constructor missing");
   }
 
-  BattleBackdrop.IDS = [
-    "emberhold_meadow",
-    "emberhold_scar",
-    "cinderveil_ash",
-    "ember_vault",
-    "saltmere_shore",
-    "saltmere_wreck",
-    "highspire_road",
-    "hush_deck"
-  ];
-
-  // Back to front. Sky is opaque; far, mid, and floor carry alpha.
-  BattleBackdrop.LAYERS = ["sky", "far", "mid", "floor"];
-
-  // Optional parallax hints, stored for a later motion step. This object
-  // does not apply a drift on its own.
-  BattleBackdrop.PARALLAX = { sky: 0, far: 0.15, mid: 0.4, floor: 1 };
-
-  // Game Art & Motion kit root and the in-game copy of that tree.
-  // Kit: shardfall/battle/backdrops/<id>/v1/<layer>.png
-  BattleBackdrop.KIT = "shardfall/battle/backdrops/";
-  BattleBackdrop.DIR = "assets/battle/backdrops/";
-  BattleBackdrop.VERSION = "v1";
-  BattleBackdrop.SIZE = { w: 480, h: 270 };
-  // Plate Y of the horizon seam, matching js/art/scenes.js horizonY.
-  BattleBackdrop.HORIZON = 124;
-
-  BattleBackdrop.kitDir = function (id) {
-    return BattleBackdrop.KIT + id + "/" + BattleBackdrop.VERSION + "/";
-  };
-
-  BattleBackdrop.dirFor = function (id) {
-    return BattleBackdrop.DIR + id + "/" + BattleBackdrop.VERSION + "/";
-  };
-
-  BattleBackdrop.pathForId = function (id, layer) {
-    return BattleBackdrop.dirFor(id) + layer + ".png";
-  };
-
-  BattleBackdrop.rowFor = function (id) {
-    var layers = {};
-    BattleBackdrop.LAYERS.forEach(function (layer) {
-      layers[layer] = {
-        path: BattleBackdrop.pathForId(id, layer),
-        parallax: BattleBackdrop.PARALLAX[layer]
-      };
-    });
-    return {
-      ready: false,
-      kit: BattleBackdrop.kitDir(id),
-      dir: BattleBackdrop.dirFor(id),
-      size: { w: BattleBackdrop.SIZE.w, h: BattleBackdrop.SIZE.h },
-      horizon: BattleBackdrop.HORIZON,
-      layers: layers
-    };
-  };
-
+  // Catalog fields come from js/data/battle-backdrops.js via adopt().
+  BattleBackdrop.IDS = [];
+  BattleBackdrop.LAYERS = [];
+  BattleBackdrop.PARALLAX = {};
+  BattleBackdrop.KIT = "";
+  BattleBackdrop.DIR = "";
+  BattleBackdrop.VERSION = "";
+  BattleBackdrop.SIZE = { w: 0, h: 0 };
+  BattleBackdrop.HORIZON = 0;
+  BattleBackdrop.DEFAULT_ID = "";
   BattleBackdrop.MANIFEST = {};
-  BattleBackdrop.IDS.forEach(function (id) {
-    BattleBackdrop.MANIFEST[id] = BattleBackdrop.rowFor(id);
-  });
-  // Batch 1 (Nov 16, 2026): real plates on disk. The other six stay unready.
-  BattleBackdrop.MANIFEST.emberhold_meadow.ready = true;
-  BattleBackdrop.MANIFEST.emberhold_scar.ready = true;
+
+  // Reads one catalog. A later adopt replaces the previous one.
+  BattleBackdrop.adopt = function (data) {
+    var empty = { w: 0, h: 0 };
+    BattleBackdrop.DATA = data || null;
+    BattleBackdrop.IDS = [];
+    BattleBackdrop.LAYERS = [];
+    BattleBackdrop.PARALLAX = {};
+    BattleBackdrop.KIT = "";
+    BattleBackdrop.DIR = "";
+    BattleBackdrop.VERSION = "";
+    BattleBackdrop.SIZE = empty;
+    BattleBackdrop.HORIZON = 0;
+    BattleBackdrop.DEFAULT_ID = "";
+    BattleBackdrop.MANIFEST = {};
+    if (!data) return BattleBackdrop;
+    var i, spec, name, order, a, b;
+    BattleBackdrop.DEFAULT_ID = data.defaultId || "";
+    BattleBackdrop.KIT = data.kit || "";
+    BattleBackdrop.DIR = data.dir || "";
+    BattleBackdrop.VERSION = data.version || "";
+    BattleBackdrop.SIZE = data.size ? { w: data.size.w, h: data.size.h } : empty;
+    BattleBackdrop.HORIZON = data.horizon || 0;
+    order = (data.layers || []).slice();
+    for (i = 0; i < order.length; i++) {
+      a = i;
+      for (b = i + 1; b < order.length; b++) {
+        if ((order[b].z || 0) < (order[a].z || 0)) a = b;
+      }
+      spec = order[i];
+      order[i] = order[a];
+      order[a] = spec;
+    }
+    for (i = 0; i < order.length; i++) {
+      name = order[i].id;
+      BattleBackdrop.LAYERS.push(name);
+      BattleBackdrop.PARALLAX[name] = order[i].parallax;
+    }
+    BattleBackdrop.IDS = (data.ids && data.ids.length) ? data.ids.slice() : [];
+    if (!BattleBackdrop.IDS.length && data.areas) BattleBackdrop.IDS = Object.keys(data.areas);
+    BattleBackdrop.MANIFEST = data.areas || {};
+    return BattleBackdrop;
+  };
 
   BattleBackdrop.entry = function (id) {
     var manifest = BattleBackdrop.MANIFEST;
@@ -87,7 +78,7 @@
   };
 
   BattleBackdrop.resolveId = function (id) {
-    return BattleBackdrop.entry(id) ? id : "emberhold_meadow";
+    return BattleBackdrop.entry(id) ? id : BattleBackdrop.DEFAULT_ID;
   };
 
   BattleBackdrop.hasArt = function (id) {
@@ -104,10 +95,12 @@
   // Cover-fit at a uniform integer scale, no uneven stretch. Anchored so
   // plate Y 124 lands on the canvas horizon. Designed for the 844x390
   // landscape target; other aspect ratios use the same cover rule.
-  BattleBackdrop.fit = function (w, h) {
-    var pw = BattleBackdrop.SIZE.w;
-    var ph = BattleBackdrop.SIZE.h;
-    var plateY = BattleBackdrop.HORIZON;
+  BattleBackdrop.fit = function (w, h, id) {
+    var row = id ? BattleBackdrop.entry(BattleBackdrop.resolveId(id)) : null;
+    var size = (row && row.size) || BattleBackdrop.SIZE;
+    var plateY = (row && row.horizon != null) ? row.horizon : BattleBackdrop.HORIZON;
+    var pw = size.w;
+    var ph = size.h;
     var below = ph - plateY;
     var horizon = BattleBackdrop.canvasHorizon(w, h);
     var need = w / pw;
@@ -278,7 +271,7 @@
         return false;
       }
       var layers = this.imagesFor(id);
-      var fit = BattleBackdrop.fit(w, h);
+      var fit = BattleBackdrop.fit(w, h, id);
       ctx.imageSmoothingEnabled = false;
       BattleBackdrop.LAYERS.forEach(function (layer) {
         ctx.drawImage(layers[layer], fit.x, fit.y, fit.w, fit.h);
@@ -296,4 +289,8 @@
     if (parent && typeof parent.unregister === "function") parent.unregister(this);
     return this;
   };
+
+  if (typeof window !== "undefined" && window.__SHARDFALL_BATTLE_BACKDROPS) {
+    BattleBackdrop.adopt(window.__SHARDFALL_BATTLE_BACKDROPS);
+  }
 })();

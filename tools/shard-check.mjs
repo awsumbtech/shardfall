@@ -18,6 +18,7 @@ for (const file of [
   "js/data/party.js",
   "js/data/enemies.js",
   "js/data/encounters.js",
+  "js/data/battle-backdrops.js",
   "js/content/dialogue/emberhold.js",
   "js/content/dialogue/cinderveil.js",
   "js/content/dialogue/world.js",
