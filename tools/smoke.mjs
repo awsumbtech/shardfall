@@ -1994,23 +1994,27 @@ SF.Battle.confirmResult();
 if (flee.mode !== "play") fail("flee did not return to the field");
 if ((flee.encounterGrace || 0) < 10) fail("flee did not grant grace steps");
 
-// AUTO_TARGET_SOLE_FOE: one living foe means Attack acts at once; two still ask.
+// AUTO_TARGET_SOLE_FOE: one living foe means foe-aimed actions act at once; two still ask.
 // input.js is a DOM-free file at load time (the pointer binding waits for a
 // document), so it loads here with a silent sound hook.
 SF.DrawDeps = SF.DrawDeps || { sfx: () => null };
 vm.runInContext(fs.readFileSync("js/battle/input.js", "utf8"), context, { filename: "js/battle/input.js" });
-function reachMenu(st) {
-  let n = 0;
-  while (st.battle && st.battle.phase !== "menu") {
-    if (st.battle.phase !== "readout") fail("auto-target setup never reached a menu: " + st.battle.phase);
-    SF.Battle.skipReadout();
-    if (++n > 8) fail("auto-target setup spun");
+const BattleInputTest = {
+  reachMenu: function (st, actorId) {
+    let n = 0;
+    while (st.battle && (st.battle.phase !== "menu" || (actorId && st.battle.actorId !== actorId))) {
+      if (st.battle.phase === "menu") SF.Battle.playerAct({ type: "defend" });
+      else if (st.battle.phase === "readout") SF.Battle.skipReadout();
+      else fail("auto-target setup never reached a menu: " + st.battle.phase);
+      if (++n > 16) fail("auto-target setup spun" + (actorId ? " waiting for " + actorId : ""));
+    }
   }
-}
+};
+if (typeof SF.BattleInput.beginAim !== "function") fail("beginAim is not on SF.BattleInput");
 const solo = freshPlay();
 SF.Battle.instant = false;
 SF.Battle.start("em_brumekin");
-reachMenu(solo);
+BattleInputTest.reachMenu(solo);
 const soloFoe = solo.battle.actors.find((a) => a.side === "foe");
 const soloHp = soloFoe.hp;
 SF.Battle.activate("cmd:attack");
@@ -2019,7 +2023,7 @@ if (!(soloFoe.hp < soloHp)) fail("sole-foe Attack did not hit the foe");
 const pair = freshPlay();
 SF.Battle.instant = false;
 SF.Battle.start("em_wisps");
-reachMenu(pair);
+BattleInputTest.reachMenu(pair);
 SF.Battle.activate("cmd:attack");
 if (pair.battle.phase !== "target") fail("two foes did not ask for a target");
 SF.Battle.activate("foe:" + pair.battle.actors.find((a) => a.side === "foe").id);
@@ -2028,10 +2032,65 @@ SF.BattleFeel.AUTO_TARGET_SOLE_FOE = false;
 const soloOff = freshPlay();
 SF.Battle.instant = false;
 SF.Battle.start("em_brumekin");
-reachMenu(soloOff);
+BattleInputTest.reachMenu(soloOff);
 SF.Battle.activate("cmd:attack");
 if (soloOff.battle.phase !== "target") fail("flag off should ask for a target");
 SF.BattleFeel.AUTO_TARGET_SOLE_FOE = true;
+const allyPrompt = freshPlay();
+SF.Battle.instant = false;
+SF.giveItem("tonic", 1);
+SF.Battle.start("em_brumekin");
+BattleInputTest.reachMenu(allyPrompt);
+SF.Battle.activate("cmd:item");
+SF.Battle.activate("item:tonic");
+if (allyPrompt.battle.phase !== "target" || allyPrompt.battle.aim !== "ally") {
+  fail("ally item did not ask for an ally");
+}
+SF.Battle.cancel();
+if (allyPrompt.battle.phase !== "menu") fail("cancel did not return to the command menu");
+const skillHit = freshPlay();
+SF.Battle.instant = false;
+SF.Battle.start("em_brumekin");
+BattleInputTest.reachMenu(skillHit);
+const skillFoe = skillHit.battle.actors.find((a) => a.side === "foe");
+const skillHp = skillFoe.hp;
+SF.Battle.activate("cmd:skill");
+SF.Battle.activate("skill:shard_bolt");
+if (skillHit.battle.phase === "target") fail("sole-foe skill still asked for a target");
+if (!(skillFoe.hp < skillHp)) fail("sole-foe skill did not hit the foe");
+const itemHit = freshPlay();
+SF.Battle.instant = false;
+SF.giveItem("ember_salt", 1);
+SF.Battle.start("em_brumekin");
+BattleInputTest.reachMenu(itemHit);
+const itemFoe = itemHit.battle.actors.find((a) => a.side === "foe");
+const itemHp = itemFoe.hp;
+SF.Battle.activate("cmd:item");
+SF.Battle.activate("item:ember_salt");
+if (itemHit.battle.phase === "target") fail("sole-foe item still asked for a target");
+if (!(itemFoe.hp < itemHp)) fail("sole-foe item did not hit the foe");
+const cancelMenu = freshPlay();
+SF.Battle.instant = false;
+SF.Battle.start("em_brumekin");
+BattleInputTest.reachMenu(cancelMenu);
+const cancelFoe = cancelMenu.battle.actors.find((a) => a.side === "foe");
+const cancelHp = cancelFoe.hp;
+SF.Battle.activate("cmd:skill");
+if (cancelMenu.battle.phase !== "skills") fail("skill command did not open the list");
+SF.Battle.activate("cancel");
+if (cancelMenu.battle.phase !== "menu") fail("cancel from the skill list did not return to the command menu");
+if (cancelFoe.hp !== cancelHp) fail("cancel from the command menu spent the turn");
+const kestrelTurn = freshPlay();
+SF.Battle.instant = false;
+kestrelTurn.flags.party_kestrel = true;
+SF.Battle.start("em_brumekin");
+BattleInputTest.reachMenu(kestrelTurn, "p-kestrel");
+if (kestrelTurn.battle.actorId !== "p-kestrel") fail("kestrel did not get a turn");
+const kestrelFoe = kestrelTurn.battle.actors.find((a) => a.side === "foe");
+const kestrelHp = kestrelFoe.hp;
+SF.Battle.activate("cmd:attack");
+if (kestrelTurn.battle.phase === "target") fail("kestrel still asked for a target");
+if (!(kestrelFoe.hp < kestrelHp)) fail("kestrel Attack did not hit the foe");
 console.log("auto-target ok");
 
 const levels = freshPlay();

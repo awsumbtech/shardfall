@@ -4,7 +4,7 @@ Notes for someone playing, not a patch log of every file.
 
 ## v0.4.42
 
-Fights are quicker: when only one foe is left, Attack hits it right away with no extra tap to pick a target. Fights with two or more foes still ask.
+Fights are quicker: when only one foe is left, foe-aimed actions hit it right away with no extra tap to pick a target. Fights with two or more foes still ask.
 
 ## v0.4.41
 

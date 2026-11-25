@@ -388,6 +388,7 @@ function bindBattlePointer() {
     menuCount: menuCount,
     livingTargets: livingTargets,
     listIds: listIds,
+    beginAim: beginAim,
     bindBattlePointer: bindBattlePointer
   };
 })();

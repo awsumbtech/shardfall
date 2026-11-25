@@ -66,7 +66,7 @@ SF.WHATS_NEW = [
   "Painted battle backdrops for the Saltmere shore and the shipwreck.",
   "Painted battle backdrops for the Highspire road and the Hush ship deck — all 8 battle areas now have real art — plus a clearer Saltmere shipwreck.",
   "New animated art for six Act 1 foes.",
-  "Fights are quicker: when only one foe is left, Attack hits it right away with no extra tap to pick a target."
+  "Fights are quicker: when only one foe is left, foe-aimed actions hit it right away with no extra tap to pick a target."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

@@ -1,9 +1,13 @@
 "use strict";
 
-// BattleFeel is presentation timing, not rules. Readouts used to be 1.05s
-// (0.70s while Reduce flashing is on) because the screen overwrote the turn
-// machine after every action. They are 0.55s now. Holding past HOLD_SKIP_MS
-// fast-forwards; a tap still skips one readout.
+// BattleFeel is presentation timing and input-feel flags, not rules.
+// Readouts used to be 1.05s (0.70s while Reduce flashing is on) because the
+// screen overwrote the turn machine after every action. They are 0.55s now.
+// Holding past HOLD_SKIP_MS fast-forwards; a tap still skips one readout.
+// MENU_LOCK_MS ignores a press that began before the command menu, or in
+// a short window after it appeared. AUTO_TARGET_SOLE_FOE skips the target
+// tap when only one foe is left; it does not change who is hit or any
+// combat math.
 // Hit pause defaults to 60ms. prefers-reduced-motion, and SF.reduceMotion,
 // skip the freeze. The event still fires so a later effect can follow it.
 var SF = window.SF || {};
