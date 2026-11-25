@@ -3,7 +3,7 @@
 var SF = window.SF || {};
 window.SF = SF;
 
-SF.VERSION = "0.4.41";
+SF.VERSION = "0.4.42";
 SF.SAVE_KEY = "shardfall.v1";
 SF.MUTE_KEY = "shardfall.mute";
 SF.FLASH_KEY = "shardfall.reduceFlash";
@@ -65,7 +65,8 @@ SF.WHATS_NEW = [
   "Painted battle backdrops for the Cinderveil ash fields and the Ember Vault.",
   "Painted battle backdrops for the Saltmere shore and the shipwreck.",
   "Painted battle backdrops for the Highspire road and the Hush ship deck — all 8 battle areas now have real art — plus a clearer Saltmere shipwreck.",
-  "New animated art for six Act 1 foes."
+  "New animated art for six Act 1 foes.",
+  "Fights are quicker: when only one foe is left, Attack hits it right away with no extra tap to pick a target."
 ];
 
 SF.WAKE = { x: -50, y: 45 };

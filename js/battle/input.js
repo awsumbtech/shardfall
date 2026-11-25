@@ -22,6 +22,25 @@ function currentActor(b) {
   return null;
 }
 
+// Opens the target prompt. With a single living foe there is nothing to pick,
+// so a foe-aimed action goes straight to that foe when the flag allows it
+// (SF.BattleFeel.AUTO_TARGET_SOLE_FOE). Ally aims and multi-foe fights still
+// ask. This only removes the tap; it does not change who gets hit.
+function beginAim(b, aim) {
+  b.aim = aim;
+  var p = b.pending;
+  if (aim === "foe" && p && SF.BattleFeel && SF.BattleFeel.AUTO_TARGET_SOLE_FOE) {
+    var foes = livingTargets(b);
+    if (foes.length === 1) {
+      b.pending = null;
+      SF.Battle.playerAct({ type: p.type, skillId: p.skillId, itemId: p.itemId, targetId: foes[0].id });
+      return;
+    }
+  }
+  b.phase = "target";
+  b.sel = 0;
+}
+
 function menuCount(b) {
   return b && b.canFlee ? 5 : 4;
 }
@@ -135,9 +154,7 @@ SF.Battle.activate = function (id) {
     var cmd = id.slice(4);
     if (cmd === "attack") {
       b.pending = { type: "skill", skillId: "attack" };
-      b.aim = "foe";
-      b.phase = "target";
-      b.sel = 0;
+      beginAim(b, "foe");
     } else if (cmd === "skill") {
       b.phase = "skills";
       b.sel = 0;
@@ -164,9 +181,7 @@ SF.Battle.activate = function (id) {
       SF.Battle.playerAct({ type: "skill", skillId: skill.id, targetId: selfId });
       return;
     }
-    b.aim = skill.target === "ally" ? "ally" : "foe";
-    b.phase = "target";
-    b.sel = 0;
+    beginAim(b, skill.target === "ally" ? "ally" : "foe");
     return;
   }
   if (b.phase === "items" && id.indexOf("item:") === 0) {
@@ -177,9 +192,7 @@ SF.Battle.activate = function (id) {
       SF.Battle.playerAct({ type: "item", itemId: item.id });
       return;
     }
-    b.aim = item.target === "foe" ? "foe" : "ally";
-    b.phase = "target";
-    b.sel = 0;
+    beginAim(b, item.target === "foe" ? "foe" : "ally");
     return;
   }
   if (b.phase === "target") {

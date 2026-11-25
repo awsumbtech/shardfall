@@ -1994,6 +1994,46 @@ SF.Battle.confirmResult();
 if (flee.mode !== "play") fail("flee did not return to the field");
 if ((flee.encounterGrace || 0) < 10) fail("flee did not grant grace steps");
 
+// AUTO_TARGET_SOLE_FOE: one living foe means Attack acts at once; two still ask.
+// input.js is a DOM-free file at load time (the pointer binding waits for a
+// document), so it loads here with a silent sound hook.
+SF.DrawDeps = SF.DrawDeps || { sfx: () => null };
+vm.runInContext(fs.readFileSync("js/battle/input.js", "utf8"), context, { filename: "js/battle/input.js" });
+function reachMenu(st) {
+  let n = 0;
+  while (st.battle && st.battle.phase !== "menu") {
+    if (st.battle.phase !== "readout") fail("auto-target setup never reached a menu: " + st.battle.phase);
+    SF.Battle.skipReadout();
+    if (++n > 8) fail("auto-target setup spun");
+  }
+}
+const solo = freshPlay();
+SF.Battle.instant = false;
+SF.Battle.start("em_brumekin");
+reachMenu(solo);
+const soloFoe = solo.battle.actors.find((a) => a.side === "foe");
+const soloHp = soloFoe.hp;
+SF.Battle.activate("cmd:attack");
+if (solo.battle.phase === "target") fail("sole foe still asked for a target");
+if (!(soloFoe.hp < soloHp)) fail("sole-foe Attack did not hit the foe");
+const pair = freshPlay();
+SF.Battle.instant = false;
+SF.Battle.start("em_wisps");
+reachMenu(pair);
+SF.Battle.activate("cmd:attack");
+if (pair.battle.phase !== "target") fail("two foes did not ask for a target");
+SF.Battle.activate("foe:" + pair.battle.actors.find((a) => a.side === "foe").id);
+if (pair.battle.phase === "target") fail("picked target did not act");
+SF.BattleFeel.AUTO_TARGET_SOLE_FOE = false;
+const soloOff = freshPlay();
+SF.Battle.instant = false;
+SF.Battle.start("em_brumekin");
+reachMenu(soloOff);
+SF.Battle.activate("cmd:attack");
+if (soloOff.battle.phase !== "target") fail("flag off should ask for a target");
+SF.BattleFeel.AUTO_TARGET_SOLE_FOE = true;
+console.log("auto-target ok");
+
 const levels = freshPlay();
 SF.Battle.instant = true;
 levels.party.members.wayfarer.xp = SF.XP_NEED[1] - 1;

@@ -19,6 +19,9 @@ SF.BattleFeel = {
   // in this window after the menu appeared. The decision uses the press
   // start, so lifting later still does not act.
   MENU_LOCK_MS: 250,
+  // One living foe means no target to choose: Attack, a foe skill or a foe
+  // item acts on it at once. Set false to ask for the tap again.
+  AUTO_TARGET_SOLE_FOE: true,
   // Share of a damaging readout spent on the impact frame. The turn
   // machine reads this. It does not read anything the renderer stored.
   IMPACT_PORTION: 0.2,
